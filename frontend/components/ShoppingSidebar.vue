@@ -138,7 +138,7 @@
                 v-for="item in group.items"
                 :key="item.item_id"
                 :class="[
-                  'p-2 transition-colors',
+                  'p-2 transition-all duration-500 ease-in-out',
                   todoMode ? (checkedItems.has(item.item_id) ? 'bg-green-50 cursor-pointer hover:bg-green-100' : 'cursor-pointer hover:bg-gray-50') : ''
                 ]"
                 @click="todoMode ? toggleCheck(item.item_id) : null"
@@ -153,7 +153,7 @@
                     <Icon
                       :name="checkedItems.has(item.item_id) ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline'"
                       :class="[
-                        'w-7 h-7 transition-colors',
+                        'w-7 h-7 transition-all duration-500 ease-in-out',
                         checkedItems.has(item.item_id) ? 'text-green-600' : 'text-gray-700'
                       ]"
                     />
@@ -165,7 +165,7 @@
                       <h4
                         :class="[
                           'text-xs font-medium truncate',
-                          todoMode && checkedItems.has(item.item_id)
+                          (todoMode && checkedItems.has(item.item_id)) || (!todoMode && item.purchased)
                             ? 'line-through text-gray-500'
                             : todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'
                         ]"
@@ -175,10 +175,10 @@
                       <!-- Purchased indicator in normal mode -->
                       <span
                         v-if="!todoMode && item.purchased"
-                        class="flex-shrink-0 text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded font-medium"
+                        class="flex-shrink-0 text-xs px-2 py-1 bg-green-600 dark:bg-green-700 text-white rounded-md font-semibold shadow-sm"
                         title="Već kupljeno"
                       >
-                        ✓ Kupljeno
+                        ✓ KUPLJENO
                       </span>
                     </div>
 
@@ -297,7 +297,7 @@
               <!-- Progress Bar -->
               <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div
-                  class="bg-green-600 h-2 rounded-full transition-all duration-300"
+                  class="bg-green-600 h-2 rounded-full transition-all duration-700 ease-out"
                   :style="{ width: Math.min((todoStats.actualSpent / todoStats.potentialSavings) * 100, 100) + '%' }"
                 ></div>
               </div>
@@ -317,7 +317,7 @@
               <!-- Progress Bar -->
               <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div
-                  class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  class="bg-blue-600 h-2 rounded-full transition-all duration-700 ease-out"
                   :style="{ width: Math.min((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100, 100) + '%' }"
                 ></div>
               </div>

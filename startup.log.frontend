@@ -22,3 +22,11 @@ WARN  [Vue Router warn]: No match found for location with path "/static/images/g
 [nuxt] ℹ Compiled types/plugins.d.ts in 843.35ms
 ℹ hmr update /pages/profil/liste-istorija.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
 ℹ hmr update /pages/profil/liste-istorija.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x2)
+✔ Vite server hmr 22 files in 384.075ms
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+[nuxt] ℹ Compiled plugins.server.mjs in 633.78ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 641.12ms
+[nuxt] ℹ Compiled plugins.client.mjs in 642.18ms
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x2)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x3)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x4)
