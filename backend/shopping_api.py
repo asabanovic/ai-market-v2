@@ -794,3 +794,110 @@ def get_shopping_history():
     except Exception as e:
         logger.error(f"Error getting shopping history: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+@shopping_api_bp.route('/shopping-lists/statistics', methods=['GET'])
+@require_jwt_auth
+def get_shopping_statistics():
+    """
+    Get comprehensive shopping statistics for dashboard
+    Returns: all-time stats, monthly breakdown, spending trends
+    """
+    try:
+        user_id = request.current_user_id
+
+        # Get all completed and sent lists
+        all_lists = ShoppingList.query.filter(
+            ShoppingList.user_id == user_id,
+            ShoppingList.status.in_(['COMPLETED', 'SENT', 'EXPIRED'])
+        ).order_by(ShoppingList.created_at.desc()).all()
+
+        # Calculate all-time statistics
+        total_lists = len(all_lists)
+        total_spent = 0
+        total_original_price = 0
+        total_savings = 0
+        total_items_purchased = 0
+
+        # Monthly breakdown
+        from collections import defaultdict
+        monthly_data = defaultdict(lambda: {
+            'lists': 0,
+            'spent': 0,
+            'saved': 0,
+            'items': 0
+        })
+
+        # Timeline data for charts
+        timeline_data = []
+
+        for shopping_list in all_lists:
+            # Get items for this list
+            items = ShoppingListItem.query.filter_by(
+                list_id=shopping_list.id
+            ).all()
+
+            list_total = 0
+            list_savings = 0
+            list_items = 0
+
+            for item in items:
+                current_total = item.price_snapshot * item.qty
+                original_price = (item.old_price_snapshot or item.price_snapshot) * item.qty
+
+                list_total += current_total
+                list_savings += (original_price - current_total)
+                list_items += item.qty
+
+            total_spent += list_total
+            total_savings += list_savings
+            total_items_purchased += list_items
+            total_original_price += (list_total + list_savings)
+
+            # Monthly aggregation
+            month_key = shopping_list.created_at.strftime('%Y-%m')
+            monthly_data[month_key]['lists'] += 1
+            monthly_data[month_key]['spent'] += list_total
+            monthly_data[month_key]['saved'] += list_savings
+            monthly_data[month_key]['items'] += list_items
+
+            # Timeline data
+            timeline_data.append({
+                'date': shopping_list.created_at.isoformat(),
+                'amount': round(list_total, 2),
+                'saved': round(list_savings, 2),
+                'items': list_items,
+                'status': shopping_list.status
+            })
+
+        # Convert monthly data to list
+        monthly_breakdown = []
+        for month, data in sorted(monthly_data.items(), reverse=True):
+            monthly_breakdown.append({
+                'month': month,
+                'lists_count': data['lists'],
+                'total_spent': round(data['spent'], 2),
+                'total_saved': round(data['saved'], 2),
+                'items_count': data['items']
+            })
+
+        # Calculate savings percentage
+        savings_percentage = round((total_savings / total_original_price * 100), 1) if total_original_price > 0 else 0
+
+        return jsonify({
+            'all_time': {
+                'total_lists': total_lists,
+                'total_spent': round(total_spent, 2),
+                'total_savings': round(total_savings, 2),
+                'total_original_price': round(total_original_price, 2),
+                'savings_percentage': savings_percentage,
+                'total_items_purchased': total_items_purchased,
+                'average_per_list': round(total_spent / total_lists, 2) if total_lists > 0 else 0
+            },
+            'monthly_breakdown': monthly_breakdown[:12],  # Last 12 months
+            'timeline': timeline_data[:50]  # Last 50 lists
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting shopping statistics: {e}")
+        return jsonify({'error': 'Internal server error'}), 500

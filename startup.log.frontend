@@ -30,3 +30,6 @@ WARN  [Vue Router warn]: No match found for location with path "/static/images/g
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x2)
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x3)
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x4)
+✔ Vite server hmr 17 files in 187.231ms
+ℹ hmr update /components/HeaderIcons.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+ℹ hmr update /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs

@@ -15,6 +15,16 @@
       </span>
     </button>
 
+    <!-- Shopping Lists Dashboard Icon -->
+    <button
+      @click="navigateTo('/liste')"
+      class="relative p-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+      aria-label="Shopping Lists"
+      title="Istorija lista"
+    >
+      <Icon name="mdi:clipboard-text-clock" class="w-6 h-6" />
+    </button>
+
     <!-- Shopping Cart Icon -->
     <button
       @click="toggleSidebar"
