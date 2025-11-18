@@ -306,9 +306,25 @@ const totalItems = computed(() => {
   return cartStore.sidebar.groups.reduce((sum, group) => sum + group.items.length, 0)
 })
 
+// Sync checked items from backend data
+function syncCheckedItemsFromBackend() {
+  checkedItems.value.clear()
+  if (cartStore.sidebar?.groups) {
+    cartStore.sidebar.groups.forEach(group => {
+      group.items.forEach(item => {
+        if (item.purchased) {
+          checkedItems.value.add(item.item_id)
+        }
+      })
+    })
+  }
+}
+
 // TODO Mode functions
 function enableTodoMode() {
   todoMode.value = true
+  // Sync checked items from backend when entering TODO mode
+  syncCheckedItemsFromBackend()
   // Expand all groups in TODO mode for easier checking
   if (cartStore.sidebar?.groups) {
     cartStore.sidebar.groups.forEach(group => {
@@ -322,11 +338,31 @@ function disableTodoMode() {
   checkedItems.value.clear()
 }
 
-function toggleCheck(itemId: number) {
-  if (checkedItems.value.has(itemId)) {
-    checkedItems.value.delete(itemId)
-  } else {
+async function toggleCheck(itemId: number) {
+  const wasPurchased = checkedItems.value.has(itemId)
+  const nowPurchased = !wasPurchased
+
+  // Optimistically update UI
+  if (nowPurchased) {
     checkedItems.value.add(itemId)
+  } else {
+    checkedItems.value.delete(itemId)
+  }
+
+  // Call API to persist
+  const result = await cartStore.markItemPurchased(itemId, nowPurchased)
+
+  if (!result.success && result.error) {
+    // Revert on error
+    if (nowPurchased) {
+      checkedItems.value.delete(itemId)
+    } else {
+      checkedItems.value.add(itemId)
+    }
+    handleApiError(result.error)
+  } else {
+    // Sync with backend data after successful update
+    syncCheckedItemsFromBackend()
   }
 }
 

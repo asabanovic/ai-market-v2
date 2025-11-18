@@ -14,6 +14,8 @@ export interface ShoppingListItem {
   subtotal: number
   old_price?: number
   estimated_saving: number
+  purchased: boolean
+  purchased_at: string | null
 }
 
 export interface ShoppingListGroup {
@@ -172,6 +174,22 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  async function markItemPurchased(itemId: number, purchased: boolean) {
+    const { $api } = useNuxtApp()
+
+    try {
+      await $api.patch(`/shopping-list/items/${itemId}/purchase`, { purchased })
+
+      // Refresh sidebar to get updated state
+      await fetchSidebar()
+
+      return { success: true }
+    } catch (error: any) {
+      console.error('Failed to mark item as purchased:', error)
+      return { success: false, error }
+    }
+  }
+
   async function checkout(phone?: string) {
     const { $api } = useNuxtApp()
 
@@ -253,6 +271,7 @@ export const useCartStore = defineStore('cart', () => {
     addItem,
     updateQty,
     removeItem,
+    markItemPurchased,
     checkout,
     startTtlTicker,
     stopTtlTicker,

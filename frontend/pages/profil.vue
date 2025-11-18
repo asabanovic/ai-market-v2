@@ -7,6 +7,35 @@
         <p class="text-gray-600">Uredite svoje lične podatke</p>
       </div>
 
+      <!-- Quick Navigation -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <NuxtLink
+          to="/profil/liste-istorija"
+          class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow flex items-center gap-4"
+        >
+          <div class="bg-purple-100 p-3 rounded-lg">
+            <Icon name="mdi:history" class="w-8 h-8 text-purple-600" />
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">Istorija Lista</h3>
+            <p class="text-sm text-gray-600">Pregled vaših prethodnih shopping lista</p>
+          </div>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/moje-liste"
+          class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow flex items-center gap-4"
+        >
+          <div class="bg-green-100 p-3 rounded-lg">
+            <Icon name="mdi:cart" class="w-8 h-8 text-green-600" />
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">Aktivna Lista</h3>
+            <p class="text-sm text-gray-600">Pogledajte trenutnu shopping listu</p>
+          </div>
+        </NuxtLink>
+      </div>
+
       <!-- Loading State -->
       <div v-if="isLoading" class="text-center py-12">
         <div class="inline-flex items-center text-purple-600">

@@ -20,3 +20,26 @@ WARN  [Vue Router warn]: No match found for location with path "/static/images/g
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+ℹ hmr update /stores/cart.ts
+ℹ hmr update /stores/cart.ts (x2)
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ hmr update /stores/cart.ts (x3)
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs (x2)
+✔ Vite server hmr 25 files in 338.918ms
+✔ Vite server hmr 8 files in 206.372ms
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+[nuxt] ℹ Compiled plugins.server.mjs in 929.43ms
+[nuxt] ℹ Compiled plugins.client.mjs in 959.22ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 973.9ms
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x2)
+ℹ hmr update /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
+ℹ hmr update /pages/profil.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
