@@ -161,16 +161,26 @@
 
                   <!-- Item Info -->
                   <div class="flex-1 min-w-0">
-                    <h4
-                      :class="[
-                        'text-xs font-medium truncate',
-                        todoMode && checkedItems.has(item.item_id)
-                          ? 'line-through text-gray-500'
-                          : todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'
-                      ]"
-                    >
-                      {{ item.name }}
-                    </h4>
+                    <div class="flex items-center gap-2">
+                      <h4
+                        :class="[
+                          'text-xs font-medium truncate',
+                          todoMode && checkedItems.has(item.item_id)
+                            ? 'line-through text-gray-500'
+                            : todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'
+                        ]"
+                      >
+                        {{ item.name }}
+                      </h4>
+                      <!-- Purchased indicator in normal mode -->
+                      <span
+                        v-if="!todoMode && item.purchased"
+                        class="flex-shrink-0 text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded font-medium"
+                        title="Već kupljeno"
+                      >
+                        ✓ Kupljeno
+                      </span>
+                    </div>
 
                     <!-- Price -->
                     <div class="flex items-center gap-1.5 mt-0.5">

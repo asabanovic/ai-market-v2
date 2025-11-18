@@ -69,7 +69,7 @@
               <div>
                 <div class="flex items-center gap-3 mb-2">
                   <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                    Lista #{{ list.id }}
+                    {{ getListName(list.created_at) }}
                   </h3>
                   <span
                     :class="[
@@ -326,6 +326,16 @@ function getStatusText(status: string): string {
     CANCELLED: 'Otkazano'
   }
   return statusMap[status] || status
+}
+
+function getListName(dateString: string): string {
+  const date = new Date(dateString)
+  return new Intl.DateTimeFormat('bs-BA', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date)
 }
 
 function formatDate(dateString: string): string {
