@@ -140,14 +140,16 @@
                   <!-- TODO Mode Checkbox -->
                   <button
                     v-if="todoMode"
-                    @click="toggleCheck(item.item_id)"
-                    class="flex-shrink-0"
+                    @click.stop="toggleCheck(item.item_id)"
+                    class="flex-shrink-0 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                    type="button"
+                    :aria-label="checkedItems.has(item.item_id) ? 'Označi kao nekupljeno' : 'Označi kao kupljeno'"
                   >
                     <Icon
-                      :name="checkedItems.has(item.item_id) ? 'mdi:check-circle' : 'mdi:circle'"
+                      :name="checkedItems.has(item.item_id) ? 'mdi:check-circle' : 'mdi:circle-outline'"
                       :class="[
-                        'w-5 h-5 transition-colors',
-                        checkedItems.has(item.item_id) ? 'text-green-600' : 'text-gray-300'
+                        'w-6 h-6 transition-colors',
+                        checkedItems.has(item.item_id) ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                       ]"
                     />
                   </button>
@@ -380,15 +382,10 @@ watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     await cartStore.fetchSidebar()
 
-    // Collapse all stores by default, unless there's only one store
+    // Collapse all stores by default (always)
     if (cartStore.sidebar?.groups) {
       expandedGroups.value.clear()
-
-      // If only one store, keep it expanded
-      if (sortedGroups.value.length === 1) {
-        expandedGroups.value.add(sortedGroups.value[0].store.id)
-      }
-      // Otherwise, all stores are collapsed by default
+      // All stores are collapsed by default
     }
 
     // Poll for updates every 30 seconds while open
