@@ -46,3 +46,6 @@ WARN  [Vue Router warn]: No match found for location with path "/static/images/g
 ✔ Vite server hmr 26 files in 620.004ms
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x2)
+✔ Vite server hmr 14 files in 149.013ms
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x3)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x4)

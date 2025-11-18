@@ -253,10 +253,60 @@
           </div>
 
           <!-- TODO Mode Summary -->
-          <div v-if="todoMode" class="pt-2 mt-2 border-t dark:border-gray-600">
+          <div v-if="todoMode" class="pt-3 mt-3 border-t dark:border-gray-600 space-y-3">
+            <!-- Checked Items Count -->
             <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
               <span>Označeno:</span>
               <span class="font-semibold">{{ checkedItems.size }} / {{ totalItems }}</span>
+            </div>
+
+            <!-- Actual Spent vs Potential Savings -->
+            <div v-if="todoStats.potentialSavings > 0" class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-600 dark:text-gray-400">Potrošeno od uštede:</span>
+                <span class="font-semibold text-gray-900 dark:text-white">
+                  {{ todoStats.actualSpent.toFixed(2) }} KM / {{ todoStats.potentialSavings.toFixed(2) }} KM
+                  <span class="text-green-600 dark:text-green-400">({{ Math.round((todoStats.actualSpent / todoStats.potentialSavings) * 100) }}%)</span>
+                </span>
+              </div>
+              <!-- Progress Bar -->
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div
+                  class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: Math.min((todoStats.actualSpent / todoStats.potentialSavings) * 100, 100) + '%' }"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Total Spent vs Total Original Price -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-600 dark:text-gray-400">Ukupno potrošeno:</span>
+                <span class="font-semibold text-gray-900 dark:text-white">
+                  {{ todoStats.actualSpent.toFixed(2) }} KM / {{ todoStats.totalOriginalPrice.toFixed(2) }} KM
+                  <span class="text-blue-600 dark:text-blue-400">
+                    ({{ Math.round((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100) }}%)
+                  </span>
+                </span>
+              </div>
+              <!-- Progress Bar -->
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div
+                  class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: Math.min((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100, 100) + '%' }"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Total Discount Available -->
+            <div class="pt-2 border-t dark:border-gray-600">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-600 dark:text-gray-400">Ukupan popust na listi:</span>
+                <span class="font-semibold text-green-600 dark:text-green-400">
+                  {{ todoStats.discountPercentage }}%
+                  ({{ (todoStats.totalOriginalPrice - todoStats.totalCurrentPrice).toFixed(2) }} KM)
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -306,6 +356,58 @@ const isTimeWarning = computed(() => {
 const totalItems = computed(() => {
   if (!cartStore.sidebar?.groups) return 0
   return cartStore.sidebar.groups.reduce((sum, group) => sum + group.items.length, 0)
+})
+
+// TODO Mode Statistics
+const todoStats = computed(() => {
+  if (!cartStore.sidebar?.groups || !todoMode.value) {
+    return {
+      actualSpent: 0,
+      potentialSavings: 0,
+      totalOriginalPrice: 0,
+      totalCurrentPrice: 0,
+      savingsPercentage: 0,
+      discountPercentage: 0
+    }
+  }
+
+  let actualSpent = 0
+  let potentialSavings = 0
+  let totalOriginalPrice = 0
+  let totalCurrentPrice = 0
+
+  cartStore.sidebar.groups.forEach(group => {
+    group.items.forEach(item => {
+      const currentTotal = item.unit_price * item.qty
+      const originalPrice = item.old_price || item.unit_price
+      const originalTotal = originalPrice * item.qty
+
+      totalCurrentPrice += currentTotal
+      totalOriginalPrice += originalTotal
+
+      // Calculate potential savings (difference between old and current)
+      if (item.old_price && item.old_price > item.unit_price) {
+        potentialSavings += (item.old_price - item.unit_price) * item.qty
+      }
+
+      // Add to actual spent if item is purchased
+      if (checkedItems.value.has(item.item_id)) {
+        actualSpent += currentTotal
+      }
+    })
+  })
+
+  const savingsPercentage = potentialSavings > 0 ? Math.round((actualSpent / potentialSavings) * 100) : 0
+  const discountPercentage = totalOriginalPrice > 0 ? Math.round(((totalOriginalPrice - totalCurrentPrice) / totalOriginalPrice) * 100) : 0
+
+  return {
+    actualSpent: Math.round(actualSpent * 100) / 100,
+    potentialSavings: Math.round(potentialSavings * 100) / 100,
+    totalOriginalPrice: Math.round(totalOriginalPrice * 100) / 100,
+    totalCurrentPrice: Math.round(totalCurrentPrice * 100) / 100,
+    savingsPercentage,
+    discountPercentage
+  }
 })
 
 // Sync checked items from backend data
