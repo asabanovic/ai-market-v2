@@ -495,7 +495,9 @@ def get_shopping_list_sidebar():
                 'unit_price': item.price_snapshot,
                 'subtotal': subtotal,
                 'old_price': item.old_price_snapshot,
-                'estimated_saving': saving
+                'estimated_saving': saving,
+                'purchased': item.purchased_at is not None,
+                'purchased_at': item.purchased_at.isoformat() if item.purchased_at else None
             })
 
             groups_dict[business_id]['group_subtotal'] += subtotal
@@ -526,6 +528,61 @@ def get_shopping_list_sidebar():
 
     except Exception as e:
         logger.error(f"Error getting shopping list sidebar: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@shopping_api_bp.route('/shopping-list/items/<int:item_id>/purchase', methods=['PATCH'])
+@require_jwt_auth
+def mark_item_purchased(item_id):
+    """Mark a shopping list item as purchased/unpurchased (toggle)"""
+    try:
+        user_id = request.current_user_id
+        data = request.get_json()
+
+        if not data or 'purchased' not in data:
+            return jsonify({'error': 'purchased field is required'}), 400
+
+        purchased = data['purchased']
+
+        # Get item and verify ownership
+        item = ShoppingListItem.query.join(ShoppingList).filter(
+            ShoppingListItem.id == item_id,
+            ShoppingList.user_id == user_id,
+            ShoppingList.status == 'ACTIVE'
+        ).first()
+
+        if not item:
+            return jsonify({'error': 'Item not found'}), 404
+
+        # Update purchased status
+        if purchased:
+            item.purchased_at = datetime.now()
+        else:
+            item.purchased_at = None
+
+        db.session.commit()
+
+        # Check if all items are purchased, then mark list as completed
+        shopping_list = item.shopping_list
+        all_items = ShoppingListItem.query.filter_by(list_id=shopping_list.id).all()
+        all_purchased = all(i.purchased_at is not None for i in all_items)
+
+        if all_purchased and len(all_items) > 0:
+            shopping_list.status = 'COMPLETED'
+            shopping_list.completed_at = datetime.now()
+            db.session.commit()
+
+        logger.info(f"Item {item_id} marked as {'purchased' if purchased else 'not purchased'}")
+
+        return jsonify({
+            'ok': True,
+            'purchased': purchased,
+            'list_completed': all_purchased and len(all_items) > 0
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error marking item as purchased: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -646,10 +703,10 @@ def get_shopping_history():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
 
-        # Get all non-active lists (EXPIRED, SENT)
+        # Get all non-active lists (EXPIRED, SENT, COMPLETED)
         historical_lists = ShoppingList.query.filter(
             ShoppingList.user_id == user_id,
-            ShoppingList.status.in_(['EXPIRED', 'SENT'])
+            ShoppingList.status.in_(['EXPIRED', 'SENT', 'COMPLETED'])
         ).order_by(ShoppingList.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
@@ -695,7 +752,9 @@ def get_shopping_history():
                     'price': item.price_snapshot,
                     'old_price': item.old_price_snapshot,
                     'discount_percent': item.discount_percent_snapshot,
-                    'total': item_total
+                    'total': item_total,
+                    'purchased': item.purchased_at is not None,
+                    'purchased_at': item.purchased_at.isoformat() if item.purchased_at else None
                 })
 
                 business_groups[business_id]['subtotal'] += item_total
@@ -713,6 +772,7 @@ def get_shopping_history():
                 'created_at': shopping_list.created_at.isoformat(),
                 'expires_at': shopping_list.expires_at.isoformat() if shopping_list.expires_at else None,
                 'sent_at': shopping_list.sent_at.isoformat() if shopping_list.sent_at else None,
+                'completed_at': shopping_list.completed_at.isoformat() if shopping_list.completed_at else None,
                 'item_count': item_count,
                 'total_amount': round(total_amount, 2),
                 'total_savings': round(total_savings, 2),

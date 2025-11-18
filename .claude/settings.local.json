@@ -44,7 +44,10 @@
       "Bash(/usr/bin/python3 -m pip install:*)",
       "Bash(kill:*)",
       "Bash(npm uninstall:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: AI Market V2 with shopping list functionality\n\n- Full-stack e-commerce platform with AI features\n- Backend: FastAPI with PostgreSQL\n- Frontend: Nuxt 3 with Vue 3\n- Shopping list feature with basic CRUD operations\n- Product search and filtering\n- User authentication and profiles\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(alembic upgrade:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

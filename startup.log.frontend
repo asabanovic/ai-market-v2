@@ -9,16 +9,14 @@
 
   ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
 
-✔ Vite client built in 53ms
-✔ Vite server built in 2056ms
-[nitro] ✔ Nuxt Nitro server built in 2982ms
-ℹ Vite client warmed up in 4ms
-ℹ Vite server warmed up in 1992ms
-WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
-WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
-ℹ page reload plugins/iconify.client.ts
-✔ Vite server hmr 1 files in 0.004ms
-WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
-WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+✔ Vite client built in 63ms
+✔ Vite server built in 2989ms
+[nitro] ✔ Nuxt Nitro server built in 4126ms
+ℹ Vite client warmed up in 6ms
+ℹ Vite server warmed up in 3794ms
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"

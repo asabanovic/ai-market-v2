@@ -137,6 +137,23 @@ class ProductEmbedding(db.Model):
     # Relationship
     product = db.relationship('Product', backref='embedding_data', lazy=True)
 
+# Product price history table for tracking price changes
+class ProductPriceHistory(db.Model):
+    __tablename__ = 'product_price_history'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    base_price = db.Column(db.Float, nullable=False)
+    discount_price = db.Column(db.Float, nullable=True)
+    recorded_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+
+    # Relationship
+    product = db.relationship('Product', backref='price_history', lazy=True)
+
+    __table_args__ = (
+        db.Index('idx_price_history_product_id', 'product_id'),
+        db.Index('idx_price_history_recorded_at', 'recorded_at'),
+    )
+
 # User searches table for tracking
 class UserSearch(db.Model):
     __tablename__ = 'user_searches'
@@ -317,10 +334,11 @@ class ShoppingList(db.Model):
     __tablename__ = 'shopping_lists'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String, nullable=False, default='ACTIVE')  # ACTIVE, EXPIRED, SENT, CANCELLED
+    status = db.Column(db.String, nullable=False, default='ACTIVE')  # ACTIVE, EXPIRED, SENT, CANCELLED, COMPLETED
     created_at = db.Column(db.DateTime, default=datetime.now)
     expires_at = db.Column(db.DateTime, nullable=False)  # created_at + 24 hours
     sent_at = db.Column(db.DateTime, nullable=True)  # When SMS was sent
+    completed_at = db.Column(db.DateTime, nullable=True)  # When all items were purchased
 
     # Relationships
     items = db.relationship('ShoppingListItem', backref='shopping_list', lazy='dynamic', cascade='all, delete-orphan')
@@ -328,6 +346,7 @@ class ShoppingList(db.Model):
     __table_args__ = (
         db.Index('idx_shopping_lists_user_status', 'user_id', 'status'),
         db.Index('idx_shopping_lists_expires_at', 'expires_at'),
+        db.Index('idx_shopping_lists_completed', 'completed_at'),
     )
 
     @property
@@ -342,6 +361,16 @@ class ShoppingList(db.Model):
     def is_active(self):
         """Check if list is active and not expired"""
         return self.status == 'ACTIVE' and datetime.now() < self.expires_at
+
+    @property
+    def purchased_count(self):
+        """Count how many items have been purchased"""
+        return self.items.filter(ShoppingListItem.purchased_at.isnot(None)).count()
+
+    @property
+    def total_items(self):
+        """Total number of items in list"""
+        return self.items.count()
 
 # Shopping list items with price snapshots
 class ShoppingListItem(db.Model):
@@ -359,6 +388,7 @@ class ShoppingListItem(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    purchased_at = db.Column(db.DateTime, nullable=True)  # When item was marked as purchased
 
     # Relationships
     product = db.relationship('Product', backref='shopping_list_items')
@@ -367,6 +397,7 @@ class ShoppingListItem(db.Model):
     __table_args__ = (
         UniqueConstraint('list_id', 'product_id', 'business_id', name='uq_list_product_business'),
         db.Index('idx_shopping_list_items_list_id', 'list_id'),
+        db.Index('idx_shopping_list_items_purchased', 'purchased_at'),
     )
 
     @property
@@ -380,6 +411,11 @@ class ShoppingListItem(db.Model):
         if self.old_price_snapshot and self.old_price_snapshot > self.price_snapshot:
             return round((self.old_price_snapshot - self.price_snapshot) * self.qty, 2)
         return 0
+
+    @property
+    def is_purchased(self):
+        """Check if item has been purchased"""
+        return self.purchased_at is not None
 
 # SMS outbox for queued messages
 class SMSOutbox(db.Model):
