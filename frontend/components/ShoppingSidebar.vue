@@ -241,17 +241,27 @@
               Ukupno artikala: {{ cartStore.sidebar.total_items }}
             </span>
           </div>
-          <div
-            v-if="cartStore.sidebar.grand_saving > 0 && !todoMode"
-            class="flex items-center justify-between text-xs"
-          >
-            <span class="text-gray-600 dark:text-gray-400">Ukupna ušteda:</span>
-            <span class="font-semibold text-green-600 dark:text-green-400">
-              {{ cartStore.sidebar.grand_saving.toFixed(2) }} KM
-            </span>
+
+          <!-- Show savings if there are discounts -->
+          <div v-if="cartStore.sidebar.grand_saving > 0 && !todoMode" class="space-y-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-gray-600 dark:text-gray-400">Ukupna ušteda:</span>
+              <span class="font-semibold text-green-600 dark:text-green-400">
+                {{ cartStore.sidebar.grand_saving.toFixed(2) }} KM
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-600 dark:text-gray-400">Cijena prije popusta:</span>
+              <span class="font-semibold text-gray-500 dark:text-gray-400 line-through">
+                {{ (cartStore.sidebar.grand_total + cartStore.sidebar.grand_saving).toFixed(2) }} KM
+              </span>
+            </div>
           </div>
-          <div class="flex items-center justify-between text-base font-bold">
-            <span :class="todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'">UKUPNO:</span>
+
+          <div class="flex items-center justify-between text-base font-bold pt-1">
+            <span :class="todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'">
+              {{ cartStore.sidebar.grand_saving > 0 && !todoMode ? 'POSLIJE POPUSTA:' : 'UKUPNO:' }}
+            </span>
             <span :class="todoMode ? 'text-primary-600' : 'text-primary-600 dark:text-primary-400'">
               {{ cartStore.sidebar.grand_total.toFixed(2) }} KM
             </span>
