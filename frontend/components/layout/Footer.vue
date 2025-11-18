@@ -1,0 +1,34 @@
+<template>
+  <footer class="bg-white border-t border-gray-200 mt-16">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="text-center">
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-3">AI Pijaca</h3>
+          <p class="text-sm text-gray-600 max-w-md mx-auto">
+            Pronađite najbolje akcije i popuste u vašem gradu uz pomoć AI asistenta.
+          </p>
+        </div>
+
+        <div class="flex justify-center items-center space-x-6 mb-6">
+          <NuxtLink to="/kako-radimo" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Kako radimo
+          </NuxtLink>
+          <NuxtLink to="/kontakt" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Kontakt
+          </NuxtLink>
+          <NuxtLink to="/proizvodi" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Proizvodi
+          </NuxtLink>
+        </div>
+
+        <div class="border-t border-gray-100 pt-6">
+          <p class="text-xs text-gray-500">&copy; {{ currentYear }} AI Pijaca. Sva prava zadržana.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+</template>
+
+<script setup lang="ts">
+const currentYear = new Date().getFullYear()
+</script>
