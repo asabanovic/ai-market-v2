@@ -49,3 +49,18 @@ WARN  [Vue Router warn]: No match found for location with path "/static/images/g
 ✔ Vite server hmr 14 files in 149.013ms
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x3)
 ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x4)
+✔ Vite server hmr 14 files in 107.927ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x5)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x6)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x7)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x8)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x9)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x10)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x11)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x12)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x13)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x14)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x15)
+ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x16)

@@ -12,14 +12,17 @@
   <Transition name="slide">
     <div
       v-if="isOpen"
-      class="fixed top-0 right-0 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col"
+      :class="[
+        'fixed top-0 right-0 h-full w-full max-w-md shadow-2xl z-50 flex flex-col',
+        todoMode ? 'bg-white' : 'bg-white dark:bg-gray-900'
+      ]"
     >
       <!-- Header -->
-      <div class="px-4 py-3 border-b dark:border-gray-700">
+      <div :class="['px-4 py-3 border-b', todoMode ? 'border-gray-200' : 'dark:border-gray-700']">
         <div class="flex items-center justify-between">
           <div class="flex-1">
             <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-gray-900 dark:text-white">
+              <h2 :class="['text-lg font-bold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">
                 {{ todoMode ? 'TODO Lista' : 'Vaša Lista' }}
               </h2>
               <!-- TODO Mode Toggle -->
@@ -94,7 +97,10 @@
             <!-- Store Header (Collapsible) -->
             <button
               @click="toggleGroup(group.store.id)"
-              class="w-full bg-gray-50 dark:bg-gray-800 px-2.5 py-2 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              :class="[
+                'w-full px-2.5 py-2 flex items-center gap-2 transition-colors',
+                todoMode ? 'bg-amber-50 hover:bg-amber-100' : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+              ]"
             >
               <!-- Collapse Icon -->
               <Icon
@@ -112,13 +118,13 @@
 
               <!-- Store Info -->
               <div class="flex-1 text-left">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                <h3 :class="['text-sm font-semibold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">
                   {{ group.store.name }}
                 </h3>
-                <div class="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400">
+                <div :class="['flex items-center gap-2 text-[10px]', todoMode ? 'text-gray-700' : 'text-gray-600 dark:text-gray-400']">
                   <span>{{ group.items.length }} {{ group.items.length === 1 ? 'artikal' : 'artikala' }}</span>
-                  <span class="text-gray-400">•</span>
-                  <span class="font-semibold text-gray-900 dark:text-white">{{ group.group_subtotal.toFixed(2) }} KM</span>
+                  <span :class="todoMode ? 'text-gray-400' : 'text-gray-400'">•</span>
+                  <span :class="['font-semibold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">{{ group.group_subtotal.toFixed(2) }} KM</span>
                   <span v-if="group.group_saving > 0 && !todoMode" class="text-green-600 dark:text-green-400">
                     -{{ group.group_saving.toFixed(2) }} KM
                   </span>
@@ -127,32 +133,31 @@
             </button>
 
             <!-- Items (Collapsible) -->
-            <div v-if="expandedGroups.has(group.store.id)" class="divide-y dark:divide-gray-700">
+            <div v-if="expandedGroups.has(group.store.id)" :class="['divide-y', todoMode ? 'divide-gray-200' : 'dark:divide-gray-700']">
               <div
                 v-for="item in group.items"
                 :key="item.item_id"
                 :class="[
                   'p-2 transition-colors',
-                  todoMode && checkedItems.has(item.item_id) ? 'bg-green-50 dark:bg-green-900/10' : ''
+                  todoMode ? (checkedItems.has(item.item_id) ? 'bg-green-50 cursor-pointer hover:bg-green-100' : 'cursor-pointer hover:bg-gray-50') : ''
                 ]"
+                @click="todoMode ? toggleCheck(item.item_id) : null"
               >
                 <div class="flex items-center gap-2">
                   <!-- TODO Mode Checkbox -->
-                  <button
+                  <div
                     v-if="todoMode"
-                    @click.stop="toggleCheck(item.item_id)"
-                    class="flex-shrink-0 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                    type="button"
-                    :aria-label="checkedItems.has(item.item_id) ? 'Označi kao nekupljeno' : 'Označi kao kupljeno'"
+                    class="flex-shrink-0 p-1"
+                    @click.stop
                   >
                     <Icon
-                      :name="checkedItems.has(item.item_id) ? 'mdi:check-circle' : 'mdi:circle-outline'"
+                      :name="checkedItems.has(item.item_id) ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline'"
                       :class="[
-                        'w-6 h-6 transition-colors',
-                        checkedItems.has(item.item_id) ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                        'w-7 h-7 transition-colors',
+                        checkedItems.has(item.item_id) ? 'text-green-600' : 'text-gray-700'
                       ]"
                     />
-                  </button>
+                  </div>
 
                   <!-- Item Info -->
                   <div class="flex-1 min-w-0">
@@ -160,8 +165,8 @@
                       :class="[
                         'text-xs font-medium truncate',
                         todoMode && checkedItems.has(item.item_id)
-                          ? 'line-through text-gray-500 dark:text-gray-400'
-                          : 'text-gray-900 dark:text-white'
+                          ? 'line-through text-gray-500'
+                          : todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'
                       ]"
                     >
                       {{ item.name }}
@@ -169,7 +174,7 @@
 
                     <!-- Price -->
                     <div class="flex items-center gap-1.5 mt-0.5">
-                      <span class="text-xs font-semibold text-gray-900 dark:text-white">
+                      <span :class="['text-xs font-semibold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">
                         {{ item.unit_price.toFixed(2) }} KM
                       </span>
                       <span
@@ -207,13 +212,13 @@
                   </div>
 
                   <!-- Quantity display in TODO mode -->
-                  <div v-else class="text-xs text-gray-600 dark:text-gray-400">
+                  <div v-else :class="['text-xs', todoMode ? 'text-gray-800' : 'text-gray-600 dark:text-gray-400']">
                     x{{ item.qty }}
                   </div>
 
                   <!-- Subtotal -->
                   <div class="text-right">
-                    <p class="text-xs font-bold text-gray-900 dark:text-white">
+                    <p :class="['text-xs font-bold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">
                       {{ item.subtotal.toFixed(2) }} KM
                     </p>
                   </div>
@@ -227,12 +232,12 @@
       <!-- Footer -->
       <div
         v-if="cartStore.sidebar && cartStore.sidebar.groups.length > 0"
-        class="border-t dark:border-gray-700 px-3 py-2"
+        :class="['px-3 py-2 border-t', todoMode ? 'border-gray-200' : 'dark:border-gray-700']"
       >
         <!-- Grand Totals -->
         <div class="space-y-1">
           <div class="flex items-center justify-between text-xs">
-            <span class="text-gray-600 dark:text-gray-400">
+            <span :class="todoMode ? 'text-gray-700' : 'text-gray-600 dark:text-gray-400'">
               Ukupno artikala: {{ cartStore.sidebar.total_items }}
             </span>
           </div>
@@ -246,16 +251,16 @@
             </span>
           </div>
           <div class="flex items-center justify-between text-base font-bold">
-            <span class="text-gray-900 dark:text-white">UKUPNO:</span>
-            <span class="text-primary-600 dark:text-primary-400">
+            <span :class="todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white'">UKUPNO:</span>
+            <span :class="todoMode ? 'text-primary-600' : 'text-primary-600 dark:text-primary-400'">
               {{ cartStore.sidebar.grand_total.toFixed(2) }} KM
             </span>
           </div>
 
           <!-- TODO Mode Summary -->
-          <div v-if="todoMode" class="pt-3 mt-3 border-t dark:border-gray-600 space-y-3">
+          <div v-if="todoMode" class="pt-3 mt-3 border-t border-gray-300 space-y-3">
             <!-- Checked Items Count -->
-            <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+            <div class="flex items-center justify-between text-xs text-gray-700">
               <span>Označeno:</span>
               <span class="font-semibold">{{ checkedItems.size }} / {{ totalItems }}</span>
             </div>
@@ -263,16 +268,16 @@
             <!-- Actual Spent vs Potential Savings -->
             <div v-if="todoStats.potentialSavings > 0" class="space-y-1.5">
               <div class="flex items-center justify-between text-xs">
-                <span class="text-gray-600 dark:text-gray-400">Potrošeno od uštede:</span>
-                <span class="font-semibold text-gray-900 dark:text-white">
+                <span class="text-gray-700">Potrošeno od uštede:</span>
+                <span class="font-semibold text-gray-900">
                   {{ todoStats.actualSpent.toFixed(2) }} KM / {{ todoStats.potentialSavings.toFixed(2) }} KM
-                  <span class="text-green-600 dark:text-green-400">({{ Math.round((todoStats.actualSpent / todoStats.potentialSavings) * 100) }}%)</span>
+                  <span class="text-green-600">({{ Math.round((todoStats.actualSpent / todoStats.potentialSavings) * 100) }}%)</span>
                 </span>
               </div>
               <!-- Progress Bar -->
-              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div
-                  class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300"
+                  class="bg-green-600 h-2 rounded-full transition-all duration-300"
                   :style="{ width: Math.min((todoStats.actualSpent / todoStats.potentialSavings) * 100, 100) + '%' }"
                 ></div>
               </div>
@@ -281,28 +286,28 @@
             <!-- Total Spent vs Total Original Price -->
             <div class="space-y-1.5">
               <div class="flex items-center justify-between text-xs">
-                <span class="text-gray-600 dark:text-gray-400">Ukupno potrošeno:</span>
-                <span class="font-semibold text-gray-900 dark:text-white">
+                <span class="text-gray-700">Ukupno potrošeno:</span>
+                <span class="font-semibold text-gray-900">
                   {{ todoStats.actualSpent.toFixed(2) }} KM / {{ todoStats.totalOriginalPrice.toFixed(2) }} KM
-                  <span class="text-blue-600 dark:text-blue-400">
+                  <span class="text-blue-600">
                     ({{ Math.round((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100) }}%)
                   </span>
                 </span>
               </div>
               <!-- Progress Bar -->
-              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div
-                  class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  class="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   :style="{ width: Math.min((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100, 100) + '%' }"
                 ></div>
               </div>
             </div>
 
             <!-- Total Discount Available -->
-            <div class="pt-2 border-t dark:border-gray-600">
+            <div class="pt-2 border-t border-gray-300">
               <div class="flex items-center justify-between text-xs">
-                <span class="text-gray-600 dark:text-gray-400">Ukupan popust na listi:</span>
-                <span class="font-semibold text-green-600 dark:text-green-400">
+                <span class="text-gray-700">Ukupan popust na listi:</span>
+                <span class="font-semibold text-green-600">
                   {{ todoStats.discountPercentage }}%
                   ({{ (todoStats.totalOriginalPrice - todoStats.totalCurrentPrice).toFixed(2) }} KM)
                 </span>
