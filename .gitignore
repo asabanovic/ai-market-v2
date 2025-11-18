@@ -1,3 +1,7 @@
+# ==========================================
+# SOC2 COMPLIANT .gitignore
+# ==========================================
+
 # Nuxt
 .nuxt
 .output
@@ -11,6 +15,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+package-lock.json.bak
 
 # Python
 __pycache__/
@@ -21,34 +26,264 @@ __pycache__/
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 instance/
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-logs
-*.log
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Build artifacts
 *.egg-info/
 build/
 dist-python/
+
+# ==========================================
+# ENVIRONMENT & SECRETS (SOC2 CRITICAL)
+# ==========================================
+
+# Environment variables
+.env
+.env.*
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+*.env
+*.env.backup
+
+# Secret files
+*_secret
+*_secret.*
+*.secret
+*.secrets
+secrets/
+.secrets/
+secret.*
+
+# API Keys & Tokens
+*apikey*
+*api_key*
+*api-key*
+*.token
+*.tokens
+.token
+
+# ==========================================
+# CERTIFICATES & PRIVATE KEYS (SOC2 CRITICAL)
+# ==========================================
+
+# SSL/TLS Certificates
+*.pem
+*.key
+*.crt
+*.cert
+*.cer
+*.p12
+*.pfx
+*.p7b
+*.csr
+*.der
+
+# SSH Keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pub
+.ssh/
+
+# PGP/GPG Keys
+*.gpg
+*.pgp
+*.asc
+secring.*
+
+# ==========================================
+# CLOUD PROVIDER CREDENTIALS (SOC2 CRITICAL)
+# ==========================================
+
+# AWS
+.aws/
+*credentials.csv
+*accessKeys.csv
+aws-exports.js
+
+# Google Cloud
+*-key.json
+service-account*.json
+*-service-account.json
+.gcloud/
+.config/gcloud/
+
+# Azure
+.azure/
+azure-credentials.json
+*.publishsettings
+
+# Other Cloud
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# ==========================================
+# DATABASE & BACKUPS (SOC2 CRITICAL)
+# ==========================================
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db3
+*.s3db
+*.sl3
+
+# Database dumps & exports
+*.sql
+*.dump
+*.dmp
+*.bak
+*.backup
+*.old
+*.orig
+dump.rdb
+*.mdf
+*.ldf
+
+# Backups directory
+backups/
+backup/
+*.backup/
+
+# ==========================================
+# DATA EXPORTS (PII RISK)
+# ==========================================
+
+# Data exports
+exports/
+*.csv
+*.xlsx
+*.xls
+!**/node_modules/**/*.csv
+!**/fixtures/**/*.csv
+
+# ==========================================
+# CREDENTIALS & AUTH (SOC2 CRITICAL)
+# ==========================================
+
+# Password & Credential files
+*.credentials
+credentials
+credentials.*
+.htpasswd
+.netrc
+.npmrc
+.pypirc
+
+# Authentication
+auth.json
+auth.config.json
+firebase-adminsdk*.json
+
+# ==========================================
+# IDE & EDITOR
+# ==========================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim/Emacs
+*.swp
+*.swo
+*.swn
+*~
+.*.sw?
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# ==========================================
+# OPERATING SYSTEM
+# ==========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+.Trash-*
+
+# ==========================================
+# LOGS (SOC2 REQUIRED)
+# ==========================================
+
+logs/
+*.log
+log/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# TEMPORARY & CACHE FILES
+# ==========================================
+
+# General temp
+tmp/
+temp/
+*.tmp
+*.temp
+*.cache
+
+# OS temp
+.cache/
+.temp/
+.tmp/
+
+# ==========================================
+# DOCKER & CONTAINERS (Secrets Risk)
+# ==========================================
+
+# Docker
+.docker/
+docker-compose.override.yml
+.dockerenv
+
+# ==========================================
+# SECURITY SCANNING & AUDIT
+# ==========================================
+
+# Security scan results
+*.sarif
+security-report.*
+audit-report.*
+
+# ==========================================
+# MISC SENSITIVE
+# ==========================================
+
+# Configuration files that might contain secrets
+*config.local.*
+*-config.local.*
+local.settings.json
+
+# Coverage reports (may contain sensitive paths)
+coverage/
+.nyc_output/
+*.lcov
