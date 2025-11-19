@@ -562,22 +562,15 @@ def mark_item_purchased(item_id):
 
         db.session.commit()
 
-        # Check if all items are purchased, then mark list as completed
-        shopping_list = item.shopping_list
-        all_items = ShoppingListItem.query.filter_by(list_id=shopping_list.id).all()
-        all_purchased = all(i.purchased_at is not None for i in all_items)
-
-        if all_purchased and len(all_items) > 0:
-            shopping_list.status = 'COMPLETED'
-            shopping_list.completed_at = datetime.now()
-            db.session.commit()
+        # NOTE: We don't auto-complete lists when all items are purchased
+        # Lists stay active for 24 hours so users can add more items throughout the day
+        # Lists will expire naturally via the expire_lists cron job
 
         logger.info(f"Item {item_id} marked as {'purchased' if purchased else 'not purchased'}")
 
         return jsonify({
             'ok': True,
-            'purchased': purchased,
-            'list_completed': all_purchased and len(all_items) > 0
+            'purchased': purchased
         }), 200
 
     except Exception as e:
@@ -697,19 +690,29 @@ def get_shopping_history():
     """
     Get user's historical shopping lists (EXPIRED, SENT)
     Read-only view for historical purposes
+    Supports list_id query parameter to fetch a specific list
     """
     try:
         user_id = request.current_user_id
+        list_id = request.args.get('list_id', type=int)
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
 
-        # Get all non-active lists (EXPIRED, SENT, COMPLETED)
-        historical_lists = ShoppingList.query.filter(
-            ShoppingList.user_id == user_id,
-            ShoppingList.status.in_(['EXPIRED', 'SENT', 'COMPLETED'])
-        ).order_by(ShoppingList.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
+        # If specific list_id requested, fetch just that one
+        if list_id:
+            query = ShoppingList.query.filter(
+                ShoppingList.user_id == user_id,
+                ShoppingList.id == list_id
+            )
+            historical_lists = query.paginate(page=1, per_page=1, error_out=False)
+        else:
+            # Get all non-active lists (EXPIRED, SENT, COMPLETED)
+            historical_lists = ShoppingList.query.filter(
+                ShoppingList.user_id == user_id,
+                ShoppingList.status.in_(['EXPIRED', 'SENT', 'COMPLETED'])
+            ).order_by(ShoppingList.created_at.desc()).paginate(
+                page=page, per_page=per_page, error_out=False
+            )
 
         # Format response
         lists_data = []

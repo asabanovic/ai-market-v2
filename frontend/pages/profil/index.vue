@@ -10,14 +10,16 @@
       <!-- Quick Navigation -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <NuxtLink
-          to="/profil/liste-istorija"
+          to="/profil/liste"
           class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow flex items-center gap-4"
         >
           <div class="bg-purple-100 p-3 rounded-lg">
-            <Icon name="mdi:history" class="w-8 h-8 text-purple-600" />
+            <svg class="w-8 h-8 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
           <div>
-            <h3 class="text-lg font-semibold text-gray-900">Istorija Lista</h3>
+            <h3 class="text-lg font-semibold text-gray-900">Prethodne Liste</h3>
             <p class="text-sm text-gray-600">Pregled vaših prethodnih shopping lista</p>
           </div>
         </NuxtLink>
@@ -27,7 +29,9 @@
           class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow flex items-center gap-4"
         >
           <div class="bg-green-100 p-3 rounded-lg">
-            <Icon name="mdi:cart" class="w-8 h-8 text-green-600" />
+            <svg class="w-8 h-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
           </div>
           <div>
             <h3 class="text-lg font-semibold text-gray-900">Aktivna Lista</h3>
@@ -123,7 +127,9 @@
                 maxlength="20"
               />
               <div v-if="profile.phone && isPhoneValid" class="absolute right-3 top-1/2 -translate-y-1/2">
-                <Icon name="mdi:check-circle" class="w-5 h-5 text-green-500" />
+                <svg class="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
               </div>
             </div>
             <p class="mt-1 text-xs text-gray-500">Format: +387XXXXXXXXX (sa pozivnim brojem)</p>
@@ -167,7 +173,9 @@
           <!-- Admin Badge (if admin) -->
           <div v-if="profile.is_admin" class="bg-red-50 border border-red-200 rounded-md p-4">
             <div class="flex items-center">
-              <Icon name="mdi:shield-account" class="w-6 h-6 text-red-600 mr-2" />
+              <svg class="w-6 h-6 text-red-600 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+              </svg>
               <div>
                 <p class="text-sm font-semibold text-red-900">Administrator</p>
                 <p class="text-xs text-red-700">Imate administratorski pristup platformi</p>

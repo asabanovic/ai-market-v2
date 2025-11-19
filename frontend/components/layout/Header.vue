@@ -22,28 +22,46 @@
             Kontakt
           </NuxtLink>
 
-          <!-- Search Counter -->
-          <div
-            v-if="searchCounts"
-            :class="[
-              'text-sm font-medium px-3 py-1 rounded-full border',
-              searchCounts.remaining === 0
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : searchCounts.remaining <= 2
-                ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
-                : 'border-green-200 bg-green-50 text-green-700'
-            ]"
-          >
-            <template v-if="searchCounts.is_unlimited">
-              Krediti: {{ searchCounts.remaining }}
-            </template>
-            <template v-else>
-              Krediti: {{ searchCounts.remaining }}/{{ searchCounts.daily_limit }}
-            </template>
-          </div>
+          <ClientOnly>
+            <!-- Search Counter -->
+            <div
+              v-if="searchCounts"
+              :class="[
+                'text-sm font-medium px-3 py-1 rounded-full border',
+                searchCounts.remaining === 0
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : searchCounts.remaining <= 2
+                  ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
+                  : 'border-green-200 bg-green-50 text-green-700'
+              ]"
+            >
+              <template v-if="searchCounts.is_unlimited">
+                Krediti: {{ searchCounts.remaining }}
+              </template>
+              <template v-else>
+                Krediti: {{ searchCounts.remaining }}/{{ searchCounts.daily_limit }}
+              </template>
+            </div>
 
-          <!-- Header Icons (Favorites & Cart) -->
-          <HeaderIcons v-if="isAuthenticated" @toggle-sidebar="showSidebar = true" />
+            <!-- Header Icons (Favorites & Cart) -->
+            <HeaderIcons v-if="isAuthenticated" @toggle-sidebar="showSidebar = true" />
+
+            <template #fallback>
+              <!-- Show placeholders while auth is being checked -->
+              <div v-if="!authReady" class="flex items-center gap-4">
+                <!-- Credits placeholder -->
+                <div class="text-sm font-medium px-3 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-400">
+                  <div class="w-20 h-4 bg-gray-300 rounded animate-pulse"></div>
+                </div>
+                <!-- Icons placeholder -->
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded bg-gray-200 animate-pulse"></div>
+                  <div class="w-10 h-10 rounded bg-gray-200 animate-pulse"></div>
+                  <div class="w-10 h-10 rounded bg-gray-200 animate-pulse"></div>
+                </div>
+              </div>
+            </template>
+          </ClientOnly>
 
           <template v-if="isAuthenticated">
             <div class="relative">
@@ -148,24 +166,32 @@
           Kontakt
         </NuxtLink>
 
-        <div
-          v-if="searchCounts"
-          :class="[
-            'text-sm font-medium px-3 py-2 rounded-md mx-3 border',
-            searchCounts.remaining === 0
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : searchCounts.remaining <= 2
-              ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
-              : 'border-green-200 bg-green-50 text-green-700'
-          ]"
-        >
-          <template v-if="searchCounts.is_unlimited">
-            Krediti: {{ searchCounts.remaining }}
+        <ClientOnly>
+          <div
+            v-if="searchCounts"
+            :class="[
+              'text-sm font-medium px-3 py-2 rounded-md mx-3 border',
+              searchCounts.remaining === 0
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : searchCounts.remaining <= 2
+                ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
+                : 'border-green-200 bg-green-50 text-green-700'
+            ]"
+          >
+            <template v-if="searchCounts.is_unlimited">
+              Krediti: {{ searchCounts.remaining }}
+            </template>
+            <template v-else>
+              Krediti: {{ searchCounts.remaining }}/{{ searchCounts.daily_limit }}
+            </template>
+          </div>
+
+          <template #fallback>
+            <div v-if="!authReady" class="text-sm font-medium px-3 py-2 rounded-md mx-3 border border-gray-200 bg-gray-50">
+              <div class="w-24 h-4 bg-gray-300 rounded animate-pulse"></div>
+            </div>
           </template>
-          <template v-else>
-            Krediti: {{ searchCounts.remaining }}/{{ searchCounts.daily_limit }}
-          </template>
-        </div>
+        </ClientOnly>
 
         <template v-if="isAuthenticated">
           <div class="border-t border-gray-200 pt-2 pb-2 px-3">
@@ -208,7 +234,7 @@
 </template>
 
 <script setup lang="ts">
-const { isAuthenticated, user, logout } = useAuth()
+const { isAuthenticated, authReady, user, logout } = useAuth()
 const { get } = useApi()
 
 const showMobileMenu = ref(false)

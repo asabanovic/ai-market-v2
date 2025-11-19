@@ -22,6 +22,7 @@ interface AuthResponse {
 export const useAuth = () => {
   const api = useApi()
   const user = useState<User | null>('user', () => null)
+  const authReady = useState<boolean>('authReady', () => false)
   const isAuthenticated = computed(() => !!user.value)
 
   const login = async (email: string, password: string) => {
@@ -54,6 +55,7 @@ export const useAuth = () => {
           logout()
         }
       }
+      authReady.value = true
     }
   }
 
@@ -74,6 +76,7 @@ export const useAuth = () => {
   return {
     user,
     isAuthenticated,
+    authReady,
     login,
     logout,
     checkAuth,

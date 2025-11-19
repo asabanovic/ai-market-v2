@@ -1,12 +1,16 @@
 <template>
   <div class="min-h-screen flex flex-col">
     <LayoutHeader />
-    <PhoneBanner />
+    <ClientOnly>
+      <PhoneBanner />
+    </ClientOnly>
     <main class="flex-1">
       <slot />
     </main>
     <LayoutFooter />
-    <NotificationOptInPopup />
+    <ClientOnly>
+      <NotificationOptInPopup />
+    </ClientOnly>
   </div>
 </template>
 

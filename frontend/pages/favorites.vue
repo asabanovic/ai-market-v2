@@ -41,17 +41,6 @@
             </button>
           </div>
         </div>
-
-        <!-- Notification Info Banner -->
-        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-start gap-3">
-          <Icon name="mdi:information" class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <div class="flex-1">
-            <p class="text-sm text-blue-900 dark:text-blue-100">
-              <span class="font-semibold">Automatska obavještenja:</span> Proizvodi dodati u omiljene će biti praćeni.
-              Primićete obavještenje putem email-a i SMS poruke kada budu u popustu ili akciji.
-            </p>
-          </div>
-        </div>
       </div>
 
       <!-- Loading State -->

@@ -940,7 +940,7 @@ def api_categories():
 def api_featured_data():
     """API endpoint for featured products and deals"""
     try:
-        # Get featured products (products with discounts, limited to 8)
+        # Get featured products (products with discounts, limited to 6)
         # Calculate discount percentage inline for ordering
         discount_expr = case(
             (Product.discount_price < Product.base_price,
@@ -948,10 +948,14 @@ def api_featured_data():
             else_=0
         )
 
+        # Get today's date for filtering expired products
+        today = date.today()
+
         featured_products = Product.query.join(Business).filter(
             Product.discount_price.isnot(None),
-            Product.discount_price < Product.base_price
-        ).order_by(discount_expr.desc()).limit(8).all()
+            Product.discount_price < Product.base_price,
+            or_(Product.expires.is_(None), Product.expires >= today)  # Filter out expired products
+        ).order_by(discount_expr.desc()).limit(6).all()
 
         products = []
         for product in featured_products:
