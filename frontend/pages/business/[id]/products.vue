@@ -234,6 +234,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slika</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opis za pretragu</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Embedding Text</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategorija</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tagovi</th>
@@ -277,6 +278,17 @@
                 <td class="px-4 py-4 max-w-xs">
                   <div class="text-sm text-gray-700 truncate" :title="product.enriched_description">
                     {{ product.enriched_description || 'Nema opisa' }}
+                  </div>
+                </td>
+                <td class="px-4 py-4 max-w-xs">
+                  <div v-if="product.has_embedding" class="text-sm text-gray-700 truncate" :title="product.embedding_text">
+                    {{ product.embedding_text || 'N/A' }}
+                  </div>
+                  <div v-else class="flex items-center text-sm text-red-600">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Nema embedding
                   </div>
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">

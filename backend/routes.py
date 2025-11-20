@@ -633,12 +633,15 @@ def api_business_products(business_id):
         total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
         offset = (page - 1) * per_page
 
-        # Get paginated products
-        products = Product.query.filter_by(business_id=business_id).order_by(
+        # Get paginated products with embeddings
+        from models import ProductEmbedding
+        products_query = db.session.query(Product, ProductEmbedding).outerjoin(
+            ProductEmbedding, Product.id == ProductEmbedding.product_id
+        ).filter(Product.business_id == business_id).order_by(
             Product.created_at.desc()).limit(per_page).offset(offset).all()
 
         products_list = []
-        for product in products:
+        for product, embedding in products_query:
             # Calculate discount percentage
             discount_percentage = 0
             if product.discount_price and product.base_price:
@@ -659,7 +662,9 @@ def api_business_products(business_id):
                 'created_at': product.created_at.isoformat() if product.created_at else None,
                 'views': product.views if hasattr(product, 'views') else 0,
                 'is_expired': product.is_expired if hasattr(product, 'is_expired') else False,
-                'enriched_description': product.enriched_description
+                'enriched_description': product.enriched_description,
+                'embedding_text': embedding.embedding_text if embedding else None,
+                'has_embedding': embedding is not None
             })
 
         return jsonify({
@@ -1037,6 +1042,20 @@ def search():
     if not query:
         return jsonify({'error': 'Upit ne može biti prazan'}), 400
 
+    # Try to get user from JWT token (optional - anonymous searches are allowed)
+    authenticated_user_id = None
+    auth_header = request.headers.get('Authorization')
+    if auth_header:
+        try:
+            from auth_api import decode_jwt_token
+            token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+            payload = decode_jwt_token(token)
+            if payload:
+                authenticated_user_id = payload['user_id']
+                app.logger.info(f"Search by authenticated user: {authenticated_user_id}")
+        except Exception as e:
+            app.logger.warning(f"Failed to decode JWT token in search: {e}")
+
     # Check search limits for both logged-in and anonymous users
     user = current_user if current_user.is_authenticated else None
     search_counts = get_search_counts(user)
@@ -1083,13 +1102,13 @@ def search():
             # Log failed search attempts for tracking
             from models import UserSearch
             search_log = UserSearch(
-                user_id=current_user.id if current_user.is_authenticated else None,
+                user_id=authenticated_user_id,
                 query=query,
                 results=json.dumps([])  # Empty results for failed search
             )
             db.session.add(search_log)
             db.session.commit()
-            app.logger.info(f"Logged failed search: '{query}' by {'user ' + current_user.id if current_user.is_authenticated else 'anonymous'}")
+            app.logger.info(f"Logged failed search: '{query}' by {'user ' + authenticated_user_id if authenticated_user_id else 'anonymous'}")
 
             return jsonify({
                 'success': False,
@@ -1113,14 +1132,14 @@ def search():
         # Log ALL searches (both with and without results) for tracking purposes
         # This helps track user behavior and improve search quality
         search_log = UserSearch(
-            user_id=current_user.id if current_user.is_authenticated else None,
+            user_id=authenticated_user_id,
             query=query,
             results=json.dumps(results_data)
         )
         db.session.add(search_log)
         db.session.commit()
 
-        app.logger.info(f"Logged search: '{query}' by {'user ' + current_user.id if current_user.is_authenticated else 'anonymous'} - {len(results_data)} results")
+        app.logger.info(f"Logged search: '{query}' by {'user ' + authenticated_user_id if authenticated_user_id else 'anonymous'} - {len(results_data)} results")
 
         # Check if semantic search returned no results
         if not products:
@@ -1269,13 +1288,13 @@ def search():
 
             from models import UserSearch
             search_log = UserSearch(
-                user_id=current_user.id if current_user.is_authenticated else None,
+                user_id=authenticated_user_id,
                 query=query,
                 results=json.dumps([])  # Empty results for failed search
             )
             db.session.add(search_log)
             db.session.commit()
-            app.logger.info(f"Logged error search: '{query}' by {'user ' + current_user.id if current_user.is_authenticated else 'anonymous'}")
+            app.logger.info(f"Logged error search: '{query}' by {'user ' + authenticated_user_id if authenticated_user_id else 'anonymous'}")
         except Exception as log_error:
             app.logger.error(f"Failed to log search: {log_error}")
 
@@ -2837,6 +2856,7 @@ def upload_product_image(business_id, product_id):
         import boto3
         import uuid
         from werkzeug.utils import secure_filename
+        import re
 
         business = Business.query.get_or_404(business_id)
 
@@ -2877,11 +2897,7 @@ def upload_product_image(business_id, product_id):
                 'error': 'Nedozvoljeni tip fajla. Koristite JPG, PNG, GIF ili WEBP'
             }), 400
 
-        # Generate unique filename
-        unique_filename = f"{uuid.uuid4()}.{file_ext}"
-        s3_key = f"products/{business_id}/{unique_filename}"
-
-        # Upload to S3
+        # Initialize S3 client
         s3_client = boto3.client(
             's3',
             aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
@@ -2891,6 +2907,26 @@ def upload_product_image(business_id, product_id):
 
         bucket_name = os.environ.get('AWS_S3_BUCKET', 'aipijaca')
 
+        # Delete old image from S3 if it exists
+        if product.image_path:
+            try:
+                # Extract S3 key from URL
+                # URL format: https://aipijaca.s3.eu-central-1.amazonaws.com/products/123/filename.jpg
+                match = re.search(r'amazonaws\.com/(.+)$', product.image_path)
+                if match:
+                    old_s3_key = match.group(1)
+                    app.logger.info(f"Deleting old image from S3: {old_s3_key}")
+                    s3_client.delete_object(Bucket=bucket_name, Key=old_s3_key)
+                    app.logger.info(f"Successfully deleted old image: {old_s3_key}")
+            except Exception as e:
+                # Log error but continue with upload - don't fail if old image can't be deleted
+                app.logger.warning(f"Failed to delete old image from S3: {e}")
+
+        # Generate unique filename
+        unique_filename = f"{uuid.uuid4()}.{file_ext}"
+        s3_key = f"products/{business_id}/{unique_filename}"
+
+        # Upload new image to S3
         s3_client.upload_fileobj(
             file,
             bucket_name,
