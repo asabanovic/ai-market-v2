@@ -125,8 +125,7 @@ class Product(db.Model):
 # Product embeddings table for semantic search
 class ProductEmbedding(db.Model):
     __tablename__ = 'product_embeddings'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, unique=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), primary_key=True, nullable=False)
     embedding = db.Column(Vector(1536), nullable=False)  # OpenAI text-embedding-3-small dimension
     embedding_text = db.Column(db.Text, nullable=True)  # Text that was embedded
     model_version = db.Column(db.String, nullable=True)  # e.g., 'text-embedding-3-small'

@@ -47,10 +47,16 @@ def semantic_search(
         )
         query_embedding = query_response.data[0].embedding
 
+        # Format embedding as PostgreSQL array literal
+        # pgvector expects format: '[0.1,0.2,0.3,...]'
+        embedding_str = '[' + ','.join(str(float(x)) for x in query_embedding) + ']'
+
         # Build SQL query with vector similarity search
         # Using pgvector's <=> operator for cosine distance
         # Cosine distance = 1 - cosine similarity
-        sql_parts = ["""
+        # Note: We use direct string substitution for the vector since SQLAlchemy
+        # doesn't handle vector type binding well with text()
+        sql_parts = [f"""
             SELECT
                 p.id,
                 p.title,
@@ -66,13 +72,10 @@ def semantic_search(
                 p.enriched_description,
                 b.id as business_id,
                 b.name as business_name,
-                b.logo as business_logo,
+                b.logo_path as business_logo,
                 b.city as business_city,
-                b.address as business_address,
-                b.phone as business_phone,
-                b.latitude as business_lat,
-                b.longitude as business_lon,
-                (1 - (pe.embedding <=> :query_embedding::vector)) as similarity
+                b.contact_phone as business_phone,
+                (1 - (pe.embedding <=> '{embedding_str}'::vector)) as similarity
             FROM products p
             INNER JOIN product_embeddings pe ON p.id = pe.product_id
             INNER JOIN businesses b ON p.business_id = b.id
@@ -80,7 +83,6 @@ def semantic_search(
         """]
 
         params = {
-            'query_embedding': str(query_embedding),
             'k': k
         }
 
@@ -98,8 +100,8 @@ def semantic_search(
             params['category'] = category
 
         # Add similarity threshold and ordering
-        sql_parts.append("""
-            AND (1 - (pe.embedding <=> :query_embedding::vector)) >= :min_similarity
+        sql_parts.append(f"""
+            AND (1 - (pe.embedding <=> '{embedding_str}'::vector)) >= :min_similarity
             ORDER BY similarity DESC,
                      CASE WHEN p.discount_price IS NOT NULL
                           THEN (p.base_price - p.discount_price) / p.base_price
@@ -134,10 +136,7 @@ def semantic_search(
                     'name': row.business_name,
                     'logo': row.business_logo,
                     'city': row.business_city,
-                    'address': row.business_address,
-                    'phone': row.business_phone,
-                    'latitude': row.business_lat,
-                    'longitude': row.business_lon
+                    'phone': row.business_phone
                 },
                 'similarity_score': float(row.similarity),
                 '_score': float(row.similarity)  # For compatibility

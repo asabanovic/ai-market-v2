@@ -2,6 +2,7 @@
 
 from typing import List, Dict, Any, Optional, Callable
 from sqlalchemy import text
+from agents.common.llm_utils import get_embedding_model
 
 
 def search_by_vector(
@@ -26,7 +27,7 @@ def search_by_vector(
         List of product dictionaries with similarity scores.
     """
     # Build the WHERE clause
-    where_clauses = ["p.embedding IS NOT NULL"]
+    where_clauses = ["(p.expires IS NULL OR p.expires > NOW())"]
 
     if category:
         where_clauses.append(f"p.category = '{category}'")
@@ -51,12 +52,16 @@ def search_by_vector(
             p.city,
             p.expires,
             p.image_path,
+            p.business_id,
             b.name as business_name,
-            1 - (p.embedding <=> '{vector_str}'::vector) as similarity
+            b.logo_path as business_logo,
+            b.city as business_city,
+            1 - (pe.embedding <=> '{vector_str}'::vector) as similarity
         FROM products p
+        INNER JOIN product_embeddings pe ON p.id = pe.product_id
         LEFT JOIN businesses b ON p.business_id = b.id
         WHERE {where_sql}
-        ORDER BY p.embedding <=> '{vector_str}'::vector
+        ORDER BY pe.embedding <=> '{vector_str}'::vector
         LIMIT {k * 2}
     """
 
@@ -76,8 +81,13 @@ def search_by_vector(
             "city": row.city,
             "expires": row.expires,
             "image_path": row.image_path,
-            "business_name": row.business_name,
             "similarity": float(row.similarity),
+            "business": {
+                "id": row.business_id,
+                "name": row.business_name,
+                "logo": row.business_logo,
+                "city": row.business_city or row.city,
+            }
         }
 
         # Apply custom filter if provided
@@ -90,3 +100,54 @@ def search_by_vector(
             break
 
     return products
+
+
+async def search_by_vector_grouped(
+    db_session,
+    search_items: List[Dict[str, Any]],
+    embedding_model: str,
+    k: int = 5,
+    filter_fn: Optional[Callable[[Dict[str, Any]], bool]] = None,
+    category: Optional[str] = None,
+    max_price: Optional[float] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Search for products using vector similarity for multiple items, grouped by item.
+
+    Args:
+        db_session: SQLAlchemy database session.
+        search_items: List of search item dicts with 'original', 'query', and 'expanded_query'.
+        embedding_model: Name of the embedding model to use.
+        k: Number of results to return per item.
+        filter_fn: Optional custom filter function.
+        category: Optional category filter.
+        max_price: Optional maximum price filter.
+
+    Returns:
+        Dictionary mapping original item names to their search results.
+    """
+    embed_fn = get_embedding_model(embedding_model)
+    grouped_results = {}
+
+    for item in search_items:
+        # Use expanded_query if available, otherwise fall back to query
+        query_text = item.get("expanded_query", item.get("query", ""))
+
+        # Use corrected spelling for display, fallback to original if not available
+        display_name = item.get("corrected", item.get("original", query_text))
+
+        # Generate embedding for this item
+        query_vector = embed_fn(query_text)
+
+        # Search for this specific item
+        results = search_by_vector(
+            db_session=db_session,
+            query_vector=query_vector,
+            k=k,
+            filter_fn=filter_fn,
+            category=category,
+            max_price=max_price,
+        )
+
+        grouped_results[display_name] = results
+
+    return grouped_results

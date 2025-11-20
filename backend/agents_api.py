@@ -12,7 +12,6 @@ agents_api_bp = Blueprint('agents_api', __name__, url_prefix='/api')
 
 
 @agents_api_bp.route('/search', methods=['POST'])
-@require_jwt_auth
 def unified_search():
     """Unified search endpoint - the main entry point for all user queries.
 
@@ -155,7 +154,6 @@ def agents_info():
 
 # Backward compatibility endpoints (optional)
 @agents_api_bp.route('/agents/semantic_search', methods=['POST'])
-@require_jwt_auth
 def semantic_search_direct():
     """Direct semantic search endpoint (backward compatibility).
 

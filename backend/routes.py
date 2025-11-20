@@ -1076,6 +1076,21 @@ def search():
             app.logger.info(f"Semantic search found {len(products)} products")
         except Exception as e:
             app.logger.error(f"Semantic search failed: {e}")
+
+            # Rollback any failed transaction before logging
+            db.session.rollback()
+
+            # Log failed search attempts for tracking
+            from models import UserSearch
+            search_log = UserSearch(
+                user_id=current_user.id if current_user.is_authenticated else None,
+                query=query,
+                results=json.dumps([])  # Empty results for failed search
+            )
+            db.session.add(search_log)
+            db.session.commit()
+            app.logger.info(f"Logged failed search: '{query}' by {'user ' + current_user.id if current_user.is_authenticated else 'anonymous'}")
+
             return jsonify({
                 'success': False,
                 'error': 'search_failed',
@@ -1083,6 +1098,29 @@ def search():
                 'products': [],
                 'products_count': 0
             }), 500
+
+        # Products are already fully formatted from semantic_search
+        # Limit to top 12 results for response
+        if products:
+            products = products[:12]
+
+        # Format results for logging (products are already formatted dicts from semantic_search)
+        results_data = products if products else []
+
+        # Get UserSearch model for logging
+        from models import UserSearch
+
+        # Log ALL searches (both with and without results) for tracking purposes
+        # This helps track user behavior and improve search quality
+        search_log = UserSearch(
+            user_id=current_user.id if current_user.is_authenticated else None,
+            query=query,
+            results=json.dumps(results_data)
+        )
+        db.session.add(search_log)
+        db.session.commit()
+
+        app.logger.info(f"Logged search: '{query}' by {'user ' + current_user.id if current_user.is_authenticated else 'anonymous'} - {len(results_data)} results")
 
         # Check if semantic search returned no results
         if not products:
@@ -1096,47 +1134,31 @@ def search():
                 'products_count': 0
             }), 404
 
-        # Products are already fully formatted from semantic_search
-        # Limit to top 12 results for response
-        products = products[:12]
-
-        # Format results for logging (products are already formatted dicts from semantic_search)
-        results_data = products  # Already in the correct format
-
-        # Get UserSearch model for logging
-        from models import UserSearch
-
         # Prepare debug information with proper security gating
         debug_available = current_user.is_authenticated and (getattr(
             current_user, 'is_admin', False) or app.config.get('DEBUG', False))
 
+        # Deduct credits and increment counters ONLY for successful searches (with results)
+        if current_user.is_authenticated:
+            from credits_service import CreditsService
+            try:
+                CreditsService.deduct_credits(
+                    user_id=current_user.id,
+                    amount=1,
+                    action='SEARCH',
+                    metadata={'query': query}
+                )
+                app.logger.info(f"Deducted 1 credit for search by user {current_user.id}")
+            except Exception as credit_error:
+                app.logger.error(f"Failed to deduct credit: {credit_error}")
+        else:
+            # Increment search count for anonymous users
+            increment_search_count()
+
+        db.session.commit()
+
         # Single AI call to generate structured response
         if products:
-            # Log the search (handle both logged-in and anonymous users) - ONLY when there are results
-            search_log = UserSearch(user_id=current_user.id
-                                    if current_user.is_authenticated else None,
-                                    query=query,
-                                    results=json.dumps(results_data))
-            db.session.add(search_log)
-
-            # Deduct 1 credit for logged-in users
-            if current_user.is_authenticated:
-                from credits_service import CreditsService
-                try:
-                    CreditsService.deduct_credits(
-                        user_id=current_user.id,
-                        amount=1,
-                        action='SEARCH',
-                        metadata={'query': query}
-                    )
-                    app.logger.info(f"Deducted 1 credit for search by user {current_user.id}")
-                except Exception as credit_error:
-                    app.logger.error(f"Failed to deduct credit: {credit_error}")
-            else:
-                # Increment search count for anonymous users - ONLY when there are results
-                increment_search_count()
-
-            db.session.commit()
 
             # Increment view count for each product that appears in search results
             # Use SQL UPDATE since products are mock objects, not real SQLAlchemy models
@@ -1206,19 +1228,11 @@ def search():
             # Ensure products have the proper nested structure for frontend
             response_data['products'] = results_data
 
-            # Add Stage 3 ranking metadata
-            if ranking_result:
-                response_data['meal_suggestion'] = ranking_result.get('meal_suggestion')
-                response_data['total_estimated_cost'] = ranking_result.get('total_estimated_cost')
-                response_data['budget_status'] = ranking_result.get('budget_status')
-                response_data['remaining_budget'] = ranking_result.get('remaining_budget')
-
             # Add debug info only if authorized
             if debug_available:
-                response_data['sql_query'] = 'Stage-based tag matching'
-                response_data['search_keywords'] = search_tags
-                response_data['llm_parsed'] = intent_data
-                response_data['stage3_ranking'] = ranking_result
+                response_data['sql_query'] = 'Semantic search with vector embeddings'
+                response_data['search_keywords'] = []
+                response_data['llm_parsed'] = {}
             else:
                 response_data['sql_query'] = 'Debug not available'
                 response_data['search_keywords'] = []
@@ -1236,17 +1250,35 @@ def search():
                 0,
                 'products': [],
                 'sql_query':
-                debug_sql_query,
+                'Semantic search (no results)',
                 'search_keywords':
-                search_keywords if debug_available else [],
+                [],
                 'llm_parsed':
-                parsed_query if debug_available else {},
+                {},
                 'free_search':
                 True  # Indicate this was a free search
             })
 
     except Exception as e:
         app.logger.error(f"Search error: {str(e)}")
+
+        # Log unexpected search failures for tracking
+        try:
+            # Rollback any failed transaction before logging
+            db.session.rollback()
+
+            from models import UserSearch
+            search_log = UserSearch(
+                user_id=current_user.id if current_user.is_authenticated else None,
+                query=query,
+                results=json.dumps([])  # Empty results for failed search
+            )
+            db.session.add(search_log)
+            db.session.commit()
+            app.logger.info(f"Logged error search: '{query}' by {'user ' + current_user.id if current_user.is_authenticated else 'anonymous'}")
+        except Exception as log_error:
+            app.logger.error(f"Failed to log search: {log_error}")
+
         return jsonify({
             'success': False,
             'response':
