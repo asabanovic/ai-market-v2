@@ -2932,8 +2932,7 @@ def upload_product_image(business_id, product_id):
             bucket_name,
             s3_key,
             ExtraArgs={
-                'ContentType': file.content_type,
-                'ACL': 'public-read'
+                'ContentType': file.content_type
             }
         )
 

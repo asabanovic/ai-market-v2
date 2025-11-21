@@ -65,12 +65,22 @@
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label for="category" class="block text-sm font-medium text-gray-700 mb-1">Kategorija</label>
-                <input
+                <select
                   v-model="manualForm.category"
-                  type="text"
                   id="category"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  placeholder="Kategorija"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                >
+                  <option value="">-- Odaberi kategoriju --</option>
+                  <option v-for="cat in uniqueCategories" :key="cat" :value="cat">{{ cat }}</option>
+                  <option value="__custom__">+ Nova kategorija...</option>
+                </select>
+                <input
+                  v-if="manualForm.category === '__custom__'"
+                  v-model="newManualCategory"
+                  type="text"
+                  class="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  placeholder="Unesite novu kategoriju..."
+                  @input="manualForm.category = newManualCategory"
                 >
               </div>
 
@@ -281,14 +291,18 @@
                   </div>
                 </td>
                 <td class="px-4 py-4 max-w-xs">
-                  <div v-if="product.has_embedding" class="text-sm text-gray-700 truncate" :title="product.embedding_text">
-                    {{ product.embedding_text || 'N/A' }}
+                  <div v-if="product.has_embedding" class="space-y-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      ✓ Has Embedding
+                    </span>
+                    <div class="text-xs text-gray-500 truncate" :title="product.embedding_text">
+                      {{ (product.embedding_text || '').substring(0, 50) }}{{ (product.embedding_text || '').length > 50 ? '...' : '' }}
+                    </div>
                   </div>
-                  <div v-else class="flex items-center text-sm text-red-600">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                    Nema embedding
+                  <div v-else>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                      ✗ No Embedding
+                    </span>
                   </div>
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">
@@ -558,12 +572,22 @@
 
           <div>
             <label for="edit_category" class="block text-sm font-medium text-gray-700 mb-1">Kategorija</label>
-            <input
+            <select
               v-model="editForm.category"
-              type="text"
               id="edit_category"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-              placeholder="npr. Elektronika, Hrana, Odjeća..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
+            >
+              <option value="">-- Odaberi kategoriju --</option>
+              <option v-for="cat in uniqueCategories" :key="cat" :value="cat">{{ cat }}</option>
+              <option value="__custom__">+ Nova kategorija...</option>
+            </select>
+            <input
+              v-if="editForm.category === '__custom__' || (!uniqueCategories.includes(editForm.category || '') && editForm.category && editForm.category !== '')"
+              v-model="customCategory"
+              type="text"
+              class="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+              placeholder="Unesite novu kategoriju..."
+              @input="editForm.category = customCategory"
             >
           </div>
 
@@ -678,6 +702,14 @@ const products = ref<any[]>([])
 const selectedProducts = ref<number[]>([])
 const notifications = ref<any[]>([])
 
+// Computed property for unique categories
+const uniqueCategories = computed(() => {
+  const categories = products.value
+    .map(p => p.category)
+    .filter(c => c && c.trim() !== '')
+  return [...new Set(categories)].sort()
+})
+
 // Pagination state
 const currentPage = ref(1)
 const totalPages = ref(1)
@@ -699,6 +731,7 @@ const manualForm = ref({
   expires: '',
   product_url: ''
 })
+const newManualCategory = ref('')
 
 const aiForm = ref({
   product_text: ''
@@ -714,6 +747,7 @@ const isUploadingImage = ref(false)
 const isRegeneratingDescription = ref(false)
 const isRegeneratingTagsSingle = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
+const customCategory = ref('')
 const editForm = ref({
   id: null as number | null,
   title: '',
@@ -931,6 +965,9 @@ function editProduct(productId: number) {
     image_path: product.image_path || '',
     tags: product.tags || []
   }
+
+  // Reset custom category if the product's category is not in the list
+  customCategory.value = uniqueCategories.value.includes(product.category || '') ? '' : (product.category || '')
 
   showEditModal.value = true
 }
