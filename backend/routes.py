@@ -514,6 +514,24 @@ def api_savings_stats():
     })
 
 
+# API endpoint for product price history
+@app.route('/api/products/<int:product_id>/price-history')
+def api_product_price_history(product_id):
+    """Get price history for a product"""
+    from models import ProductPriceHistory
+
+    history = ProductPriceHistory.query.filter_by(product_id=product_id)\
+        .order_by(ProductPriceHistory.recorded_at.desc())\
+        .limit(10)\
+        .all()
+
+    return jsonify([{
+        'base_price': h.base_price,
+        'discount_price': h.discount_price,
+        'recorded_at': h.recorded_at.isoformat() if h.recorded_at else None
+    } for h in history])
+
+
 # API endpoint for products list
 @app.route('/api/products')
 def api_products():
@@ -920,6 +938,45 @@ def api_invite_business_member(business_id):
             'success': False,
             'error': 'Došlo je do greške prilikom slanja poziva'
         }), 500
+
+
+# API endpoint for active businesses with logos
+@app.route('/api/active-businesses')
+def api_active_businesses():
+    """API endpoint for active businesses with logos (for homepage)"""
+    try:
+        today = date.today()
+
+        # Get businesses that:
+        # 1. Have is_promo_active = True
+        # 2. Have at least one active (non-expired) product
+        # 3. Have a logo
+        businesses = db.session.query(Business).filter(
+            Business.is_promo_active == True,
+            Business.logo_path.isnot(None)
+        ).all()
+
+        # Filter by checking if they have active products
+        active_businesses = []
+        for business in businesses:
+            has_active_products = db.session.query(Product).filter(
+                Product.business_id == business.id,
+                or_(Product.expires.is_(None), Product.expires >= today)
+            ).first() is not None
+
+            if has_active_products:
+                active_businesses.append({
+                    'id': business.id,
+                    'name': business.name,
+                    'logo': business.logo_path,
+                    'city': business.city
+                })
+
+        return jsonify(active_businesses)
+
+    except Exception as e:
+        app.logger.error(f"Error in active businesses API: {e}")
+        return jsonify({'error': 'Failed to load businesses'}), 500
 
 
 # API endpoint for categories
@@ -2612,16 +2669,29 @@ def bulk_import_products(business_id):
                 expires = validated_product['expires']
                 tags = all_tags[idx] if idx < len(all_tags) else [product_data['title'].lower()]
 
-                # Check if product exists by matching title and base_price
+                # Check if product exists by matching title only (allows price updates)
                 existing_product = Product.query.filter_by(
                     business_id=business_id,
-                    title=product_data['title'],
-                    base_price=float(product_data['base_price'])
+                    title=product_data['title']
                 ).first()
 
                 if existing_product:
-                    # Update existing product
-                    existing_product.discount_price = float(product_data['discount_price']) if product_data.get('discount_price') else None
+                    # Track price changes before updating
+                    new_base = float(product_data['base_price'])
+                    new_discount = float(product_data['discount_price']) if product_data.get('discount_price') else None
+
+                    if existing_product.base_price != new_base or existing_product.discount_price != new_discount:
+                        from models import ProductPriceHistory
+                        price_history = ProductPriceHistory(
+                            product_id=existing_product.id,
+                            base_price=existing_product.base_price,
+                            discount_price=existing_product.discount_price
+                        )
+                        db.session.add(price_history)
+
+                    # Update existing product (including prices)
+                    existing_product.base_price = new_base
+                    existing_product.discount_price = new_discount
                     existing_product.expires = expires
                     existing_product.category = product_data.get('category')
                     existing_product.tags = tags
@@ -2677,15 +2747,15 @@ def bulk_import_products(business_id):
             except Exception as e:
                 app.logger.error(f"Enriched description generation failed: {e}")
 
-        # Auto-vectorize updated and new products
+        # Schedule async vectorization for updated and new products (non-blocking)
         if products_to_vectorize:
             try:
-                from auto_vectorize import batch_vectorize_products
+                from auto_vectorize import schedule_async_vectorization
                 product_ids = [p.id for p in products_to_vectorize]
-                app.logger.info(f"Auto-vectorizing {len(product_ids)} products from bulk import")
-                batch_vectorize_products(product_ids=product_ids, force=False)
+                app.logger.info(f"Scheduling async vectorization for {len(product_ids)} products from bulk import")
+                schedule_async_vectorization(product_ids=product_ids, force=False)
             except Exception as e:
-                app.logger.error(f"Auto-vectorization failed after bulk import: {e}")
+                app.logger.error(f"Failed to schedule async vectorization: {e}")
 
         created_count = imported_count - updated_count
         response = {
@@ -4030,6 +4100,17 @@ def api_admin_stats():
         total_products = db.session.query(Product).count()
         total_searches = db.session.query(UserSearch).count()
 
+        # Get embedding statistics
+        from models import ProductEmbedding
+        products_with_embeddings = db.session.query(ProductEmbedding).count()
+        products_without_embeddings = total_products - products_with_embeddings
+
+        # Get active (non-expired) products count
+        active_products = db.session.query(Product).filter(
+            db.or_(Product.expires == None, Product.expires >= date.today())
+        ).count()
+        expired_products = total_products - active_products
+
         # Get today's activity
         today = date.today()
         start_today = datetime.combine(today, time.min)
@@ -4071,7 +4152,11 @@ def api_admin_stats():
                 'today_users': today_users,
                 'today_searches': today_searches,
                 'monthly_users': monthly_users,
-                'monthly_searches': monthly_searches
+                'monthly_searches': monthly_searches,
+                'products_with_embeddings': products_with_embeddings,
+                'products_without_embeddings': products_without_embeddings,
+                'active_products': active_products,
+                'expired_products': expired_products
             },
             'recent_users': [{
                 'id': u.id,

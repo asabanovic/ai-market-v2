@@ -99,6 +99,7 @@ definePageMeta({
 
 const { login, isAuthenticated } = useAuth()
 const config = useRuntimeConfig()
+const route = useRoute()
 
 const formData = ref({
   email: '',
@@ -109,6 +110,9 @@ const errorMessage = ref('')
 const emailError = ref('')
 const passwordError = ref('')
 const isLoading = ref(false)
+
+// Get search query from URL if present
+const searchQuery = route.query.search as string || ''
 
 const googleOAuthUrl = computed(() => {
   return `${config.public.apiBase || 'http://localhost:5001'}/auth/google`
@@ -142,8 +146,13 @@ async function handleLogin() {
 
   try {
     await login(formData.value.email, formData.value.password)
-    // Redirect to home page on success
-    navigateTo('/')
+
+    // Redirect to home page with search query if present
+    if (searchQuery) {
+      navigateTo(`/?autoSearch=${encodeURIComponent(searchQuery)}`)
+    } else {
+      navigateTo('/')
+    }
   } catch (error: any) {
     errorMessage.value = error.message || 'Neispravni podaci za prijavu'
   } finally {

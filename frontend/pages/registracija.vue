@@ -141,6 +141,7 @@ definePageMeta({
 const { post } = useApi()
 const { login, isAuthenticated } = useAuth()
 const config = useRuntimeConfig()
+const route = useRoute()
 
 const formData = ref({
   first_name: '',
@@ -152,6 +153,9 @@ const formData = ref({
 
 const errorMessage = ref('')
 const isLoading = ref(false)
+
+// Get search query from URL if present
+const searchQuery = route.query.search as string || ''
 
 const googleOAuthUrl = computed(() => {
   return `${config.public.apiBase || 'http://localhost:5001'}/auth/google`
@@ -175,8 +179,13 @@ async function handleRegister() {
     if (response.success || response.token) {
       // Auto-login after successful registration
       await login(formData.value.email, formData.value.password)
-      // Redirect to home page
-      navigateTo('/')
+
+      // Redirect to home page with search query if present
+      if (searchQuery) {
+        navigateTo(`/?autoSearch=${encodeURIComponent(searchQuery)}`)
+      } else {
+        navigateTo('/')
+      }
     } else {
       errorMessage.value = response.error || response.message || 'Došlo je do greške prilikom registracije'
       console.error('Registration failed:', response)

@@ -129,7 +129,8 @@ def api_login():
             'last_name': user.last_name,
             'phone': user.phone,
             'city': user.city,
-            'is_admin': user.is_admin
+            'is_admin': user.is_admin,
+            'onboarding_completed': user.onboarding_completed or False
         }
 
         app.logger.info(f"API login successful for: {email}")
@@ -162,7 +163,8 @@ def api_verify():
             'last_name': user.last_name,
             'phone': user.phone,
             'city': user.city,
-            'is_admin': user.is_admin
+            'is_admin': user.is_admin,
+            'onboarding_completed': user.onboarding_completed or False
         }
 
         return jsonify({'user': user_data}), 200
@@ -318,6 +320,53 @@ def update_phone():
         db.session.rollback()
         app.logger.error(f"Update phone error: {e}")
         return jsonify({'error': 'Greška pri čuvanju broja telefona'}), 500
+
+
+@auth_api_bp.route('/user/onboarding', methods=['POST', 'OPTIONS'])
+@require_jwt_auth
+def complete_onboarding():
+    """Complete user onboarding - save phone and shopping preferences"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json()
+        phone = data.get('phone', '').strip()
+        typical_products = data.get('typical_products', '').strip()
+
+        # Get user from JWT
+        auth_header = request.headers.get('Authorization')
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Update user
+        if phone:
+            user.phone = phone
+
+        # Save typical products to preferences
+        if typical_products:
+            if not user.preferences:
+                user.preferences = {}
+            user.preferences['typical_products'] = typical_products
+
+        # Mark onboarding as completed
+        user.onboarding_completed = True
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Dobrodošli! Obavijestit ćemo vas kada vaši omiljeni proizvodi budu na akciji.'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Onboarding error: {e}")
+        return jsonify({'error': 'Greška pri čuvanju podataka'}), 500
 
 
 @auth_api_bp.route('/user/profile', methods=['GET', 'PUT', 'OPTIONS'])

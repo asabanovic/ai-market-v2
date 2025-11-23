@@ -41,6 +41,14 @@ class User(UserMixin, db.Model):
     # Notification preferences: 'none', 'favorites', 'all'
     notification_preferences = db.Column(db.String, default='none', nullable=True)
 
+    # Onboarding flag - True if user completed initial setup
+    onboarding_completed = db.Column(db.Boolean, default=False)
+
+    # Daily search credits - 10 credits per day, 1 credit per product searched
+    daily_credits = db.Column(db.Integer, default=10)
+    daily_credits_used = db.Column(db.Integer, default=0)
+    daily_credits_reset_date = db.Column(db.Date, default=date.today)
+
     # Relationships
     package = db.relationship('Package', backref='users')
     searches = db.relationship('UserSearch', backref='user', lazy='dynamic')
@@ -81,8 +89,9 @@ class Business(db.Model):
     last_sync = db.Column(db.DateTime, nullable=True)
     strike_count = db.Column(db.Integer, default=0)
     status = db.Column(db.String, default='active')
+    is_promo_active = db.Column(db.Boolean, default=True)  # Show on homepage if True
     views = db.Column(db.Integer, default=0)
-    
+
     # Relationships
     products = db.relationship('Product', backref='business', lazy='dynamic', cascade='all, delete-orphan')
 
@@ -158,6 +167,7 @@ class UserSearch(db.Model):
     __tablename__ = 'user_searches'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)  # Allow null for anonymous searches
+    user_ip = db.Column(db.String(50), nullable=True)  # For tracking anonymous users
     query = db.Column(db.String, nullable=False)
     results = db.Column(JSON, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)

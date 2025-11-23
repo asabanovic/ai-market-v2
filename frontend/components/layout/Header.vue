@@ -126,7 +126,7 @@
             </div>
           </template>
           <template v-else>
-            <NuxtLink to="/prijava" class="text-gray-700 hover:text-purple-600 px-3 py-2 rounded-md nav-text transition-colors">
+            <NuxtLink to="/prijava" class="bg-green-500 text-white px-4 py-2 rounded-md btn-text hover:bg-green-600 transition-colors">
               Prijava
             </NuxtLink>
             <NuxtLink to="/registracija" class="bg-purple-600 text-white px-4 py-2 rounded-md btn-text hover:bg-purple-700 transition-colors purple-pattern-overlay">
@@ -215,10 +215,10 @@
           </button>
         </template>
         <template v-else>
-          <NuxtLink to="/prijava" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+          <NuxtLink to="/prijava" class="block mx-3 my-2 px-4 py-2 bg-green-500 text-white rounded-md nav-text hover:bg-green-600 transition-colors text-center">
             Prijava
           </NuxtLink>
-          <NuxtLink to="/registracija" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
+          <NuxtLink to="/registracija" class="block mx-3 my-2 px-4 py-2 bg-purple-600 text-white rounded-md nav-text hover:bg-purple-700 transition-colors text-center">
             Registracija
           </NuxtLink>
         </template>

@@ -28,30 +28,30 @@
 
     <!-- Hero Section with Chat -->
     <div class="gradient-bg py-12">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="mx-auto px-6 sm:px-6 lg:px-12 text-center">
         <h1 class="typography-display-responsive text-white mb-4">
           Pronađite najbolje popuste u vašem gradu
         </h1>
         <p class="typography-body text-gray-200 mb-6">
-          Koristite naš AI asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije
+          🎁 <strong>POKLON:</strong> Isprobajte BESPLATNO! Jednu pretragu možete testirati bez registracije
         </p>
 
         <!-- Chat Interface -->
-        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-3xl mx-auto">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full mx-auto" style="max-width: 95vw;">
           <div class="mb-4">
             <label for="chat-input" class="block text-left typography-label text-gray-700 mb-2">
-              Pitajte našeg AI asistenta ili unesite listu za kupovinu:
+              ✨ Testirajte AI asistenta - unesite proizvode koje trebate:
             </label>
             <textarea
               id="chat-input"
               v-model="searchQuery"
               rows="6"
-              placeholder="Primjeri:&#10;&#10;• Želim da pravim jelo sa piletinom. Pokaži mi najjeftiniju piletinu u gradu&#10;&#10;• Lista za kupovinu:&#10;  - 1kg piletine&#10;  - 2kg paradajza&#10;  - Milka čokolada&#10;  - Deterdžent za pranje&#10;&#10;(Pokazaćemo vam gdje možete uštedjeti novac!)"
+              placeholder="🎯 BESPLATNI TEST - Probajte sada!&#10;&#10;Primjeri (unesite bilo šta slično):&#10;&#10;• Trebam brasno, mleko i cokoladu&#10;&#10;• Gdje ima najjeftinija piletina?&#10;&#10;• Lista: hleb, jaja, kafa, deterdzent&#10;&#10;Registracijom dobijate 10 BESPLATNIH pretraga DNEVNO i pristup listama za kupovinu!"
               class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-y chat-input"
               @keydown.enter.exact.prevent="performSearch"
             />
             <p class="mt-2 text-sm text-gray-600">
-              💡 <strong>Tip:</strong> Unesite listu proizvoda koje želite kupiti i vidite gdje možete najviše uštedjeti!
+              🎁 <strong>Posebna ponuda:</strong> Nakon registracije, pratimo cijene vaših omiljenih proizvoda i obavještavamo vas kada su na popustu!
             </p>
           </div>
 
@@ -73,7 +73,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span class="typography-body">Pretražujem...</span>
+              <span class="typography-body animate-fade-in">{{ currentLoadingMessage || 'Pretražujem...' }}</span>
             </div>
           </div>
 
@@ -81,24 +81,168 @@
           <div v-if="searchResults" class="mt-6">
 
             <!-- Explanation/Response -->
-            <div v-if="searchResults.response" class="bg-gray-50 rounded-lg p-4 mb-4">
-              <p class="typography-body text-gray-800" v-html="sanitizeResponse(searchResults.response)" />
+            <div v-if="searchResults.response" class="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-purple-500 rounded-lg p-5 mb-6 shadow-md">
+              <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <p class="text-base text-gray-800 leading-relaxed font-medium" v-html="sanitizeResponse(searchResults.response)" />
+                </div>
+              </div>
             </div>
 
-            <!-- Product Results -->
-            <div v-if="searchResults.products && searchResults.products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              <ProductCard v-for="product in searchResults.products" :key="product.id" :product="product" />
+            <!-- Anonymous User Teasers -->
+            <div v-if="searchResults.is_anonymous && searchResults.products">
+              <!-- Marketing CTA -->
+              <div class="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-8 mb-6 text-center">
+                <div class="mb-4">
+                  <Icon name="mdi:lock-open-variant" class="w-16 h-16 mx-auto text-purple-600" />
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-3">
+                  🎯 Pronašli smo rezultate za vas!
+                </h3>
+                <p class="text-lg text-gray-700 mb-6">
+                  Prijavite se za <strong>10 sekundi</strong> da vidite cijene, popuste i gdje možete najviše uštedjeti novac.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <NuxtLink
+                    :to="`/prijava?search=${encodeURIComponent(searchResults.original_query)}`"
+                    class="bg-purple-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 inline-flex items-center space-x-2"
+                  >
+                    <Icon name="mdi:login" class="w-6 h-6" />
+                    <span>Prijavite se i vidite cijene</span>
+                  </NuxtLink>
+                  <NuxtLink
+                    :to="`/registracija?search=${encodeURIComponent(searchResults.original_query)}`"
+                    class="bg-green-500 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-600 transition-all shadow-lg inline-flex items-center space-x-2"
+                  >
+                    <Icon name="mdi:account-plus" class="w-6 h-6" />
+                    <span>Ili se registrujte BESPLATNO</span>
+                  </NuxtLink>
+                </div>
+                <p class="text-sm text-gray-600 mt-4">
+                  ✓ 10 BESPLATNIH pretraga dnevno  ✓ Pratimo cijene za vas  ✓ Obavještenja o popustima
+                </p>
+              </div>
+
+              <!-- Teaser Cards - Grouped -->
+              <div v-if="isGroupedResults(searchResults.products)" class="space-y-4">
+                <div
+                  v-for="(products, groupName) in searchResults.products"
+                  :key="groupName"
+                  class="border-2 border-purple-200 rounded-lg overflow-hidden bg-white relative"
+                >
+                  <!-- Blur overlay -->
+                  <div class="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white backdrop-blur-sm z-10 flex items-center justify-center">
+                    <div class="text-center p-6">
+                      <Icon name="mdi:lock" class="w-12 h-12 mx-auto mb-2 text-purple-600" />
+                      <p class="text-lg font-semibold text-gray-900">Prijavite se da vidite rezultate</p>
+                    </div>
+                  </div>
+
+                  <!-- Teaser content (blurred) -->
+                  <div class="filter blur-sm pointer-events-none">
+                    <div class="px-4 py-3 bg-purple-50">
+                      <h3 class="text-lg font-semibold text-gray-800">
+                        {{ capitalizeWords(groupName) }}
+                      </h3>
+                      <p class="text-sm text-gray-600">
+                        {{ products && products.length > 0 ? products.length : 0 }} {{ products && products.length === 1 ? 'proizvod' : 'proizvoda' }} pronađeno
+                      </p>
+                    </div>
+                    <div class="p-4">
+                      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div v-for="i in Math.min(3, products?.length || 0)" :key="i" class="bg-gray-100 h-48 rounded-lg"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Teaser Cards - Flat -->
+              <div v-else class="border-2 border-purple-200 rounded-lg overflow-hidden bg-white relative">
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white backdrop-blur-sm z-10 flex items-center justify-center">
+                  <div class="text-center p-6">
+                    <Icon name="mdi:lock" class="w-12 h-12 mx-auto mb-2 text-purple-600" />
+                    <p class="text-lg font-semibold text-gray-900">Prijavite se da vidite rezultate</p>
+                  </div>
+                </div>
+                <div class="filter blur-sm pointer-events-none p-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div v-for="i in Math.min(4, searchResults.products?.length || 0)" :key="i" class="bg-gray-100 h-48 rounded-lg"></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <!-- No results message -->
-            <div v-else-if="!isSearching && searchResults.intent !== 'general'" class="text-gray-500 text-center py-4">
-              Nema proizvoda za prikaz.
+            <!-- Logged-in User Results -->
+            <div v-else-if="!searchResults.is_anonymous && searchResults.products">
+              <!-- Grouped Results with Collapsible Sections -->
+              <div v-if="isGroupedResults(searchResults.products)" class="space-y-4">
+                <div
+                  v-for="(products, groupName) in searchResults.products"
+                  :key="groupName"
+                  class="border border-gray-200 rounded-lg overflow-hidden"
+                >
+                  <!-- Group Header (Collapsible) -->
+                  <button
+                    @click="toggleGroup(groupName)"
+                    class="w-full px-4 py-3 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
+                    <!-- Collapse Icon -->
+                    <svg
+                      :class="[
+                        'w-5 h-5 text-gray-600 transition-transform duration-200',
+                        expandedGroups.has(groupName) ? 'transform rotate-180' : ''
+                      ]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+
+                    <!-- Group Info -->
+                    <div class="flex-1 text-left">
+                      <h3 class="text-lg font-semibold text-gray-800">
+                        {{ capitalizeWords(groupName) }}
+                      </h3>
+                      <p class="text-sm text-gray-600">
+                        {{ products && products.length > 0 ? products.length : 0 }} {{ products && products.length === 1 ? 'proizvod' : 'proizvoda' }}
+                      </p>
+                    </div>
+                  </button>
+
+                  <!-- Products Grid (Collapsible) -->
+                  <div v-if="expandedGroups.has(groupName)" class="p-4">
+                    <div v-if="products && products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      <ProductCard v-for="product in products" :key="product.id" :product="product" />
+                    </div>
+                    <div v-else class="text-gray-500 text-sm text-center py-4">
+                      Nema pronađenih proizvoda za ovu stavku.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Flat Results (legacy) -->
+              <div v-else-if="searchResults.products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <ProductCard v-for="product in searchResults.products" :key="product.id" :product="product" />
+              </div>
+
+              <!-- No results message -->
+              <div v-else-if="!isSearching && searchResults.intent !== 'general'" class="text-gray-500 text-center py-4">
+                Nema proizvoda za prikaz.
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Compact Chat Examples -->
-        <div class="mt-6 max-w-3xl mx-auto">
+        <div class="mt-6 w-full mx-auto" style="max-width: 95vw;">
           <h3 class="text-white text-sm font-medium mb-3 text-center">Primjeri pretraga:</h3>
           <div class="space-y-2">
             <div v-for="(example, idx) in chatExamples" :key="idx" class="chat-example bg-white/10 backdrop-blur-sm rounded-lg p-3 text-left">
@@ -125,31 +269,24 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <h2 class="typography-heading-1 text-gray-900 mb-2">SUPERMARKETI</h2>
-          <p class="typography-body text-gray-600">Trgovine sa aktivnim proizvodima</p>
+          <p class="typography-body text-gray-600">Koristite naš AI asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije</p>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+        <div class="flex flex-wrap justify-center items-center gap-6">
           <NuxtLink
             v-for="business in featuredBusinesses"
             :key="business.id"
             :to="`/proizvodi?business=${business.id}`"
-            class="flex flex-col items-center group"
+            class="hover:opacity-75 transition-opacity"
           >
-            <div class="w-20 h-20 rounded-full bg-white shadow-md flex items-center justify-center mb-3 group-hover:shadow-lg transition-shadow duration-200 overflow-hidden border-2 border-gray-200 p-2">
-              <img
-                v-if="business.logo_path"
-                :src="`${config.public.apiBase}/static/${business.logo_path}`"
-                :alt="business.name"
-                class="w-full h-full object-contain"
-                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-              />
-              <div v-else class="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center rounded-full">
-                <span class="text-white text-2xl font-bold">{{ business.name[0] }}</span>
-              </div>
-            </div>
-            <span class="text-sm font-medium text-gray-900 text-center group-hover:text-purple-600 transition-colors duration-200">
-              {{ business.name }}
-            </span>
+            <img
+              v-if="business.logo"
+              :src="business.logo"
+              :alt="business.name"
+              :title="business.name"
+              class="h-10 object-contain"
+              @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+            />
           </NuxtLink>
         </div>
       </div>
@@ -226,6 +363,9 @@ const featuredBusinesses = ref<any[]>([])
 const featuredProducts = ref<any[]>([])
 const showRegistrationModal = ref(false)
 const registrationMessage = ref('')
+const expandedGroups = ref<Set<string>>(new Set())
+const currentLoadingMessage = ref('')
+const loadingMessageInterval = ref<any>(null)
 
 // Chat examples
 const chatExamples = [
@@ -243,10 +383,207 @@ const chatExamples = [
   }
 ]
 
+// Fun loading messages by category
+const funMessages: Record<string, string[]> = {
+  čokolada: [
+    '🍫 Tražim najslađe ponude...',
+    '🍫 Provjeravam ko ima najfiniju čokoladu...',
+    '🍫 Čokolada? Odličan izbor! Pretražujem...',
+    '🍫 Milka ili domaća? Vidim šta imamo...',
+    '🍫 Sweet! Tražim najbolje cijene...'
+  ],
+  mlijeko: [
+    '🥛 Tražim najsvježije mlijeko...',
+    '🥛 Ko ima najbolje mliječne proizvode?',
+    '🥛 Mlijeko? Ne zaboravi kekse! Pretražujem...',
+    '🥛 Provjeravam litarže i cijene...',
+    '🥛 Tražim kravlje, kozije... sve vrste!'
+  ],
+  hleb: [
+    '🍞 Tražim svježi hljeb sa popustom...',
+    '🍞 Peciva fresh iz pekare! Gledam...',
+    '🍞 Hljeb naš svagdanji... tražim danas...',
+    '🍞 Somun, kifle, razno... pretražujem...',
+    '🍞 Najbolji hljeb u gradu? Odmah provjeravam!'
+  ],
+  meso: [
+    '🥩 Tražim najkvalitetnije meso...',
+    '🥩 Svinjetina, govedina, piletina... gledam sve!',
+    '🥩 Ko ima meso na akciji danas?',
+    '🥩 Najbolje za roštilj! Pretražujem...',
+    '🥩 Mesara ili market? Vidim šta nude...'
+  ],
+  piletina: [
+    '🍗 Tražim najjeftiniju piletinu...',
+    '🍗 File, bataci ili cijela? Gledam sve!',
+    '🍗 Ko ima piletinu na popustu?',
+    '🍗 Provjeravam sve ponude za piletinu...',
+    '🍗 Fresh piletina? Odmah tražim!'
+  ],
+  riba: [
+    '🐟 Tražim najbolje ribe grada...',
+    '🐟 Losos, tuna, ili lokalna riba?',
+    '🐟 Ko ima najsvježiju ribu danas?',
+    '🐟 More dobrote! Pretražujem...',
+    '🐟 Provjeravam ponude za ribu...'
+  ],
+  voće: [
+    '🍎 Tražim najsvježije voće...',
+    '🍊 Ko ima najbolje citruse?',
+    '🍌 Vitamini na akciji! Pretražujem...',
+    '🍇 Sezonsko voće? Vidim šta ima...',
+    '🍓 Fresh iz bašte! Gledam ponude...'
+  ],
+  povrće: [
+    '🥕 Tražim najkvalitetnije povrće...',
+    '🥬 Zeleno i zdravo! Pretražujem...',
+    '🍅 Ko ima najsvježije paradajze?',
+    '🥒 Salata level: expert! Tražim...',
+    '🌽 Provjeravam sve ponude za povrće...'
+  ],
+  sir: [
+    '🧀 Tražim najbolje sireve...',
+    '🧀 Trapist, gauda, ili kačkavalj?',
+    '🧀 Ko ima sireve na popustu?',
+    '🧀 Cheese lovers unite! Pretražujem...',
+    '🧀 Mlječni specijaliteti! Gledam...'
+  ],
+  kafa: [
+    '☕ Buđenje počinje ovdje! Tražim...',
+    '☕ Ko ima najbolju kafu po cijeni?',
+    '☕ Espresso, cappuccino... sve vrste!',
+    '☕ Kafitza time! Pretražujem...',
+    '☕ Najbolja kafa za jutro! Gledam...'
+  ],
+  čaj: [
+    '🍵 Tražim najfiniji čaj...',
+    '🍵 Zeleni, crni, ili voćni?',
+    '🍵 Ko ima čajeve na akciji?',
+    '🍵 Tea time! Pretražujem ponude...',
+    '🍵 Opuštajući čaj? Odmah tražim!'
+  ],
+  sok: [
+    '🧃 Tražim najukusnije sokove...',
+    '🧃 Prirodni ili sa šećerom?',
+    '🧃 Ko ima sokove na popustu danas?',
+    '🧃 Vitamin boost! Pretražujem...',
+    '🧃 Voćni freshness! Gledam ponude...'
+  ],
+  pivo: [
+    '🍺 Tražim najbolje pivo po cijeni...',
+    '🍺 Domaće ili import?',
+    '🍺 Ko ima pivo na akciji?',
+    '🍺 Cheers! Pretražujem ponude...',
+    '🍺 Najbolje za žurku! Gledam...'
+  ],
+  vino: [
+    '🍷 Tražim najbolja vina...',
+    '🍷 Crveno, bijelo, ili rosé?',
+    '🍷 Ko ima vina na popustu?',
+    '🍷 Wine o\'clock! Pretražujem...',
+    '🍷 Domaće ili import? Gledam sve!'
+  ],
+  deterdžent: [
+    '🧼 Tražim najbolje deterdžente...',
+    '🧼 Za bijelo, u boji, ili sve zajedno?',
+    '🧼 Ko ima najpovoljnije cijene?',
+    '🧼 Čistoća na prvom mjestu! Pretražujem...',
+    '🧼 Mirisi i svježina! Gledam ponude...'
+  ],
+  šampon: [
+    '🧴 Tražim najbolje šampone...',
+    '🧴 Ko ima hair products na akciji?',
+    '🧴 Provjeravam sve brendove...',
+    '🧴 Good hair day incoming! Pretražujem...',
+    '🧴 Za svaku kosu! Gledam ponude...'
+  ],
+  pasta: [
+    '🍝 Tražim najbolje paste...',
+    '🍝 Italiana style! Pretražujem...',
+    '🍝 Ko ima paste na popustu?',
+    '🍝 Spageti, penne, ili fusilli?',
+    '🍝 Pasta la vista! Gledam ponude...'
+  ],
+  generic: [
+    '🔍 AI pretraživač na djelu...',
+    '🤖 Analiziram hiljade proizvoda...',
+    '💰 Tražim gdje možete uštedjeti...',
+    '🎯 Skeniram sve trgovine grada...',
+    '⚡ Brža pretraga od Googla!',
+    '🛒 Vaš personalni shopping asistent radi...',
+    '💎 Tražim skrivene popuste...',
+    '🏪 Provjeravam sve supermarkete...',
+    '📊 AI mašina procesuje podatke...',
+    '🎁 Možda naletim na iznenađenje...',
+    '🚀 Turbo pretraga aktivna...',
+    '🧠 AI mozak razmišlja...',
+    '💡 Genijalna ideja: potražimo popust!',
+    '🎪 Show počinje... tražim ponude!',
+    '🌟 Magija AI pretrage u toku...'
+  ]
+}
+
+function getLoadingMessages(query: string): string[] {
+  const lowerQuery = query.toLowerCase()
+
+  // Check for keywords in the query
+  for (const [category, messages] of Object.entries(funMessages)) {
+    if (category !== 'generic' && lowerQuery.includes(category)) {
+      return messages
+    }
+  }
+
+  // Return generic messages if no category matches
+  return funMessages.generic
+}
+
+function startLoadingMessages(query: string) {
+  const messages = getLoadingMessages(query)
+  let currentIndex = 0
+
+  // Set initial message
+  currentLoadingMessage.value = messages[0]
+
+  // Clear any existing interval
+  if (loadingMessageInterval.value) {
+    clearInterval(loadingMessageInterval.value)
+  }
+
+  // Rotate messages every 3 seconds
+  loadingMessageInterval.value = setInterval(() => {
+    currentIndex = (currentIndex + 1) % messages.length
+    currentLoadingMessage.value = messages[currentIndex]
+  }, 3000)
+}
+
+function stopLoadingMessages() {
+  if (loadingMessageInterval.value) {
+    clearInterval(loadingMessageInterval.value)
+    loadingMessageInterval.value = null
+  }
+  currentLoadingMessage.value = ''
+}
+
 // Load initial data
 onMounted(async () => {
   await loadSavingsStats()
   await loadFeaturedData()
+
+  // Auto-search if autoSearch query param is present (from login/register redirect)
+  const route = useRoute()
+  const autoSearchQuery = route.query.autoSearch as string
+  if (autoSearchQuery) {
+    searchQuery.value = autoSearchQuery
+    // Wait a bit for UI to load, then trigger search
+    setTimeout(() => {
+      performSearch()
+    }, 500)
+  }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  stopLoadingMessages()
 })
 
 async function loadSavingsStats() {
@@ -261,8 +598,10 @@ async function loadSavingsStats() {
 async function loadFeaturedData() {
   try {
     const data = await get('/api/featured-data')
-    featuredBusinesses.value = data.businesses || []
     featuredProducts.value = data.products || []
+
+    // Load active businesses separately
+    featuredBusinesses.value = await get('/api/active-businesses')
   } catch (error) {
     console.error('Error loading featured data:', error)
   }
@@ -277,12 +616,23 @@ async function performSearch() {
   isSearching.value = true
   searchResults.value = null
 
+  // Start fun loading messages
+  startLoadingMessages(query)
+
   try {
     // Use new agent endpoint with multi-agent system
     const data = await post('/api/search', { query })
 
     if (data.error) {
-      if (data.error === 'registration_required') {
+      if (data.error === 'free_trial_expired') {
+        // Show registration modal for anonymous users who used their free search
+        registrationMessage.value = data.message
+        showRegistrationModal.value = true
+      } else if (data.error === 'credits_exhausted') {
+        // Show credits exhausted message with link to "get more" page
+        const message = data.message + ' <br><br><a href="/krediti-uskoro" class="text-purple-600 underline font-bold">Saznajte kako dobiti više kredita →</a>'
+        searchResults.value = { response: message, products: [] }
+      } else if (data.error === 'registration_required') {
         registrationMessage.value = data.message
         showRegistrationModal.value = true
       } else if (data.error === 'limit_exceeded' || data.error === 'no_results') {
@@ -298,7 +648,15 @@ async function performSearch() {
         response: data.explanation || 'Rezultati pretrage',
         products: data.results || [],  // Agent uses 'results' not 'products'
         intent: data.intent,
-        metadata: data.metadata
+        metadata: data.metadata,
+        credits_remaining: data.credits_remaining,
+        is_anonymous: data.is_anonymous,  // Show teasers if true
+        original_query: query  // Save query for login redirect
+      }
+
+      // Expand all groups by default when new results come in
+      if (isGroupedResults(data.results)) {
+        expandedGroups.value = new Set(Object.keys(data.results))
       }
     }
   } catch (error) {
@@ -306,7 +664,38 @@ async function performSearch() {
     searchResults.value = { response: 'Došlo je do greške. Molim vas pokušajte ponovo.', products: [] }
   } finally {
     isSearching.value = false
+    // Stop fun loading messages
+    stopLoadingMessages()
   }
+}
+
+function toggleGroup(groupName: string) {
+  if (expandedGroups.value.has(groupName)) {
+    expandedGroups.value.delete(groupName)
+  } else {
+    expandedGroups.value.add(groupName)
+  }
+  // Force reactivity update
+  expandedGroups.value = new Set(expandedGroups.value)
+}
+
+function isGroupedResults(products: any): boolean {
+  // Check if products is an object (grouped) rather than an array (flat)
+  return products && typeof products === 'object' && !Array.isArray(products)
+}
+
+function capitalizeWords(text: string): string {
+  if (!text) return ''
+
+  // Split by spaces and capitalize each word
+  return text
+    .split(' ')
+    .map(word => {
+      if (!word) return word
+      // Capitalize first letter and keep the rest as is
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
+    .join(' ')
 }
 
 function sanitizeResponse(html: string): string {
@@ -396,5 +785,20 @@ useSeoMeta({
   background-position: 0 0, 10px 10px, 5px 5px;
   pointer-events: none;
   z-index: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
 }
 </style>

@@ -3,16 +3,47 @@
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+
+    <!-- Onboarding Modal -->
+    <OnboardingModal
+      :show="showOnboardingModal"
+      @close="showOnboardingModal = false"
+      @complete="handleOnboardingComplete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 // Global app setup
 const colorMode = useColorMode()
+const { user, checkAuth } = useAuth()
 
-// Check auth on mount
-onMounted(() => {
-  const { checkAuth } = useAuth()
-  checkAuth()
+const showOnboardingModal = ref(false)
+
+// Check auth and onboarding status on mount
+onMounted(async () => {
+  await checkAuth()
+
+  // Show onboarding modal if user is logged in but hasn't completed onboarding
+  if (user.value && !user.value.onboarding_completed) {
+    setTimeout(() => {
+      showOnboardingModal.value = true
+    }, 1000) // Delay 1 second to let the page load
+  }
 })
+
+// Watch user changes to show modal after login
+watch(user, (newUser) => {
+  if (newUser && !newUser.onboarding_completed && !showOnboardingModal.value) {
+    setTimeout(() => {
+      showOnboardingModal.value = true
+    }, 500)
+  }
+})
+
+function handleOnboardingComplete() {
+  showOnboardingModal.value = false
+  // Refresh user data to update onboarding_completed flag
+  checkAuth()
+}
 </script>
