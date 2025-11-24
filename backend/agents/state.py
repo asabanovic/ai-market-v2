@@ -35,6 +35,9 @@ class AgentState:
     results: List[Dict[str, Any]] = field(default_factory=list)
     """Results from the agent execution."""
 
+    search_items: List[Dict[str, Any]] = field(default_factory=list)
+    """Parsed search items from intent parser with expanded queries."""
+
     explanation: Optional[str] = field(default=None)
     """AI-generated explanation of the results."""
 

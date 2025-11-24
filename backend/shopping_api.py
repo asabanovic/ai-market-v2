@@ -10,7 +10,8 @@ from app import app, db
 from auth_api import require_jwt_auth
 from models import (User, Product, Business, Favorite, ShoppingList,
                     ShoppingListItem, SMSOutbox)
-from credits_service import CreditsService, InsufficientCreditsError
+from credits_service_weekly import WeeklyCreditsService
+from credits_service import InsufficientCreditsError
 from sms_service import sms_service
 import logging
 
@@ -59,7 +60,7 @@ def add_favorite():
 
         # Deduct 1 credit
         try:
-            result = CreditsService.deduct_credits(
+            result = WeeklyCreditsService.deduct_credits(
                 user_id=user_id,
                 amount=1,
                 action='ADD_FAVORITE',
@@ -246,12 +247,13 @@ def add_to_shopping_list():
 
             logger.info(f"Increased qty for item {existing_item.id} to {existing_item.qty}")
 
+            balance = WeeklyCreditsService.get_balance(user_id)
             return jsonify({
                 'ok': True,
                 'list_id': shopping_list.id,
                 'item_id': existing_item.id,
                 'ttl_seconds': shopping_list.ttl_seconds,
-                'credits_left': CreditsService.get_balance(user_id)
+                'credits_left': balance['total_credits']
             }), 200
 
         # New item - check 10 item limit
@@ -268,7 +270,7 @@ def add_to_shopping_list():
 
         # Deduct 1 credit
         try:
-            credit_result = CreditsService.deduct_credits(
+            credit_result = WeeklyCreditsService.deduct_credits(
                 user_id=user_id,
                 amount=1,
                 action='ADD_TO_CART',
@@ -645,17 +647,6 @@ def checkout_shopping_list(list_id):
             phone=formatted_phone,
             body=sms_body,
             list_id=list_id
-        )
-
-        # Record free transaction (promo)
-        CreditsService.record_free_transaction(
-            user_id=user_id,
-            action='CHECKOUT_SMS',
-            metadata={
-                'list_id': list_id,
-                'promo': True,
-                'sms_id': sms_result['sms_id']
-            }
         )
 
         # Update list status

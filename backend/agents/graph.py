@@ -3,7 +3,7 @@
 from langgraph.graph import StateGraph, END
 from agents.state import AgentState, InputState, OutputState
 from agents.context import AgentContext
-from agents.nodes import semantic_search_node
+from agents.nodes import semantic_search_node, intent_parser_node
 
 # Build the simplified graph - direct semantic search
 workflow = StateGraph(
@@ -15,9 +15,11 @@ workflow = StateGraph(
 
 # Add only semantic search node
 workflow.add_node("semantic_search", semantic_search_node)
+workflow.add_node("intent_parser", intent_parser_node)
 
-# Define edges - go directly to semantic search
-workflow.set_entry_point("semantic_search")
+# Define edges - go directly to intent_parser
+workflow.set_entry_point("intent_parser")
+workflow.add_edge("intent_parser", "semantic_search")
 workflow.add_edge("semantic_search", END)
 
 # Compile the graph

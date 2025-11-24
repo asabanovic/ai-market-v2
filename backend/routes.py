@@ -34,15 +34,36 @@ from app import csrf
 # Import shopping list and favorites API blueprint
 from shopping_api import shopping_api_bp
 
+# Import phone authentication API blueprint
+from phone_auth_api import phone_auth_bp
+
+# Import referral API blueprint
+from referral_api import referral_api_bp
+
+# Import engagement API blueprint
+from engagement_api import engagement_bp
+
 # Disable CSRF for API endpoints (JWT-based)
 csrf.exempt(auth_api_bp)
 csrf.exempt(shopping_api_bp)
+csrf.exempt(phone_auth_bp)
+csrf.exempt(referral_api_bp)
+csrf.exempt(engagement_bp)
 
 # Register auth API blueprint
 app.register_blueprint(auth_api_bp)
 
 # Register shopping API blueprint
 app.register_blueprint(shopping_api_bp)
+
+# Register phone auth API blueprint
+app.register_blueprint(phone_auth_bp)
+
+# Register referral API blueprint
+app.register_blueprint(referral_api_bp)
+
+# Register engagement API blueprint
+app.register_blueprint(engagement_bp)
 
 # Register Replit Auth blueprint (only if running on Replit)
 replit_bp = make_replit_blueprint()
@@ -153,8 +174,8 @@ if google_bp:
 
                         # Initialize credits for new user (auto-detects admin status)
                         try:
-                            from credits_service import CreditsService
-                            result = CreditsService.initialize_user_credits(user.id)
+                            from credits_service_weekly import WeeklyCreditsService
+                            result = WeeklyCreditsService.initialize_user_credits(user.id)
                             app.logger.info(f"Initialized {result['balance']} credits for new user: {email} (admin={user.is_admin})")
                         except Exception as credit_error:
                             app.logger.error(f"Failed to initialize credits: {credit_error}")
@@ -380,27 +401,34 @@ def get_search_counts(user=None):
 
     if user and user.is_authenticated:
         # For logged-in users, use credit system
-        from credits_service import CreditsService
+        from credits_service_weekly import WeeklyCreditsService
 
-        current_balance = CreditsService.get_balance(user.id)
+        balance = WeeklyCreditsService.get_balance(user.id)
+        current_balance = balance['total_credits']
 
-        # For admins or users with high balances (>100), don't show daily limit
+        # For admins or users with high balances (>100), don't show weekly limit
         # Just show their total balance
         if getattr(user, 'is_admin', False) or current_balance > 100:
             return {
-                'daily_limit': current_balance,  # Show balance as limit for display
-                'used_today': 0,
+                'weekly_limit': current_balance,  # Show balance as limit for display
+                'used_this_week': 0,
                 'remaining': current_balance,
+                'regular_credits': balance['regular_credits'],
+                'extra_credits': balance['extra_credits'],
+                'next_reset_date': balance['next_reset_date'].isoformat(),
                 'user_type': 'logged_in',
                 'is_unlimited': True
             }
         else:
-            # For regular users, show standard daily limit
-            daily_limit = 10
+            # For regular users, show standard weekly limit
+            weekly_limit = 10
             return {
-                'daily_limit': daily_limit,
-                'used_today': max(0, daily_limit - current_balance),
+                'weekly_limit': weekly_limit,
+                'used_this_week': max(0, weekly_limit - balance['regular_credits']),
                 'remaining': max(0, current_balance),
+                'regular_credits': balance['regular_credits'],
+                'extra_credits': balance['extra_credits'],
+                'next_reset_date': balance['next_reset_date'].isoformat(),
                 'user_type': 'logged_in',
                 'is_unlimited': False
             }
@@ -1216,9 +1244,9 @@ def search():
 
         # Deduct credits and increment counters ONLY for successful searches (with results)
         if current_user.is_authenticated:
-            from credits_service import CreditsService
+            from credits_service_weekly import WeeklyCreditsService
             try:
-                CreditsService.deduct_credits(
+                WeeklyCreditsService.deduct_credits(
                     user_id=current_user.id,
                     amount=1,
                     action='SEARCH',
@@ -4182,6 +4210,173 @@ def api_admin_stats():
 
     except Exception as e:
         app.logger.error(f"Admin stats error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users')
+def api_admin_users():
+    """API endpoint for admin to view all users with their registration method and OTP codes"""
+    from auth_api import decode_jwt_token
+    from models import OTPCode
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '').strip()
+
+        # Build query
+        query = User.query
+
+        # Search filter
+        if search:
+            query = query.filter(
+                or_(
+                    User.email.ilike(f'%{search}%'),
+                    User.phone.ilike(f'%{search}%'),
+                    User.first_name.ilike(f'%{search}%'),
+                    User.last_name.ilike(f'%{search}%')
+                )
+            )
+
+        # Order by most recent
+        query = query.order_by(User.created_at.desc())
+
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        users = pagination.items
+
+        # Get OTP codes for each user
+        user_data = []
+        for u in users:
+            latest_otp = None
+            if u.phone:
+                latest_otp_record = OTPCode.query.filter_by(
+                    phone=u.phone
+                ).order_by(OTPCode.created_at.desc()).first()
+
+                if latest_otp_record:
+                    latest_otp = {
+                        'code': latest_otp_record.code,
+                        'is_used': latest_otp_record.is_used,
+                        'expires_at': latest_otp_record.expires_at.isoformat(),
+                        'created_at': latest_otp_record.created_at.isoformat(),
+                        'expired': latest_otp_record.expires_at < datetime.now()
+                    }
+
+            user_data.append({
+                'id': u.id,
+                'email': u.email,
+                'phone': u.phone,
+                'phone_verified': u.phone_verified,
+                'registration_method': u.registration_method,
+                'is_admin': u.is_admin,
+                'is_verified': u.is_verified,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
+                'city': u.city,
+                'created_at': u.created_at.isoformat() if u.created_at else None,
+                'daily_credits': u.daily_credits,
+                'daily_credits_used': u.daily_credits_used,
+                'latest_otp': latest_otp
+            })
+
+        return jsonify({
+            'users': user_data,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'pages': pagination.pages
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin users error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/otp-codes')
+def api_admin_otp_codes():
+    """API endpoint for admin to view recent OTP codes for testing"""
+    from auth_api import decode_jwt_token
+    from models import OTPCode
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        phone_filter = request.args.get('phone', '').strip()
+
+        # Build query
+        query = OTPCode.query
+
+        # Phone filter
+        if phone_filter:
+            query = query.filter(OTPCode.phone.ilike(f'%{phone_filter}%'))
+
+        # Order by most recent
+        query = query.order_by(OTPCode.created_at.desc())
+
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        otp_codes = pagination.items
+
+        otp_data = [{
+            'id': otp.id,
+            'phone': otp.phone,
+            'code': otp.code,
+            'is_used': otp.is_used,
+            'attempts': otp.attempts,
+            'created_at': otp.created_at.isoformat(),
+            'expires_at': otp.expires_at.isoformat(),
+            'expired': otp.expires_at < datetime.now()
+        } for otp in otp_codes]
+
+        return jsonify({
+            'otp_codes': otp_data,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'pages': pagination.pages
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin OTP codes error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 

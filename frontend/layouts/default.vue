@@ -10,6 +10,7 @@
     <LayoutFooter />
     <ClientOnly>
       <NotificationOptInPopup />
+      <CreditAnimations />
     </ClientOnly>
   </div>
 </template>

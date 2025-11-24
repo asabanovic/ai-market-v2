@@ -1,5 +1,20 @@
 <template>
-  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300">
+  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="relevanceBorderClass">
+    <!-- Relevance Badge -->
+    <div
+      v-if="product.similarity !== undefined"
+      :class="relevanceBadgeClass"
+      class="absolute top-3 left-3 px-3 py-1.5 rounded-md text-sm font-extrabold z-20 shadow-lg cursor-help"
+      :title="relevanceTooltip"
+    >
+      <div class="flex items-center gap-1">
+        <span>{{ relevanceLabel }}</span>
+        <svg class="w-3 h-3 opacity-70" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+      </div>
+    </div>
+
     <!-- Discount Badge -->
     <div
       v-if="discountPercentage > 0"
@@ -8,8 +23,8 @@
       -{{ discountPercentage }}%
     </div>
 
-    <!-- Favorite Button (Top Left) -->
-    <div class="absolute top-3 left-3 z-10">
+    <!-- Favorite Button (moved down if relevance badge exists) -->
+    <div :class="['absolute left-3 z-10', product.similarity !== undefined ? 'top-12' : 'top-3']">
       <FavoriteButton :product-id="product.id" :size="32" @updated="handleFavoriteUpdate" />
     </div>
 
@@ -87,8 +102,9 @@
 
       <!-- Action Buttons - Stacked Vertically -->
       <div class="flex flex-col gap-2">
-        <!-- Shopping List Button -->
+        <!-- Shopping List Button (only for logged-in users) -->
         <button
+          v-if="isLoggedIn"
           @click.stop="addToShoppingList"
           :disabled="isAddingToList"
           :title="'Dodaj u listu za kupovinu'"
@@ -98,131 +114,32 @@
           <span>Dodaj u listu</span>
         </button>
 
-        <!-- Details Button -->
+        <!-- Comment Button -->
         <button
           @click.stop="showDetails"
           class="w-full py-2.5 px-4 bg-white border-2 border-gray-200 text-gray-700 hover:border-purple-500 hover:text-purple-600 rounded-lg transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
         >
-          <Icon name="mdi:information-outline" class="w-5 h-5" />
-          <span>Detalji</span>
+          <Icon name="mdi:comment-outline" class="w-5 h-5" />
+          <span>Ostavi Komentar</span>
+        </button>
+
+        <!-- Share Button -->
+        <button
+          @click.stop="shareProduct"
+          class="w-full py-2.5 px-4 bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 rounded-lg transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+        >
+          <Icon name="mdi:share-variant" class="w-5 h-5" />
+          <span>Podijeli</span>
         </button>
       </div>
     </div>
 
     <!-- Product Details Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showModal"
-        class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
-        @click="showModal = false"
-      >
-        <div class="relative top-20 mx-auto p-0 border w-full max-w-4xl shadow-lg rounded-lg bg-white" @click.stop>
-          <div class="flex">
-            <!-- Left side - Business info -->
-            <div class="w-1/2 p-6">
-              <div class="flex justify-between items-start mb-4">
-                <h3 class="text-xl font-bold text-gray-900">
-                  {{ product.business?.name || 'Nepoznato poslovanje' }}
-                </h3>
-                <button @click="showModal = false" class="text-gray-400 hover:text-gray-600">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <!-- Business logo -->
-              <div v-if="product.business?.logo" class="mb-4">
-                <img
-                  :src="`${config.public.apiBase}/static/${product.business.logo}`"
-                  alt="Logo"
-                  class="h-16 w-auto object-contain rounded"
-                />
-              </div>
-              <div v-else class="mb-4 p-4 bg-green-100 rounded-lg text-center">
-                <div class="w-12 h-12 bg-green-500 rounded mx-auto mb-2 flex items-center justify-center text-white font-bold text-lg">
-                  {{ product.business?.name?.[0] || '?' }}
-                </div>
-                <span class="text-green-700 text-sm">Logo uskoro</span>
-              </div>
-
-              <!-- Product info -->
-              <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-                <h4 class="font-semibold text-gray-900 mb-2">{{ product.title }}</h4>
-                <div class="text-lg">
-                  <span class="font-bold text-green-600">
-                    {{ formatPrice(product.discount_price || product.base_price) }} KM
-                  </span>
-                  <span
-                    v-if="product.discount_price && product.base_price > product.discount_price"
-                    class="ml-2 text-sm text-gray-500 line-through"
-                  >
-                    {{ formatPrice(product.base_price) }} KM
-                  </span>
-                </div>
-              </div>
-
-              <!-- Business details -->
-              <div class="space-y-3">
-                <div class="flex items-center space-x-2">
-                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span class="text-gray-700">{{ product.city || 'Nepoznat grad' }}</span>
-                </div>
-
-                <div v-if="product.contact_phone" class="flex items-center space-x-2">
-                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span class="text-gray-700">{{ product.contact_phone }}</span>
-                </div>
-
-                <div v-if="product.expires" class="flex items-center space-x-2">
-                  <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span class="text-orange-700 font-medium">Važi do: {{ formatBosnianDate(product.expires) }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right side - Map/Location -->
-            <div class="w-1/2">
-              <div class="h-full min-h-96 bg-gray-100 rounded-r-lg flex items-center justify-center">
-                <div v-if="product.google_link" class="text-center p-6">
-                  <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <p class="text-lg font-medium text-gray-700 mb-2">Lokacija: {{ product.city || 'Nepoznato' }}</p>
-                  <a
-                    :href="product.google_link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    Pogledaj na mapi
-                  </a>
-                </div>
-                <div v-else class="text-center text-gray-500">
-                  <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <p class="text-sm">Mapa nije dostupna</p>
-                  <p class="text-xs text-gray-400 mt-1">Lokacija: {{ product.city || 'Nepoznato' }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <ProductDetailModal
+      :show="showModal"
+      :product="product"
+      @close="showModal = false"
+    />
   </div>
 </template>
 
@@ -234,6 +151,7 @@ const config = useRuntimeConfig()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
 const { handleApiError, showSuccess } = useCreditsToast()
+const { user } = useAuth()
 
 const props = defineProps<{
   product: any
@@ -243,11 +161,77 @@ const showModal = ref(false)
 const imageError = ref(false)
 const isAddingToList = ref(false)
 
+// Computed property to check if user is logged in
+const isLoggedIn = computed(() => !!user.value)
+
 const discountPercentage = computed(() => {
   if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
     return Math.round(((props.product.base_price - props.product.discount_price) / props.product.base_price) * 100)
   }
   return 0
+})
+
+// Relevance level based on similarity score
+const relevanceLevel = computed(() => {
+  const similarity = props.product.similarity
+  if (similarity === undefined) return null
+
+  // Define thresholds for relevance
+  if (similarity >= 0.75) return 'high'      // Highly relevant - green
+  if (similarity >= 0.55) return 'medium'    // Somewhat related - orange
+  return 'low'                                // Least related - red
+})
+
+const relevanceBadgeClass = computed(() => {
+  switch (relevanceLevel.value) {
+    case 'high':
+      return 'bg-green-600 text-white'
+    case 'medium':
+      return 'bg-orange-600 text-white'
+    case 'low':
+      return 'bg-red-500 text-white'
+    default:
+      return ''
+  }
+})
+
+const relevanceBorderClass = computed(() => {
+  switch (relevanceLevel.value) {
+    case 'high':
+      return 'border-4 border-green-500 shadow-green-200 shadow-lg'
+    case 'medium':
+      return 'border-4 border-orange-500 shadow-orange-200 shadow-lg'
+    case 'low':
+      return 'border-4 border-red-400 shadow-red-200 shadow-lg'
+    default:
+      return ''
+  }
+})
+
+const relevanceLabel = computed(() => {
+  const similarity = props.product.similarity
+  if (similarity === undefined) return ''
+
+  const percentage = Math.round(similarity * 100)
+  return `${percentage}%`
+})
+
+const relevanceTooltip = computed(() => {
+  const similarity = props.product.similarity
+  if (similarity === undefined) return ''
+
+  const percentage = Math.round(similarity * 100)
+
+  switch (relevanceLevel.value) {
+    case 'high':
+      return `Indeks relevantnosti: ${percentage}% - Odlično poklapanje sa vašom pretragom`
+    case 'medium':
+      return `Indeks relevantnosti: ${percentage}% - Dobro poklapanje, sličan proizvod`
+    case 'low':
+      return `Indeks relevantnosti: ${percentage}% - Slabije poklapanje, može biti zanimljivo`
+    default:
+      return ''
+  }
 })
 
 function getImageUrl(path: string): string {
@@ -307,6 +291,24 @@ async function addToShoppingList() {
 function handleFavoriteUpdate() {
   // Refresh favorites count in header
   favoritesStore.fetchFavorites()
+}
+
+async function shareProduct() {
+  try {
+    const productUrl = `${window.location.origin}/?product=${props.product.id}`
+    await navigator.clipboard.writeText(productUrl)
+    showSuccess('Link kopiran! Podijelite sa prijateljima.')
+  } catch (error) {
+    console.error('Error copying link:', error)
+    // Fallback if clipboard API doesn't work
+    const textArea = document.createElement('textarea')
+    textArea.value = `${window.location.origin}/?product=${props.product.id}`
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    showSuccess('Link kopiran!')
+  }
 }
 </script>
 

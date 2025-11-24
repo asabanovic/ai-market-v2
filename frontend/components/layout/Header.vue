@@ -4,7 +4,7 @@
       <div class="flex justify-between h-16">
         <div class="flex items-center">
           <NuxtLink to="/" class="flex items-center text-lg font-semibold text-gray-900">
-            <span class="text-2xl font-bold text-purple-600">AI Pijaca</span>
+            <span class="text-2xl font-bold text-purple-600">Rabat</span>
           </NuxtLink>
         </div>
 
@@ -27,19 +27,20 @@
             <div
               v-if="searchCounts"
               :class="[
-                'text-sm font-medium px-3 py-1 rounded-full border',
+                'text-sm font-medium px-3 py-1 rounded-full border cursor-help',
                 searchCounts.remaining === 0
                   ? 'border-red-200 bg-red-50 text-red-700'
                   : searchCounts.remaining <= 2
                   ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
                   : 'border-green-200 bg-green-50 text-green-700'
               ]"
+              :title="searchCounts.next_reset_date ? `Sljedeća dopuna: ${formatResetDate(searchCounts.next_reset_date)}` : ''"
             >
               <template v-if="searchCounts.is_unlimited">
                 Krediti: {{ searchCounts.remaining }}
               </template>
               <template v-else>
-                Krediti: {{ searchCounts.remaining }}/{{ searchCounts.daily_limit }}
+                Krediti: {{ searchCounts.remaining }}/{{ searchCounts.weekly_limit || searchCounts.daily_limit || 10 }}
               </template>
             </div>
 
@@ -182,7 +183,10 @@
               Krediti: {{ searchCounts.remaining }}
             </template>
             <template v-else>
-              Krediti: {{ searchCounts.remaining }}/{{ searchCounts.daily_limit }}
+              <div>Krediti: {{ searchCounts.remaining }}/{{ searchCounts.weekly_limit || searchCounts.daily_limit || 10 }}</div>
+              <div v-if="searchCounts.next_reset_date" class="text-xs opacity-75 mt-1">
+                Dopuna: {{ formatResetDate(searchCounts.next_reset_date) }}
+              </div>
             </template>
           </div>
 
@@ -300,6 +304,22 @@ async function loadSearchCounts() {
     console.log('Search counts loaded:', data)
   } catch (error) {
     console.error('Error loading search counts:', error)
+  }
+}
+
+function formatResetDate(dateString: string): string {
+  try {
+    const date = new Date(dateString)
+    const dayNames = ['Nedjelja', 'Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota']
+    const monthNames = ['januar', 'februar', 'mart', 'april', 'maj', 'juni', 'juli', 'avgust', 'septembar', 'oktobar', 'novembar', 'decembar']
+
+    const dayName = dayNames[date.getDay()]
+    const day = date.getDate()
+    const month = monthNames[date.getMonth()]
+
+    return `${dayName}, ${day}. ${month}`
+  } catch (e) {
+    return dateString
   }
 }
 

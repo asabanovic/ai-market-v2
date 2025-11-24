@@ -51,6 +51,9 @@ def semantic_search(
         # pgvector expects format: '[0.1,0.2,0.3,...]'
         embedding_str = '[' + ','.join(str(float(x)) for x in query_embedding) + ']'
 
+        # Set ivfflat probes for better recall
+        db.session.execute(text("SET ivfflat.probes = 10"))
+
         # Build SQL query with vector similarity search
         # Using pgvector's <=> operator for cosine distance
         # Cosine distance = 1 - cosine similarity

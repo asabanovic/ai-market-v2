@@ -40,7 +40,7 @@
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full mx-auto" style="max-width: 95vw;">
           <div class="mb-4">
             <label for="chat-input" class="block text-left typography-label text-gray-700 mb-2">
-              ✨ Testirajte AI asistenta - unesite proizvode koje trebate:
+              ✨ Testirajte Rabat asistenta - unesite proizvode koje trebate:
             </label>
             <textarea
               id="chat-input"
@@ -94,92 +94,8 @@
               </div>
             </div>
 
-            <!-- Anonymous User Teasers -->
-            <div v-if="searchResults.is_anonymous && searchResults.products">
-              <!-- Marketing CTA -->
-              <div class="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-8 mb-6 text-center">
-                <div class="mb-4">
-                  <Icon name="mdi:lock-open-variant" class="w-16 h-16 mx-auto text-purple-600" />
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-3">
-                  🎯 Pronašli smo rezultate za vas!
-                </h3>
-                <p class="text-lg text-gray-700 mb-6">
-                  Prijavite se za <strong>10 sekundi</strong> da vidite cijene, popuste i gdje možete najviše uštedjeti novac.
-                </p>
-                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                  <NuxtLink
-                    :to="`/prijava?search=${encodeURIComponent(searchResults.original_query)}`"
-                    class="bg-purple-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 inline-flex items-center space-x-2"
-                  >
-                    <Icon name="mdi:login" class="w-6 h-6" />
-                    <span>Prijavite se i vidite cijene</span>
-                  </NuxtLink>
-                  <NuxtLink
-                    :to="`/registracija?search=${encodeURIComponent(searchResults.original_query)}`"
-                    class="bg-green-500 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-600 transition-all shadow-lg inline-flex items-center space-x-2"
-                  >
-                    <Icon name="mdi:account-plus" class="w-6 h-6" />
-                    <span>Ili se registrujte BESPLATNO</span>
-                  </NuxtLink>
-                </div>
-                <p class="text-sm text-gray-600 mt-4">
-                  ✓ 10 BESPLATNIH pretraga dnevno  ✓ Pratimo cijene za vas  ✓ Obavještenja o popustima
-                </p>
-              </div>
-
-              <!-- Teaser Cards - Grouped -->
-              <div v-if="isGroupedResults(searchResults.products)" class="space-y-4">
-                <div
-                  v-for="(products, groupName) in searchResults.products"
-                  :key="groupName"
-                  class="border-2 border-purple-200 rounded-lg overflow-hidden bg-white relative"
-                >
-                  <!-- Blur overlay -->
-                  <div class="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white backdrop-blur-sm z-10 flex items-center justify-center">
-                    <div class="text-center p-6">
-                      <Icon name="mdi:lock" class="w-12 h-12 mx-auto mb-2 text-purple-600" />
-                      <p class="text-lg font-semibold text-gray-900">Prijavite se da vidite rezultate</p>
-                    </div>
-                  </div>
-
-                  <!-- Teaser content (blurred) -->
-                  <div class="filter blur-sm pointer-events-none">
-                    <div class="px-4 py-3 bg-purple-50">
-                      <h3 class="text-lg font-semibold text-gray-800">
-                        {{ capitalizeWords(groupName) }}
-                      </h3>
-                      <p class="text-sm text-gray-600">
-                        {{ products && products.length > 0 ? products.length : 0 }} {{ products && products.length === 1 ? 'proizvod' : 'proizvoda' }} pronađeno
-                      </p>
-                    </div>
-                    <div class="p-4">
-                      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div v-for="i in Math.min(3, products?.length || 0)" :key="i" class="bg-gray-100 h-48 rounded-lg"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Teaser Cards - Flat -->
-              <div v-else class="border-2 border-purple-200 rounded-lg overflow-hidden bg-white relative">
-                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white backdrop-blur-sm z-10 flex items-center justify-center">
-                  <div class="text-center p-6">
-                    <Icon name="mdi:lock" class="w-12 h-12 mx-auto mb-2 text-purple-600" />
-                    <p class="text-lg font-semibold text-gray-900">Prijavite se da vidite rezultate</p>
-                  </div>
-                </div>
-                <div class="filter blur-sm pointer-events-none p-4">
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    <div v-for="i in Math.min(4, searchResults.products?.length || 0)" :key="i" class="bg-gray-100 h-48 rounded-lg"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Logged-in User Results -->
-            <div v-else-if="!searchResults.is_anonymous && searchResults.products">
+            <!-- Search Results (for both logged-in and anonymous users) -->
+            <div v-if="searchResults.products">
               <!-- Grouped Results with Collapsible Sections -->
               <div v-if="isGroupedResults(searchResults.products)" class="space-y-4">
                 <div
@@ -269,7 +185,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <h2 class="typography-heading-1 text-gray-900 mb-2">SUPERMARKETI</h2>
-          <p class="typography-body text-gray-600">Koristite naš AI asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije</p>
+          <p class="typography-body text-gray-600">Koristite naš Rabat asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije</p>
         </div>
 
         <div class="flex flex-wrap justify-center items-center gap-6">
@@ -304,7 +220,7 @@
           <ProductCard v-for="product in featuredProducts" :key="product.id" :product="product" />
         </div>
 
-        <div class="text-center mt-12">
+        <div v-if="user" class="text-center mt-12">
           <NuxtLink
             to="/proizvodi"
             class="bg-purple-600 text-white px-8 py-3 rounded-lg btn-text hover:bg-purple-700 transition duration-200 purple-pattern-overlay inline-block"
@@ -312,8 +228,23 @@
             Pogledajte sve proizvode
           </NuxtLink>
         </div>
+        <div v-else class="text-center mt-12">
+          <NuxtLink
+            to="/registracija"
+            class="bg-purple-600 text-white px-8 py-3 rounded-lg btn-text hover:bg-purple-700 transition duration-200 purple-pattern-overlay inline-block"
+          >
+            Registrujte se da vidite sve proizvode
+          </NuxtLink>
+        </div>
       </div>
     </section>
+
+    <!-- Exit Intent Modal -->
+    <ExitIntentModal
+      v-if="showExitIntentModal"
+      :product-count="savingsStats?.total_products || 100"
+      @close="closeExitModal"
+    />
 
     <!-- Registration Modal -->
     <div v-if="showRegistrationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click="showRegistrationModal = false">
@@ -353,6 +284,7 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
 const { get, post } = useApi()
+const { user } = useAuth()
 
 // Reactive state
 const searchQuery = ref('')
@@ -366,6 +298,10 @@ const registrationMessage = ref('')
 const expandedGroups = ref<Set<string>>(new Set())
 const currentLoadingMessage = ref('')
 const loadingMessageInterval = ref<any>(null)
+
+// Exit intent modal
+const showExitIntentModal = ref(false)
+const exitIntentTriggered = ref(false)
 
 // Chat examples
 const chatExamples = [
@@ -505,7 +441,7 @@ const funMessages: Record<string, string[]> = {
     '🍝 Pasta la vista! Gledam ponude...'
   ],
   generic: [
-    '🔍 AI pretraživač na djelu...',
+    '🔍 Rabat pretraživač na djelu...',
     '🤖 Analiziram hiljade proizvoda...',
     '💰 Tražim gdje možete uštedjeti...',
     '🎯 Skeniram sve trgovine grada...',
@@ -513,13 +449,13 @@ const funMessages: Record<string, string[]> = {
     '🛒 Vaš personalni shopping asistent radi...',
     '💎 Tražim skrivene popuste...',
     '🏪 Provjeravam sve supermarkete...',
-    '📊 AI mašina procesuje podatke...',
+    '📊 Rabat mašina procesuje podatke...',
     '🎁 Možda naletim na iznenađenje...',
     '🚀 Turbo pretraga aktivna...',
-    '🧠 AI mozak razmišlja...',
+    '🧠 Rabat mozak razmišlja...',
     '💡 Genijalna ideja: potražimo popust!',
     '🎪 Show počinje... tražim ponude!',
-    '🌟 Magija AI pretrage u toku...'
+    '🌟 Magija Rabat pretrage u toku...'
   ]
 }
 
@@ -579,12 +515,51 @@ onMounted(async () => {
       performSearch()
     }, 500)
   }
+
+  // Setup exit intent detection for anonymous users
+  setupExitIntent()
 })
 
 // Cleanup on unmount
 onUnmounted(() => {
   stopLoadingMessages()
+  // Clean up exit intent listener
+  if (process.client) {
+    document.removeEventListener('mouseout', handleMouseOut)
+  }
 })
+
+function setupExitIntent() {
+  // Don't show if user is logged in
+  if (user.value) return
+
+  // Don't show if already shown in last 24 hours
+  const lastShown = localStorage.getItem('exit_intent_shown')
+  if (lastShown && Date.now() - parseInt(lastShown) < 24 * 60 * 60 * 1000) {
+    return
+  }
+
+  // Detect mouse leaving viewport
+  document.addEventListener('mouseout', handleMouseOut)
+}
+
+function handleMouseOut(e: MouseEvent) {
+  // Only trigger once
+  if (exitIntentTriggered.value) return
+
+  // Only on desktop (not on mobile where this doesn't work well)
+  if (window.innerWidth < 768) return
+
+  // Mouse moved to top of viewport (trying to close tab/go back)
+  if (e.clientY < 10 && e.relatedTarget === null) {
+    exitIntentTriggered.value = true
+    showExitIntentModal.value = true
+  }
+}
+
+function closeExitModal() {
+  showExitIntentModal.value = false
+}
 
 async function loadSavingsStats() {
   try {
@@ -613,6 +588,16 @@ async function performSearch() {
     return
   }
 
+  // Check localStorage for anonymous search limit (double verification with backend)
+  if (!user.value) {
+    const hasUsedAnonymousSearch = localStorage.getItem('anonymous_search_used')
+    if (hasUsedAnonymousSearch === 'true') {
+      registrationMessage.value = 'Iskoristili ste besplatnu pretragu. Molimo registrujte se da nastavite koristiti platformu.'
+      showRegistrationModal.value = true
+      return
+    }
+  }
+
   isSearching.value = true
   searchResults.value = null
 
@@ -624,7 +609,13 @@ async function performSearch() {
     const data = await post('/api/search', { query })
 
     if (data.error) {
-      if (data.error === 'free_trial_expired') {
+      if (data.error === 'anonymous_limit_reached') {
+        // Anonymous user has used their free search - show registration modal
+        registrationMessage.value = data.message
+        showRegistrationModal.value = true
+        // Set localStorage flag
+        localStorage.setItem('anonymous_search_used', 'true')
+      } else if (data.error === 'free_trial_expired') {
         // Show registration modal for anonymous users who used their free search
         registrationMessage.value = data.message
         showRegistrationModal.value = true
@@ -652,6 +643,11 @@ async function performSearch() {
         credits_remaining: data.credits_remaining,
         is_anonymous: data.is_anonymous,  // Show teasers if true
         original_query: query  // Save query for login redirect
+      }
+
+      // If this was an anonymous search, mark it as used in localStorage
+      if (data.is_anonymous) {
+        localStorage.setItem('anonymous_search_used', 'true')
       }
 
       // Expand all groups by default when new results come in
@@ -729,9 +725,9 @@ function sanitizeResponse(html: string): string {
 }
 
 useSeoMeta({
-  title: 'AI Pijaca - Pronađite najbolje popuste',
-  description: 'Koristite naš AI asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije u vašem gradu',
-  ogTitle: 'AI Pijaca',
+  title: 'Rabat.ba - Pronađite najbolje popuste',
+  description: 'Koristite naš Rabat asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije u vašem gradu',
+  ogTitle: 'Rabat.ba',
   ogDescription: 'Vaš inteligentni asistent za kupovinu',
   twitterCard: 'summary_large_image',
 })

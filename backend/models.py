@@ -35,8 +35,12 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
-    # Phone number for SMS notifications
-    phone = db.Column(db.String, nullable=True)
+    # Phone number for SMS notifications and authentication
+    phone = db.Column(db.String, unique=True, nullable=True)
+    phone_verified = db.Column(db.Boolean, default=False)
+
+    # Track registration method: 'email' or 'phone'
+    registration_method = db.Column(db.String, default='email', nullable=True)
 
     # Notification preferences: 'none', 'favorites', 'all'
     notification_preferences = db.Column(db.String, default='none', nullable=True)
@@ -44,10 +48,20 @@ class User(UserMixin, db.Model):
     # Onboarding flag - True if user completed initial setup
     onboarding_completed = db.Column(db.Boolean, default=False)
 
-    # Daily search credits - 10 credits per day, 1 credit per product searched
-    daily_credits = db.Column(db.Integer, default=10)
-    daily_credits_used = db.Column(db.Integer, default=0)
-    daily_credits_reset_date = db.Column(db.Date, default=date.today)
+    # Weekly credits system - Two buckets:
+    # 1. Regular credits: 10 credits per week (reset every Monday, never exceed 10)
+    weekly_credits = db.Column(db.Integer, default=10)  # Regular credits (reset weekly)
+    weekly_credits_used = db.Column(db.Integer, default=0)
+    weekly_credits_reset_date = db.Column(db.Date, default=date.today)
+
+    # 2. Extra credits: Earned credits (referrals, purchases) - these accumulate
+    extra_credits = db.Column(db.Integer, default=0)  # Never reset, can go up or down
+
+    # Referral system
+    referral_code = db.Column(db.String(20), unique=True, nullable=True)  # Auto-generated unique code
+    custom_referral_code = db.Column(db.String(50), unique=True, nullable=True)  # User-chosen custom code (e.g., "adnan")
+    custom_code_changed = db.Column(db.Boolean, default=False, nullable=False)  # Has user customized their auto-generated code?
+    referred_by_code = db.Column(db.String(20), nullable=True)  # Who referred this user
 
     # Relationships
     package = db.relationship('Package', backref='users')
@@ -180,6 +194,38 @@ class ContactMessage(db.Model):
     user_email = db.Column(db.String, nullable=True)
     message = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
+
+# OTP codes for phone authentication
+class OTPCode(db.Model):
+    __tablename__ = 'otp_codes'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    phone = db.Column(db.String, nullable=False, index=True)
+    code = db.Column(db.String(6), nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    is_used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+    __table_args__ = (
+        db.Index('idx_otp_phone_expires', 'phone', 'expires_at'),
+    )
+
+# Referral tracking table
+class Referral(db.Model):
+    __tablename__ = 'referrals'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    referrer_code = db.Column(db.String(20), db.ForeignKey('users.referral_code'), nullable=False)  # Who referred
+    referred_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)  # Who was referred
+    credits_awarded = db.Column(db.Integer, default=100)  # Credits given to referrer
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    referred_user = db.relationship('User', foreign_keys=[referred_user_id], backref='referral_source')
+
+    __table_args__ = (
+        db.Index('idx_referrals_referrer_code', 'referrer_code'),
+        db.Index('idx_referrals_referred_user', 'referred_user_id'),
+    )
 
 # Business membership for user-business relationships
 class BusinessMembership(db.Model):
@@ -447,4 +493,79 @@ class SMSOutbox(db.Model):
     __table_args__ = (
         db.Index('idx_sms_outbox_status', 'status'),
         db.Index('idx_sms_outbox_created_at', 'created_at'),
+    )
+
+# ==================== PRODUCT ENGAGEMENT MODELS ====================
+
+# Product comments - users can comment on products
+class ProductComment(db.Model):
+    __tablename__ = 'product_comments'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    comment_text = db.Column(db.Text, nullable=False)  # 20-1000 characters
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Relationships
+    product = db.relationship('Product', backref='comments')
+    user = db.relationship('User', backref='product_comments')
+
+    __table_args__ = (
+        db.Index('idx_product_comments_product_id', 'product_id'),
+        db.Index('idx_product_comments_user_id', 'user_id'),
+        db.Index('idx_product_comments_created_at', 'created_at'),
+    )
+
+# Product votes - users can upvote or downvote products
+class ProductVote(db.Model):
+    __tablename__ = 'product_votes'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    vote_type = db.Column(db.String, nullable=False)  # 'up' or 'down'
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Relationships
+    product = db.relationship('Product', backref='votes')
+    user = db.relationship('User', backref='product_votes')
+
+    __table_args__ = (
+        UniqueConstraint('product_id', 'user_id', name='uq_product_user_vote'),
+        db.Index('idx_product_votes_product_id', 'product_id'),
+        db.Index('idx_product_votes_user_id', 'user_id'),
+    )
+
+# User engagement history - track all user engagement activities
+class UserEngagement(db.Model):
+    __tablename__ = 'user_engagements'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    activity_type = db.Column(db.String, nullable=False)  # 'vote_up', 'vote_down', 'comment'
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    credits_earned = db.Column(db.Integer, nullable=False)  # +1 for votes, +2 for comments
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref='engagements')
+    product = db.relationship('Product', backref='engagements')
+
+    __table_args__ = (
+        db.Index('idx_user_engagements_user_id', 'user_id'),
+        db.Index('idx_user_engagements_created_at', 'created_at'),
+    )
+
+# ==================== ANONYMOUS USER TRACKING ====================
+
+# Anonymous searches - track IP addresses for free trial searches
+class AnonymousSearch(db.Model):
+    __tablename__ = 'anonymous_searches'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    ip_address = db.Column(db.String, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    __table_args__ = (
+        db.Index('idx_anonymous_searches_ip', 'ip_address'),
+        db.Index('idx_anonymous_searches_created_at', 'created_at'),
     )

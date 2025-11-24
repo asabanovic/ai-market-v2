@@ -164,7 +164,7 @@
       </div>
 
       <!-- Recent Searches -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 class="text-xl font-semibold text-gray-900 mb-6">Nedavne pretrage</h2>
         <div v-if="recentSearches && recentSearches.length > 0" class="space-y-4">
           <div
@@ -184,6 +184,88 @@
           </div>
         </div>
         <p v-else class="text-gray-500">Nemate još uvek pretaga</p>
+      </div>
+
+      <!-- Engagement History -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-semibold text-gray-900">Istorija Aktivnosti</h2>
+          <div class="text-sm text-gray-600">
+            Ukupno kredita zaradeno: <span class="font-bold text-green-600">{{ totalCreditsEarned }}</span> 💰
+          </div>
+        </div>
+
+        <div v-if="loadingEngagements" class="text-center py-8">
+          <Icon name="mdi:loading" class="w-8 h-8 animate-spin text-purple-600 mx-auto" />
+          <p class="text-gray-600 mt-2">Učitavanje...</p>
+        </div>
+
+        <div v-else-if="engagements && engagements.length > 0" class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Datum
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aktivnost
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Proizvod
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Krediti
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="engagement in engagements" :key="engagement.id" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {{ formatEngagementDate(engagement.date) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span :class="getActivityBadgeClass(engagement.activity)">
+                    {{ getActivityLabel(engagement.activity) }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                  {{ engagement.product?.title || 'Nepoznat proizvod' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                  +{{ engagement.credits_earned }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pagination -->
+          <div v-if="engagementsPagination" class="flex items-center justify-between mt-6">
+            <div class="text-sm text-gray-600">
+              Stranica {{ engagementsPagination.page }} od {{ engagementsPagination.pages }}
+            </div>
+            <div class="flex gap-2">
+              <button
+                @click="loadEngagements(engagementsPagination.page - 1)"
+                :disabled="!engagementsPagination.has_prev"
+                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Prethodna
+              </button>
+              <button
+                @click="loadEngagements(engagementsPagination.page + 1)"
+                :disabled="!engagementsPagination.has_next"
+                class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Sljedeća
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="text-center py-12">
+          <Icon name="mdi:history" class="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p class="text-gray-500 mb-2">Još uvijek nemate aktivnosti</p>
+          <p class="text-sm text-gray-400">Počnite glasati i komentarisati proizvode da zaradite kredite!</p>
+        </div>
       </div>
 
       <!-- Action Buttons -->
@@ -229,8 +311,17 @@ const packageInfo = ref<any>(null)
 const searchCounts = ref<any>(null)
 const recentSearches = ref<any[]>([])
 
+// Engagement history
+const engagements = ref<any[]>([])
+const engagementsPagination = ref<any>(null)
+const loadingEngagements = ref(false)
+const totalCreditsEarned = computed(() => {
+  return engagements.value.reduce((sum, eng) => sum + eng.credits_earned, 0)
+})
+
 onMounted(async () => {
   await loadProfileData()
+  await loadEngagements(1)
 })
 
 async function loadProfileData() {
@@ -297,6 +388,55 @@ function cancelEdit() {
   }
 }
 
+async function loadEngagements(page = 1) {
+  loadingEngagements.value = true
+  try {
+    const response = await get(`/user/engagement-history?page=${page}&per_page=20`)
+    if (response.success) {
+      engagements.value = response.engagements
+      engagementsPagination.value = response.pagination
+    }
+  } catch (error) {
+    console.error('Error loading engagements:', error)
+  } finally {
+    loadingEngagements.value = false
+  }
+}
+
+function getActivityLabel(activity: string): string {
+  const labels: Record<string, string> = {
+    'vote_up': '👍 Thumbs Up',
+    'vote_down': '👎 Thumbs Down',
+    'comment': '💬 Komentar'
+  }
+  return labels[activity] || activity
+}
+
+function getActivityBadgeClass(activity: string): string {
+  const classes: Record<string, string> = {
+    'vote_up': 'px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800',
+    'vote_down': 'px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800',
+    'comment': 'px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800'
+  }
+  return classes[activity] || 'px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800'
+}
+
+function formatEngagementDate(dateString: string): string {
+  const date = new Date(dateString)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+
+  return `${day}. ${getMonthName(date.getMonth())} ${year}. ${hours}:${minutes}`
+}
+
+function getMonthName(month: number): string {
+  const months = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Juni', 'Juli', 'August', 'Septembar', 'Oktobar', 'Novembar', 'Decembar']
+  return months[month]
+}
+
 async function handleLogout() {
   await logout()
   navigateTo('/')
@@ -314,7 +454,7 @@ function formatDate(dateString: string) {
 }
 
 useSeoMeta({
-  title: 'Moj profil - AI Pijaca',
-  description: 'Upravljajte vašim nalogom i preferencijama na AI Pijaca platformi',
+  title: 'Moj profil - Rabat.ba',
+  description: 'Upravljajte vašim nalogom i preferencijama na Rabat.ba platformi',
 })
 </script>

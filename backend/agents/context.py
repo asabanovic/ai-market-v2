@@ -37,7 +37,7 @@ class AgentContext:
     )
 
     similarity_threshold: float = field(
-        default=0.3,
+        default=0.2,  # Lowered for Bosnian language (English-biased embeddings)
         metadata={"description": "Minimum similarity score for results (0.0-1.0)"}
     )
 

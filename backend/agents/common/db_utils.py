@@ -26,6 +26,9 @@ def search_by_vector(
     Returns:
         List of product dictionaries with similarity scores.
     """
+    # Set ivfflat probes for better recall
+    db_session.execute(text("SET ivfflat.probes = 10"))
+
     # Build the WHERE clause
     where_clauses = ["(p.expires IS NULL OR p.expires > NOW())"]
 

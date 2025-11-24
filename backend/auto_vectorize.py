@@ -27,8 +27,8 @@ def compute_product_hash(product: Product) -> str:
     Returns:
         SHA256 hash of product content
     """
-    # Combine relevant fields that affect the embedding
-    content = f"{product.title}|{product.category}|{product.base_price}|{product.discount_price}|{product.city}"
+    # Combine only fields that affect the embedding (no prices/city)
+    content = f"{product.title}|{product.category}"
     if product.tags:
         content += f"|{','.join(sorted(product.tags))}"
     if product.enriched_description:
@@ -39,7 +39,10 @@ def compute_product_hash(product: Product) -> str:
 
 def build_embedding_text(product: Product) -> str:
     """
-    Build the text to be embedded for a product
+    Build the text to be embedded for a product.
+
+    Focuses on semantic meaning - no prices or numbers to avoid
+    polluting the embedding with non-semantic information.
 
     Args:
         product: Product object
@@ -56,24 +59,11 @@ def build_embedding_text(product: Product) -> str:
     if product.category:
         parts.append(f"Kategorija: {product.category}")
 
-    # Price information
-    price = product.discount_price if product.discount_price else product.base_price
-    parts.append(f"Cijena: {price} KM")
-
-    # Discount info
-    if product.discount_price and product.base_price:
-        discount_pct = round(((product.base_price - product.discount_price) / product.base_price) * 100)
-        parts.append(f"Popust: {discount_pct}%")
-
-    # City
-    if product.city:
-        parts.append(f"Grad: {product.city}")
-
-    # Tags
+    # Tags (semantic keywords)
     if product.tags:
         parts.append(f"Ključne riječi: {', '.join(product.tags)}")
 
-    # Enriched description (if available)
+    # Enriched description (most valuable for semantic search)
     if product.enriched_description:
         parts.append(product.enriched_description)
 
@@ -163,6 +153,36 @@ def auto_vectorize_on_save(product: Product) -> None:
         logger.info(f"Auto-vectorized product {product.id} after save")
     except Exception as e:
         logger.error(f"Auto-vectorization failed for product {product.id}: {e}")
+
+
+def schedule_async_vectorization(product_ids: list[int], force: bool = False) -> None:
+    """
+    Schedule vectorization to run in the background (async)
+
+    Args:
+        product_ids: List of product IDs to vectorize
+        force: Force re-vectorization even if content hasn't changed
+    """
+    import threading
+    from flask import current_app
+
+    def run_in_background(app, product_ids, force):
+        with app.app_context():
+            try:
+                logger.info(f"Starting background vectorization for {len(product_ids)} products")
+                stats = batch_vectorize_products(product_ids=product_ids, force=force)
+                logger.info(f"Background vectorization complete: {stats}")
+            except Exception as e:
+                logger.error(f"Background vectorization failed: {e}", exc_info=True)
+
+    app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=run_in_background,
+        args=(app, product_ids, force),
+        daemon=True
+    )
+    thread.start()
+    logger.info(f"Scheduled background vectorization for {len(product_ids)} products")
 
 
 def batch_vectorize_products(product_ids: list[int] = None, force: bool = False) -> dict:

@@ -8,7 +8,7 @@ from agents.graph import graph
 from agents.context import AgentContext
 from agents.state import InputState, OutputState
 from auth_api import require_jwt_auth, decode_jwt_token
-from models import UserSearch, User
+from models import UserSearch, User, AnonymousSearch
 
 # Create blueprint
 agents_api_bp = Blueprint('agents_api', __name__, url_prefix='/api')
@@ -173,10 +173,21 @@ def unified_search():
                 }), 403
 
         else:
-            # Anonymous user - just track by IP, no limits
+            # Anonymous user - allow 1 free search, then require registration
             user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
             if user_ip:
                 user_ip = user_ip.split(',')[0].strip()
+
+            # Check if this IP has already used their free search
+            if user_ip:
+                existing_search = AnonymousSearch.query.filter_by(ip_address=user_ip).first()
+                if existing_search:
+                    return jsonify({
+                        "success": False,
+                        "error": "anonymous_limit_reached",
+                        "message": "Iskoristili ste besplatnu pretragu. Molimo registrujte se da nastavite koristiti platformu.",
+                        "requires_registration": True
+                    }), 403
 
         # Create input state
         input_state = InputState(
@@ -206,6 +217,17 @@ def unified_search():
 
         # Log search for tracking (both successful and failed)
         log_search(user_id, query, output.results, user_ip=user_ip)
+
+        # Record anonymous search (first time only)
+        if is_anonymous and user_ip:
+            try:
+                anonymous_search = AnonymousSearch(ip_address=user_ip)
+                db.session.add(anonymous_search)
+                db.session.commit()
+                current_app.logger.info(f"Recorded anonymous search for IP: {user_ip}")
+            except Exception as e:
+                current_app.logger.error(f"Failed to record anonymous search: {e}")
+                db.session.rollback()
 
         # Check for errors
         if output.error:

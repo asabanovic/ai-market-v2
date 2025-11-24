@@ -180,7 +180,7 @@ def api_register():
     try:
         from werkzeug.security import generate_password_hash
         from datetime import datetime
-        from credits_service import CreditsService
+        from credits_service_weekly import WeeklyCreditsService
 
         data = request.get_json()
 
@@ -189,6 +189,7 @@ def api_register():
 
         email = data.get('email')
         password = data.get('password')
+        referral_code = data.get('referral_code', '').strip().upper() if data.get('referral_code') else None
 
         # Support both separate first_name/last_name and combined name field for backward compatibility
         first_name = data.get('first_name', '').strip()
@@ -222,7 +223,9 @@ def api_register():
             last_name=last_name,
             password_hash=generate_password_hash(password),
             is_verified=True,  # Auto-verify for now
-            package_id=1  # Free package
+            package_id=1,  # Free package
+            registration_method='email',
+            referred_by_code=referral_code  # Save who referred this user
         )
 
         db.session.add(new_user)
@@ -230,9 +233,20 @@ def api_register():
 
         # Initialize credits for new user
         try:
-            CreditsService.initialize_user_credits(new_user.id, initial_amount=10)
+            WeeklyCreditsService.initialize_user_credits(new_user.id)
         except Exception as credit_error:
             app.logger.error(f"Failed to initialize credits: {credit_error}")
+
+        # Award referral bonus if referral code provided
+        if referral_code:
+            try:
+                result = WeeklyCreditsService.award_referral_bonus(referral_code, new_user.id)
+                if result['success']:
+                    app.logger.info(f"Referral bonus awarded: {referral_code} referred {new_user.id}")
+                else:
+                    app.logger.warning(f"Failed to award referral bonus: {result.get('error')}")
+            except Exception as ref_error:
+                app.logger.error(f"Error awarding referral bonus: {ref_error}")
 
         # Generate JWT token
         token = generate_jwt_token(new_user.id, new_user.email)
@@ -472,7 +486,7 @@ def get_cities():
 @auth_api_bp.route('/search-counts', methods=['GET'])
 def get_search_counts_jwt():
     """Get search counts for JWT authenticated user"""
-    from credits_service import CreditsService
+    from credits_service_weekly import WeeklyCreditsService
     from datetime import date
 
     # Check JWT authentication
@@ -513,25 +527,32 @@ def get_search_counts_jwt():
                 'is_unlimited': False
             }), 200
 
-        # Get credit balance
-        current_balance = CreditsService.get_balance(user.id)
+        # Get credit balance (two-bucket system)
+        balance = WeeklyCreditsService.get_balance(user.id)
+        total_credits = balance['total_credits']
 
         # For admins or users with high balances (>100), show unlimited
-        if user.is_admin or current_balance > 100:
+        if user.is_admin or total_credits > 100:
             return jsonify({
-                'daily_limit': current_balance,
-                'used_today': 0,
-                'remaining': current_balance,
+                'weekly_limit': total_credits,
+                'used_this_week': 0,
+                'remaining': total_credits,
+                'regular_credits': balance['regular_credits'],
+                'extra_credits': balance['extra_credits'],
+                'next_reset_date': balance['next_reset_date'].isoformat(),
                 'user_type': 'logged_in',
                 'is_unlimited': True
             }), 200
         else:
-            # For regular users, show standard daily limit
-            daily_limit = 10
+            # For regular users, show standard weekly limit
+            weekly_limit = balance['regular_credits'] + balance['extra_credits']
             return jsonify({
-                'daily_limit': daily_limit,
-                'used_today': max(0, daily_limit - current_balance),
-                'remaining': max(0, current_balance),
+                'weekly_limit': 10,  # Base weekly limit
+                'used_this_week': 10 - balance['regular_credits'],
+                'remaining': total_credits,
+                'regular_credits': balance['regular_credits'],
+                'extra_credits': balance['extra_credits'],
+                'next_reset_date': balance['next_reset_date'].isoformat(),
                 'user_type': 'logged_in',
                 'is_unlimited': False
             }), 200
