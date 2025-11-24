@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="mb-8">
         <h1 class="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
-        <p class="mt-1 text-sm text-gray-600">Pregled i upravljanje AI Pijaca platformom</p>
+        <p class="mt-1 text-sm text-gray-600">Pregled i upravljanje Rabat.ba platformom</p>
       </div>
 
       <!-- Loading State -->
@@ -70,6 +70,20 @@
                   <dt class="text-sm font-medium text-gray-500 truncate">Ukupno proizvoda</dt>
                   <dd class="text-2xl font-semibold text-gray-900">{{ stats.total_products || 0 }}</dd>
                 </dl>
+              </div>
+            </div>
+            <div class="mt-3 space-y-1">
+              <div class="text-sm" :class="stats.products_without_embeddings > 0 ? 'text-orange-600' : 'text-green-600'">
+                <span class="font-medium">{{ stats.products_with_embeddings || 0 }}/{{ stats.total_products || 0 }}</span> s embeddingom
+                <span v-if="stats.products_without_embeddings > 0" class="text-orange-600 font-medium ml-1">
+                  ({{ stats.products_without_embeddings }} čeka)
+                </span>
+              </div>
+              <div class="text-sm" :class="stats.expired_products > 0 ? 'text-red-600' : 'text-green-600'">
+                <span class="font-medium">{{ stats.active_products || 0 }}</span> aktivnih
+                <span v-if="stats.expired_products > 0" class="text-red-600 font-medium ml-1">
+                  ({{ stats.expired_products }} isteklo)
+                </span>
               </div>
             </div>
           </div>
@@ -336,7 +350,7 @@ function formatDateTime(dateString: string) {
 }
 
 useSeoMeta({
-  title: 'Admin Dashboard - AI Pijaca',
-  description: 'Admin dashboard za upravljanje AI Pijaca platformom',
+  title: 'Admin Dashboard - Rabat.ba',
+  description: 'Admin dashboard za upravljanje Rabat.ba platformom',
 })
 </script>

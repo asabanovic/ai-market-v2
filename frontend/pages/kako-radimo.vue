@@ -20,7 +20,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
         </div>
-        <h2 class="text-4xl font-bold text-gray-900 mb-4">Vaš lični AI asistent za kupovinu</h2>
+        <h2 class="text-4xl font-bold text-gray-900 mb-4">Vaš lični Rabat asistent za kupovinu</h2>
         <p class="text-xl text-gray-600 max-w-3xl mx-auto">
           Umjesto da provjeravate desetine web stranica i kataloga, samo pitajte Rabat asistenta.
           On pretražuje sve trgovine istovremeno i pronalazi najbolje ponude za vas.
@@ -40,12 +40,12 @@
             <div class="bg-gradient-to-br from-purple-500 to-purple-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
               1
             </div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">Pitajte AI asistenta</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Pitajte Rabat asistenta</h3>
             <p class="text-gray-600">
               Jednostavno opišite šta vam treba prirodnim jezikom. "Trebam losos i piletinu" ili "Gdje kupiti najjeftiniji deterdžent?"
             </p>
             <div class="mt-4 p-3 bg-purple-50 rounded-lg text-sm text-purple-700">
-              AI razumije i najsloženije upite!
+              Rabat razumije i najsloženije upite!
             </div>
           </div>
 
@@ -111,7 +111,7 @@
             <div class="text-4xl mb-4">🧠</div>
             <h3 class="text-xl font-semibold mb-3">Prirodno razumijevanje</h3>
             <p class="opacity-90">
-              AI razumije kako vi pričate - ne morate biti precizni. "Trebam nešto za rostilj" je sasvim dovoljan upit.
+              Rabat razumije kako vi pričate - ne morate biti precizni. "Trebam nešto za rostilj" je sasvim dovoljan upit.
             </p>
           </div>
 
@@ -258,7 +258,7 @@
             <div class="text-4xl mb-4">📅</div>
             <h3 class="text-xl font-semibold text-gray-900 mb-3">10 kredita sedmično</h3>
             <p class="text-gray-600">
-              Registrovani korisnici dobijaju 10 kredita svake sedmice koji se obnavljaju svakog ponedjeljka. Neregistrovani imaju 3 dnevno.
+              Registrovani korisnici dobijaju 10 kredita svake sedmice koji se obnavljaju svakog ponedjeljka. Neregistrovani dobijaju 1 besplatni test dnevno.
             </p>
           </div>
 
@@ -442,7 +442,7 @@
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">⚡</div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">10 sedmičnih pretraga</h3>
-            <p class="text-gray-600 text-sm">Umjesto 3 dnevne, dobijate 10 kredita sedmično koji se obnavljaju svakog ponedjeljka.</p>
+            <p class="text-gray-600 text-sm">Umjesto 1 besplatnog testa, dobijate 10 kredita sedmično koji se obnavljaju svakog ponedjeljka.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
@@ -601,7 +601,7 @@ const { isAuthenticated } = useAuth()
 useSeoMeta({
   title: 'Kako radimo - Rabat.ba',
   description: 'Saznajte kako Rabat.ba koristi umjetnu inteligenciju da pronađe najbolje popuste i akcije u vašem gradu. Besplatno, brzo i efikasno!',
-  ogTitle: 'Kako Rabat.ba radi - AI asistent za pametniju kupovinu',
+  ogTitle: 'Kako Rabat.ba radi - Rabat asistent za pametniju kupovinu',
   ogDescription: 'Revolucionarna platforma koja koristi AI da pronađe najbolje popuste. Registracija besplatna, 10 pretraga sedmično!',
 })
 </script>

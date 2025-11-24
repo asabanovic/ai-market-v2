@@ -1,31 +1,5 @@
 <template>
   <div>
-    <!-- Dynamic Savings Banner -->
-    <div v-if="savingsStats" class="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <div class="flex items-center justify-center space-x-6 text-sm">
-          <div class="flex items-center space-x-2">
-            <svg class="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-            </svg>
-            <span>Korisnici su ukupno uštedili: <strong>{{ savingsStats.total_savings || 0 }} KM</strong></span>
-          </div>
-          <div class="hidden md:flex items-center space-x-2">
-            <svg class="w-5 h-5 text-green-300" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <span>Prosječno štedite: <strong>{{ savingsStats.average_savings || 0 }} KM</strong> po proizvodu</span>
-          </div>
-          <div class="hidden lg:flex items-center space-x-2">
-            <svg class="w-5 h-5 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span><strong>{{ savingsStats.total_products || 0 }}</strong> proizvoda pronađeno s popustom</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Hero Section with Chat -->
     <div class="gradient-bg py-12">
       <div class="mx-auto px-6 sm:px-6 lg:px-12 text-center">
@@ -46,7 +20,7 @@
               id="chat-input"
               v-model="searchQuery"
               rows="6"
-              placeholder="🎯 BESPLATNI TEST - Probajte sada!&#10;&#10;Primjeri (unesite bilo šta slično):&#10;&#10;• Trebam brasno, mleko i cokoladu&#10;&#10;• Gdje ima najjeftinija piletina?&#10;&#10;• Lista: hleb, jaja, kafa, deterdzent&#10;&#10;Registracijom dobijate 10 BESPLATNIH pretraga DNEVNO i pristup listama za kupovinu!"
+              placeholder="🎯 BESPLATNI TEST - Probajte sada!&#10;&#10;Primjeri (unesite bilo šta slično):&#10;&#10;• Trebam brasno, mlijeko i čokoladu&#10;&#10;• Gdje ima najjeftinija piletina?&#10;&#10;• Lista: hljeb, jaja, kafa, deterdžent&#10;&#10;Registracijom dobijate 10 BESPLATNIH pretraga SEDMIČNO i pristup listama za kupovinu!"
               class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-y chat-input"
               @keydown.enter.exact.prevent="performSearch"
             />

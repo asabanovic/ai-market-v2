@@ -238,7 +238,7 @@ function formatDate(dateString: string) {
 }
 
 useSeoMeta({
-  title: 'Moje Liste - AI Pijaca',
+  title: 'Moje Liste - Rabat.ba',
   description: 'Pregled svih vaših prethodnih lista za kupovinu'
 })
 </script>

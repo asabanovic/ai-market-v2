@@ -360,7 +360,7 @@ onMounted(() => {
 })
 
 useSeoMeta({
-  title: 'Moj profil - AI Pijaca',
+  title: 'Moj profil - Rabat.ba',
   description: 'Uredite svoje lične podatke',
 })
 </script>

@@ -168,7 +168,7 @@
             Dobijate BESPLATNO:
           </p>
           <ul class="text-xs text-purple-700 space-y-1">
-            <li>✓ 10 pretraga DNEVNO</li>
+            <li>✓ 10 pretraga SEDMIČNO</li>
             <li>✓ Liste za kupovinu</li>
             <li>✓ Praćenje omiljenih proizvoda</li>
             <li>✓ SMS obavještenja o popustima</li>

@@ -37,7 +37,7 @@
             <Icon name="mdi:check-bold" class="w-5 h-5 text-green-600" />
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900">AI asistent za kupovinu</h3>
+            <h3 class="font-semibold text-gray-900">Rabat asistent za kupovinu</h3>
             <p class="text-sm text-gray-600">Brzo pronađite najjeftinije proizvode za vašu listu</p>
           </div>
         </div>

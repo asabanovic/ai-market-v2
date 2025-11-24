@@ -522,7 +522,7 @@ def get_search_counts(user=None):
         }
 
         today_searches = searches_data.get(today_str, 0)
-        anonymous_limit = 3
+        anonymous_limit = 1
 
         return {
             'daily_limit': anonymous_limit,

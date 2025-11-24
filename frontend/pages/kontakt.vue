@@ -123,7 +123,7 @@ async function handleSubmit() {
 }
 
 useSeoMeta({
-  title: 'Kontakt - AI Pijaca',
-  description: 'Imate pitanje ili predlog? Kontaktirajte AI Pijaca tim. Radujemo se vašoj poruci!',
+  title: 'Kontakt - Rabat.ba',
+  description: 'Imate pitanje ili predlog? Kontaktirajte Rabat.ba tim. Radujemo se vašoj poruci!',
 })
 </script>

@@ -138,16 +138,26 @@
         </button>
       </div>
     </div>
+
+    <!-- Registration Prompt -->
+    <RegistrationPrompt
+      v-if="showRegistrationPrompt"
+      :product-count="totalActiveProducts"
+      @close="showRegistrationPrompt = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 const { get } = useApi()
+const { user } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
 // State
 const products = ref<any[]>([])
+const showRegistrationPrompt = ref(false)
+const totalActiveProducts = ref(0)
 const businesses = ref<any[]>([])
 const categories = ref<string[]>([])
 const isLoading = ref(true)
@@ -164,7 +174,13 @@ const filters = ref({
 })
 
 // Load filters from URL query params
-onMounted(() => {
+onMounted(async () => {
+  // Redirect non-logged-in users to login page
+  if (!user.value) {
+    router.push('/prijava?redirect=/proizvodi')
+    return
+  }
+
   filters.value.search = (route.query.search as string) || ''
   filters.value.category = (route.query.category as string) || ''
   filters.value.business = (route.query.business as string) || ''
@@ -286,7 +302,7 @@ function updateURL() {
 }
 
 useSeoMeta({
-  title: 'Svi proizvodi - AI Pijaca',
+  title: 'Svi proizvodi - Rabat.ba',
   description: 'Pretražite kroz sve proizvode sa popustima iz vaših omiljenih trgovina',
 })
 </script>

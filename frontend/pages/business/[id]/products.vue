@@ -653,15 +653,27 @@
             <p class="mt-1 text-xs text-gray-500">Ovaj opis se koristi za AI-powered pretragu proizvoda.</p>
           </div>
 
-          <div>
-            <label for="edit_product_url" class="block text-sm font-medium text-gray-700 mb-1">URL proizvoda</label>
-            <input
-              v-model="editForm.product_url"
-              type="url"
-              id="edit_product_url"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-              placeholder="https://..."
-            >
+          <!-- Price History -->
+          <div v-if="priceHistory.length > 0">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Historija cijena</label>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm border border-gray-200 rounded">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Datum</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Osnovna</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">S popustom</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  <tr v-for="(h, idx) in priceHistory" :key="idx">
+                    <td class="px-3 py-2 text-gray-600">{{ formatDateTime(h.recorded_at) }}</td>
+                    <td class="px-3 py-2 text-right text-gray-900">{{ h.base_price?.toFixed(2) }} KM</td>
+                    <td class="px-3 py-2 text-right text-gray-900">{{ h.discount_price ? h.discount_price.toFixed(2) + ' KM' : '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div class="flex justify-end gap-3 pt-4">
@@ -748,6 +760,7 @@ const isRegeneratingDescription = ref(false)
 const isRegeneratingTagsSingle = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
 const customCategory = ref('')
+const priceHistory = ref<any[]>([])
 const editForm = ref({
   id: null as number | null,
   title: '',
@@ -945,7 +958,7 @@ async function bulkDeleteSelected() {
   }
 }
 
-function editProduct(productId: number) {
+async function editProduct(productId: number) {
   const product = products.value.find(p => p.id === productId)
   if (!product) {
     showNotification('Proizvod nije pronađen', 'error')
@@ -969,11 +982,19 @@ function editProduct(productId: number) {
   // Reset custom category if the product's category is not in the list
   customCategory.value = uniqueCategories.value.includes(product.category || '') ? '' : (product.category || '')
 
+  // Fetch price history
+  try {
+    priceHistory.value = await get(`/api/products/${productId}/price-history`)
+  } catch (error) {
+    priceHistory.value = []
+  }
+
   showEditModal.value = true
 }
 
 function closeEditModal() {
   showEditModal.value = false
+  priceHistory.value = []
   // Reset form
   editForm.value = {
     id: null,
@@ -1195,6 +1216,12 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString('sr-Latn-BA', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function formatDateTime(dateString: string): string {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('sr-Latn-BA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 function formatTime(dateString: string): string {
   const date = new Date(dateString)
   return date.toLocaleTimeString('sr-Latn-BA', { hour: '2-digit', minute: '2-digit' })
@@ -1278,7 +1305,7 @@ onMounted(() => {
 })
 
 useSeoMeta({
-  title: 'Upravljanje proizvodima - AI Pijaca',
+  title: 'Upravljanje proizvodima - Rabat.ba',
   description: 'Dodajte i upravljajte proizvodima za vaš biznis',
 })
 </script>

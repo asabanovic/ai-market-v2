@@ -142,7 +142,7 @@
           <div>
             <h3 class="text-lg font-medium text-gray-900">{{ packageInfo?.name || 'Free' }}</h3>
             <p class="text-gray-600">
-              {{ packageInfo?.daily_limit || 10 }} pretaga dnevno
+              {{ packageInfo?.daily_limit || 10 }} pretraga sedmično
             </p>
           </div>
           <div class="text-right">
@@ -158,7 +158,7 @@
           class="mt-4 p-3 bg-yellow-100 text-yellow-800 rounded-md"
         >
           <p class="text-sm">
-            Iskoristili ste sve dnevne pretrage. Nadogradite paket ili se vratite sutra za nove pretrage.
+            Iskoristili ste sve sedmične pretrage. Nadogradite paket ili se vratite sljedeće sedmice za nove pretrage.
           </p>
         </div>
       </div>

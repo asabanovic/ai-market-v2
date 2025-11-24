@@ -91,7 +91,7 @@ function getNewMessage() {
 }
 
 useSeoMeta({
-  title: '404 - Stranica nije pronađena - AI Pijaca',
+  title: '404 - Stranica nije pronađena - Rabat.ba',
   description: 'Stranica koju tražite ne postoji ili je promijenjena.'
 })
 </script>

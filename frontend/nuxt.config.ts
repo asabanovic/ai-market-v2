@@ -10,7 +10,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'AI Pijaca - Inteligentna kupovina',
+      title: 'Rabat.ba - Inteligentna kupovina',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },

@@ -649,7 +649,7 @@ function calculateDiscountPercent(product: any): number {
 }
 
 useSeoMeta({
-  title: 'Svi proizvodi - Admin - AI Pijaca',
+  title: 'Svi proizvodi - Admin - Rabat.ba',
   description: 'Pregled svih proizvoda u sistemu prema biznisom',
 })
 </script>

@@ -27,8 +27,8 @@
               <div>
                 <h3 class="font-semibold text-blue-900 mb-2">Trenutno stanje:</h3>
                 <p class="text-blue-800">
-                  Svi registrovani korisnici dobijaju <strong class="text-blue-900">10 BESPLATNIH kredita dnevno</strong>.
-                  Svaki proizvod koji pretražite troši 1 kredit. Krediti se automatski obnavljaju svakog dana!
+                  Svi registrovani korisnici dobijaju <strong class="text-blue-900">10 BESPLATNIH kredita sedmično</strong>.
+                  Svaki proizvod koji pretražite troši 1 kredit. Krediti se automatski obnavljaju svakog ponedjeljka!
                 </p>
               </div>
             </div>
@@ -113,7 +113,7 @@
         <div class="bg-gray-50 px-8 py-6 border-t border-gray-200">
           <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="text-center sm:text-left">
-              <p class="text-sm text-gray-600">U međuvremenu, iskoristite vaših 10 dnevnih kredita!</p>
+              <p class="text-sm text-gray-600">U međuvremenu, iskoristite vaših 10 sedmičnih kredita!</p>
             </div>
             <NuxtLink
               to="/"
@@ -137,7 +137,7 @@
               Koliko kredita imam trenutno?
             </h3>
             <p class="text-gray-600 text-sm ml-7">
-              Svi korisnici imaju 10 kredita dnevno. Možete vidjeti koliko vam je preostalo nakon svake pretrage.
+              Svi korisnici imaju 10 kredita sedmično. Možete vidjeti koliko vam je preostalo nakon svake pretrage, a krediti se obnavljaju svakog ponedjeljka.
             </p>
           </div>
 
@@ -178,7 +178,7 @@
 
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Dodatni Krediti - Uskoro! - AI Pijaca',
+  title: 'Dodatni Krediti - Uskoro! - Rabat.ba',
   description: 'Saznajte više o našem nadolazećem sistemu dodatnih kredita i kako možete dobiti više pretraga',
 })
 
