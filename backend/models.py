@@ -42,6 +42,9 @@ class User(UserMixin, db.Model):
     # Track registration method: 'email' or 'phone'
     registration_method = db.Column(db.String, default='email', nullable=True)
 
+    # WhatsApp availability - user preference for OTP delivery
+    whatsapp_available = db.Column(db.Boolean, default=True, nullable=False)
+
     # Notification preferences: 'none', 'favorites', 'all'
     notification_preferences = db.Column(db.String, default='none', nullable=True)
 
@@ -568,4 +571,29 @@ class AnonymousSearch(db.Model):
     __table_args__ = (
         db.Index('idx_anonymous_searches_ip', 'ip_address'),
         db.Index('idx_anonymous_searches_created_at', 'created_at'),
+    )
+
+# ==================== NOTIFICATIONS ====================
+
+# User notifications for discount alerts and other events
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    notification_type = db.Column(db.String, nullable=False)  # 'discount_alert', 'price_drop', etc.
+    title = db.Column(db.String, nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    action_url = db.Column(db.String, nullable=True)  # Optional URL to navigate to
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref='notifications')
+    product = db.relationship('Product', backref='notifications')
+
+    __table_args__ = (
+        db.Index('idx_notifications_user_id', 'user_id'),
+        db.Index('idx_notifications_created_at', 'created_at'),
+        db.Index('idx_notifications_user_read', 'user_id', 'is_read'),
     )

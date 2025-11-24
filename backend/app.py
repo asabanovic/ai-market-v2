@@ -1,4 +1,4 @@
-# Flask marketplace application with Replit Auth, PostgreSQL, OpenAI, and SendGrid integration
+# Flask marketplace application with Replit Auth, PostgreSQL, OpenAI, and Infobip integration
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect

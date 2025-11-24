@@ -19,7 +19,7 @@ from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
                           normalize_text_for_search, extract_search_intent, match_products_by_tags, smart_rank_products, generate_bulk_product_tags, generate_enriched_description)
-from sendgrid_utils import send_contact_email, send_welcome_email, send_verification_email, generate_verification_token, send_invitation_email, send_password_reset_email
+from infobip_email import send_contact_email, send_welcome_email, send_verification_email, generate_verification_token, send_invitation_email, send_password_reset_email
 from models import SavingsStatistics
 # Temporarily commenting PDF imports to fix server
 # from pdf_parser import process_pdf_for_business, download_pdf_from_url, normalize_product_title

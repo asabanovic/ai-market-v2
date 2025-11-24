@@ -1,14 +1,15 @@
 """
 Phone Authentication API
-Handles SMS OTP authentication flow
+Handles WhatsApp/SMS OTP authentication flow via Infobip
 """
 import secrets
 import logging
+import re
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from app import db
 from models import User, OTPCode
-from twilio_service import twilio_service
+from infobip_service import send_otp_with_fallback
 from auth_api import generate_jwt_token
 from credits_service_weekly import WeeklyCreditsService
 
@@ -29,37 +30,91 @@ def get_client_ip():
     return request.remote_addr
 
 
+def normalize_phone(phone: str) -> str:
+    """
+    Normalize phone number to E.164 format
+    Accepts: +387 6X XXX XXX, 06X XXX XXX, 3876XXXXXXX, etc.
+    Returns: +3876XXXXXXX
+    """
+    # Remove all non-digit characters
+    digits = re.sub(r'\D', '', phone)
+
+    # If starts with 387, add +
+    if digits.startswith('387'):
+        return f'+{digits}'
+
+    # If starts with 0, replace with +387
+    if digits.startswith('0'):
+        return f'+387{digits[1:]}'
+
+    # If no prefix, assume BA and add +387
+    if len(digits) == 8 or len(digits) == 9:
+        return f'+387{digits}'
+
+    # Already has +
+    if phone.startswith('+'):
+        return f'+{digits}'
+
+    return f'+{digits}'
+
+
+def validate_phone(phone: str) -> tuple[bool, str]:
+    """
+    Validate phone number for Bosnia and Herzegovina
+    Returns: (is_valid, error_message)
+    """
+    try:
+        normalized = normalize_phone(phone)
+
+        # Check if it's BA number (+387)
+        if not normalized.startswith('+387'):
+            return False, 'Podržani su samo brojevi telefona za Bosnu i Hercegovinu (+387)'
+
+        # Check length (should be +387 + 8-9 digits)
+        if len(normalized) < 12 or len(normalized) > 13:
+            return False, 'Nevažeći format broja telefona'
+
+        return True, ''
+    except Exception as e:
+        logger.error(f"Phone validation error: {e}")
+        return False, 'Nevažeći format broja telefona'
+
+
 @phone_auth_bp.route('/phone/send-otp', methods=['POST'])
 def send_otp():
     """
-    Send OTP code to phone number
+    Send OTP code to phone number via WhatsApp or SMS
 
     Request body:
         {
-            "phone": "+387 6X XXX XXX"
+            "phone": "+387 6X XXX XXX",
+            "whatsapp_available": true  # Optional, defaults to true
         }
 
     Response:
         {
             "success": true,
-            "message": "Kod poslan na vaš telefon",
+            "message": "Kod poslan preko WhatsApp/SMS",
+            "channel": "whatsapp" or "sms",
+            "fallback_used": false,
             "expires_in": 300,
             "dev_mode": false  # Only in dev mode
         }
     """
     data = request.get_json()
     phone = data.get('phone', '').strip()
+    whatsapp_available = data.get('whatsapp_available', True)  # Default to WhatsApp
 
     if not phone:
         return jsonify({'success': False, 'error': 'Broj telefona je obavezan'}), 400
 
     # Validate phone number
-    is_valid, error_msg = twilio_service.validate_phone(phone)
+    is_valid, error_msg = validate_phone(phone)
     if not is_valid:
         return jsonify({'success': False, 'error': error_msg}), 400
 
     # Normalize phone
-    normalized_phone = twilio_service._normalize_phone(phone)
+    normalized_phone = normalize_phone(phone)
 
     # Rate limiting: Max 3 OTP requests per phone per hour
     one_hour_ago = datetime.now() - timedelta(hours=1)
@@ -102,15 +157,31 @@ def send_otp():
     db.session.add(otp)
     db.session.commit()
 
-    # Send SMS
-    result = twilio_service.send_otp(normalized_phone, otp_code)
+    # Send OTP via WhatsApp (with SMS fallback) or SMS only
+    result = send_otp_with_fallback(normalized_phone, otp_code, prefer_whatsapp=whatsapp_available)
 
     if result['success']:
-        logger.info(f"OTP sent to {normalized_phone}")
+        channel = result.get('channel', 'unknown')
+        fallback_used = result.get('fallback_used', False)
+
+        logger.info(f"OTP sent to {normalized_phone} via {channel} (fallback: {fallback_used})")
+
+        # Build response message
+        if channel == 'whatsapp':
+            message = 'Kod poslan na WhatsApp ✓'
+        elif channel == 'sms':
+            if fallback_used:
+                message = 'Kod poslan kao SMS (WhatsApp nedostupan)'
+            else:
+                message = 'Kod poslan kao SMS ✓'
+        else:
+            message = 'Kod poslan ✓'
 
         response = {
             'success': True,
-            'message': 'Kod poslan na vaš telefon',
+            'message': message,
+            'channel': channel,
+            'fallback_used': fallback_used,
             'expires_in': 300  # 5 minutes in seconds
         }
 
@@ -121,11 +192,11 @@ def send_otp():
 
         return jsonify(response), 200
     else:
-        # Failed to send SMS
+        # Failed to send
         logger.error(f"Failed to send OTP to {normalized_phone}: {result.get('error')}")
         return jsonify({
             'success': False,
-            'error': 'Greška prilikom slanja SMS-a. Pokušajte ponovo.'
+            'error': 'Greška prilikom slanja koda. Pokušajte ponovo.'
         }), 500
 
 
@@ -138,7 +209,8 @@ def verify_otp():
         {
             "phone": "+387 6X XXX XXX",
             "code": "123456",
-            "referral_code": "175ABC12"  # Optional
+            "referral_code": "175ABC12",  # Optional
+            "whatsapp_available": true  # Optional, user preference
         }
 
     Response:
@@ -148,6 +220,7 @@ def verify_otp():
             "user": {
                 "id": "user_id",
                 "phone": "+387XXXXXXXXX",
+                "whatsapp_available": true,
                 "is_new": true/false
             }
         }
@@ -156,12 +229,13 @@ def verify_otp():
     phone = data.get('phone', '').strip()
     code = data.get('code', '').strip()
     referral_code = data.get('referral_code', '').strip().upper() if data.get('referral_code') else None
+    whatsapp_available = data.get('whatsapp_available', True)  # Default to True
 
     if not phone or not code:
         return jsonify({'success': False, 'error': 'Telefon i kod su obavezni'}), 400
 
     # Normalize phone
-    normalized_phone = twilio_service._normalize_phone(phone)
+    normalized_phone = normalize_phone(phone)
 
     # Find valid OTP
     otp = OTPCode.query.filter(
@@ -211,6 +285,7 @@ def verify_otp():
             phone_verified=True,
             registration_method='phone',
             is_verified=True,  # Phone verified = account verified
+            whatsapp_available=whatsapp_available,  # Save WhatsApp preference
             referred_by_code=referral_code  # Save who referred this user
         )
         db.session.add(user)
@@ -249,6 +324,7 @@ def verify_otp():
             'id': user.id,
             'phone': user.phone,
             'email': user.email,
+            'whatsapp_available': user.whatsapp_available,
             'is_new': is_new_user,
             'registration_method': user.registration_method
         }
