@@ -220,7 +220,7 @@ definePageMeta({
 })
 
 const { post } = useApi()
-const { login } = useAuth()
+const { login, user } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
@@ -303,8 +303,11 @@ async function verifyOTP() {
     })
 
     if (response.success && response.token) {
-      // Login successful
-      await login(response.token, response.user)
+      // Login successful - store token and user directly
+      if (process.client) {
+        localStorage.setItem('token', response.token)
+      }
+      user.value = response.user
 
       successMessage.value = 'Uspješno prijavljeni! ✅'
 

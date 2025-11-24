@@ -14,7 +14,10 @@ logger = logging.getLogger(__name__)
 # Infobip API Configuration
 INFOBIP_API_KEY = os.environ.get("INFOBIP_API_KEY")
 INFOBIP_BASE_URL = os.environ.get("INFOBIP_BASE_URL", "https://api.infobip.com")
-INFOBIP_SENDER = os.environ.get("INFOBIP_SENDER", "Rabat.ba")
+# SMS uses alphanumeric sender (e.g., "Rabat")
+INFOBIP_SMS_SENDER = os.environ.get("INFOBIP_SMS_SENDER", os.environ.get("INFOBIP_SENDER", "Rabat"))
+# WhatsApp uses phone number sender (e.g., "+38761234567")
+INFOBIP_WHATSAPP_SENDER = os.environ.get("INFOBIP_WHATSAPP_SENDER", os.environ.get("INFOBIP_SENDER", ""))
 INFOBIP_EMAIL_FROM = os.environ.get("INFOBIP_EMAIL_FROM", "noreply@rabat.ba")
 INFOBIP_EMAIL_FROM_NAME = os.environ.get("INFOBIP_EMAIL_FROM_NAME", "Rabat.ba")
 
@@ -74,7 +77,7 @@ def send_whatsapp_otp(phone: str, code: str) -> Dict:
 
         # WhatsApp message payload
         payload = {
-            "from": INFOBIP_SENDER,
+            "from": INFOBIP_WHATSAPP_SENDER,
             "to": phone,
             "messageId": f"whatsapp-otp-{phone}-{code[:3]}",
             "content": {
@@ -160,7 +163,7 @@ def send_sms_otp(phone: str, code: str) -> Dict:
         payload = {
             "messages": [
                 {
-                    "from": INFOBIP_SENDER,
+                    "from": INFOBIP_SMS_SENDER,
                     "destinations": [
                         {"to": phone}
                     ],
@@ -172,9 +175,14 @@ def send_sms_otp(phone: str, code: str) -> Dict:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         response_data = response.json()
 
+        logger.info(f"SMS API Response - Status: {response.status_code}, Data: {response_data}")
+
         if response.status_code == 200 and response_data.get('messages'):
             message_info = response_data['messages'][0]
-            if message_info.get('status', {}).get('groupName') == 'PENDING':
+            status = message_info.get('status', {})
+            logger.info(f"SMS Status - GroupName: {status.get('groupName')}, Name: {status.get('name')}")
+
+            if status.get('groupName') == 'PENDING':
                 logger.info(f"SMS OTP sent successfully to {phone}")
                 return {
                     'success': True,
@@ -182,7 +190,7 @@ def send_sms_otp(phone: str, code: str) -> Dict:
                     'channel': 'sms'
                 }
 
-        logger.error(f"SMS send failed: {response_data}")
+        logger.error(f"SMS send failed - Status: {response.status_code}, Response: {response_data}")
         return {
             'success': False,
             'error': 'SMS delivery failed',
@@ -286,7 +294,7 @@ def send_whatsapp_message(phone: str, message: str) -> Dict:
             "Content-Type": "application/json"
         }
         payload = {
-            "from": INFOBIP_SENDER,
+            "from": INFOBIP_WHATSAPP_SENDER,
             "to": phone,
             "content": {"text": message}
         }
@@ -316,7 +324,7 @@ def send_sms_message(phone: str, message: str) -> Dict:
         }
         payload = {
             "messages": [{
-                "from": INFOBIP_SENDER,
+                "from": INFOBIP_SMS_SENDER,
                 "destinations": [{"to": phone}],
                 "text": message
             }]

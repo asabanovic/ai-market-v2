@@ -312,6 +312,76 @@ def product_to_dict(product):
     }
 
 
+# Async product enrichment (tags + descriptions)
+def schedule_async_product_enrichment(product_ids: list[int]) -> None:
+    """
+    Schedule AI enrichment (tags + descriptions) to run in the background
+
+    Args:
+        product_ids: List of product IDs to enrich
+    """
+    import threading
+    from flask import current_app
+
+    def run_enrichment_in_background(app, product_ids):
+        with app.app_context():
+            try:
+                app.logger.info(f"Starting background AI enrichment for {len(product_ids)} products")
+
+                # Fetch products
+                products = Product.query.filter(Product.id.in_(product_ids)).all()
+                if not products:
+                    app.logger.warning("No products found for enrichment")
+                    return
+
+                # Batch generate tags for all products
+                try:
+                    app.logger.info(f"Generating AI tags for {len(products)} products...")
+                    products_data = [{'title': p.title, 'category': p.category} for p in products]
+                    all_tags = generate_bulk_product_tags(products_data)
+
+                    # Update products with generated tags
+                    for idx, product in enumerate(products):
+                        if idx < len(all_tags) and all_tags[idx]:
+                            product.tags = all_tags[idx]
+
+                    db.session.commit()
+                    app.logger.info(f"Successfully generated tags for {len(products)} products")
+                except Exception as e:
+                    app.logger.error(f"Tag generation failed: {e}")
+
+                # Generate enriched descriptions for each product
+                try:
+                    app.logger.info(f"Generating enriched descriptions for {len(products)} products...")
+                    for product in products:
+                        try:
+                            enriched_desc = generate_enriched_description(
+                                product_title=product.title,
+                                category=product.category
+                            )
+                            product.enriched_description = enriched_desc
+                        except Exception as e:
+                            app.logger.warning(f"Failed to generate description for product {product.id}: {e}")
+
+                    db.session.commit()
+                    app.logger.info(f"Successfully generated enriched descriptions")
+                except Exception as e:
+                    app.logger.error(f"Enriched description generation failed: {e}")
+
+                app.logger.info(f"Background AI enrichment complete for {len(products)} products")
+            except Exception as e:
+                app.logger.error(f"Background enrichment failed: {e}", exc_info=True)
+
+    app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=run_enrichment_in_background,
+        args=(app, product_ids),
+        daemon=True
+    )
+    thread.start()
+    app.logger.info(f"Scheduled background AI enrichment for {len(product_ids)} products")
+
+
 # Helper function to check daily query limit
 def check_query_limit(user):
     if not user.package:
@@ -2667,26 +2737,17 @@ def bulk_import_products(business_id):
                 errors.append(f"Proizvod #{idx + 1} ({product_data.get('title', 'N/A')}): {str(e)}")
                 continue
 
-        # Generate tags for ALL products in one API call
+        # Generate simple fallback tags (FAST - no LLM)
         all_tags = []
-        if validated_products:
-            try:
-                app.logger.info(f"Generating tags for {len(validated_products)} products in batch...")
-                products_for_tagging = [p['data'] for p in validated_products]
-                all_tags = generate_bulk_product_tags(products_for_tagging)
-                app.logger.info(f"Successfully generated {len(all_tags)} tag sets")
-            except Exception as e:
-                app.logger.warning(f"Batch tag generation failed: {e}, using fallback")
-                # Fallback: generate simple tags from title/category
-                for p in validated_products:
-                    fallback_tags = []
-                    title = p['data']['title'].lower().strip()
-                    if title:
-                        fallback_tags.append(title)
-                    category = p['data'].get('category', '').lower().strip()
-                    if category:
-                        fallback_tags.append(category)
-                    all_tags.append(fallback_tags)
+        for p in validated_products:
+            fallback_tags = []
+            title = p['data']['title'].lower().strip()
+            if title:
+                fallback_tags.append(title)
+            category = p['data'].get('category', '').lower().strip()
+            if category:
+                fallback_tags.append(category)
+            all_tags.append(fallback_tags)
 
         # Second pass: Create or update products with generated tags
         updated_count = 0
@@ -2754,33 +2815,21 @@ def bulk_import_products(business_id):
         # Commit all products first
         db.session.commit()
 
-        # Generate enriched descriptions for all products
+        # Schedule async enrichment (tags + descriptions) and vectorization
         if products_to_vectorize:
+            product_ids = [p.id for p in products_to_vectorize]
+
+            # Schedule background task for AI enrichment (tags + descriptions)
             try:
-                app.logger.info(f"Generating enriched descriptions for {len(products_to_vectorize)} products...")
-                for product in products_to_vectorize:
-                    try:
-                        enriched_desc = generate_enriched_description(
-                            product_title=product.title,
-                            category=product.category
-                        )
-                        product.enriched_description = enriched_desc
-                    except Exception as e:
-                        app.logger.warning(f"Failed to generate description for product {product.id}: {e}")
-                        # Continue with other products
-
-                # Commit descriptions
-                db.session.commit()
-                app.logger.info(f"Successfully generated enriched descriptions")
+                app.logger.info(f"Scheduling async AI enrichment for {len(product_ids)} products")
+                schedule_async_product_enrichment(product_ids)
             except Exception as e:
-                app.logger.error(f"Enriched description generation failed: {e}")
+                app.logger.error(f"Failed to schedule async enrichment: {e}")
 
-        # Schedule async vectorization for updated and new products (non-blocking)
-        if products_to_vectorize:
+            # Schedule vectorization (will run after enrichment)
             try:
                 from auto_vectorize import schedule_async_vectorization
-                product_ids = [p.id for p in products_to_vectorize]
-                app.logger.info(f"Scheduling async vectorization for {len(product_ids)} products from bulk import")
+                app.logger.info(f"Scheduling async vectorization for {len(product_ids)} products")
                 schedule_async_vectorization(product_ids=product_ids, force=False)
             except Exception as e:
                 app.logger.error(f"Failed to schedule async vectorization: {e}")
