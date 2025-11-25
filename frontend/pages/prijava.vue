@@ -388,7 +388,7 @@ async function handleEmailLogin() {
 }
 
 useSeoMeta({
-  title: 'Prijava - Rabat.ba',
-  description: 'Prijavite se na Rabat.ba'
+  title: 'Prijava - Popust.ba',
+  description: 'Prijavite se na Popust.ba'
 })
 </script>

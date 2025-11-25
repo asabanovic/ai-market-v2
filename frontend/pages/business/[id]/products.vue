@@ -1305,7 +1305,7 @@ onMounted(() => {
 })
 
 useSeoMeta({
-  title: 'Upravljanje proizvodima - Rabat.ba',
+  title: 'Upravljanje proizvodima - Popust.ba',
   description: 'Dodajte i upravljajte proizvodima za vaš biznis',
 })
 </script>

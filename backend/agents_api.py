@@ -56,13 +56,25 @@ def count_products_in_query(query):
 
 
 def reset_daily_credits_if_needed(user):
-    """Reset user's daily credits if it's a new day."""
+    """Reset user's weekly credits if it's a new week (Monday)."""
+    from datetime import datetime, timedelta
     today = date.today()
-    if user.daily_credits_reset_date != today:
-        user.daily_credits_used = 0
-        user.daily_credits_reset_date = today
-        db.session.commit()
-        current_app.logger.info(f"Reset daily credits for user {user.id}")
+
+    # Check if we need to reset (it's Monday and reset date is before today)
+    if user.weekly_credits_reset_date != today:
+        # Calculate days since last reset
+        days_since_reset = (today - user.weekly_credits_reset_date).days
+
+        # Reset if it's been 7+ days (a week has passed)
+        if days_since_reset >= 7:
+            user.weekly_credits_used = 0
+            # Set next reset to next Monday
+            days_until_monday = (7 - today.weekday()) % 7
+            if days_until_monday == 0:
+                days_until_monday = 7
+            user.weekly_credits_reset_date = today + timedelta(days=days_until_monday)
+            db.session.commit()
+            current_app.logger.info(f"Reset weekly credits for user {user.id}")
 
 
 def check_and_deduct_credits(user, credits_needed):
@@ -71,21 +83,31 @@ def check_and_deduct_credits(user, credits_needed):
     Returns:
         tuple: (success: bool, message: str, credits_remaining: int)
     """
-    # Reset credits if it's a new day
+    # Reset credits if it's a new week
     reset_daily_credits_if_needed(user)
 
-    # Check if user has enough credits
-    credits_remaining = user.daily_credits - user.daily_credits_used
-    if credits_remaining < credits_needed:
-        return False, f"Nemate dovoljno kredita. Potrebno: {credits_needed}, dostupno: {credits_remaining}. Krediti se obnavljaju sutra!", credits_remaining
+    # Calculate total available credits (weekly + extra)
+    weekly_remaining = user.weekly_credits - user.weekly_credits_used
+    total_remaining = weekly_remaining + user.extra_credits
 
-    # Deduct credits
-    user.daily_credits_used += credits_needed
+    if total_remaining < credits_needed:
+        return False, f"Nemate dovoljno kredita. Potrebno: {credits_needed}, dostupno: {total_remaining}. Krediti se obnavljaju sljedeće sedmice!", total_remaining
+
+    # Deduct from weekly credits first, then extra credits
+    if weekly_remaining >= credits_needed:
+        user.weekly_credits_used += credits_needed
+    else:
+        # Use remaining weekly credits
+        user.weekly_credits_used = user.weekly_credits
+        # Use extra credits for the rest
+        remaining_needed = credits_needed - weekly_remaining
+        user.extra_credits -= remaining_needed
+
     db.session.commit()
-    credits_remaining = user.daily_credits - user.daily_credits_used
+    new_total_remaining = (user.weekly_credits - user.weekly_credits_used) + user.extra_credits
 
-    current_app.logger.info(f"Deducted {credits_needed} credits from user {user.id}. Remaining: {credits_remaining}")
-    return True, "Success", credits_remaining
+    current_app.logger.info(f"Deducted {credits_needed} credits from user {user.id}. Remaining: {new_total_remaining}")
+    return True, "Success", new_total_remaining
 
 
 def log_search(user_id, query, results, user_ip=None):

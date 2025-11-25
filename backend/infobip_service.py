@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 # Infobip API Configuration
 INFOBIP_API_KEY = os.environ.get("INFOBIP_API_KEY")
 INFOBIP_BASE_URL = os.environ.get("INFOBIP_BASE_URL", "https://api.infobip.com")
-# SMS uses alphanumeric sender (e.g., "Rabat")
-INFOBIP_SMS_SENDER = os.environ.get("INFOBIP_SMS_SENDER", os.environ.get("INFOBIP_SENDER", "Rabat"))
+# SMS uses alphanumeric sender (e.g., "Popust")
+INFOBIP_SMS_SENDER = os.environ.get("INFOBIP_SMS_SENDER", os.environ.get("INFOBIP_SENDER", "Popust"))
 # WhatsApp uses phone number sender (e.g., "+38761234567")
 INFOBIP_WHATSAPP_SENDER = os.environ.get("INFOBIP_WHATSAPP_SENDER", os.environ.get("INFOBIP_SENDER", ""))
-INFOBIP_EMAIL_FROM = os.environ.get("INFOBIP_EMAIL_FROM", "noreply@rabat.ba")
-INFOBIP_EMAIL_FROM_NAME = os.environ.get("INFOBIP_EMAIL_FROM_NAME", "Rabat.ba")
+INFOBIP_EMAIL_FROM = os.environ.get("INFOBIP_EMAIL_FROM", "noreply@popust.ba")
+INFOBIP_EMAIL_FROM_NAME = os.environ.get("INFOBIP_EMAIL_FROM_NAME", "Popust.ba")
 
 # Service availability check
 INFOBIP_ENABLED = bool(INFOBIP_API_KEY)
@@ -81,7 +81,7 @@ def send_whatsapp_otp(phone: str, code: str) -> Dict:
             "to": phone,
             "messageId": f"whatsapp-otp-{phone}-{code[:3]}",
             "content": {
-                "text": f"Vaš Rabat.ba verifikacioni kod je: {code}\n\nKod važi 10 minuta.\n\nAko niste Vi zatražili ovaj kod, molimo zanemarite ovu poruku."
+                "text": f"Vaš Popust.ba verifikacioni kod je: {code}\n\nKod važi 10 minuta.\n\nAko niste Vi zatražili ovaj kod, molimo zanemarite ovu poruku."
             },
             "callbackData": "otp-verification"
         }
@@ -167,7 +167,7 @@ def send_sms_otp(phone: str, code: str) -> Dict:
                     "destinations": [
                         {"to": phone}
                     ],
-                    "text": f"Vaš Rabat.ba verifikacioni kod je: {code}\n\nKod važi 10 minuta."
+                    "text": f"Vaš Popust.ba verifikacioni kod je: {code}\n\nKod važi 10 minuta."
                 }
             ]
         }

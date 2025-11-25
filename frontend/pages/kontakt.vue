@@ -123,7 +123,7 @@ async function handleSubmit() {
 }
 
 useSeoMeta({
-  title: 'Kontakt - Rabat.ba',
-  description: 'Imate pitanje ili predlog? Kontaktirajte Rabat.ba tim. Radujemo se vašoj poruci!',
+  title: 'Kontakt - Popust.ba',
+  description: 'Imate pitanje ili predlog? Kontaktirajte Popust.ba tim. Radujemo se vašoj poruci!',
 })
 </script>

@@ -14,7 +14,7 @@
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full mx-auto" style="max-width: 95vw;">
           <div class="mb-4">
             <label for="chat-input" class="block text-left typography-label text-gray-700 mb-2">
-              ✨ Testirajte Rabat asistenta - unesite proizvode koje trebate:
+              ✨ Testirajte Popust asistenta - unesite proizvode koje trebate:
             </label>
             <textarea
               id="chat-input"
@@ -159,7 +159,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <h2 class="typography-heading-1 text-gray-900 mb-2">SUPERMARKETI</h2>
-          <p class="typography-body text-gray-600">Koristite naš Rabat asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije</p>
+          <p class="typography-body text-gray-600">Koristite naš Popust asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije</p>
         </div>
 
         <div class="flex flex-wrap justify-center items-center gap-6">
@@ -415,7 +415,7 @@ const funMessages: Record<string, string[]> = {
     '🍝 Pasta la vista! Gledam ponude...'
   ],
   generic: [
-    '🔍 Rabat pretraživač na djelu...',
+    '🔍 Popust pretraživač na djelu...',
     '🤖 Analiziram hiljade proizvoda...',
     '💰 Tražim gdje možete uštedjeti...',
     '🎯 Skeniram sve trgovine grada...',
@@ -423,13 +423,13 @@ const funMessages: Record<string, string[]> = {
     '🛒 Vaš personalni shopping asistent radi...',
     '💎 Tražim skrivene popuste...',
     '🏪 Provjeravam sve supermarkete...',
-    '📊 Rabat mašina procesuje podatke...',
+    '📊 Popust mašina procesuje podatke...',
     '🎁 Možda naletim na iznenađenje...',
     '🚀 Turbo pretraga aktivna...',
-    '🧠 Rabat mozak razmišlja...',
+    '🧠 Popust mozak razmišlja...',
     '💡 Genijalna ideja: potražimo popust!',
     '🎪 Show počinje... tražim ponude!',
-    '🌟 Magija Rabat pretrage u toku...'
+    '🌟 Magija Popust pretrage u toku...'
   ]
 }
 
@@ -699,9 +699,9 @@ function sanitizeResponse(html: string): string {
 }
 
 useSeoMeta({
-  title: 'Rabat.ba - Pronađite najbolje popuste',
-  description: 'Koristite naš Rabat asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije u vašem gradu',
-  ogTitle: 'Rabat.ba',
+  title: 'Popust.ba - Pronađite najbolje popuste',
+  description: 'Koristite naš Popust asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije u vašem gradu',
+  ogTitle: 'Popust.ba',
   ogDescription: 'Vaš inteligentni asistent za kupovinu',
   twitterCard: 'summary_large_image',
 })

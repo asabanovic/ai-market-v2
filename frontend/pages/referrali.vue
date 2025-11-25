@@ -436,7 +436,7 @@ async function setCustomCode() {
 }
 
 useSeoMeta({
-  title: 'Referral Program - Rabat.ba',
+  title: 'Referral Program - Popust.ba',
   description: 'Pozovite prijatelje i osvojite dodatne kredite! 100 kredita za svaki uspješan referral.'
 })
 </script>

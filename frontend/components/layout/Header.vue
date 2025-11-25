@@ -6,11 +6,11 @@
           <NuxtLink to="/" class="flex items-center">
             <img
               src="/logo.png"
-              alt="Rabat Logo"
+              alt="Popust Logo"
               class="h-20 w-auto -my-2 px-8 py-3 transition-transform hover:scale-105"
               @error="logoError = true"
             />
-            <span v-if="logoError" class="text-2xl font-bold text-purple-600 px-8">Rabat</span>
+            <span v-if="logoError" class="text-2xl font-bold text-purple-600 px-8">Popust</span>
           </NuxtLink>
         </div>
 

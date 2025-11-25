@@ -178,7 +178,7 @@
 
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Dodatni Krediti - Uskoro! - Rabat.ba',
+  title: 'Dodatni Krediti - Uskoro! - Popust.ba',
   description: 'Saznajte više o našem nadolazećem sistemu dodatnih kredita i kako možete dobiti više pretraga',
 })
 

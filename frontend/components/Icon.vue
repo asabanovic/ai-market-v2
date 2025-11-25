@@ -13,6 +13,7 @@
 <script setup lang="ts">
 import {
   mdiHeart,
+  mdiHeartOutline,
   mdiCart,
   mdiPlaylistPlus,
   mdiInformationOutline,
@@ -47,6 +48,7 @@ const size = computed(() => {
 // Map icon names to MDI paths
 const iconMap: Record<string, string> = {
   'mdi:heart': mdiHeart,
+  'mdi:heart-outline': mdiHeartOutline,
   'mdi:cart': mdiCart,
   'mdi:playlist-plus': mdiPlaylistPlus,
   'mdi:information-outline': mdiInformationOutline,

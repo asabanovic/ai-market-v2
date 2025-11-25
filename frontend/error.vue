@@ -91,7 +91,7 @@ function getNewMessage() {
 }
 
 useSeoMeta({
-  title: '404 - Stranica nije pronađena - Rabat.ba',
+  title: '404 - Stranica nije pronađena - Popust.ba',
   description: 'Stranica koju tražite ne postoji ili je promijenjena.'
 })
 </script>

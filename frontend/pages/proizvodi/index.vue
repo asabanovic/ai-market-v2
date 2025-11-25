@@ -302,7 +302,7 @@ function updateURL() {
 }
 
 useSeoMeta({
-  title: 'Svi proizvodi - Rabat.ba',
+  title: 'Svi proizvodi - Popust.ba',
   description: 'Pretražite kroz sve proizvode sa popustima iz vaših omiljenih trgovina',
 })
 </script>

@@ -115,7 +115,7 @@ onMounted(async () => {
 })
 
 useSeoMeta({
-  title: computed(() => product.value ? `${product.value.title} - Rabat.ba` : 'Proizvod - Rabat.ba'),
+  title: computed(() => product.value ? `${product.value.title} - Popust.ba` : 'Proizvod - Popust.ba'),
   description: computed(() => product.value?.title || 'Product details'),
 })
 </script>

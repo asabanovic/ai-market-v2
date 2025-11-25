@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="mb-8">
         <h1 class="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
-        <p class="mt-1 text-sm text-gray-600">Pregled i upravljanje Rabat.ba platformom</p>
+        <p class="mt-1 text-sm text-gray-600">Pregled i upravljanje Popust.ba platformom</p>
       </div>
 
       <!-- Loading State -->
@@ -350,7 +350,7 @@ function formatDateTime(dateString: string) {
 }
 
 useSeoMeta({
-  title: 'Admin Dashboard - Rabat.ba',
-  description: 'Admin dashboard za upravljanje Rabat.ba platformom',
+  title: 'Admin Dashboard - Popust.ba',
+  description: 'Admin dashboard za upravljanje Popust.ba platformom',
 })
 </script>

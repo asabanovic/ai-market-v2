@@ -126,7 +126,7 @@ function getInitials(name: string): string {
 }
 
 useSeoMeta({
-  title: 'Referral Link - Rabat.ba',
+  title: 'Referral Link - Popust.ba',
   description: `Registrujte se preko referral linka i dobijte bonus kredite!`
 })
 </script>

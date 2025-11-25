@@ -290,7 +290,7 @@ function formatDate(dateString: string) {
 }
 
 useSeoMeta({
-  title: 'Korisnici - Admin - Rabat.ba',
+  title: 'Korisnici - Admin - Popust.ba',
   description: 'Admin panel za upravljanje korisnicima'
 })
 </script>

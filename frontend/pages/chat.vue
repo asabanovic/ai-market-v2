@@ -16,7 +16,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Chat - Rabat.ba',
-  description: 'Razgovarajte sa Rabat asistentom',
+  title: 'Chat - Popust.ba',
+  description: 'Razgovarajte sa Popust asistentom',
 })
 </script>

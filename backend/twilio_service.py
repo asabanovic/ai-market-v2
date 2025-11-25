@@ -91,7 +91,7 @@ class TwilioService:
         Returns:
             dict with 'success', 'message_sid', 'error'
         """
-        message = f"Vaš Rabat.ba kod: {otp_code}\n\nKod važi 5 minuta."
+        message = f"Vaš Popust.ba kod: {otp_code}\n\nKod važi 5 minuta."
         return self.send_sms(to_phone, message)
 
     def send_notification(self, to_phone: str, notification_text: str) -> dict:
@@ -105,7 +105,7 @@ class TwilioService:
         Returns:
             dict with 'success', 'message_sid', 'error'
         """
-        message = f"Rabat.ba obavještenje:\n\n{notification_text}"
+        message = f"Popust.ba obavještenje:\n\n{notification_text}"
         return self.send_sms(to_phone, message)
 
     def _normalize_phone(self, phone: str) -> str:

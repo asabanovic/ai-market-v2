@@ -724,7 +724,7 @@ function formatDateTime(dateString: string): string {
 }
 
 useSeoMeta({
-  title: 'Upravljanje biznisom - Rabat.ba',
+  title: 'Upravljanje biznisom - Popust.ba',
   description: 'Dodajte i upravljajte vašim radnjama i proizvodima',
 })
 </script>

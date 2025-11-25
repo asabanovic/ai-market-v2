@@ -7,29 +7,358 @@
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
 
+
+ WARN  Module @nuxt/icon is disabled due to incompatibility issues:
+ - [nuxt] Nuxt version >=4.0.0 is required but currently using 3.17.5
+
   ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
 
-✔ Vite client built in 48ms
-✔ Vite server built in 1475ms
-[nitro] ✔ Nuxt Nitro server built in 2520ms
-ℹ Vite client warmed up in 4ms
-ℹ Vite server warmed up in 1832ms
+✔ Vite client built in 50ms
+✔ Vite server built in 2743ms
+[nitro] ✔ Nuxt Nitro server built in 4127ms
+ℹ Vite client warmed up in 5ms
+ℹ Vite server warmed up in 3803ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
 WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
-ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
-[nuxt] ℹ Compiled plugins.server.mjs in 825.97ms
-[nuxt] ℹ Compiled plugins.client.mjs in 834.56ms
-[nuxt] ℹ Compiled types/plugins.d.ts in 843.35ms
-ℹ hmr update /pages/profil/liste-istorija.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
-ℹ hmr update /pages/profil/liste-istorija.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x2)
-✔ Vite server hmr 22 files in 384.075ms
-ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
-[nuxt] ℹ Compiled plugins.server.mjs in 633.78ms
-[nuxt] ℹ Compiled types/plugins.d.ts in 641.12ms
-[nuxt] ℹ Compiled plugins.client.mjs in 642.18ms
-ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x2)
-ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x3)
-ℹ hmr update /components/ShoppingSidebar.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x4)
-✔ Vite server hmr 17 files in 187.231ms
-ℹ hmr update /components/HeaderIcons.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
-ℹ hmr update /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+ℹ hmr update /components/Icon.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+ℹ hmr update /components/Icon.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct (x2)
+✔ Vite server hmr 22 files in 197.24ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+ℹ page reload middleware/admin.ts
+ℹ page reload middleware/auth.ts
+ℹ page reload tailwind.config.js
+ℹ hmr update /app.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+ℹ page reload composables/useAuth.ts
+ℹ hmr update /components/ProductCard.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct, /components/FavoriteButton.vue, /components/PhoneBanner.vue, /components/ToastContainer.vue, /components/ShoppingSidebar.vue
+ℹ page reload composables/useApi.ts
+ℹ hmr update /components/ProductDetailModal.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct, /components/CreditAnimations.vue
+ℹ page reload plugins/click-outside.ts
+ℹ page reload plugins/api.ts
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it. (repeated 9 times)
+
+[nuxt] ℹ Compiled router.options.mjs in 1125.6ms
+✔ Vite server hmr 32 files in 1904.358ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+[nitro] ✔ Nuxt Nitro server built in 1048ms
+[nitro] ✔ Nuxt Nitro server built in 1040ms
+[nitro] ✔ Nuxt Nitro server built in 1050ms
+[nitro] ✔ Nuxt Nitro server built in 982ms
+ℹ hmr update /stores/notifications.ts
+ℹ hmr update /stores/favorites.ts
+ℹ hmr update /stores/cart.ts
+ℹ page reload components/ui/Card.vue
+ℹ page reload components/ui/LoadingSpinner.vue
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ page reload components/ui/Button.vue
+ℹ page reload components/ui/Input.vue
+ℹ page reload components/chat/ChatInterface.vue
+ℹ page reload components/chat/ProductCard.vue
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ nuxt.config.ts updated. Restarting Nuxt...
+ℹ hmr update /components/layout/Footer.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+ℹ hmr update /error.vue
+
+ WARN  Module @nuxt/icon is disabled due to incompatibility issues:
+ - [nuxt] Nuxt version >=4.0.0 is required but currently using 3.17.5
+
+[nuxt] ℹ Compiled plugins.server.mjs in 703.63ms
+  ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
+
+[nuxt] ℹ Compiled plugins.client.mjs in 720.66ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 725.51ms
+[nuxt] ℹ Compiled plugins.server.mjs in 1335.35ms
+[nuxt] ℹ Compiled plugins.client.mjs in 1346.69ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 1358.09ms
+✔ Vite client built in 76ms
+✔ Vite server built in 3820ms
+ℹ page reload tailwind.config.js
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+[nuxt] ℹ Compiled plugins.server.mjs in 551.53ms
+[nuxt] ℹ Compiled plugins.client.mjs in 768.1ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 852.84ms
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it. (repeated 3 times)
+
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs
+[nuxt] ℹ Compiled plugins.server.mjs in 632.97ms
+[nuxt] ℹ Compiled plugins.client.mjs in 797.08ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 822.33ms
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs (x2)
+[nitro] ✔ Nuxt Nitro server built in 5269ms
+ℹ Vite client warmed up in 31ms
+ℹ Vite server warmed up in 5053ms
+✔ Vite server hmr 18 files in 4584.999ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+[nitro] ✔ Nuxt Nitro server built in 920ms
+[nitro] ✔ Nuxt Nitro server built in 822ms
+[nitro] ✔ Nuxt Nitro server built in 778ms
+[nitro] ✔ Nuxt Nitro server built in 1008ms
+ℹ hmr update /stores/notifications.ts
+ℹ hmr update /stores/favorites.ts
+ℹ hmr update /stores/cart.ts
+ℹ page reload components/ui/Card.vue
+ℹ page reload components/ui/LoadingSpinner.vue
+ℹ page reload components/ui/Button.vue
+ℹ page reload components/ui/Input.vue
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ page reload components/chat/ChatInterface.vue
+ℹ page reload components/chat/ProductCard.vue
+ℹ page reload components/RegistrationPrompt.vue
+ℹ hmr update /components/layout/Footer.vue, /assets/css/tailwind.css, /assets/css/tailwind.css?direct
+ℹ nuxt.config.ts updated. Restarting Nuxt...
+
+ WARN  Module @nuxt/icon is disabled due to incompatibility issues:
+ - [nuxt] Nuxt version >=4.0.0 is required but currently using 3.17.5
+
+  ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
+
+✔ Vite client built in 44ms
+✔ Vite server built in 1760ms
+ℹ page reload tailwind.config.js
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+[nuxt] ℹ Compiled plugins.client.mjs in 516.71ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 616.76ms
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fplugins.client.mjs
+[nuxt] ℹ Compiled plugins.client.mjs in 777.41ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 815.2ms
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fplugins.client.mjs
+[nitro] ✔ Nuxt Nitro server built in 3969ms
+ℹ Vite client warmed up in 912ms
+ℹ Vite server warmed up in 3804ms
+✔ Vite server hmr 18 files in 4093.879ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+[nitro] ✔ Nuxt Nitro server built in 1041ms
+[nitro] ✔ Nuxt Nitro server built in 1037ms
+[nitro] ✔ Nuxt Nitro server built in 887ms
+[nitro] ✔ Nuxt Nitro server built in 1028ms
+ℹ hmr update /stores/notifications.ts
+ℹ hmr update /stores/favorites.ts
+ℹ hmr update /stores/cart.ts
+ℹ page reload components/ui/Card.vue
+ℹ page reload components/ui/LoadingSpinner.vue
+ℹ page reload components/ui/Button.vue
+ℹ page reload components/ui/Input.vue
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ page reload components/chat/ChatInterface.vue
+ℹ page reload components/chat/ProductCard.vue
+ℹ nuxt.config.ts updated. Restarting Nuxt...
+
+ WARN  Module @nuxt/icon is disabled due to incompatibility issues:
+ - [nuxt] Nuxt version >=4.0.0 is required but currently using 3.17.5
+
+  ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
+
+✔ Vite client built in 60ms
+✔ Vite server built in 2419ms
+ℹ page reload tailwind.config.js
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+[nuxt] ℹ Compiled plugins.client.mjs in 922.58ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 933ms
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it. (repeated 4 times)
+
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fplugins.client.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fplugins.client.mjs (x2)
+[nitro] ✔ Nuxt Nitro server built in 4177ms
+ℹ Vite client warmed up in 438ms
+ℹ Vite server warmed up in 4141ms
+✔ Vite server hmr 15 files in 3589.261ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+[nitro] ✔ Nuxt Nitro server built in 994ms
+[nitro] ✔ Nuxt Nitro server built in 1200ms
+[nitro] ✔ Nuxt Nitro server built in 773ms
+[nitro] ✔ Nuxt Nitro server built in 862ms
+ℹ hmr update /stores/notifications.ts
+ℹ hmr update /stores/favorites.ts
+ℹ hmr update /stores/cart.ts
+ℹ page reload components/ui/Card.vue
+ℹ page reload components/ui/LoadingSpinner.vue
+ℹ page reload components/ui/Button.vue
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ page reload components/ui/Input.vue
+ℹ page reload components/chat/ChatInterface.vue
+ℹ page reload components/chat/ProductCard.vue
+ℹ nuxt.config.ts updated. Restarting Nuxt...
+
+ WARN  Module @nuxt/icon is disabled due to incompatibility issues:
+ - [nuxt] Nuxt version >=4.0.0 is required but currently using 3.17.5
+
+  ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
+
+✔ Vite client built in 44ms
+✔ Vite server built in 1662ms
+ℹ page reload tailwind.config.js
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+[nuxt] ℹ Compiled plugins.server.mjs in 504.07ms
+[nuxt] ℹ Compiled plugins.client.mjs in 939.88ms
+[nuxt] ℹ Compiled types/plugins.d.ts in 965.1ms
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it. (repeated 4 times)
+
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fplugins.client.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fmiddleware.mjs
+ℹ page reload virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Fplugins.client.mjs
+[nitro] ✔ Nuxt Nitro server built in 3937ms
+ℹ Vite client warmed up in 922ms
+ℹ Vite server warmed up in 4045ms
+[nitro] ✔ Nuxt Nitro server built in 949ms
+[nitro] ✔ Nuxt Nitro server built in 1030ms
+[nitro] ✔ Nuxt Nitro server built in 918ms
+[nitro] ✔ Nuxt Nitro server built in 1016ms
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+
+ WARN  'manifest-route-rule' middleware already exists at '/Users/adnan/Desktop/Development/github/ai-market-v2/frontend/node_modules/nuxt/dist/app/middleware/manifest-route-rule.js'. You can set override: true to replace it.
+
+ℹ page reload components/ui/Card.vue
+ℹ page reload components/ui/LoadingSpinner.vue
+ℹ page reload components/ui/Button.vue
+ℹ page reload components/ui/Input.vue
+ℹ page reload components/chat/ChatInterface.vue
+ℹ page reload components/chat/ProductCard.vue
+ℹ nuxt.config.ts updated. Restarting Nuxt...
+
+ WARN  Module @nuxt/icon is disabled due to incompatibility issues:
+ - [nuxt] Nuxt version >=4.0.0 is required but currently using 3.17.5
+
+  ➜ DevTools: press Shift + Option + D in the browser (v2.7.0)
+
+✔ Vite client built in 46ms
+✔ Vite server built in 1241ms
+[nitro] ✔ Nuxt Nitro server built in 2908ms
+ℹ Vite client warmed up in 1ms
+ℹ Vite server warmed up in 2940ms
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x2)
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x3)
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x4)
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x5)
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x6)
+ℹ hmr update /pages/kako-radimo.vue, /assets/css/tailwind.css, /pages/kako-radimo.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x7)
+ℹ hmr update /pages/index.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs
+ℹ hmr update /pages/index.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x2)
+ℹ hmr update /pages/index.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x3)
+ℹ hmr update /pages/index.vue?macro=true, /@id/virtual:nuxt:%2FUsers%2Fadnan%2FDesktop%2FDevelopment%2Fgithub%2Fai-market-v2%2Ffrontend%2F.nuxt%2Froutes.mjs (x4)
+ℹ page reload components/layout/Header.vue
+✔ Vite server hmr 13 files in 2180.338ms
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/.well-known/appspecific/com.chrome.devtools.json"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"
+WARN  [Vue Router warn]: No match found for location with path "/static/images/gradient-background.png"

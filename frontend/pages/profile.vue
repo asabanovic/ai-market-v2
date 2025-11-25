@@ -454,7 +454,7 @@ function formatDate(dateString: string) {
 }
 
 useSeoMeta({
-  title: 'Moj profil - Rabat.ba',
-  description: 'Upravljajte vašim nalogom i preferencijama na Rabat.ba platformi',
+  title: 'Moj profil - Popust.ba',
+  description: 'Upravljajte vašim nalogom i preferencijama na Popust.ba platformi',
 })
 </script>

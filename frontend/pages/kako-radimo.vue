@@ -3,7 +3,7 @@
     <!-- Hero Section -->
     <div class="gradient-bg text-white py-16">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 class="text-5xl font-bold mb-6">Kako Rabat.ba radi?</h1>
+        <h1 class="text-5xl font-bold mb-6">Kako Popust.ba radi?</h1>
         <p class="text-xl opacity-90 max-w-3xl mx-auto">
           Revolucionarna platforma koja koristi umjetnu inteligenciju da pronađe najbolje popuste u vašem gradu.
           Uštedite vrijeme i novac - prepustite pretraživanje nama!
@@ -20,9 +20,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
         </div>
-        <h2 class="text-4xl font-bold text-gray-900 mb-4">Vaš lični Rabat asistent za kupovinu</h2>
+        <h2 class="text-4xl font-bold text-gray-900 mb-4">Vaš lični Popust asistent za kupovinu</h2>
         <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-          Umjesto da provjeravate desetine web stranica i kataloga, samo pitajte Rabat asistenta.
+          Umjesto da provjeravate desetine web stranica i kataloga, samo pitajte Popust asistenta.
           On pretražuje sve trgovine istovremeno i pronalazi najbolje ponude za vas.
         </p>
       </div>
@@ -30,7 +30,7 @@
       <!-- How It Works - For Buyers -->
       <div class="mb-20">
         <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold text-gray-900 mb-4">Za kupce - kako koristiti Rabat</h2>
+          <h2 class="text-3xl font-bold text-gray-900 mb-4">Za kupce - kako koristiti Popust</h2>
           <p class="text-lg text-gray-600">4 jednostavna koraka do uštede</p>
         </div>
 
@@ -40,12 +40,12 @@
             <div class="bg-gradient-to-br from-purple-500 to-purple-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
               1
             </div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">Pitajte Rabat asistenta</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Pitajte Popust asistenta</h3>
             <p class="text-gray-600">
               Jednostavno opišite šta vam treba prirodnim jezikom. "Trebam losos i piletinu" ili "Gdje kupiti najjeftiniji deterdžent?"
             </p>
             <div class="mt-4 p-3 bg-purple-50 rounded-lg text-sm text-purple-700">
-              Rabat razumije i najsloženije upite!
+              Popust razumije i najsloženije upite!
             </div>
           </div>
 
@@ -56,7 +56,7 @@
             </div>
             <h3 class="text-xl font-semibold text-gray-900 mb-4">Dobijte najbolje rezultate</h3>
             <p class="text-gray-600">
-              Rabat pretražuje hiljade proizvoda iz svih trgovina u vašem gradu i prikazuje najjeftinije opcije sa trenutnim popustima.
+              Popust pretražuje hiljade proizvoda iz svih trgovina u vašem gradu i prikazuje najjeftinije opcije sa trenutnim popustima.
             </p>
             <div class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
               Rezultati u sekundi, ne minutima!
@@ -103,7 +103,7 @@
             </svg>
           </div>
           <h2 class="text-4xl font-bold mb-4">Moć umjetne inteligencije</h2>
-          <p class="text-xl opacity-90">Rabat koristi napredne AI modele da razumije vaše potrebe</p>
+          <p class="text-xl opacity-90">Popust koristi napredne AI modele da razumije vaše potrebe</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -111,7 +111,7 @@
             <div class="text-4xl mb-4">🧠</div>
             <h3 class="text-xl font-semibold mb-3">Prirodno razumijevanje</h3>
             <p class="opacity-90">
-              Rabat razumije kako vi pričate - ne morate biti precizni. "Trebam nešto za rostilj" je sasvim dovoljan upit.
+              Popust razumije kako vi pričate - ne morate biti precizni. "Trebam nešto za rostilj" je sasvim dovoljan upit.
             </p>
           </div>
 
@@ -127,7 +127,7 @@
             <div class="text-4xl mb-4">💡</div>
             <h3 class="text-xl font-semibold mb-3">Pametne preporuke</h3>
             <p class="opacity-90">
-              Rabat pamti vaše preference i predlaže proizvode koji odgovaraju vašim potrebama i budžetu.
+              Popust pamti vaše preference i predlaže proizvode koji odgovaraju vašim potrebama i budžetu.
             </p>
           </div>
         </div>
@@ -394,8 +394,8 @@
 
         <div class="bg-green-50 border-2 border-green-200 rounded-xl p-8 text-center">
           <h3 class="text-2xl font-bold text-gray-900 mb-4">Zainteresovani ste za partnerstvo?</h3>
-          <p class="text-gray-700 mb-6">Kontaktirajte nas i saznajte kako možete povećati prodaju kroz Rabat platformu</p>
-          <a href="mailto:info@rabat.ba" class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200 inline-block">
+          <p class="text-gray-700 mb-6">Kontaktirajte nas i saznajte kako možete povećati prodaju kroz Popust platformu</p>
+          <a href="mailto:info@popust.ba" class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200 inline-block">
             Kontaktirajte nas
           </a>
         </div>
@@ -494,26 +494,26 @@
         <div class="space-y-4 max-w-3xl mx-auto">
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Da li je Rabat.ba potpuno besplatan?</span>
+              <span>Da li je Popust.ba potpuno besplatan?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Da! Rabat.ba je potpuno besplatna platforma za sve korisnike. Nema skrivenih troškova, pretplata ili naknad.
+              Da! Popust.ba je potpuno besplatna platforma za sve korisnike. Nema skrivenih troškova, pretplata ili naknad.
               Registrovani korisnici dobijaju 10 besplatnih pretraga sedmično, a mogu zaraditi dodatne kredite kroz referral program.
             </p>
           </details>
 
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Kako Rabat pronalazi proizvode?</span>
+              <span>Kako Popust pronalazi proizvode?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Rabat koristi naprednu umjetnu inteligenciju koja razumije prirodan jezik i semantičko značenje vašeg upita.
+              Popust koristi naprednu umjetnu inteligenciju koja razumije prirodan jezik i semantičko značenje vašeg upita.
               Sistem pretražuje hiljade proizvoda iz svih partnertskih trgovina i prikazuje najbolje rezultate sa trenutnim popustima.
             </p>
           </details>
@@ -546,13 +546,13 @@
 
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Mogu li kupiti direktno preko Rabat.ba?</span>
+              <span>Mogu li kupiti direktno preko Popust.ba?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Trenutno Rabat.ba služi kao platforma za pronalaženje najboljih ponuda. Kupovinu obavljate direktno u trgovinama
+              Trenutno Popust.ba služi kao platforma za pronalaženje najboljih ponuda. Kupovinu obavljate direktno u trgovinama
               ili na njihovim web stranicama. Radimo na integraciji online kupovine za budućnost!
             </p>
           </details>
@@ -577,7 +577,7 @@
       <div class="bg-gradient-to-r from-purple-600 via-purple-700 to-blue-700 rounded-2xl p-12 text-white text-center">
         <h2 class="text-4xl font-bold mb-4">Spremni ste da počnete štediti?</h2>
         <p class="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-          Pridružite se hiljadama korisnika koji već štede novac sa Rabat asistentom
+          Pridružite se hiljadama korisnika koji već štede novac sa Popust asistentom
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <NuxtLink v-if="!isAuthenticated" to="/registracija"
@@ -599,9 +599,9 @@
 const { isAuthenticated } = useAuth()
 
 useSeoMeta({
-  title: 'Kako radimo - Rabat.ba',
-  description: 'Saznajte kako Rabat.ba koristi umjetnu inteligenciju da pronađe najbolje popuste i akcije u vašem gradu. Besplatno, brzo i efikasno!',
-  ogTitle: 'Kako Rabat.ba radi - Rabat asistent za pametniju kupovinu',
+  title: 'Kako radimo - Popust.ba',
+  description: 'Saznajte kako Popust.ba koristi umjetnu inteligenciju da pronađe najbolje popuste i akcije u vašem gradu. Besplatno, brzo i efikasno!',
+  ogTitle: 'Kako Popust.ba radi - Popust asistent za pametniju kupovinu',
   ogDescription: 'Revolucionarna platforma koja koristi AI da pronađe najbolje popuste. Registracija besplatna, 10 pretraga sedmično!',
 })
 </script>

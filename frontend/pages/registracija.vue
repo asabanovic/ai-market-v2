@@ -432,7 +432,7 @@ async function handleEmailRegister() {
 }
 
 useSeoMeta({
-  title: 'Registracija - Rabat.ba',
+  title: 'Registracija - Popust.ba',
   description: 'Registrujte se za 10 sekundi i dobijte 10 BESPLATNIH pretraga sedmično!'
 })
 </script>

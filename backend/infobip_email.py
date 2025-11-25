@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 # Infobip API Configuration
 INFOBIP_API_KEY = os.environ.get("INFOBIP_API_KEY")
 INFOBIP_BASE_URL = os.environ.get("INFOBIP_BASE_URL", "https://api.infobip.com")
-INFOBIP_EMAIL_FROM = os.environ.get("INFOBIP_EMAIL_FROM", "noreply@rabat.ba")
-INFOBIP_EMAIL_FROM_NAME = os.environ.get("INFOBIP_EMAIL_FROM_NAME", "Rabat.ba")
+INFOBIP_EMAIL_FROM = os.environ.get("INFOBIP_EMAIL_FROM", "noreply@popust.ba")
+INFOBIP_EMAIL_FROM_NAME = os.environ.get("INFOBIP_EMAIL_FROM_NAME", "Popust.ba")
 
 # Service availability check
 INFOBIP_ENABLED = bool(INFOBIP_API_KEY)
@@ -147,13 +147,13 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
     verification_url = f"{base_url}/verify/{verification_token}"
     logo_base64 = get_logo_base64()
 
-    subject = "Verifikacija računa - Rabat.ba"
+    subject = "Verifikacija računa - Popust.ba"
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Verifikacija računa - Rabat.ba</title>
+        <title>Verifikacija računa - Popust.ba</title>
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
@@ -168,15 +168,15 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
         <div class="container">
             <div class="header">
                 <div class="logo">
-                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Rabat.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
-                    Rabat.ba
+                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Popust.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
+                    Popust.ba
                 </div>
             </div>
 
             <div class="content">
-                <h2>Dobrodošli na Rabat.ba!</h2>
+                <h2>Dobrodošli na Popust.ba!</h2>
                 <p>Pozdrav {user_name},</p>
-                <p>Hvala vam što ste se registrovali na Rabat.ba platformu. Da biste dovršili registraciju, molimo vas da verifikujete vašu email adresu klikom na dugme ispod:</p>
+                <p>Hvala vam što ste se registrovali na Popust.ba platformu. Da biste dovršili registraciju, molimo vas da verifikujete vašu email adresu klikom na dugme ispod:</p>
 
                 <div style="text-align: center;">
                     <a href="{verification_url}" class="button">Verifikuj email adresu</a>
@@ -189,11 +189,11 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
 
                 <p>Ako se niste registrovali na našu platformu, molimo vas da ignorišete ovaj email.</p>
 
-                <p>Srdačan pozdrav,<br>Tim Rabat.ba</p>
+                <p>Srdačan pozdrav,<br>Tim Popust.ba</p>
             </div>
 
             <div class="footer">
-                <p>&copy; 2025 Rabat.ba. Sva prava zadržana.</p>
+                <p>&copy; 2025 Popust.ba. Sva prava zadržana.</p>
                 <p>Ako imate problema sa verifikacijom, kontaktirajte nas odgovorom na ovaj email.</p>
             </div>
         </div>
@@ -206,7 +206,7 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
 
 def send_welcome_email(user_email: str, user_name: str) -> bool:
     """Send welcome email to verified users"""
-    subject = "Dobrodošli na Rabat.ba!"
+    subject = "Dobrodošli na Popust.ba!"
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -228,7 +228,7 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
                 <h2>Dobrodošli, {user_name}!</h2>
             </div>
             <div class="content">
-                <p>Hvala vam što ste se registrovali na Rabat.ba platformu za pronalaženje najboljih popusta u Bosni i Hercegovini.</p>
+                <p>Hvala vam što ste se registrovali na Popust.ba platformu za pronalaženje najboljih popusta u Bosni i Hercegovini.</p>
                 <p>Sada možete:</p>
                 <ul class="features">
                     <li>Pretražiti najnovije popuste u vašem gradu</li>
@@ -268,7 +268,7 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Poziv za pristup biznisu - Rabat.ba</title>
+        <title>Poziv za pristup biznisu - Popust.ba</title>
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
@@ -284,21 +284,21 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
         <div class="container">
             <div class="header">
                 <div class="logo">
-                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Rabat.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
-                    Rabat.ba
+                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Popust.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
+                    Popust.ba
                 </div>
             </div>
 
             <div class="content">
                 <h2>Pozivani ste da upravljate biznisom!</h2>
                 <p>Pozdrav,</p>
-                <p>Pozivani ste da pristupite upravljanju biznisa <strong>{business_name}</strong> kroz Rabat.ba platformu.</p>
+                <p>Pozivani ste da pristupite upravljanju biznisa <strong>{business_name}</strong> kroz Popust.ba platformu.</p>
 
                 <div class="info-box">
                     <h3>Detalji poziva:</h3>
                     <p><strong>Biznis:</strong> {business_name}</p>
                     <p><strong>Uloga:</strong> {role_bosnian.title()}</p>
-                    <p><strong>Platforma:</strong> Rabat.ba</p>
+                    <p><strong>Platforma:</strong> Popust.ba</p>
                 </div>
 
                 <p>Sa ovom ulogom moći ćete:</p>
@@ -319,11 +319,11 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
 
                 <p>Ako se niste aplicirali za ovaj biznis ili niste očekivali ovaj poziv, molimo vas da ignorišete ovaj email.</p>
 
-                <p>Srdačan pozdrav,<br>Tim Rabat.ba</p>
+                <p>Srdačan pozdrav,<br>Tim Popust.ba</p>
             </div>
 
             <div class="footer">
-                <p>&copy; 2025 Rabat.ba. Sva prava zadržana.</p>
+                <p>&copy; 2025 Popust.ba. Sva prava zadržana.</p>
                 <p>Ako imate problema sa pozivom, kontaktirajte nas odgovorom na ovaj email.</p>
             </div>
         </div>
@@ -339,13 +339,13 @@ def send_password_reset_email(user_email: str, user_name: str, reset_token: str,
     reset_url = f"{base_url}/reset-password/{reset_token}"
     logo_base64 = get_logo_base64()
 
-    subject = "Resetiranje lozinke - Rabat.ba"
+    subject = "Resetiranje lozinke - Popust.ba"
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Resetiranje lozinke - Rabat.ba</title>
+        <title>Resetiranje lozinke - Popust.ba</title>
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
@@ -360,15 +360,15 @@ def send_password_reset_email(user_email: str, user_name: str, reset_token: str,
         <div class="container">
             <div class="header">
                 <div class="logo">
-                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Rabat.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
-                    Rabat.ba
+                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Popust.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
+                    Popust.ba
                 </div>
             </div>
 
             <div class="content">
                 <h2>Resetiranje lozinke</h2>
                 <p>Pozdrav {user_name},</p>
-                <p>Dobili ste zahtjev za resetiranje lozinke za vaš Rabat.ba račun. Da biste resetirali vašu lozinku, kliknite na dugme ispod:</p>
+                <p>Dobili ste zahtjev za resetiranje lozinke za vaš Popust.ba račun. Da biste resetirali vašu lozinku, kliknite na dugme ispod:</p>
 
                 <div style="text-align: center;">
                     <a href="{reset_url}" class="button">Resetiraj lozinku</a>
@@ -381,11 +381,11 @@ def send_password_reset_email(user_email: str, user_name: str, reset_token: str,
 
                 <p>Ako niste zahtjevali resetiranje lozinke, molimo vas da ignorišete ovaj email. Vaša lozinka neće biti promijenjena.</p>
 
-                <p>Srdačan pozdrav,<br>Tim Rabat.ba</p>
+                <p>Srdačan pozdrav,<br>Tim Popust.ba</p>
             </div>
 
             <div class="footer">
-                <p>&copy; 2025 Rabat.ba. Sva prava zadržana.</p>
+                <p>&copy; 2025 Popust.ba. Sva prava zadržana.</p>
                 <p>Ako imate problema sa resetiranjem lozinke, kontaktirajte nas odgovorom na ovaj email.</p>
             </div>
         </div>
