@@ -68,7 +68,7 @@ async def semantic_search_node(state: AgentState, runtime: Runtime[AgentContext]
     k = params.get("k") or context.default_k or 10  # Ensure k is never None
     category = params.get("category")
     max_price = params.get("max_price") or _extract_price_from_query(query)
-    similarity_threshold = context.similarity_threshold or 0.2
+    similarity_threshold = context.similarity_threshold or 0.50
 
     try:
         # Get database session

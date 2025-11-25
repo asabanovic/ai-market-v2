@@ -160,7 +160,7 @@
     <ProductDetailModal
       :show="showModal"
       :product="product"
-      @close="showModal = false"
+      @close="closeModal"
     />
   </div>
 </template>
@@ -182,6 +182,17 @@ const props = defineProps<{
 const showModal = ref(false)
 const imageError = ref(false)
 const isAddingToList = ref(false)
+
+// Check URL for product parameter on mount
+onMounted(() => {
+  if (process.client) {
+    const urlParams = new URLSearchParams(window.location.search)
+    const productId = urlParams.get('product')
+    if (productId && parseInt(productId) === props.product.id) {
+      showModal.value = true
+    }
+  }
+})
 
 // Computed property to check if user is logged in
 const isLoggedIn = computed(() => !!user.value)
@@ -286,6 +297,18 @@ function formatBosnianDate(dateString: string): string {
 
 function showDetails() {
   showModal.value = true
+  // Update URL with product ID
+  const url = new URL(window.location.href)
+  url.searchParams.set('product', props.product.id.toString())
+  window.history.pushState({}, '', url.toString())
+}
+
+function closeModal() {
+  showModal.value = false
+  // Remove product ID from URL
+  const url = new URL(window.location.href)
+  url.searchParams.delete('product')
+  window.history.pushState({}, '', url.toString())
 }
 
 async function addToShoppingList() {

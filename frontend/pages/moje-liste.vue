@@ -101,7 +101,7 @@
                 <div class="flex items-center gap-3">
                   <img
                     v-if="group.business.logo"
-                    :src="group.business.logo"
+                    :src="getLogoUrl(group.business.logo)"
                     :alt="group.business.name"
                     class="w-8 h-8 object-contain"
                   />
@@ -186,6 +186,19 @@ definePageMeta({
 
 const { get } = useApi()
 const toast = useToast()
+const config = useRuntimeConfig()
+
+function getLogoUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path
+  // Add /static/ prefix if not already present
+  const staticPath = cleanPath.startsWith('static/') ? cleanPath : `static/${cleanPath}`
+  return `${config.public.apiBase}/${staticPath}`
+}
 
 const isLoading = ref(true)
 const lists = ref<any[]>([])

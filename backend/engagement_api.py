@@ -153,9 +153,16 @@ def vote_product(product_id):
             if existing_vote.vote_type == vote_type:
                 # Same vote - remove it (toggle off)
                 db.session.delete(existing_vote)
+
+                # Deduct the credit they earned for voting
+                user = User.query.get(user_id)
+                if user.extra_credits > 0:
+                    user.extra_credits -= 1
+                    credits_earned = -1  # Indicate credit was taken back
+
                 message = 'Vote removed'
             else:
-                # Different vote - update it
+                # Different vote - update it (no credit change, they already earned 1)
                 existing_vote.vote_type = vote_type
                 existing_vote.updated_at = datetime.now()
                 message = 'Vote updated'

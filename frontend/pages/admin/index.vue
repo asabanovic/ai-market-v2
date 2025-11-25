@@ -240,25 +240,6 @@
               Svi proizvodi
             </NuxtLink>
 
-            <NuxtLink
-              to="/admin/test-pdf-import"
-              class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
-              </svg>
-              Test PDF Import
-            </NuxtLink>
-
-            <button
-              @click="handleImportPDF"
-              class="inline-flex items-center px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-              </svg>
-              Import PDF podatke
-            </button>
           </div>
         </div>
       </template>
@@ -308,24 +289,6 @@ async function loadSearches(page: number) {
     searchesPagination.value = data.searches_pagination
   } catch (error) {
     console.error('Error loading searches:', error)
-  }
-}
-
-async function handleImportPDF() {
-  const url = prompt('Unesite Google Drive URL za PDF:')
-  if (!url) return
-
-  try {
-    const response = await post('/api/admin/import-pdf', { pdf_url: url })
-
-    if (response.success) {
-      alert(`Uspješno uvoženo:\n- ${response.summary.businesses_created} novih biznisa\n- ${response.summary.products_created} novih proizvoda\n- ${response.summary.pages_processed} stranica obrađeno`)
-      await loadDashboardData()
-    } else {
-      alert('Greška: ' + response.error)
-    }
-  } catch (error: any) {
-    alert('Greška prilikom uvoza: ' + error.message)
   }
 }
 

@@ -111,7 +111,7 @@
               <!-- Store Logo -->
               <img
                 v-if="group.store.logo"
-                :src="group.store.logo"
+                :src="getLogoUrl(group.store.logo)"
                 :alt="group.store.name"
                 class="w-6 h-6 object-contain rounded"
               />
@@ -354,6 +354,17 @@ const emit = defineEmits<{
 
 const cartStore = useCartStore()
 const { handleApiError, showSuccess } = useCreditsToast()
+const config = useRuntimeConfig()
+
+function getLogoUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path
+  const staticPath = cleanPath.startsWith('static/') ? cleanPath : `static/${cleanPath}`
+  return `${config.public.apiBase}/${staticPath}`
+}
 
 // TODO Mode state
 const todoMode = ref(false)

@@ -92,7 +92,9 @@
                     userVote === 'up' ? 'bg-green-500 text-white scale-110' : 'bg-white text-gray-700 hover:bg-green-50 hover:scale-105'
                   ]"
                 >
-                  <Icon name="mdi:thumb-up" class="w-10 h-10" />
+                  <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2 7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.84C7 18.95 8.05 20 9.34 20h8.11c.7 0 1.36-.37 1.72-.97l2.66-6.15z"/>
+                  </svg>
                   <span class="text-xl font-bold">{{ voteStats.upvotes }}</span>
                 </button>
 
@@ -105,7 +107,9 @@
                     userVote === 'down' ? 'bg-red-500 text-white scale-110' : 'bg-white text-gray-700 hover:bg-red-50 hover:scale-105'
                   ]"
                 >
-                  <Icon name="mdi:thumb-down" class="w-10 h-10" />
+                  <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M22 4h-2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h2V4zM2.17 11.12c-.11.25-.17.52-.17.8V13c0 1.1.9 2 2 2h5.5l-.92 4.65c-.05.22-.02.46.08.66.23.45.52.86.88 1.22L10 22l6.41-6.41c.38-.38.59-.89.59-1.42V6.34C17 5.05 15.95 4 14.66 4h-8.1c-.71 0-1.36.37-1.72.97l-2.67 6.15z"/>
+                  </svg>
                   <span class="text-xl font-bold">{{ voteStats.downvotes }}</span>
                 </button>
               </div>
@@ -131,7 +135,7 @@
                 :disabled="isSubmittingComment"
                 placeholder="Ostavite komentar (min 20, max 1000 karaktera)..."
                 rows="4"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all resize-none"
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all resize-none text-gray-900"
                 @input="validateComment"
               ></textarea>
               <div class="flex items-center justify-between mt-2">
@@ -251,8 +255,17 @@ const formatPrice = (price: number) => {
 
 const formatBosnianDate = (dateString: string) => {
   if (!dateString) return ''
+
   const date = new Date(dateString)
-  return date.toLocaleDateString('bs-BA', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const days = ['Nedjelja', 'Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota']
+  const months = ['januar', 'februar', 'mart', 'april', 'maj', 'juni', 'juli', 'august', 'septembar', 'oktobar', 'novembar', 'decembar']
+
+  const dayName = days[date.getDay()]
+  const day = date.getDate()
+  const month = months[date.getMonth()]
+  const year = date.getFullYear()
+
+  return `${dayName}, ${day}. ${month} ${year}.`
 }
 
 const formatCommentDate = (dateString: string) => {
@@ -327,7 +340,7 @@ const handleVote = async (voteType: 'up' | 'down') => {
 
   isVoting.value = true
   try {
-    const response = await post(`/products/${props.product.id}/vote`, { vote_type: voteType })
+    const response = await post(`/api/products/${props.product.id}/vote`, { vote_type: voteType })
 
     if (response.success) {
       // Update vote stats
@@ -359,7 +372,7 @@ const submitComment = async () => {
 
   isSubmittingComment.value = true
   try {
-    const response = await post(`/products/${props.product.id}/comments`, {
+    const response = await post(`/api/products/${props.product.id}/comments`, {
       comment_text: newComment.value.trim()
     })
 

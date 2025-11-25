@@ -19,10 +19,11 @@ openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 def semantic_search(
     query: str,
     k: int = 10,
-    min_similarity: float = 0.3,
+    min_similarity: float = 0.50,
     price_max: Optional[float] = None,
     price_min: Optional[float] = None,
-    category: Optional[str] = None
+    category: Optional[str] = None,
+    business_ids: Optional[List[int]] = None
 ) -> List[Dict[str, Any]]:
     """
     Perform semantic search using vector embeddings
@@ -34,6 +35,7 @@ def semantic_search(
         price_max: Maximum price filter
         price_min: Minimum price filter
         category: Category filter
+        business_ids: List of business IDs to filter by (optional)
 
     Returns:
         List of product dictionaries with similarity scores
@@ -101,6 +103,11 @@ def semantic_search(
         if category is not None:
             sql_parts.append("AND p.category = :category")
             params['category'] = category
+
+        # Filter by business IDs if provided
+        if business_ids is not None and len(business_ids) > 0:
+            sql_parts.append("AND p.business_id = ANY(:business_ids)")
+            params['business_ids'] = business_ids
 
         # Add similarity threshold and ordering
         sql_parts.append(f"""

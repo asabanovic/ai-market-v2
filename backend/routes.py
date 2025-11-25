@@ -65,6 +65,17 @@ app.register_blueprint(referral_api_bp)
 # Register engagement API blueprint
 app.register_blueprint(engagement_bp)
 
+
+# Helper function to format logo URL with full backend URL
+def format_logo_url(logo_path):
+    """Format logo path to include full backend URL for proper serving"""
+    if logo_path:
+        # Use the backend URL so frontend can load images correctly
+        backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5001')
+        return f"{backend_url}/static/{logo_path}"
+    return None
+
+
 # Register Replit Auth blueprint (only if running on Replit)
 replit_bp = make_replit_blueprint()
 if replit_bp:
@@ -612,6 +623,35 @@ def api_savings_stats():
     })
 
 
+# API endpoint for single product
+@app.route('/api/products/<int:product_id>')
+def api_product_detail(product_id):
+    """Get single product details"""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    business = Business.query.get(product.business_id)
+
+    return jsonify({
+        'id': product.id,
+        'title': product.title,
+        'base_price': product.base_price,
+        'discount_price': product.discount_price,
+        'image_path': product.image_path,
+        'product_image_url': product.product_image_url,
+        'expires': product.expires.isoformat() if product.expires else None,
+        'category': product.category,
+        'city': product.city,
+        'business': {
+            'id': business.id,
+            'name': business.name,
+            'logo': format_logo_url(business.logo_path).replace(os.environ.get('BACKEND_URL', 'http://localhost:5001') + '/static/', '') if business.logo_path else None,
+            'city': business.city
+        } if business else None
+    })
+
+
 # API endpoint for product price history
 @app.route('/api/products/<int:product_id>/price-history')
 def api_product_price_history(product_id):
@@ -681,10 +721,17 @@ def api_products():
 def api_businesses():
     """API endpoint for businesses listing - only returns businesses with products"""
     try:
-        # Only return businesses that have at least one product
-        businesses = db.session.query(Business).join(Product).filter(
-            Business.status == 'active'
-        ).distinct().all()
+        # Check if we want all businesses (for store filter) or only those with products
+        include_all = request.args.get('all', 'false').lower() == 'true'
+
+        if include_all:
+            # Return all active businesses regardless of products
+            businesses = Business.query.filter(Business.status == 'active').order_by(Business.name).all()
+        else:
+            # Only return businesses that have at least one product (legacy behavior)
+            businesses = db.session.query(Business).join(Product).filter(
+                Business.status == 'active'
+            ).distinct().all()
 
         result = []
         for business in businesses:
@@ -692,7 +739,7 @@ def api_businesses():
                 'id': business.id,
                 'name': business.name,
                 'city': business.city,
-                'logo_path': business.logo_path,
+                'logo_path': format_logo_url(business.logo_path),
                 'contact_phone': business.contact_phone,
                 'google_link': business.google_link
             })
@@ -716,7 +763,7 @@ def api_business_detail(business_id):
             'id': business.id,
             'name': business.name,
             'city': business.city,
-            'logo_path': business.logo_path,
+            'logo_path': format_logo_url(business.logo_path),
             'contact_phone': business.contact_phone,
             'google_link': business.google_link,
             'pdf_url': business.pdf_url,
@@ -852,7 +899,7 @@ def api_my_businesses():
                 'id': business.id,
                 'name': business.name,
                 'city': business.city,
-                'logo_path': business.logo_path,
+                'logo_path': format_logo_url(business.logo_path),
                 'contact_phone': business.contact_phone,
                 'google_link': business.google_link,
                 'pdf_url': business.pdf_url,
@@ -1069,7 +1116,7 @@ def api_active_businesses():
                 active_businesses.append({
                     'id': business.id,
                     'name': business.name,
-                    'logo': business.logo_path,
+                    'logo': format_logo_url(business.logo_path),
                     'city': business.city
                 })
 
@@ -1147,7 +1194,7 @@ def api_featured_data():
                 'id': business.id,
                 'name': business.name,
                 'city': business.city,
-                'logo_path': business.logo_path
+                'logo_path': format_logo_url(business.logo_path)
             })
 
         return jsonify({
@@ -1196,6 +1243,7 @@ def api_product_details(product_id):
 def search():
     data = request.get_json()
     query = data.get('query', '').strip()
+    business_ids = data.get('business_ids', None)  # Optional list of business IDs to filter
 
     if not query:
         return jsonify({'error': 'Upit ne može biti prazan'}), 400
@@ -1246,9 +1294,10 @@ def search():
             products = semantic_search(
                 query=query,
                 k=50,  # Get more results for better variety
-                min_similarity=0.3,  # Threshold for relevance
+                min_similarity=0.50,  # Higher threshold for better relevance (filters out unrelated products)
                 price_min=price_min,
-                price_max=price_max
+                price_max=price_max,
+                business_ids=business_ids
             )
             app.logger.info(f"Semantic search found {len(products)} products")
         except Exception as e:
@@ -4249,7 +4298,8 @@ def api_admin_stats():
             'recent_searches': [{
                 'id': search.id,
                 'query': search.query,
-                'user_email': user.email if user else 'Anonymous',
+                'user_name': f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email if user else None,
+                'user_email': user.email if user else None,
                 'created_at': search.created_at.isoformat() if search.created_at else None
             } for search, user in recent_searches],
             'recent_businesses': [{

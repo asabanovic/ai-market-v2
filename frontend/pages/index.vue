@@ -27,6 +27,20 @@
             <p v-if="!user" class="mt-2 text-sm text-gray-600">
               🎁 <strong>Posebna ponuda:</strong> Nakon registracije, pratimo cijene vaših omiljenih proizvoda i obavještavamo vas kada su na popustu!
             </p>
+
+            <!-- Store Filter -->
+            <div class="mt-3 flex items-center gap-2 flex-wrap">
+              <StoreSelector
+                v-model="selectedStoreIds"
+                :stores="allStores"
+              />
+              <span v-if="selectedStoreIds.length > 0" class="text-xs text-gray-500">
+                Filtrirano: {{ selectedStoreIds.length }} {{ selectedStoreIds.length === 1 ? 'prodavnica' : 'prodavnice' }}
+              </span>
+              <span v-else class="text-xs text-gray-500">
+                Sve prodavnice
+              </span>
+            </div>
           </div>
 
           <button
@@ -252,13 +266,30 @@
         </div>
       </div>
     </div>
+
+    <!-- New Store Popup -->
+    <NewStorePopup
+      v-model="showNewStorePopup"
+      :new-stores="newStores"
+      :latest-store-id="latestStoreId"
+      @stores-selected="handleNewStoresSelected"
+      @dismissed="handleNewStoresDismissed"
+    />
+
+    <!-- Standalone Product Detail Modal (for direct URL access) -->
+    <ProductDetailModal
+      v-if="urlProduct"
+      :show="showUrlProductModal"
+      :product="urlProduct"
+      @close="closeUrlProductModal"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const { get, post } = useApi()
-const { user } = useAuth()
+const { get, post, put } = useApi()
+const { user, isAuthenticated } = useAuth()
 
 // Reactive state
 const searchQuery = ref('')
@@ -273,9 +304,22 @@ const expandedGroups = ref<Set<string>>(new Set())
 const currentLoadingMessage = ref('')
 const loadingMessageInterval = ref<any>(null)
 
+// Store filter state
+const allStores = ref<any[]>([])
+const selectedStoreIds = ref<number[]>([])
+
+// New store popup state
+const showNewStorePopup = ref(false)
+const newStores = ref<any[]>([])
+const latestStoreId = ref(0)
+
 // Exit intent modal
 const showExitIntentModal = ref(false)
 const exitIntentTriggered = ref(false)
+
+// URL product modal state (for direct links)
+const urlProduct = ref<any>(null)
+const showUrlProductModal = ref(false)
 
 // Computed placeholder text based on authentication
 const searchPlaceholder = computed(() => {
@@ -345,7 +389,7 @@ const funMessages: Record<string, string[]> = {
   ],
   meso: [
     '🥩 Tražim najkvalitetnije meso...',
-    '🥩 Svinjetina, govedina, piletina... gledam sve!',
+    '🥩 Govedina, piletina, janjetina... gledam sve!',
     '🥩 Ko ima meso na akciji danas?',
     '🥩 Najbolje za roštilj! Pretražujem...',
     '🥩 Mesara ili market? Vidim šta nude...'
@@ -505,6 +549,8 @@ function stopLoadingMessages() {
 onMounted(async () => {
   await loadSavingsStats()
   await loadFeaturedData()
+  await loadStorePreferences()
+  await checkForNewStores()
 
   // Auto-search if autoSearch query param is present (from login/register redirect)
   const route = useRoute()
@@ -515,6 +561,12 @@ onMounted(async () => {
     setTimeout(() => {
       performSearch()
     }, 500)
+  }
+
+  // Check for product ID in URL (for direct links)
+  const productId = route.query.product as string
+  if (productId) {
+    await loadProductFromUrl(parseInt(productId))
   }
 
   // Setup exit intent detection for anonymous users
@@ -562,6 +614,36 @@ function closeExitModal() {
   showExitIntentModal.value = false
 }
 
+// Load product from URL parameter
+async function loadProductFromUrl(productId: number) {
+  // First check if product is already in featured products
+  const existingProduct = featuredProducts.value.find(p => p.id === productId)
+  if (existingProduct) {
+    // Product is already displayed, let ProductCard handle it
+    return
+  }
+
+  // Fetch product from API
+  try {
+    const product = await get(`/api/products/${productId}`)
+    if (product && product.id) {
+      urlProduct.value = product
+      showUrlProductModal.value = true
+    }
+  } catch (error) {
+    console.error('Error loading product from URL:', error)
+  }
+}
+
+function closeUrlProductModal() {
+  showUrlProductModal.value = false
+  urlProduct.value = null
+  // Remove product ID from URL
+  const url = new URL(window.location.href)
+  url.searchParams.delete('product')
+  window.history.pushState({}, '', url.toString())
+}
+
 async function loadSavingsStats() {
   try {
     const data = await get('/api/savings-stats')
@@ -582,6 +664,98 @@ async function loadFeaturedData() {
     console.error('Error loading featured data:', error)
   }
 }
+
+async function loadStorePreferences() {
+  try {
+    // Load all active businesses for the store filter (including those without products)
+    const response = await get('/api/businesses?all=true')
+    allStores.value = (response.businesses || []).map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      logo: b.logo_path,
+      city: b.city
+    }))
+
+    // Load user's store preferences if authenticated
+    if (isAuthenticated.value) {
+      try {
+        const prefs = await get('/auth/user/store-preferences')
+        if (prefs.preferred_stores && prefs.preferred_stores.length > 0) {
+          selectedStoreIds.value = prefs.preferred_stores
+        }
+      } catch (error) {
+        console.error('Error loading store preferences:', error)
+      }
+    } else {
+      // For anonymous users, check localStorage
+      const savedStores = localStorage.getItem('preferred_stores')
+      if (savedStores) {
+        try {
+          selectedStoreIds.value = JSON.parse(savedStores)
+        } catch (e) {
+          // Invalid JSON, ignore
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error loading stores:', error)
+  }
+}
+
+async function checkForNewStores() {
+  try {
+    let lastSeenId = 0
+
+    // Get last seen store ID
+    if (isAuthenticated.value) {
+      // Will be fetched from user preferences via the API
+      const lastSeenFromStorage = localStorage.getItem('last_seen_store_id')
+      if (lastSeenFromStorage) {
+        lastSeenId = parseInt(lastSeenFromStorage) || 0
+      }
+    } else {
+      const lastSeenFromStorage = localStorage.getItem('last_seen_store_id')
+      if (lastSeenFromStorage) {
+        lastSeenId = parseInt(lastSeenFromStorage) || 0
+      }
+    }
+
+    // Check for new stores
+    const response = await get(`/auth/new-stores?last_seen_id=${lastSeenId}`)
+
+    if (response.has_new_stores && response.new_stores.length > 0) {
+      newStores.value = response.new_stores
+      latestStoreId.value = response.latest_store_id
+      showNewStorePopup.value = true
+    }
+  } catch (error) {
+    console.error('Error checking for new stores:', error)
+  }
+}
+
+function handleNewStoresSelected(storeIds: number[]) {
+  // Add selected new stores to the filter
+  const current = new Set(selectedStoreIds.value)
+  storeIds.forEach(id => current.add(id))
+  selectedStoreIds.value = Array.from(current)
+
+  // Save for anonymous users
+  if (!isAuthenticated.value) {
+    localStorage.setItem('preferred_stores', JSON.stringify(selectedStoreIds.value))
+  }
+}
+
+function handleNewStoresDismissed() {
+  // User skipped - don't add new stores to filter
+  console.log('New stores popup dismissed')
+}
+
+// Watch for store selection changes (for anonymous users)
+watch(selectedStoreIds, (newVal) => {
+  if (!isAuthenticated.value) {
+    localStorage.setItem('preferred_stores', JSON.stringify(newVal))
+  }
+})
 
 async function performSearch() {
   const query = searchQuery.value.trim()
@@ -606,8 +780,27 @@ async function performSearch() {
   startLoadingMessages(query)
 
   try {
+    // Build search payload with optional store filter
+    const searchPayload: any = { query }
+
+    // Check if stores are loaded but none are selected
+    if (allStores.value.length > 0 && selectedStoreIds.value.length === 0) {
+      // User has explicitly deselected all stores - return no results
+      stopLoadingMessages()
+      searchResults.value = {
+        response: 'Niste odabrali nijednu prodavnicu. Molimo odaberite barem jednu prodavnicu za pretragu.',
+        products: []
+      }
+      isSearching.value = false
+      return
+    }
+
+    if (selectedStoreIds.value.length > 0) {
+      searchPayload.business_ids = selectedStoreIds.value
+    }
+
     // Use new agent endpoint with multi-agent system
-    const data = await post('/api/search', { query })
+    const data = await post('/api/search', searchPayload)
 
     if (data.error) {
       if (data.error === 'anonymous_limit_reached') {
