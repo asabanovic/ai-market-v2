@@ -82,8 +82,8 @@
               v-for="notification in notificationsStore.items"
               :key="notification.id"
               :class="[
-                'p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer',
-                !notification.is_read ? 'bg-purple-50 dark:bg-purple-900/20' : ''
+                'p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors cursor-pointer',
+                !notification.is_read ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-white dark:bg-gray-800'
               ]"
               @click="handleNotificationClick(notification)"
             >

@@ -7,10 +7,10 @@
             <img
               src="/logo.png"
               alt="Popust Logo"
-              class="h-20 w-auto -my-2 px-8 py-3 transition-transform hover:scale-105"
+              class="h-12 md:h-20 w-auto md:-my-2 md:px-8 py-2 md:py-3 transition-transform hover:scale-105"
               @error="logoError = true"
             />
-            <span v-if="logoError" class="text-2xl font-bold text-purple-600 px-8">Popust</span>
+            <span v-if="logoError" class="text-xl md:text-2xl font-bold text-purple-600 px-4 md:px-8">Popust</span>
           </NuxtLink>
         </div>
 
@@ -146,7 +146,7 @@
         <div class="md:hidden flex items-center">
           <button
             @click="showMobileMenu = !showMobileMenu"
-            class="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+            class="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600 p-2"
             aria-label="toggle menu"
           >
             <svg viewBox="0 0 24 24" class="h-6 w-6 fill-current">
@@ -240,6 +240,11 @@
 
     <!-- Toast Container -->
     <ToastContainer />
+
+    <!-- Mobile Bottom Navigation -->
+    <ClientOnly>
+      <MobileBottomNav @toggle-sidebar="showSidebar = true" />
+    </ClientOnly>
   </nav>
 </template>
 
