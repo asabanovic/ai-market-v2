@@ -391,6 +391,7 @@ function getExpiryClass(expiresDate: string): string {
 function formatDate(dateString: string): string {
   if (!dateString) return ''
   const date = new Date(dateString)
-  return date.toLocaleDateString('bs-BA', { day: 'numeric', month: 'short' })
+  const months = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Juni', 'Juli', 'August', 'Septembar', 'Oktobar', 'Novembar', 'Decembar']
+  return `${months[date.getMonth()]} ${date.getDate()}`
 }
 </script>
