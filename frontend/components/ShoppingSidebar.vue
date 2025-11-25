@@ -124,9 +124,11 @@
                 <div :class="['flex items-center gap-2 text-[10px]', todoMode ? 'text-gray-700' : 'text-gray-600 dark:text-gray-400']">
                   <span>{{ group.items.length }} {{ group.items.length === 1 ? 'artikal' : 'artikala' }}</span>
                   <span :class="todoMode ? 'text-gray-400' : 'text-gray-400'">•</span>
-                  <span :class="['font-semibold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">{{ group.group_subtotal.toFixed(2) }} KM</span>
-                  <span v-if="group.group_saving > 0 && !todoMode" class="text-green-600 dark:text-green-400">
-                    -{{ group.group_saving.toFixed(2) }} KM
+                  <span :class="['font-semibold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">
+                    {{ group.group_subtotal.toFixed(2) }} / {{ getGroupOriginalPrice(group).toFixed(2) }} KM
+                  </span>
+                  <span v-if="group.group_saving > 0" class="text-green-600 dark:text-green-400 font-semibold">
+                    -{{ getGroupDiscountPercent(group) }}%
                   </span>
                 </div>
               </div>
@@ -278,60 +280,36 @@
           </div>
 
           <!-- TODO Mode Summary -->
-          <div v-if="todoMode" class="pt-3 mt-3 border-t border-gray-300 space-y-3">
+          <div v-if="todoMode" class="pt-3 mt-3 border-t border-gray-300 space-y-2">
             <!-- Checked Items Count -->
             <div class="flex items-center justify-between text-xs text-gray-700">
               <span>Označeno:</span>
               <span class="font-semibold">{{ checkedItems.size }} / {{ totalItems }}</span>
             </div>
 
-            <!-- Actual Spent vs Potential Savings -->
-            <div v-if="todoStats.potentialSavings > 0" class="space-y-1.5">
+            <!-- Spent Progress -->
+            <div class="space-y-1">
               <div class="flex items-center justify-between text-xs">
-                <span class="text-gray-700">Potrošeno od uštede:</span>
+                <span class="text-gray-700">Potrošeno:</span>
                 <span class="font-semibold text-gray-900">
-                  {{ todoStats.actualSpent.toFixed(2) }} KM / {{ todoStats.potentialSavings.toFixed(2) }} KM
-                  <span class="text-green-600">({{ Math.round((todoStats.actualSpent / todoStats.potentialSavings) * 100) }}%)</span>
+                  {{ todoStats.actualSpent.toFixed(2) }} KM
                 </span>
               </div>
               <!-- Progress Bar -->
               <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div
-                  class="bg-green-600 h-2 rounded-full transition-all duration-700 ease-out"
-                  :style="{ width: Math.min((todoStats.actualSpent / todoStats.potentialSavings) * 100, 100) + '%' }"
+                  class="bg-primary-600 h-2 rounded-full transition-all duration-700 ease-out"
+                  :style="{ width: Math.min((todoStats.actualSpent / todoStats.totalCurrentPrice) * 100, 100) + '%' }"
                 ></div>
               </div>
             </div>
 
-            <!-- Total Spent vs Total Original Price -->
-            <div class="space-y-1.5">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-gray-700">Ukupno potrošeno:</span>
-                <span class="font-semibold text-gray-900">
-                  {{ todoStats.actualSpent.toFixed(2) }} KM / {{ todoStats.totalOriginalPrice.toFixed(2) }} KM
-                  <span class="text-blue-600">
-                    ({{ Math.round((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100) }}%)
-                  </span>
-                </span>
-              </div>
-              <!-- Progress Bar -->
-              <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                <div
-                  class="bg-blue-600 h-2 rounded-full transition-all duration-700 ease-out"
-                  :style="{ width: Math.min((todoStats.actualSpent / todoStats.totalOriginalPrice) * 100, 100) + '%' }"
-                ></div>
-              </div>
-            </div>
-
-            <!-- Total Discount Available -->
-            <div class="pt-2 border-t border-gray-300">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-gray-700">Ukupan popust na listi:</span>
-                <span class="font-semibold text-green-600">
-                  {{ todoStats.discountPercentage }}%
-                  ({{ (todoStats.totalOriginalPrice - todoStats.totalCurrentPrice).toFixed(2) }} KM)
-                </span>
-              </div>
+            <!-- Total Savings -->
+            <div v-if="todoStats.discountPercentage > 0" class="flex items-center justify-between text-xs pt-1">
+              <span class="text-gray-700">Ukupna ušteda:</span>
+              <span class="font-semibold text-green-600">
+                {{ (todoStats.totalOriginalPrice - todoStats.totalCurrentPrice).toFixed(2) }} KM ({{ todoStats.discountPercentage }}%)
+              </span>
             </div>
           </div>
         </div>
@@ -378,6 +356,21 @@ const sortedGroups = computed(() => {
   if (!cartStore.sidebar?.groups) return []
   return [...cartStore.sidebar.groups].sort((a, b) => b.group_subtotal - a.group_subtotal)
 })
+
+// Calculate original price for a store group
+function getGroupOriginalPrice(group: ShoppingListGroup): number {
+  return group.items.reduce((sum, item) => {
+    const originalPrice = item.old_price || item.unit_price
+    return sum + (originalPrice * item.qty)
+  }, 0)
+}
+
+// Calculate discount percentage for a store group
+function getGroupDiscountPercent(group: ShoppingListGroup): number {
+  const originalPrice = getGroupOriginalPrice(group)
+  if (originalPrice <= 0) return 0
+  return Math.round(((originalPrice - group.group_subtotal) / originalPrice) * 100)
+}
 
 // Time warning states
 const isTimeCritical = computed(() => {

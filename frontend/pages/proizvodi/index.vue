@@ -26,7 +26,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Category Filter -->
           <div>
             <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
@@ -45,17 +45,31 @@
 
           <!-- Business Filter -->
           <div>
-            <label for="business" class="block text-sm font-medium text-gray-700 mb-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
               Prodavnica
             </label>
+            <StoreSelector
+              v-model="selectedStoreIds"
+              :stores="businesses"
+              @update:model-value="onStoresChange"
+            />
+          </div>
+
+          <!-- Sort Filter -->
+          <div>
+            <label for="sort" class="block text-sm font-medium text-gray-700 mb-1">
+              Sortiraj po
+            </label>
             <select
-              id="business"
-              v-model="filters.business"
+              id="sort"
+              v-model="filters.sort"
               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               @change="loadProducts"
             >
-              <option value="">Sve prodavnice</option>
-              <option v-for="biz in businesses" :key="biz.id" :value="biz.id">{{ biz.name }}</option>
+              <option value="discount_desc">Najveći popust</option>
+              <option value="price_asc">Najjeftinije</option>
+              <option value="price_desc">Najskuplje</option>
+              <option value="newest">Najnovije</option>
             </select>
           </div>
         </div>
@@ -167,11 +181,12 @@ const currentPage = ref(1)
 const totalPages = ref(1)
 const totalProducts = ref(0)
 const perPage = 24
+const selectedStoreIds = ref<number[]>([])
 
 // Filters
 const filters = ref({
   category: '',
-  business: ''
+  sort: 'discount_desc'
 })
 
 // Load filters from URL query params
@@ -183,8 +198,14 @@ onMounted(async () => {
   }
 
   filters.value.category = (route.query.category as string) || ''
-  filters.value.business = (route.query.business as string) || ''
+  filters.value.sort = (route.query.sort as string) || 'discount_desc'
   currentPage.value = parseInt(route.query.page as string) || 1
+
+  // Parse store IDs from URL
+  const storeParam = route.query.stores as string
+  if (storeParam) {
+    selectedStoreIds.value = storeParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
+  }
 
   loadBusinesses()
   loadCategories()
@@ -194,10 +215,22 @@ onMounted(async () => {
 // Watch for route changes
 watch(() => route.query, () => {
   filters.value.category = (route.query.category as string) || ''
-  filters.value.business = (route.query.business as string) || ''
+  filters.value.sort = (route.query.sort as string) || 'discount_desc'
   currentPage.value = parseInt(route.query.page as string) || 1
+
+  const storeParam = route.query.stores as string
+  if (storeParam) {
+    selectedStoreIds.value = storeParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
+  } else {
+    selectedStoreIds.value = []
+  }
   loadProducts()
 })
+
+function onStoresChange() {
+  currentPage.value = 1
+  loadProducts()
+}
 
 // Computed
 const visiblePages = computed(() => {
@@ -241,7 +274,10 @@ async function loadProducts() {
   try {
     const params = new URLSearchParams()
     if (filters.value.category) params.append('category', filters.value.category)
-    if (filters.value.business) params.append('business', filters.value.business)
+    if (selectedStoreIds.value.length > 0) {
+      params.append('stores', selectedStoreIds.value.join(','))
+    }
+    if (filters.value.sort) params.append('sort', filters.value.sort)
     params.append('page', currentPage.value.toString())
     params.append('per_page', perPage.toString())
 
@@ -263,8 +299,9 @@ async function loadProducts() {
 function resetFilters() {
   filters.value = {
     category: '',
-    business: ''
+    sort: 'discount_desc'
   }
+  selectedStoreIds.value = []
   currentPage.value = 1
   updateURL()
   loadProducts()
@@ -280,7 +317,8 @@ function changePage(page: number) {
 function updateURL() {
   const query: any = {}
   if (filters.value.category) query.category = filters.value.category
-  if (filters.value.business) query.business = filters.value.business
+  if (selectedStoreIds.value.length > 0) query.stores = selectedStoreIds.value.join(',')
+  if (filters.value.sort && filters.value.sort !== 'discount_desc') query.sort = filters.value.sort
   if (currentPage.value > 1) query.page = currentPage.value.toString()
 
   router.replace({ query })

@@ -1,6 +1,6 @@
 <template>
   <div class="bg-gray-50 min-h-screen py-8">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 mb-2">Moj profil</h1>
@@ -38,6 +38,94 @@
             <p class="text-sm text-gray-600">Pogledajte trenutnu shopping listu</p>
           </div>
         </NuxtLink>
+      </div>
+
+      <!-- Store Preferences Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">Omiljene prodavnice</h2>
+            <p class="text-sm text-gray-600 mt-1">Odaberite prodavnice koje želite uključiti u pretragu</p>
+          </div>
+          <button
+            v-if="hasStoreChanges"
+            @click="saveStorePreferences"
+            :disabled="isSavingStores"
+            class="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
+          >
+            {{ isSavingStores ? 'Čuvanje...' : 'Sačuvaj' }}
+          </button>
+        </div>
+
+        <div v-if="loadingStores" class="text-center py-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+          <p class="text-gray-600 mt-2">Učitavanje prodavnica...</p>
+        </div>
+
+        <div v-else-if="allStores.length > 0" class="space-y-3">
+          <p class="text-sm text-gray-500 mb-4">
+            {{ selectedStoreIds.length === 0 ? 'Nijedna prodavnica nije odabrana - pretraga će uključiti sve prodavnice' : `Odabrano: ${selectedStoreIds.length} od ${allStores.length} prodavnica` }}
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <label
+              v-for="store in allStores"
+              :key="store.id"
+              class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+              :class="{ 'border-purple-500 bg-purple-50': selectedStoreIds.includes(store.id) }"
+            >
+              <input
+                type="checkbox"
+                :checked="selectedStoreIds.includes(store.id)"
+                @change="toggleStore(store.id)"
+                class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <img
+                v-if="store.logo_path"
+                :src="store.logo_path"
+                :alt="store.name"
+                class="w-10 h-10 object-contain rounded"
+                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+              />
+              <div v-else class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <span class="font-medium text-gray-900 block truncate">{{ store.name }}</span>
+                <span v-if="store.city" class="text-xs text-gray-500">{{ store.city }}</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+            <button
+              @click="selectAllStores"
+              class="text-sm text-purple-600 hover:text-purple-700 font-medium"
+            >
+              Odaberi sve
+            </button>
+            <button
+              @click="clearAllStores"
+              class="text-sm text-gray-600 hover:text-gray-700 font-medium"
+            >
+              Poništi izbor
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="text-center py-8 text-gray-500">
+          Nema dostupnih prodavnica
+        </div>
+
+        <!-- Success/Error messages for stores -->
+        <div v-if="storesSaveSuccess" class="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+          <p class="text-sm text-green-700">Postavke prodavnica su uspješno sačuvane!</p>
+        </div>
+        <div v-if="storesSaveError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p class="text-sm text-red-700">{{ storesSaveError }}</p>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -221,6 +309,22 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const isPhoneValid = ref(true)
 
+// Store preferences state
+const allStores = ref<any[]>([])
+const selectedStoreIds = ref<number[]>([])
+const originalSelectedStoreIds = ref<number[]>([])
+const loadingStores = ref(false)
+const isSavingStores = ref(false)
+const storesSaveSuccess = ref(false)
+const storesSaveError = ref('')
+
+const hasStoreChanges = computed(() => {
+  if (selectedStoreIds.value.length !== originalSelectedStoreIds.value.length) return true
+  const sorted1 = [...selectedStoreIds.value].sort()
+  const sorted2 = [...originalSelectedStoreIds.value].sort()
+  return sorted1.some((v, i) => v !== sorted2[i])
+})
+
 const profile = ref({
   email: '',
   first_name: '',
@@ -354,9 +458,75 @@ async function saveProfile() {
   }
 }
 
+// Store preference functions
+async function loadStorePreferences() {
+  loadingStores.value = true
+  try {
+    // Load all stores
+    const storesData = await get('/api/businesses?all=true')
+    allStores.value = storesData.businesses || []
+
+    // Load user's selected stores from preferences
+    const prefsData = await get('/auth/user/store-preferences')
+    if (prefsData.preferred_store_ids && prefsData.preferred_store_ids.length > 0) {
+      selectedStoreIds.value = prefsData.preferred_store_ids
+    } else {
+      // Default: all stores selected
+      selectedStoreIds.value = allStores.value.map((s: any) => s.id)
+    }
+    originalSelectedStoreIds.value = [...selectedStoreIds.value]
+  } catch (error) {
+    console.error('Error loading store preferences:', error)
+  } finally {
+    loadingStores.value = false
+  }
+}
+
+async function saveStorePreferences() {
+  isSavingStores.value = true
+  storesSaveSuccess.value = false
+  storesSaveError.value = ''
+
+  try {
+    await put('/auth/user/store-preferences', {
+      preferred_store_ids: selectedStoreIds.value
+    })
+    originalSelectedStoreIds.value = [...selectedStoreIds.value]
+    storesSaveSuccess.value = true
+
+    // Hide success message after 3 seconds
+    setTimeout(() => {
+      storesSaveSuccess.value = false
+    }, 3000)
+  } catch (error: any) {
+    console.error('Error saving store preferences:', error)
+    storesSaveError.value = error.message || 'Greška prilikom čuvanja postavki'
+  } finally {
+    isSavingStores.value = false
+  }
+}
+
+function toggleStore(storeId: number) {
+  const index = selectedStoreIds.value.indexOf(storeId)
+  if (index === -1) {
+    selectedStoreIds.value.push(storeId)
+  } else {
+    selectedStoreIds.value.splice(index, 1)
+  }
+}
+
+function selectAllStores() {
+  selectedStoreIds.value = allStores.value.map((s: any) => s.id)
+}
+
+function clearAllStores() {
+  selectedStoreIds.value = []
+}
+
 onMounted(() => {
   loadProfile()
   loadCities()
+  loadStorePreferences()
 })
 
 useSeoMeta({

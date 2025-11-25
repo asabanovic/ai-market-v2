@@ -14,6 +14,7 @@ export interface FavoriteSummary {
   price: number
   old_price?: number
   discount_percent?: number
+  expires?: string
   business: {
     id: number
     name: string

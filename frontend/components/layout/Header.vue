@@ -1,5 +1,6 @@
 <template>
-  <nav class="bg-white shadow-lg">
+  <div>
+    <nav class="bg-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between h-16">
         <div class="flex items-center">
@@ -70,76 +71,78 @@
             </template>
           </ClientOnly>
 
-          <template v-if="isAuthenticated">
-            <div class="relative">
-              <button
-                @click.stop="toggleDropdown"
-                class="flex items-center gap-2 text-gray-700 hover:text-purple-600 px-2 py-1.5 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-              >
-                <!-- Circular Avatar -->
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                  {{ userInitials }}
-                </div>
-                <!-- Name in two rows -->
-                <div class="flex flex-col items-start text-left">
-                  <span class="text-xs font-medium leading-tight">{{ user?.first_name || 'Korisnik' }}</span>
-                  <span class="text-xs text-gray-500 leading-tight">{{ user?.last_name || '' }}</span>
-                </div>
-                <Icon name="mdi:chevron-down" class="w-4 h-4 text-gray-400" />
-              </button>
-              <div
-                v-if="showProfileDropdown"
-                v-click-outside="closeDropdown"
-                class="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-xl ring-1 ring-black ring-opacity-5 divide-y divide-gray-100"
-              >
-                <!-- User Info -->
-                <div class="px-4 py-3">
-                  <p class="text-sm font-medium text-gray-900">{{ userName }}</p>
-                  <p class="text-xs text-gray-500 truncate">{{ user?.email }}</p>
-                </div>
+          <ClientOnly>
+            <template v-if="isAuthenticated">
+              <div class="relative">
+                <button
+                  @click.stop="toggleDropdown"
+                  class="flex items-center gap-2 text-gray-700 hover:text-purple-600 px-2 py-1.5 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                >
+                  <!-- Circular Avatar -->
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                    {{ userInitials }}
+                  </div>
+                  <!-- Name in two rows -->
+                  <div class="flex flex-col items-start text-left">
+                    <span class="text-xs font-medium leading-tight">{{ user?.first_name || 'Korisnik' }}</span>
+                    <span class="text-xs text-gray-500 leading-tight">{{ user?.last_name || '' }}</span>
+                  </div>
+                  <Icon name="mdi:chevron-down" class="w-4 h-4 text-gray-400" />
+                </button>
+                <div
+                  v-if="showProfileDropdown"
+                  v-click-outside="closeDropdown"
+                  class="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-xl ring-1 ring-black ring-opacity-5 divide-y divide-gray-100"
+                >
+                  <!-- User Info -->
+                  <div class="px-4 py-3">
+                    <p class="text-sm font-medium text-gray-900">{{ userName }}</p>
+                    <p class="text-xs text-gray-500 truncate">{{ user?.email }}</p>
+                  </div>
 
-                <!-- Menu Items -->
-                <div class="py-1">
-                  <NuxtLink
-                    to="/profil"
-                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    @click="showProfileDropdown = false"
-                  >
-                    <Icon name="mdi:account" class="w-4 h-4 mr-2" />
-                    Moj profil
-                  </NuxtLink>
-                  <NuxtLink
-                    v-if="user?.is_admin"
-                    to="/admin"
-                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    @click="showProfileDropdown = false"
-                  >
-                    <Icon name="mdi:shield-crown" class="w-4 h-4 mr-2" />
-                    Admin Dashboard
-                  </NuxtLink>
-                </div>
+                  <!-- Menu Items -->
+                  <div class="py-1">
+                    <NuxtLink
+                      to="/profil"
+                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <Icon name="mdi:account" class="w-4 h-4 mr-2" />
+                      Moj profil
+                    </NuxtLink>
+                    <NuxtLink
+                      v-if="user?.is_admin"
+                      to="/admin"
+                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <Icon name="mdi:shield-crown" class="w-4 h-4 mr-2" />
+                      Admin Dashboard
+                    </NuxtLink>
+                  </div>
 
-                <!-- Logout -->
-                <div class="py-1">
-                  <button
-                    @click="handleLogout"
-                    class="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  >
-                    <Icon name="mdi:logout" class="w-4 h-4 mr-2" />
-                    Odjava
-                  </button>
+                  <!-- Logout -->
+                  <div class="py-1">
+                    <button
+                      @click="handleLogout"
+                      class="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      <Icon name="mdi:logout" class="w-4 h-4 mr-2" />
+                      Odjava
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </template>
-          <template v-else>
-            <NuxtLink to="/prijava" class="bg-green-500 text-white px-4 py-2 rounded-md btn-text hover:bg-green-600 transition-colors">
-              Prijava
-            </NuxtLink>
-            <NuxtLink to="/registracija" class="bg-purple-600 text-white px-4 py-2 rounded-md btn-text hover:bg-purple-700 transition-colors purple-pattern-overlay">
-              Registracija
-            </NuxtLink>
-          </template>
+            </template>
+            <template v-else>
+              <NuxtLink to="/prijava" class="bg-green-500 text-white px-4 py-2 rounded-md btn-text hover:bg-green-600 transition-colors">
+                Prijava
+              </NuxtLink>
+              <NuxtLink to="/registracija" class="bg-purple-600 text-white px-4 py-2 rounded-md btn-text hover:bg-purple-700 transition-colors purple-pattern-overlay">
+                Registracija
+              </NuxtLink>
+            </template>
+          </ClientOnly>
         </div>
 
         <!-- Mobile menu button -->
@@ -203,35 +206,37 @@
           </template>
         </ClientOnly>
 
-        <template v-if="isAuthenticated">
-          <div class="border-t border-gray-200 pt-2 pb-2 px-3">
-            <p class="text-sm font-medium text-gray-900">{{ userName }}</p>
-            <p class="text-xs text-gray-500">{{ user?.email }}</p>
-          </div>
-          <NuxtLink to="/profil" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
-            <Icon name="mdi:account" class="w-4 h-4 inline mr-2" />
-            Moj profil
-          </NuxtLink>
-          <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
-            <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />
-            Admin Dashboard
-          </NuxtLink>
-          <button
-            @click="handleLogout"
-            class="block w-full text-left px-3 py-2 text-red-600 hover:text-red-700 btn-text transition-colors"
-          >
-            <Icon name="mdi:logout" class="w-4 h-4 inline mr-2" />
-            Odjava
-          </button>
-        </template>
-        <template v-else>
-          <NuxtLink to="/prijava" class="block mx-3 my-2 px-4 py-2 bg-green-500 text-white rounded-md nav-text hover:bg-green-600 transition-colors text-center">
-            Prijava
-          </NuxtLink>
-          <NuxtLink to="/registracija" class="block mx-3 my-2 px-4 py-2 bg-purple-600 text-white rounded-md nav-text hover:bg-purple-700 transition-colors text-center">
-            Registracija
-          </NuxtLink>
-        </template>
+        <ClientOnly>
+          <template v-if="isAuthenticated">
+            <div class="border-t border-gray-200 pt-2 pb-2 px-3">
+              <p class="text-sm font-medium text-gray-900">{{ userName }}</p>
+              <p class="text-xs text-gray-500">{{ user?.email }}</p>
+            </div>
+            <NuxtLink to="/profil" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+              <Icon name="mdi:account" class="w-4 h-4 inline mr-2" />
+              Moj profil
+            </NuxtLink>
+            <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
+              <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />
+              Admin Dashboard
+            </NuxtLink>
+            <button
+              @click="handleLogout"
+              class="block w-full text-left px-3 py-2 text-red-600 hover:text-red-700 btn-text transition-colors"
+            >
+              <Icon name="mdi:logout" class="w-4 h-4 inline mr-2" />
+              Odjava
+            </button>
+          </template>
+          <template v-else>
+            <NuxtLink to="/prijava" class="block mx-3 my-2 px-4 py-2 bg-green-500 text-white rounded-md nav-text hover:bg-green-600 transition-colors text-center">
+              Prijava
+            </NuxtLink>
+            <NuxtLink to="/registracija" class="block mx-3 my-2 px-4 py-2 bg-purple-600 text-white rounded-md nav-text hover:bg-purple-700 transition-colors text-center">
+              Registracija
+            </NuxtLink>
+          </template>
+        </ClientOnly>
       </div>
     </div>
 
@@ -240,12 +245,13 @@
 
     <!-- Toast Container -->
     <ToastContainer />
-
-    <!-- Mobile Bottom Navigation -->
-    <ClientOnly>
-      <MobileBottomNav @toggle-sidebar="showSidebar = true" />
-    </ClientOnly>
   </nav>
+
+    <!-- Mobile Bottom Navigation (outside nav to avoid hydration issues) -->
+    <ClientOnly>
+      <LayoutMobileBottomNav @toggle-sidebar="showSidebar = true" />
+    </ClientOnly>
+  </div>
 </template>
 
 <script setup lang="ts">

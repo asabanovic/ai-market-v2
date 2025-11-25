@@ -14,6 +14,14 @@ from credits_service_weekly import WeeklyCreditsService
 from credits_service import InsufficientCreditsError
 from sms_service import sms_service
 import logging
+import os
+
+def format_logo_url(logo_path):
+    """Format logo path to include full backend URL for proper serving"""
+    if logo_path:
+        backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5001')
+        return f"{backend_url}/static/{logo_path}"
+    return None
 
 logger = logging.getLogger(__name__)
 
@@ -116,19 +124,29 @@ def get_favorites():
             # Calculate current price
             price = product.discount_price if product.has_discount else product.base_price
 
+            # Format image URL
+            image_url = None
+            if product.image_path:
+                if product.image_path.startswith('http'):
+                    image_url = product.image_path
+                else:
+                    backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5001')
+                    image_url = f"{backend_url}/static/{product.image_path}"
+
             result.append({
                 'favorite_id': fav.id,
                 'product_id': product.id,
                 'name': product.title,
-                'image_url': product.image_path,
+                'image_url': image_url,
                 'category': product.category,
                 'price': price,
                 'old_price': product.base_price if product.has_discount else None,
                 'discount_percent': product.discount_percentage if product.has_discount else None,
+                'expires': product.expires.isoformat() if product.expires else None,
                 'business': {
                     'id': business.id,
                     'name': business.name,
-                    'logo': business.logo_path
+                    'logo': format_logo_url(business.logo_path)
                 },
                 'created_at': fav.created_at.isoformat()
             })
@@ -478,7 +496,7 @@ def get_shopping_list_sidebar():
                     'store': {
                         'id': business.id,
                         'name': business.name,
-                        'logo': business.logo_path
+                        'logo': format_logo_url(business.logo_path)
                     },
                     'items': [],
                     'group_subtotal': 0,
@@ -727,7 +745,7 @@ def get_shopping_history():
                         'business': {
                             'id': business.id,
                             'name': business.name,
-                            'logo': business.logo_path,
+                            'logo': format_logo_url(business.logo_path),
                             'city': business.city
                         },
                         'items': [],

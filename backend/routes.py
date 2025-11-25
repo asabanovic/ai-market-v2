@@ -76,6 +76,24 @@ def format_logo_url(logo_path):
     return None
 
 
+# Decorator for admin-only routes
+def require_admin(f):
+    """Decorator to require admin privileges for API endpoints.
+    Must be used AFTER @require_jwt_auth decorator."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_id = getattr(request, 'current_user_id', None)
+        if not user_id:
+            return jsonify({'error': 'Authentication required'}), 401
+
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin privileges required'}), 403
+
+        return f(*args, **kwargs)
+    return decorated
+
+
 # Register Replit Auth blueprint (only if running on Replit)
 replit_bp = make_replit_blueprint()
 if replit_bp:
@@ -679,7 +697,9 @@ def api_products():
         per_page = int(request.args.get('per_page', 24))
         category = request.args.get('category')
         business_id = request.args.get('business')
+        stores = request.args.get('stores')  # Comma-separated store IDs
         search = request.args.get('search')
+        sort = request.args.get('sort', 'discount_desc')
 
         # Base query
         query = Product.query.join(Business)
@@ -691,10 +711,56 @@ def api_products():
         # Apply filters
         if category:
             query = query.filter(Product.category == category)
-        if business_id:
+        if stores:
+            # Filter by multiple store IDs
+            store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
+            if store_ids:
+                query = query.filter(Product.business_id.in_(store_ids))
+        elif business_id:
+            # Legacy single business filter
             query = query.filter(Product.business_id == int(business_id))
         if search:
             query = query.filter(Product.title.ilike(f'%{search}%'))
+
+        # Apply sorting
+        if sort == 'discount_desc':
+            # Sort by discount percentage (highest first)
+            # Calculate discount as (base_price - discount_price) / base_price
+            # Products with discount_price get sorted by percentage, others go to end
+            query = query.order_by(
+                db.case(
+                    (db.and_(Product.base_price > 0, Product.discount_price.isnot(None), Product.discount_price < Product.base_price),
+                     (Product.base_price - Product.discount_price) / Product.base_price),
+                    else_=0
+                ).desc()
+            )
+        elif sort == 'price_asc':
+            # Sort by effective price (discount_price if available, else base_price)
+            query = query.order_by(
+                db.case(
+                    (Product.discount_price.isnot(None), Product.discount_price),
+                    else_=Product.base_price
+                ).asc()
+            )
+        elif sort == 'price_desc':
+            # Sort by effective price (discount_price if available, else base_price)
+            query = query.order_by(
+                db.case(
+                    (Product.discount_price.isnot(None), Product.discount_price),
+                    else_=Product.base_price
+                ).desc()
+            )
+        elif sort == 'newest':
+            query = query.order_by(Product.created_at.desc())
+        else:
+            # Default: discount descending
+            query = query.order_by(
+                db.case(
+                    (db.and_(Product.base_price > 0, Product.discount_price.isnot(None), Product.discount_price < Product.base_price),
+                     (Product.base_price - Product.discount_price) / Product.base_price),
+                    else_=0
+                ).desc()
+            )
 
         # Paginate
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -749,6 +815,64 @@ def api_businesses():
     except Exception as e:
         app.logger.error(f"Error in businesses API: {e}")
         return jsonify({'error': 'Failed to load businesses'}), 500
+
+
+# API endpoint to create a new business
+@app.route('/api/businesses', methods=['POST'])
+@require_jwt_auth
+@require_admin
+def api_create_business():
+    """Create a new business - admin only"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        name = data.get('name', '').strip()
+        city = data.get('city', '').strip()
+        contact_phone = data.get('contact_phone', '').strip() or None
+        google_link = data.get('google_link', '').strip() or None
+
+        if not name:
+            return jsonify({'success': False, 'error': 'Naziv radnje je obavezan'}), 400
+
+        if not city:
+            return jsonify({'success': False, 'error': 'Grad je obavezan'}), 400
+
+        # Check if business with same name and city already exists
+        existing = Business.query.filter_by(name=name, city=city).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Radnja sa istim nazivom već postoji u tom gradu'}), 400
+
+        # Create new business
+        business = Business(
+            name=name,
+            city=city,
+            contact_phone=contact_phone,
+            google_link=google_link,
+            status='active'
+        )
+
+        db.session.add(business)
+        db.session.commit()
+
+        app.logger.info(f"Created new business: {name} in {city} (ID: {business.id})")
+
+        return jsonify({
+            'success': True,
+            'message': 'Radnja uspješno kreirana',
+            'business': {
+                'id': business.id,
+                'name': business.name,
+                'city': business.city
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating business: {e}")
+        return jsonify({'success': False, 'error': 'Greška prilikom kreiranja radnje'}), 500
 
 
 # API endpoint for single business
