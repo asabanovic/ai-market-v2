@@ -134,7 +134,13 @@ class Product(db.Model):
 
     @property
     def has_discount(self):
-        return self.discount_price is not None and self.discount_price < self.base_price
+        """Check if product has an active (non-expired) discount"""
+        if self.discount_price is None or self.discount_price >= self.base_price:
+            return False
+        # Check if discount has expired
+        if self.expires and date.today() > self.expires:
+            return False
+        return True
     
     @property
     def discount_percentage(self):

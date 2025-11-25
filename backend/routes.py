@@ -679,9 +679,12 @@ def api_products():
 # API endpoint for businesses list
 @app.route('/api/businesses')
 def api_businesses():
-    """API endpoint for businesses listing"""
+    """API endpoint for businesses listing - only returns businesses with products"""
     try:
-        businesses = Business.query.filter_by(status='active').all()
+        # Only return businesses that have at least one product
+        businesses = db.session.query(Business).join(Product).filter(
+            Business.status == 'active'
+        ).distinct().all()
 
         result = []
         for business in businesses:
@@ -694,7 +697,7 @@ def api_businesses():
                 'google_link': business.google_link
             })
 
-        return jsonify(result)
+        return jsonify({'businesses': result})
 
     except Exception as e:
         app.logger.error(f"Error in businesses API: {e}")

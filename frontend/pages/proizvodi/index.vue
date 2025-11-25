@@ -3,28 +3,30 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Page Header -->
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Svi proizvodi</h1>
-        <p class="text-gray-600">Pretražite kroz sve proizvode sa popustima</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Pregledaj proizvode</h1>
+        <p class="text-gray-600">Filtrirajte po kategoriji i prodavnici da pronađete najbolje popuste</p>
       </div>
 
       <!-- Filters Section -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- Search -->
-          <div>
-            <label for="search" class="block text-sm font-medium text-gray-700 mb-1">
-              Pretraži proizvode
-            </label>
-            <input
-              id="search"
-              v-model="filters.search"
-              type="text"
-              placeholder="Unesite naziv proizvoda..."
-              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              @input="debouncedSearch"
-            />
+        <!-- Marketing Message -->
+        <div class="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
+          <div class="flex items-start">
+            <svg class="w-6 h-6 text-purple-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p class="text-sm font-medium text-purple-900">
+                Tražite određeni proizvod? Koristite pametnu pretragu na <NuxtLink to="/" class="underline hover:text-purple-600">početnoj stranici</NuxtLink> za najbolje rezultate!
+              </p>
+              <p class="text-xs text-purple-700 mt-1">
+                Ovdje možete pregledati proizvode po kategoriji i prodavnici.
+              </p>
+            </div>
           </div>
+        </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Category Filter -->
           <div>
             <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
@@ -44,7 +46,7 @@
           <!-- Business Filter -->
           <div>
             <label for="business" class="block text-sm font-medium text-gray-700 mb-1">
-              Biznis
+              Prodavnica
             </label>
             <select
               id="business"
@@ -52,7 +54,7 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               @change="loadProducts"
             >
-              <option value="">Svi biznisi</option>
+              <option value="">Sve prodavnice</option>
               <option v-for="biz in businesses" :key="biz.id" :value="biz.id">{{ biz.name }}</option>
             </select>
           </div>
@@ -168,7 +170,6 @@ const perPage = 24
 
 // Filters
 const filters = ref({
-  search: '',
   category: '',
   business: ''
 })
@@ -181,7 +182,6 @@ onMounted(async () => {
     return
   }
 
-  filters.value.search = (route.query.search as string) || ''
   filters.value.category = (route.query.category as string) || ''
   filters.value.business = (route.query.business as string) || ''
   currentPage.value = parseInt(route.query.page as string) || 1
@@ -193,7 +193,6 @@ onMounted(async () => {
 
 // Watch for route changes
 watch(() => route.query, () => {
-  filters.value.search = (route.query.search as string) || ''
   filters.value.category = (route.query.category as string) || ''
   filters.value.business = (route.query.business as string) || ''
   currentPage.value = parseInt(route.query.page as string) || 1
@@ -218,17 +217,6 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Debounced search
-let searchTimeout: NodeJS.Timeout
-function debouncedSearch() {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    currentPage.value = 1
-    updateURL()
-    loadProducts()
-  }, 500)
-}
-
 async function loadBusinesses() {
   try {
     const data = await get('/api/businesses')
@@ -252,7 +240,6 @@ async function loadProducts() {
 
   try {
     const params = new URLSearchParams()
-    if (filters.value.search) params.append('search', filters.value.search)
     if (filters.value.category) params.append('category', filters.value.category)
     if (filters.value.business) params.append('business', filters.value.business)
     params.append('page', currentPage.value.toString())
@@ -275,7 +262,6 @@ async function loadProducts() {
 
 function resetFilters() {
   filters.value = {
-    search: '',
     category: '',
     business: ''
   }
@@ -293,7 +279,6 @@ function changePage(page: number) {
 
 function updateURL() {
   const query: any = {}
-  if (filters.value.search) query.search = filters.value.search
   if (filters.value.category) query.category = filters.value.category
   if (filters.value.business) query.business = filters.value.business
   if (currentPage.value > 1) query.page = currentPage.value.toString()

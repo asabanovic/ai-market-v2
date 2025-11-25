@@ -30,6 +30,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
   // Getters
   const count = computed(() => items.value.length)
 
+  // Count only items with active discounts
+  const discountedCount = computed(() => {
+    return items.value.filter(item => item.discount_percent && item.discount_percent > 0).length
+  })
+
   const isFavorited = computed(() => {
     return (productId: number) => {
       return items.value.some(item => item.product_id === productId)
@@ -138,6 +143,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
     // Getters
     count,
+    discountedCount,
     isFavorited,
     getFavoriteId,
 

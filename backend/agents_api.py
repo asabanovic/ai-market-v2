@@ -259,6 +259,16 @@ def unified_search():
                 "intent": output.intent
             }), 500
 
+        # For anonymous users, limit visible results to first 3 (rest are teasers)
+        ANONYMOUS_TEASER_LIMIT = 3
+        teaser_count = 0
+
+        if is_anonymous and len(output.results) > ANONYMOUS_TEASER_LIMIT:
+            # Mark results beyond the limit as teasers
+            for i, result in enumerate(output.results):
+                result['is_teaser'] = i >= ANONYMOUS_TEASER_LIMIT
+            teaser_count = len(output.results) - ANONYMOUS_TEASER_LIMIT
+
         response_data = {
             "success": True,
             "query": output.query,
@@ -267,7 +277,8 @@ def unified_search():
             "explanation": output.explanation,
             "metadata": output.metadata,
             "count": len(output.results),
-            "is_anonymous": is_anonymous  # Frontend will show teasers if True
+            "is_anonymous": is_anonymous,
+            "teaser_count": teaser_count  # Number of blurred results
         }
 
         # Add credits info for logged-in users

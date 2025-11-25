@@ -6,7 +6,7 @@
         <h1 class="typography-display-responsive text-white mb-4">
           Pronađite najbolje popuste u vašem gradu
         </h1>
-        <p class="typography-body text-gray-200 mb-6">
+        <p v-if="!user" class="typography-body text-gray-200 mb-6">
           🎁 <strong>POKLON:</strong> Isprobajte BESPLATNO! Jednu pretragu možete testirati bez registracije
         </p>
 
@@ -20,11 +20,11 @@
               id="chat-input"
               v-model="searchQuery"
               rows="6"
-              placeholder="🎯 BESPLATNI TEST - Probajte sada!&#10;&#10;Primjeri (unesite bilo šta slično):&#10;&#10;• Trebam brasno, mlijeko i čokoladu&#10;&#10;• Gdje ima najjeftinija piletina?&#10;&#10;• Lista: hljeb, jaja, kafa, deterdžent&#10;&#10;Registracijom dobijate 10 BESPLATNIH pretraga SEDMIČNO i pristup listama za kupovinu!"
+              :placeholder="searchPlaceholder"
               class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-y chat-input"
               @keydown.enter.exact.prevent="performSearch"
             />
-            <p class="mt-2 text-sm text-gray-600">
+            <p v-if="!user" class="mt-2 text-sm text-gray-600">
               🎁 <strong>Posebna ponuda:</strong> Nakon registracije, pratimo cijene vaših omiljenih proizvoda i obavještavamo vas kada su na popustu!
             </p>
           </div>
@@ -276,6 +276,33 @@ const loadingMessageInterval = ref<any>(null)
 // Exit intent modal
 const showExitIntentModal = ref(false)
 const exitIntentTriggered = ref(false)
+
+// Computed placeholder text based on authentication
+const searchPlaceholder = computed(() => {
+  if (user.value) {
+    // Logged-in user - simple, no promotional text
+    return `Primjeri (unesite bilo šta slično):
+
+• Trebam brasno, mlijeko i čokoladu
+
+• Gdje ima najjeftinija piletina?
+
+• Lista: hljeb, jaja, kafa, deterdžent`
+  } else {
+    // Anonymous user - promotional text
+    return `🎯 BESPLATNI TEST - Probajte sada!
+
+Primjeri (unesite bilo šta slično):
+
+• Trebam brasno, mlijeko i čokoladu
+
+• Gdje ima najjeftinija piletina?
+
+• Lista: hljeb, jaja, kafa, deterdžent
+
+Registracijom dobijate 10 BESPLATNIH pretraga SEDMIČNO i pristup listama za kupovinu!`
+  }
+})
 
 // Chat examples
 const chatExamples = [

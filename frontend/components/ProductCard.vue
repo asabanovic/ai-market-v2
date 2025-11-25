@@ -1,5 +1,27 @@
 <template>
-  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="relevanceBorderClass">
+  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[relevanceBorderClass, product.is_teaser ? 'opacity-90' : '']">
+    <!-- Teaser Blur Overlay (Anonymous Users) -->
+    <div
+      v-if="product.is_teaser"
+      class="absolute inset-0 backdrop-blur-md bg-white/30 z-50 flex items-center justify-center"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 text-center">
+        <Icon name="mdi:lock" class="w-12 h-12 text-purple-600 mx-auto mb-3" />
+        <h3 class="text-xl font-bold text-gray-900 mb-2">
+          Registrujte se da vidite više
+        </h3>
+        <p class="text-gray-600 mb-4">
+          Otkrijte sve proizvode i uštedite još više!
+        </p>
+        <NuxtLink
+          to="/registracija"
+          class="inline-block w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+        >
+          Besplatna registracija
+        </NuxtLink>
+      </div>
+    </div>
+
     <!-- Relevance Badge -->
     <div
       v-if="product.similarity !== undefined"
