@@ -1,0 +1,9 @@
+start.sh
+stop.sh
+*.sh
+__pycache__
+*.pyc
+.env
+.git
+instance/
+static/uploads/
