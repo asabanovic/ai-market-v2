@@ -54,7 +54,14 @@
       "WebFetch(domain:www.sent.dm)",
       "WebSearch",
       "WebFetch(domain:www.infobip.com)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run build:*)",
+      "Bash(tee:*)",
+      "Bash(ps:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
