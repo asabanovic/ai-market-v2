@@ -92,6 +92,11 @@ def init_db():
         import models
 
         try:
+            # Enable pgvector extension for embeddings
+            db.session.execute(db.text('CREATE EXTENSION IF NOT EXISTS vector'))
+            db.session.commit()
+            logging.info("pgvector extension enabled")
+
             db.create_all()
             logging.info("Database tables created")
 
