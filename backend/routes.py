@@ -829,10 +829,10 @@ def api_create_business():
         if not data:
             return jsonify({'success': False, 'error': 'No data provided'}), 400
 
-        name = data.get('name', '').strip()
-        city = data.get('city', '').strip()
-        contact_phone = data.get('contact_phone', '').strip() or None
-        google_link = data.get('google_link', '').strip() or None
+        name = (data.get('name') or '').strip()
+        city = (data.get('city') or '').strip()
+        contact_phone = (data.get('contact_phone') or '').strip() or None
+        google_link = (data.get('google_link') or '').strip() or None
 
         if not name:
             return jsonify({'success': False, 'error': 'Naziv radnje je obavezan'}), 400
@@ -873,6 +873,93 @@ def api_create_business():
         db.session.rollback()
         app.logger.error(f"Error creating business: {e}")
         return jsonify({'success': False, 'error': 'Greška prilikom kreiranja radnje'}), 500
+
+
+# Public API endpoint for business page (no auth required)
+@app.route('/api/radnja/<int:business_id>')
+def api_public_business_page(business_id):
+    """Public API endpoint for business page with products"""
+    try:
+        business = Business.query.filter_by(id=business_id, status='active').first()
+
+        if not business:
+            return jsonify({'error': 'Radnja nije pronađena'}), 404
+
+        # Get active products with discounts
+        products = Product.query.filter(
+            Product.business_id == business_id,
+            Product.discount_price.isnot(None),
+            Product.discount_price < Product.base_price
+        ).order_by(Product.created_at.desc()).limit(20).all()
+
+        return jsonify({
+            'business': {
+                'id': business.id,
+                'name': business.name,
+                'city': business.city,
+                'logo_path': f"/static/{business.logo_path}" if business.logo_path else None,
+                'contact_phone': business.contact_phone,
+                'google_link': business.google_link,
+                'product_count': business.products.count(),
+                'views': business.views
+            },
+            'products': [{
+                'id': p.id,
+                'title': p.title,
+                'base_price': p.base_price,
+                'discount_price': p.discount_price,
+                'discount_percentage': p.discount_percentage,
+                'image_path': p.image_path,
+                'category': p.category,
+                'expires': p.expires.isoformat() if p.expires else None
+            } for p in products],
+            'has_more': business.products.count() > 20
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in public business page: {e}")
+        return jsonify({'error': 'Greška pri učitavanju radnje'}), 500
+
+
+@app.route('/api/radnja/<int:business_id>/products')
+def api_public_business_products(business_id):
+    """Public API endpoint for paginated business products"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+
+        business = Business.query.filter_by(id=business_id, status='active').first()
+        if not business:
+            return jsonify({'error': 'Radnja nije pronađena'}), 404
+
+        # Get products with pagination
+        pagination = Product.query.filter(
+            Product.business_id == business_id,
+            Product.discount_price.isnot(None),
+            Product.discount_price < Product.base_price
+        ).order_by(Product.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        return jsonify({
+            'products': [{
+                'id': p.id,
+                'title': p.title,
+                'base_price': p.base_price,
+                'discount_price': p.discount_price,
+                'discount_percentage': p.discount_percentage,
+                'image_path': p.image_path,
+                'category': p.category,
+                'expires': p.expires.isoformat() if p.expires else None
+            } for p in pagination.items],
+            'has_more': pagination.has_next,
+            'page': page,
+            'total': pagination.total
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in business products: {e}")
+        return jsonify({'error': 'Greška pri učitavanju proizvoda'}), 500
 
 
 # API endpoint for single business
@@ -1150,6 +1237,68 @@ def api_edit_business(business_id):
         return jsonify({
             'success': False,
             'error': 'Došlo je do greške prilikom ažuriranja biznisa'
+        }), 500
+
+
+@app.route('/api/businesses/<int:business_id>', methods=['DELETE'])
+@require_jwt_auth
+def api_delete_business(business_id):
+    """Delete a business and all its products with JWT auth"""
+    try:
+        business = Business.query.get_or_404(business_id)
+
+        # Check if user has permission to delete (must be owner or admin)
+        user_id = request.user_id
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({'success': False, 'error': 'Korisnik nije pronađen'}), 404
+
+        # Check permissions - admin or business owner
+        is_admin = user.is_admin
+        membership = BusinessMembership.query.filter_by(
+            business_id=business_id,
+            user_id=user_id,
+            is_active=True
+        ).first()
+
+        is_owner = membership and membership.role == 'owner'
+
+        if not is_admin and not is_owner:
+            return jsonify({
+                'success': False,
+                'error': 'Nemate dozvolu za brisanje ove radnje'
+            }), 403
+
+        business_name = business.name
+
+        # Delete all products associated with this business
+        Product.query.filter_by(business_id=business_id).delete()
+
+        # Delete all business memberships
+        BusinessMembership.query.filter_by(business_id=business_id).delete()
+
+        # Delete any invitations
+        if hasattr(BusinessInvitation, 'query'):
+            BusinessInvitation.query.filter_by(business_id=business_id).delete()
+
+        # Delete the business
+        db.session.delete(business)
+        db.session.commit()
+
+        app.logger.info(f"Business '{business_name}' (ID: {business_id}) deleted by user {user_id}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Radnja "{business_name}" je uspješno obrisana'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting business: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Došlo je do greške prilikom brisanja radnje'
         }), 500
 
 
@@ -4518,8 +4667,9 @@ def api_admin_users():
                 'last_name': u.last_name,
                 'city': u.city,
                 'created_at': u.created_at.isoformat() if u.created_at else None,
-                'daily_credits': u.daily_credits,
-                'daily_credits_used': u.daily_credits_used,
+                'weekly_credits': u.weekly_credits,
+                'weekly_credits_used': u.weekly_credits_used,
+                'extra_credits': u.extra_credits,
                 'latest_otp': latest_otp
             })
 
@@ -4535,6 +4685,79 @@ def api_admin_users():
 
     except Exception as e:
         app.logger.error(f"Admin users error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users/<user_id>/activity')
+def api_admin_user_activity(user_id):
+    """API endpoint to get user's daily activity (searches and engagements) for the last 7 days"""
+    from auth_api import decode_jwt_token
+    from models import UserSearch, UserEngagement
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get activity for last 7 days
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=6)  # 7 days including today
+
+        # Get daily search counts
+        searches = db.session.query(
+            func.date(UserSearch.created_at).label('date'),
+            func.count(UserSearch.id).label('count')
+        ).filter(
+            UserSearch.user_id == user_id,
+            UserSearch.created_at >= start_date
+        ).group_by(func.date(UserSearch.created_at)).all()
+
+        # Get daily engagement counts
+        engagements = db.session.query(
+            func.date(UserEngagement.created_at).label('date'),
+            func.count(UserEngagement.id).label('count')
+        ).filter(
+            UserEngagement.user_id == user_id,
+            UserEngagement.created_at >= start_date
+        ).group_by(func.date(UserEngagement.created_at)).all()
+
+        # Convert to dict for easier lookup
+        search_dict = {str(s.date): s.count for s in searches}
+        engagement_dict = {str(e.date): e.count for e in engagements}
+
+        # Build daily activity array for the last 7 days
+        activity = []
+        for i in range(7):
+            day = start_date + timedelta(days=i)
+            day_str = day.strftime('%Y-%m-%d')
+            activity.append({
+                'date': day_str,
+                'day': day.strftime('%a'),  # Short day name
+                'searches': search_dict.get(day_str, 0),
+                'engagements': engagement_dict.get(day_str, 0)
+            })
+
+        return jsonify({
+            'user_id': user_id,
+            'activity': activity
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin user activity error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 

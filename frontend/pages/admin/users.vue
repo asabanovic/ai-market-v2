@@ -74,7 +74,13 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Korisnik</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kontakt</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metoda</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div>Aktivnost (7 dana)</div>
+                  <div class="flex gap-2 mt-1 font-normal normal-case">
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-blue-400 rounded"></span>pretrage</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-purple-400 rounded"></span>interakcije</span>
+                  </div>
+                </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Krediti</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OTP Kod</th>
@@ -107,13 +113,9 @@
                       {{ user.phone }}
                     </div>
                   </div>
-                </td>
-
-                <!-- Registration Method -->
-                <td class="px-6 py-4 whitespace-nowrap">
                   <span
                     :class="[
-                      'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full',
+                      'mt-1 px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full',
                       user.registration_method === 'phone'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-blue-100 text-blue-800'
@@ -121,6 +123,43 @@
                   >
                     {{ user.registration_method === 'phone' ? 'Telefon' : 'Email' }}
                   </span>
+                </td>
+
+                <!-- Activity Chart -->
+                <td class="px-6 py-4">
+                  <div v-if="userActivity[user.id]" class="flex items-end gap-0.5 h-8">
+                    <div
+                      v-for="(day, index) in userActivity[user.id]"
+                      :key="index"
+                      class="flex flex-col items-center"
+                    >
+                      <div class="flex gap-px">
+                        <!-- Search bar (blue) -->
+                        <div
+                          class="w-2 bg-blue-400 rounded-t transition-all"
+                          :style="{ height: `${Math.min(day.searches * 4, 24)}px` }"
+                          :title="`${day.day}: ${day.searches} pretraga`"
+                        ></div>
+                        <!-- Engagement bar (purple) -->
+                        <div
+                          class="w-2 bg-purple-400 rounded-t transition-all"
+                          :style="{ height: `${Math.min(day.engagements * 4, 24)}px` }"
+                          :title="`${day.day}: ${day.engagements} interakcija`"
+                        ></div>
+                      </div>
+                      <span class="text-[8px] text-gray-400 mt-0.5">{{ day.day.substring(0, 2) }}</span>
+                    </div>
+                  </div>
+                  <div v-else-if="loadingActivity[user.id]" class="text-xs text-gray-400">
+                    <Icon name="mdi:loading" class="w-4 h-4 animate-spin" />
+                  </div>
+                  <button
+                    v-else
+                    @click="loadUserActivity(user.id)"
+                    class="text-xs text-purple-600 hover:text-purple-800"
+                  >
+                    Učitaj
+                  </button>
                 </td>
 
                 <!-- Status -->
@@ -147,7 +186,8 @@
 
                 <!-- Credits -->
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ user.daily_credits_used || 0 }} / {{ user.daily_credits || 10 }}
+                  <div>{{ user.weekly_credits_used || 0 }} / {{ user.weekly_credits || 10 }} <span class="text-gray-400 text-xs">tjedno</span></div>
+                  <div v-if="user.extra_credits" class="text-purple-600 text-xs">+{{ user.extra_credits }} ekstra</div>
                 </td>
 
                 <!-- OTP Code -->
@@ -234,6 +274,8 @@ const pagination = ref({
   total: 0,
   pages: 0
 })
+const userActivity = ref<Record<string, any[]>>({})
+const loadingActivity = ref<Record<string, boolean>>({})
 
 // Computed stats
 const totalUsers = computed(() => pagination.value.total)
@@ -257,6 +299,11 @@ async function loadUsers(page = 1) {
     const data = await get(`/api/admin/users?${params.toString()}`)
     users.value = data.users
     pagination.value = data.pagination
+
+    // Load activity for all users after loading
+    nextTick(() => {
+      loadAllUserActivities()
+    })
   } catch (error) {
     console.error('Error loading users:', error)
   }
@@ -287,6 +334,24 @@ function formatDate(dateString: string) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+async function loadUserActivity(userId: string) {
+  loadingActivity.value[userId] = true
+  try {
+    const data = await get(`/api/admin/users/${userId}/activity`)
+    userActivity.value[userId] = data.activity
+  } catch (error) {
+    console.error('Error loading user activity:', error)
+  } finally {
+    loadingActivity.value[userId] = false
+  }
+}
+
+async function loadAllUserActivities() {
+  // Load activity for all visible users in parallel
+  const promises = users.value.map(u => loadUserActivity(u.id))
+  await Promise.all(promises)
 }
 
 useSeoMeta({

@@ -6,9 +6,13 @@
         <h1 class="typography-display-responsive text-white mb-4">
           Pronađite najbolje popuste u vašem gradu
         </h1>
-        <p v-if="!user" class="typography-body text-gray-200 mb-6">
-          🎁 <strong>POKLON:</strong> Isprobajte BESPLATNO! Jednu pretragu možete testirati bez registracije
-        </p>
+        <ClientOnly>
+          <template v-if="!user">
+            <p class="typography-body text-gray-200 mb-6">
+              🎁 <strong>POKLON:</strong> Isprobajte BESPLATNO! Jednu pretragu možete testirati bez registracije
+            </p>
+          </template>
+        </ClientOnly>
 
         <!-- Chat Interface -->
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full mx-auto" style="max-width: 95vw;">
@@ -24,9 +28,13 @@
               class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-y chat-input"
               @keydown.enter.exact.prevent="performSearch"
             />
-            <p v-if="!user" class="mt-2 text-sm text-gray-600">
-              🎁 <strong>Posebna ponuda:</strong> Nakon registracije, pratimo cijene vaših omiljenih proizvoda i obavještavamo vas kada su na popustu!
-            </p>
+            <ClientOnly>
+              <template v-if="!user">
+                <p class="mt-2 text-sm text-gray-600">
+                  🎁 <strong>Posebna ponuda:</strong> Nakon registracije, pratimo cijene vaših omiljenih proizvoda i obavještavamo vas kada su na popustu!
+                </p>
+              </template>
+            </ClientOnly>
 
             <!-- Store Filter -->
             <div class="mt-3 flex items-center gap-2 flex-wrap">
@@ -208,22 +216,28 @@
           <ProductCard v-for="product in featuredProducts" :key="product.id" :product="product" />
         </div>
 
-        <div v-if="user" class="text-center mt-12">
-          <NuxtLink
-            to="/proizvodi"
-            class="bg-purple-600 text-white px-8 py-3 rounded-lg btn-text hover:bg-purple-700 transition duration-200 purple-pattern-overlay inline-block"
-          >
-            Pogledajte sve proizvode
-          </NuxtLink>
-        </div>
-        <div v-else class="text-center mt-12">
-          <NuxtLink
-            to="/registracija"
-            class="bg-purple-600 text-white px-8 py-3 rounded-lg btn-text hover:bg-purple-700 transition duration-200 purple-pattern-overlay inline-block"
-          >
-            Registrujte se da vidite sve proizvode
-          </NuxtLink>
-        </div>
+        <ClientOnly>
+          <template v-if="user">
+            <div class="text-center mt-12">
+              <NuxtLink
+                to="/proizvodi"
+                class="bg-purple-600 text-white px-8 py-3 rounded-lg btn-text hover:bg-purple-700 transition duration-200 purple-pattern-overlay inline-block"
+              >
+                Pogledajte sve proizvode
+              </NuxtLink>
+            </div>
+          </template>
+          <template v-else>
+            <div class="text-center mt-12">
+              <NuxtLink
+                to="/registracija"
+                class="bg-purple-600 text-white px-8 py-3 rounded-lg btn-text hover:bg-purple-700 transition duration-200 purple-pattern-overlay inline-block"
+              >
+                Registrujte se da vidite sve proizvode
+              </NuxtLink>
+            </div>
+          </template>
+        </ClientOnly>
       </div>
     </section>
 
@@ -283,6 +297,12 @@
       :product="urlProduct"
       @close="closeUrlProductModal"
     />
+
+    <!-- City Required Modal (for users without city) -->
+    <CityRequiredModal
+      v-model="showCityRequiredModal"
+      @city-saved="handleCitySaved"
+    />
   </div>
 </template>
 
@@ -316,6 +336,10 @@ const latestStoreId = ref(0)
 // Exit intent modal
 const showExitIntentModal = ref(false)
 const exitIntentTriggered = ref(false)
+
+// City required modal (for users without city)
+const showCityRequiredModal = ref(false)
+const pendingSearchQuery = ref('')
 
 // URL product modal state (for direct links)
 const urlProduct = ref<any>(null)
@@ -750,6 +774,19 @@ function handleNewStoresDismissed() {
   console.log('New stores popup dismissed')
 }
 
+function handleCitySaved(city: string) {
+  // City was saved, now perform the pending search
+  showCityRequiredModal.value = false
+  if (pendingSearchQuery.value) {
+    searchQuery.value = pendingSearchQuery.value
+    pendingSearchQuery.value = ''
+    // Small delay to ensure user object is updated
+    setTimeout(() => {
+      performSearch()
+    }, 100)
+  }
+}
+
 // Watch for store selection changes (for anonymous users)
 watch(selectedStoreIds, (newVal) => {
   if (!isAuthenticated.value) {
@@ -771,6 +808,13 @@ async function performSearch() {
       showRegistrationModal.value = true
       return
     }
+  }
+
+  // Check if logged-in user has a city set
+  if (user.value && !user.value.city) {
+    pendingSearchQuery.value = query
+    showCityRequiredModal.value = true
+    return
   }
 
   isSearching.value = true

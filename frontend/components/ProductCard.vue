@@ -96,7 +96,11 @@
       </div>
 
       <!-- Business Info -->
-      <div class="flex items-center gap-2 mb-4">
+      <NuxtLink
+        :to="`/radnja/${product.business?.id}`"
+        class="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
+        @click.stop
+      >
         <!-- Business Logo -->
         <div
           v-if="product.business?.logo"
@@ -114,13 +118,13 @@
           </span>
         </div>
 
-        <span class="text-gray-700 font-medium text-sm">
+        <span class="text-gray-700 font-medium text-sm hover:text-purple-600 transition-colors">
           {{ product.business?.name || 'Nepoznat biznis' }}
         </span>
         <span v-if="product.city || product.business?.city" class="text-gray-500 text-sm">
           {{ product.city || product.business?.city || 'BiH'}}
         </span>
-      </div>
+      </NuxtLink>
 
       <!-- Action Buttons - Stacked Vertically -->
       <div class="flex flex-col gap-2">

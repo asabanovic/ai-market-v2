@@ -715,10 +715,9 @@ def get_shopping_history():
             )
             historical_lists = query.paginate(page=1, per_page=1, error_out=False)
         else:
-            # Get all non-active lists (EXPIRED, SENT, COMPLETED)
+            # Get ALL lists (including ACTIVE) - user wants to see their full history
             historical_lists = ShoppingList.query.filter(
-                ShoppingList.user_id == user_id,
-                ShoppingList.status.in_(['EXPIRED', 'SENT', 'COMPLETED'])
+                ShoppingList.user_id == user_id
             ).order_by(ShoppingList.created_at.desc()).paginate(
                 page=page, per_page=per_page, error_out=False
             )
@@ -818,10 +817,9 @@ def get_shopping_statistics():
     try:
         user_id = request.current_user_id
 
-        # Get all completed and sent lists
+        # Get all lists (including ACTIVE) for comprehensive stats
         all_lists = ShoppingList.query.filter(
-            ShoppingList.user_id == user_id,
-            ShoppingList.status.in_(['COMPLETED', 'SENT', 'EXPIRED'])
+            ShoppingList.user_id == user_id
         ).order_by(ShoppingList.created_at.desc()).all()
 
         # Calculate all-time statistics

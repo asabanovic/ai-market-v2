@@ -40,7 +40,7 @@
               <div class="flex-shrink-0">
                 <img
                   v-if="business.logo_path"
-                  :src="`${apiBaseUrl}${business.logo_path}`"
+                  :src="business.logo_path"
                   :alt="`${business.name} logo`"
                   class="w-16 h-16 object-cover rounded-lg border border-gray-200"
                 />
@@ -56,9 +56,9 @@
                   <p><strong>Grad:</strong> {{ business.city }}</p>
                   <p v-if="business.contact_phone"><strong>Telefon:</strong> {{ business.contact_phone }}</p>
                   <p v-if="business.google_link">
-                    <strong>Google Business:</strong>
+                    <strong>Google Maps:</strong>
                     <a :href="business.google_link" target="_blank" class="text-indigo-600 hover:text-indigo-800">
-                      Pogledaj →
+                      Otvori u Google Maps →
                     </a>
                   </p>
                 </div>
@@ -91,6 +91,13 @@
                 class="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition duration-200"
               >
                 {{ business.logo_path ? 'Promijeni logo' : 'Dodaj logo' }}
+              </button>
+              <button
+                v-if="business.google_link"
+                @click="openMapModal(business)"
+                class="bg-teal-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-teal-700 transition duration-200"
+              >
+                Prikaži mapu
               </button>
               <button
                 v-if="user?.is_admin || business.user_role === 'owner'"
@@ -172,39 +179,155 @@
 
     <!-- Edit Business Modal -->
     <div v-if="showEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click.self="closeEditModal">
-      <div class="relative top-20 mx-auto p-6 border w-96 shadow-lg rounded-lg bg-white">
-        <div class="mt-3">
-          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Uredi biznis</h3>
-          <form @submit.prevent="handleEditBusiness">
-            <div class="mb-4">
-              <label for="edit-business-name" class="block text-sm font-medium text-gray-700 mb-2">Naziv biznisa</label>
-              <input type="text" id="edit-business-name" v-model="editForm.name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-            </div>
+      <div class="relative top-10 mx-auto p-6 border max-w-2xl shadow-lg rounded-lg bg-white">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-bold text-gray-900">Uredi radnju</h3>
+          <button @click="closeEditModal" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-            <div class="mb-4">
-              <label for="edit-business-phone" class="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
-              <input type="tel" id="edit-business-phone" v-model="editForm.phone" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-            </div>
+        <form @submit.prevent="handleEditBusiness" class="space-y-6">
+          <!-- Business Name -->
+          <div>
+            <label for="edit-business-name" class="block text-sm font-medium text-gray-700 mb-1">
+              Naziv radnje *
+            </label>
+            <input
+              type="text"
+              id="edit-business-name"
+              v-model="editForm.name"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Npr. Moja Radnja"
+            />
+          </div>
 
-            <div class="mb-4">
-              <label for="edit-business-city" class="block text-sm font-medium text-gray-700 mb-2">Grad</label>
-              <input type="text" id="edit-business-city" v-model="editForm.city" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-            </div>
+          <!-- City -->
+          <div>
+            <label for="edit-business-city" class="block text-sm font-medium text-gray-700 mb-1">
+              Grad *
+            </label>
+            <select
+              id="edit-business-city"
+              v-model="editForm.city"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Odaberite grad</option>
+              <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+            </select>
+          </div>
 
-            <div class="mb-4">
-              <label for="edit-business-google-link" class="block text-sm font-medium text-gray-700 mb-2">Google Business link</label>
-              <input type="url" id="edit-business-google-link" v-model="editForm.google_link" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-            </div>
+          <!-- Contact Phone -->
+          <div>
+            <label for="edit-business-phone" class="block text-sm font-medium text-gray-700 mb-1">
+              Kontakt telefon
+            </label>
+            <input
+              type="tel"
+              id="edit-business-phone"
+              v-model="editForm.phone"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="+387 XX XXX XXX"
+            />
+          </div>
 
-            <div class="flex space-x-3">
-              <button type="submit" :disabled="isSubmittingEdit" class="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50">
+          <!-- Google Maps Link -->
+          <div>
+            <label for="edit-business-google-link" class="block text-sm font-medium text-gray-700 mb-1">
+              Google Maps link
+            </label>
+            <input
+              type="url"
+              id="edit-business-google-link"
+              v-model="editForm.google_link"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="https://www.google.com/maps/search/..."
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Link na Google Maps sa svim lokacijama radnje (opcionalno)
+            </p>
+
+            <!-- Map Preview -->
+            <div v-if="editMapEmbedUrl" class="mt-3">
+              <p class="text-xs text-gray-500 mb-2">Pregled mape:</p>
+              <div class="relative w-full h-48 rounded-lg overflow-hidden border border-gray-200">
+                <iframe
+                  :src="editMapEmbedUrl"
+                  width="100%"
+                  height="100%"
+                  style="border:0;"
+                  allowfullscreen=""
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                ></iframe>
+              </div>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+            <!-- Delete Button -->
+            <button
+              type="button"
+              @click="confirmDeleteBusiness"
+              class="px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors text-sm font-medium"
+            >
+              Obriši radnju
+            </button>
+
+            <div class="flex items-center space-x-3">
+              <button
+                type="button"
+                @click="closeEditModal"
+                class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Odustani
+              </button>
+              <button
+                type="submit"
+                :disabled="isSubmittingEdit"
+                class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {{ isSubmittingEdit ? 'Čuva se...' : 'Sačuvaj izmjene' }}
               </button>
-              <button type="button" @click="closeEditModal" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400">
-                Otkaži
-              </button>
             </div>
-          </form>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[60]" @click.self="showDeleteConfirm = false">
+      <div class="relative top-20 mx-auto p-6 border max-w-md shadow-lg rounded-lg bg-white">
+        <div class="text-center">
+          <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">Obriši radnju?</h3>
+          <p class="text-sm text-gray-500 mb-6">
+            Jeste li sigurni da želite obrisati radnju "{{ editForm.name }}"? Ova akcija će obrisati i sve proizvode povezane s ovom radnjom i ne može se poništiti.
+          </p>
+          <div class="flex space-x-3">
+            <button
+              @click="showDeleteConfirm = false"
+              class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            >
+              Odustani
+            </button>
+            <button
+              @click="handleDeleteBusiness"
+              :disabled="isDeletingBusiness"
+              class="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+            >
+              {{ isDeletingBusiness ? 'Briše se...' : 'Obriši' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -366,6 +489,60 @@
         </div>
       </div>
     </div>
+
+    <!-- Map Modal -->
+    <div v-if="showMapModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click.self="closeMapModal">
+      <div class="relative top-10 mx-auto p-6 border max-w-4xl shadow-lg rounded-lg bg-white">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">
+            Lokacije: {{ mapBusiness?.name }}
+          </h3>
+          <button @click="closeMapModal" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Embedded Map -->
+        <div v-if="currentMapEmbedUrl" class="w-full h-96 rounded-lg overflow-hidden border border-gray-200">
+          <iframe
+            :src="currentMapEmbedUrl"
+            width="100%"
+            height="100%"
+            style="border:0;"
+            allowfullscreen=""
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
+        <div v-else class="w-full h-96 rounded-lg border border-gray-200 flex items-center justify-center bg-gray-50">
+          <div class="text-center text-gray-500">
+            <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            <p>Mapa se ne može prikazati za ovaj link</p>
+          </div>
+        </div>
+
+        <!-- Link to Google Maps -->
+        <div class="mt-4 flex justify-between items-center">
+          <a
+            :href="mapBusiness?.google_link"
+            target="_blank"
+            class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+          >
+            Otvori u Google Maps →
+          </a>
+          <button
+            @click="closeMapModal"
+            class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 text-sm"
+          >
+            Zatvori
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -375,7 +552,7 @@ definePageMeta({
 })
 
 const { user } = useAuth()
-const { get, post } = useApi()
+const { get, post, upload, delete: del } = useApi()
 const config = useRuntimeConfig()
 
 const apiBaseUrl = config.public.apiBase || 'http://localhost:5001'
@@ -401,6 +578,18 @@ const editForm = ref({
   google_link: ''
 })
 
+// Delete business
+const showDeleteConfirm = ref(false)
+const isDeletingBusiness = ref(false)
+
+// Cities for dropdown
+const cities = ref<string[]>([])
+
+// Map modal
+const showMapModal = ref(false)
+const mapBusiness = ref<any>(null)
+const currentMapEmbedUrl = ref<string | null>(null)
+
 // Invite modal
 const showInviteModal = ref(false)
 const isSubmittingInvite = ref(false)
@@ -424,8 +613,24 @@ const isUploadingPdf = ref(false)
 const pdfResults = ref<{ type: 'success' | 'error', message: string } | null>(null)
 
 onMounted(async () => {
-  await loadBusinesses()
+  await Promise.all([loadBusinesses(), loadCities()])
 })
+
+// Computed map embed URL for edit modal
+const editMapEmbedUrl = computed(() => {
+  if (!editForm.value.google_link) return null
+  return getMapEmbedUrl(editForm.value.google_link)
+})
+
+async function loadCities() {
+  try {
+    const data = await get('/auth/cities')
+    cities.value = data.cities || []
+  } catch (error) {
+    console.error('Error loading cities:', error)
+    cities.value = ['Sarajevo', 'Tuzla', 'Zenica', 'Mostar', 'Banja Luka', 'Bijeljina', 'Brčko']
+  }
+}
 
 async function loadBusinesses() {
   isLoading.value = true
@@ -449,6 +654,58 @@ function closeLogoModal() {
   currentBusinessId.value = null
   logoFile.value = null
   logoPreview.value = null
+}
+
+// Map modal functions
+function openMapModal(business: any) {
+  mapBusiness.value = business
+  currentMapEmbedUrl.value = getMapEmbedUrl(business.google_link)
+  showMapModal.value = true
+}
+
+function closeMapModal() {
+  showMapModal.value = false
+  mapBusiness.value = null
+  currentMapEmbedUrl.value = null
+}
+
+function getMapEmbedUrl(url: string): string | null {
+  if (!url) return null
+
+  try {
+    // Handle various Google Maps URL formats
+    if (url.includes('google.com/maps')) {
+      // Format: /maps/search/query/@lat,lng,zoom
+      const searchMatch = url.match(/\/maps\/search\/([^/@]+)/)
+      if (searchMatch) {
+        const query = decodeURIComponent(searchMatch[1].replace(/\+/g, ' '))
+        return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(query)}`
+      }
+
+      // Format: /maps/place/name/@lat,lng
+      const placeMatch = url.match(/\/maps\/place\/([^/@]+)/)
+      if (placeMatch) {
+        const place = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '))
+        return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(place)}`
+      }
+
+      // Format with coordinates: @lat,lng,zoom
+      const coordMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),(\d+)z/)
+      if (coordMatch) {
+        const [, lat, lng, zoom] = coordMatch
+        const pathQuery = url.match(/\/maps\/[^/]+\/([^/@]+)/)
+        if (pathQuery) {
+          const query = decodeURIComponent(pathQuery[1].replace(/\+/g, ' '))
+          return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(query)}&center=${lat},${lng}&zoom=${zoom}`
+        }
+        return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${lat},${lng}&zoom=${zoom}`
+      }
+    }
+
+    return null
+  } catch (e) {
+    return null
+  }
 }
 
 function handleLogoFileChange(event: Event) {
@@ -479,7 +736,7 @@ async function handleLogoUpload() {
     const formData = new FormData()
     formData.append('logo', logoFile.value)
 
-    const response = await post(`/api/businesses/${currentBusinessId.value}/logo`, formData)
+    const response = await upload(`/api/businesses/${currentBusinessId.value}/logo`, formData)
 
     if (response.success) {
       await loadBusinesses()
@@ -530,6 +787,30 @@ async function handleEditBusiness() {
     alert('Greška prilikom ažuriranja biznisa: ' + error.message)
   } finally {
     isSubmittingEdit.value = false
+  }
+}
+
+function confirmDeleteBusiness() {
+  showDeleteConfirm.value = true
+}
+
+async function handleDeleteBusiness() {
+  if (!editForm.value.id) return
+
+  isDeletingBusiness.value = true
+  try {
+    const response = await del(`/api/businesses/${editForm.value.id}`)
+
+    if (response.success) {
+      showDeleteConfirm.value = false
+      closeEditModal()
+      await loadBusinesses()
+    }
+  } catch (error: any) {
+    console.error('Error deleting business:', error)
+    alert('Greška prilikom brisanja radnje: ' + error.message)
+  } finally {
+    isDeletingBusiness.value = false
   }
 }
 

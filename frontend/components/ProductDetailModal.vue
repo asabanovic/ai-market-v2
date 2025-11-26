@@ -60,7 +60,11 @@
             </div>
 
             <!-- Business Info -->
-            <div class="bg-gray-50 rounded-xl p-4 space-y-3">
+            <NuxtLink
+              :to="`/radnja/${product.business?.id}`"
+              class="block bg-gray-50 rounded-xl p-4 space-y-3 hover:bg-gray-100 transition-colors"
+              @click="$emit('close')"
+            >
               <div class="flex items-center gap-3">
                 <div v-if="product.business?.logo" class="w-12 h-12 rounded-lg overflow-hidden">
                   <img
@@ -72,12 +76,14 @@
                 <div v-else class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center text-white text-xl font-bold">
                   {{ product.business?.name?.[0] || '?' }}
                 </div>
-                <div>
-                  <h3 class="font-semibold text-gray-900">{{ product.business?.name || 'Nepoznato' }}</h3>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900 hover:text-purple-600 transition-colors">{{ product.business?.name || 'Nepoznato' }}</h3>
                   <p class="text-sm text-gray-600">{{ product.city || product.business?.city || 'BiH' }}</p>
                 </div>
+                <Icon name="mdi:chevron-right" class="w-5 h-5 text-gray-400" />
               </div>
-            </div>
+              <p class="text-xs text-purple-600">Pogledajte sve akcije ove radnje →</p>
+            </NuxtLink>
 
             <!-- Voting Section -->
             <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6">

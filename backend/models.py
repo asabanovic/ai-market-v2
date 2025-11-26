@@ -93,11 +93,25 @@ class Package(db.Model):
     name = db.Column(db.String, unique=True, nullable=False)
     daily_limit = db.Column(db.Integer, nullable=False)
 
+# Cities table with coordinates
+class City(db.Model):
+    __tablename__ = 'cities'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String, unique=True, nullable=False, index=True)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    country = db.Column(db.String, default='Bosnia and Herzegovina')
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f'<City {self.name} ({self.latitude}, {self.longitude})>'
+
 # Businesses table
 class Business(db.Model):
     __tablename__ = 'businesses'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String, nullable=False)
+    slug = db.Column(db.String, unique=True, nullable=True, index=True)  # URL-friendly identifier
     contact_phone = db.Column(db.String, nullable=True)
     city = db.Column(db.String, default='Tuzla')
     pdf_url = db.Column(db.String, nullable=True)
@@ -111,6 +125,57 @@ class Business(db.Model):
 
     # Relationships
     products = db.relationship('Product', backref='business', lazy='dynamic', cascade='all, delete-orphan')
+
+    @staticmethod
+    def generate_slug(name, city=None):
+        """Generate URL-friendly slug from business name"""
+        import re
+        import unicodedata
+        # Normalize unicode characters
+        slug = unicodedata.normalize('NFKD', name.lower())
+        slug = slug.encode('ascii', 'ignore').decode('ascii')
+        # Replace spaces and special chars with hyphens
+        slug = re.sub(r'[^a-z0-9]+', '-', slug)
+        # Remove leading/trailing hyphens
+        slug = slug.strip('-')
+        # Add city suffix if provided for uniqueness
+        if city:
+            city_slug = unicodedata.normalize('NFKD', city.lower())
+            city_slug = city_slug.encode('ascii', 'ignore').decode('ascii')
+            city_slug = re.sub(r'[^a-z0-9]+', '-', city_slug).strip('-')
+            slug = f"{slug}-{city_slug}"
+        return slug
+
+    @staticmethod
+    def generate_google_maps_link(business_name: str, latitude: float, longitude: float, zoom: int = 12) -> str:
+        """
+        Generate a Google Maps search link for a business at given coordinates.
+
+        Example output:
+        https://www.google.com/maps/search/bingo+supermarket/@43.8379881,18.350948,12z
+        """
+        import urllib.parse
+        # Format business name for URL (replace spaces with +)
+        search_query = urllib.parse.quote_plus(business_name)
+        return f"https://www.google.com/maps/search/{search_query}/@{latitude},{longitude},{zoom}z"
+
+    def get_google_link_for_city(self, city_name: str = None) -> str:
+        """
+        Get Google Maps link for this business in a specific city.
+        If city_name is None, uses the business's default city.
+        Returns the stored google_link if no city coordinates found.
+        """
+        target_city = city_name or self.city
+        if not target_city:
+            return self.google_link
+
+        # Get city coordinates
+        city = City.query.filter_by(name=target_city).first()
+        if city and city.latitude and city.longitude:
+            return Business.generate_google_maps_link(self.name, city.latitude, city.longitude)
+
+        # Fallback to stored google_link
+        return self.google_link
 
 # Products table
 class Product(db.Model):

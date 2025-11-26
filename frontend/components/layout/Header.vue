@@ -4,7 +4,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between h-16">
         <div class="flex items-center">
-          <NuxtLink to="/" class="flex items-center">
+          <NuxtLink to="/" class="flex items-center" :active-class="''" :exact-active-class="''">
             <img
               src="/logo.png"
               alt="Popust Logo"
@@ -16,20 +16,79 @@
         </div>
 
         <div class="hidden md:flex items-center space-x-6">
-          <NuxtLink to="/" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors">
+          <NuxtLink to="/" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
             Početna
           </NuxtLink>
-          <NuxtLink to="/proizvodi" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors">
+          <NuxtLink to="/proizvodi" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
             Proizvodi
           </NuxtLink>
-          <NuxtLink to="/kako-radimo" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors">
-            Kako radimo
-          </NuxtLink>
-          <NuxtLink to="/kontakt" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors">
-            Kontakt
-          </NuxtLink>
+          <ClientOnly>
+            <template v-if="!isAuthenticated">
+              <NuxtLink to="/kako-radimo" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
+                Kako radimo
+              </NuxtLink>
+              <NuxtLink to="/kontakt" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
+                Kontakt
+              </NuxtLink>
+            </template>
+            <template #fallback>
+              <NuxtLink to="/kako-radimo" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
+                Kako radimo
+              </NuxtLink>
+              <NuxtLink to="/kontakt" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
+                Kontakt
+              </NuxtLink>
+            </template>
+          </ClientOnly>
 
           <ClientOnly>
+            <!-- City Indicator -->
+            <div v-if="isAuthenticated && user" class="relative">
+              <button
+                @click.stop="toggleCityDropdown"
+                class="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors"
+                :title="user?.city ? `Vaš grad: ${user.city}` : 'Odaberite grad'"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                <span class="max-w-[100px] truncate">{{ user?.city || 'Grad' }}</span>
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7 10l5 5 5-5z"/>
+                </svg>
+              </button>
+
+              <!-- City Dropdown -->
+              <div
+                v-if="showCityDropdown"
+                v-click-outside="closeCityDropdown"
+                class="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 max-h-80 overflow-y-auto"
+              >
+                <div class="px-3 py-2 border-b border-gray-100">
+                  <p class="text-xs text-gray-500 font-medium">Odaberite grad</p>
+                </div>
+                <div class="py-1">
+                  <button
+                    v-for="city in cities"
+                    :key="city"
+                    @click="changeCity(city)"
+                    :class="[
+                      'flex items-center w-full px-3 py-2 text-sm text-left transition-colors',
+                      city === user?.city
+                        ? 'bg-purple-50 text-purple-700 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    ]"
+                    :disabled="isSavingCity"
+                  >
+                    <svg v-if="city === user?.city" class="w-4 h-4 mr-2 text-purple-600" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    <span :class="{ 'ml-6': city !== user?.city }">{{ city }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- Search Counter -->
             <div
               v-if="searchCounts"
@@ -55,19 +114,7 @@
             <HeaderIcons v-if="isAuthenticated" @toggle-sidebar="showSidebar = true" />
 
             <template #fallback>
-              <!-- Show placeholders while auth is being checked -->
-              <div v-if="!authReady" class="flex items-center gap-4">
-                <!-- Credits placeholder -->
-                <div class="text-sm font-medium px-3 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-400">
-                  <div class="w-20 h-4 bg-gray-300 rounded animate-pulse"></div>
-                </div>
-                <!-- Icons placeholder -->
-                <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 rounded bg-gray-200 animate-pulse"></div>
-                  <div class="w-10 h-10 rounded bg-gray-200 animate-pulse"></div>
-                  <div class="w-10 h-10 rounded bg-gray-200 animate-pulse"></div>
-                </div>
-              </div>
+              <!-- Empty fallback to avoid server/client mismatch -->
             </template>
           </ClientOnly>
 
@@ -163,20 +210,46 @@
     <!-- Mobile menu -->
     <div v-if="showMobileMenu" class="md:hidden bg-white border-t">
       <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-        <NuxtLink to="/" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+        <NuxtLink to="/" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
           Početna
         </NuxtLink>
-        <NuxtLink to="/proizvodi" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+        <NuxtLink to="/proizvodi" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
           Proizvodi
         </NuxtLink>
-        <NuxtLink to="/kako-radimo" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
-          Kako radimo
-        </NuxtLink>
-        <NuxtLink to="/kontakt" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
-          Kontakt
-        </NuxtLink>
+        <ClientOnly>
+          <template v-if="!isAuthenticated">
+            <NuxtLink to="/kako-radimo" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
+              Kako radimo
+            </NuxtLink>
+            <NuxtLink to="/kontakt" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
+              Kontakt
+            </NuxtLink>
+          </template>
+          <template #fallback>
+            <NuxtLink to="/kako-radimo" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
+              Kako radimo
+            </NuxtLink>
+            <NuxtLink to="/kontakt" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
+              Kontakt
+            </NuxtLink>
+          </template>
+        </ClientOnly>
 
         <ClientOnly>
+          <!-- Mobile City Selector -->
+          <div v-if="isAuthenticated && user" class="mx-3 mb-3">
+            <label class="block text-xs text-gray-500 mb-1 px-1">Vaš grad</label>
+            <select
+              :value="user?.city || ''"
+              @change="(e) => changeCity((e.target as HTMLSelectElement).value)"
+              class="w-full px-3 py-2 text-sm border border-purple-200 rounded-md bg-purple-50 text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              :disabled="isSavingCity"
+            >
+              <option value="">Odaberite grad</option>
+              <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+            </select>
+          </div>
+
           <div
             v-if="searchCounts"
             :class="[
@@ -200,9 +273,7 @@
           </div>
 
           <template #fallback>
-            <div v-if="!authReady" class="text-sm font-medium px-3 py-2 rounded-md mx-3 border border-gray-200 bg-gray-50">
-              <div class="w-24 h-4 bg-gray-300 rounded animate-pulse"></div>
-            </div>
+            <!-- Empty fallback to avoid server/client mismatch -->
           </template>
         </ClientOnly>
 
@@ -256,13 +327,18 @@
 
 <script setup lang="ts">
 const { isAuthenticated, authReady, user, logout } = useAuth()
-const { get } = useApi()
+const { get, post } = useApi()
 
 const showMobileMenu = ref(false)
 const showProfileDropdown = ref(false)
 const showSidebar = ref(false)
 const searchCounts = ref<any>(null)
 const logoError = ref(false)
+
+// City selector state
+const showCityDropdown = ref(false)
+const cities = ref<string[]>([])
+const isSavingCity = ref(false)
 
 // Computed property for user display name
 const userName = computed(() => {
@@ -303,12 +379,23 @@ const userInitials = computed(() => {
 onMounted(async () => {
   if (isAuthenticated.value) {
     await loadSearchCounts()
+    await loadCities()
   }
 })
+
+async function loadCities() {
+  try {
+    const data = await get('/auth/cities')
+    cities.value = data.cities || []
+  } catch (error) {
+    console.error('Error loading cities:', error)
+  }
+}
 
 watch(isAuthenticated, async (newVal) => {
   if (newVal) {
     await loadSearchCounts()
+    await loadCities()
   } else {
     searchCounts.value = null
   }
@@ -353,6 +440,34 @@ async function handleLogout() {
   showProfileDropdown.value = false
   await logout()
   navigateTo('/')
+}
+
+function toggleCityDropdown() {
+  showCityDropdown.value = !showCityDropdown.value
+}
+
+function closeCityDropdown() {
+  showCityDropdown.value = false
+}
+
+async function changeCity(city: string) {
+  if (!city || city === user.value?.city) {
+    showCityDropdown.value = false
+    return
+  }
+
+  isSavingCity.value = true
+  try {
+    const response = await post('/api/profile', { city })
+    if (response.success && user.value) {
+      user.value.city = city
+    }
+  } catch (error) {
+    console.error('Error updating city:', error)
+  } finally {
+    isSavingCity.value = false
+    showCityDropdown.value = false
+  }
 }
 
 const vClickOutside = {

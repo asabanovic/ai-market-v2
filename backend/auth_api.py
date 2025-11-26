@@ -479,8 +479,178 @@ def user_profile():
 
 @auth_api_bp.route('/cities', methods=['GET'])
 def get_cities():
-    """Get list of Bosnian cities"""
-    return jsonify({'cities': BOSNIAN_CITIES}), 200
+    """Get list of Bosnian cities with optional coordinates"""
+    from models import City
+
+    # Check if coordinates are requested
+    include_coords = request.args.get('coords', 'false').lower() == 'true'
+
+    # Try to get from database first
+    db_cities = City.query.order_by(City.name).all()
+
+    if db_cities:
+        if include_coords:
+            cities = [{
+                'name': city.name,
+                'latitude': city.latitude,
+                'longitude': city.longitude
+            } for city in db_cities]
+            return jsonify({'cities': cities}), 200
+        else:
+            # Return just names for backward compatibility
+            return jsonify({'cities': [city.name for city in db_cities]}), 200
+    else:
+        # Fallback to constants if no cities in DB
+        return jsonify({'cities': BOSNIAN_CITIES}), 200
+
+
+@auth_api_bp.route('/user/store-preferences', methods=['GET', 'PUT', 'OPTIONS'])
+def user_store_preferences():
+    """Get or update user's preferred stores for search filtering"""
+    from models import Business
+
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    # Require JWT auth
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Missing authorization header'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Initialize preferences if None
+        if user.preferences is None:
+            user.preferences = {}
+
+        # GET - Return user's store preferences
+        if request.method == 'GET':
+            preferred_stores = user.preferences.get('preferred_stores', [])
+            last_seen_store_id = user.preferences.get('last_seen_store_id', 0)
+
+            # Get all active businesses for comparison
+            businesses = Business.query.filter_by(status='active').order_by(Business.name).all()
+
+            return jsonify({
+                'preferred_stores': preferred_stores,
+                'preferred_store_ids': preferred_stores,  # Alias for frontend compatibility
+                'last_seen_store_id': last_seen_store_id,
+                'all_stores': [
+                    {
+                        'id': b.id,
+                        'name': b.name,
+                        'logo': b.logo_path,
+                        'city': b.city,
+                        'is_selected': b.id in preferred_stores
+                    }
+                    for b in businesses
+                ]
+            }), 200
+
+        # PUT - Update store preferences
+        if request.method == 'PUT':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Invalid request data'}), 400
+
+            # Update preferred stores (accept both field names for compatibility)
+            store_ids = data.get('preferred_stores') or data.get('preferred_store_ids')
+            if store_ids is not None:
+                # Validate that all IDs are valid businesses
+                if store_ids:
+                    valid_ids = [b.id for b in Business.query.filter(Business.id.in_(store_ids), Business.status == 'active').all()]
+                    user.preferences['preferred_stores'] = valid_ids
+                else:
+                    user.preferences['preferred_stores'] = []
+
+            # Update last seen store ID (for new store popup tracking)
+            if 'last_seen_store_id' in data:
+                user.preferences['last_seen_store_id'] = data['last_seen_store_id']
+
+            # Force SQLAlchemy to detect JSON change
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(user, 'preferences')
+
+            db.session.commit()
+
+            app.logger.info(f"Store preferences updated for user: {user.email}")
+
+            return jsonify({
+                'success': True,
+                'message': 'Postavke prodavnica uspješno ažurirane',
+                'preferred_stores': user.preferences.get('preferred_stores', [])
+            }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Store preferences error: {e}")
+        return jsonify({'error': 'Greška pri ažuriranju postavki'}), 500
+
+
+@auth_api_bp.route('/new-stores', methods=['GET'])
+def get_new_stores():
+    """Get stores that are newer than user's last seen store ID"""
+    from models import Business
+
+    # Check JWT authentication (optional - works for both auth and anon)
+    auth_header = request.headers.get('Authorization')
+    last_seen_id = 0
+
+    if auth_header:
+        try:
+            token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+            payload = decode_jwt_token(token)
+            if payload:
+                user = User.query.filter_by(id=payload['user_id']).first()
+                if user and user.preferences:
+                    last_seen_id = user.preferences.get('last_seen_store_id', 0)
+        except Exception:
+            pass
+
+    # For anonymous users, check query param or localStorage value sent by frontend
+    if last_seen_id == 0:
+        last_seen_id = request.args.get('last_seen_id', 0, type=int)
+
+    # Get businesses added after last_seen_id
+    new_stores = Business.query.filter(
+        Business.id > last_seen_id,
+        Business.status == 'active'
+    ).order_by(Business.id.asc()).all()
+
+    if not new_stores:
+        return jsonify({
+            'has_new_stores': False,
+            'new_stores': [],
+            'latest_store_id': last_seen_id
+        }), 200
+
+    # Get the latest store ID for future reference
+    latest_store_id = max(s.id for s in new_stores)
+
+    return jsonify({
+        'has_new_stores': True,
+        'new_stores': [
+            {
+                'id': s.id,
+                'name': s.name,
+                'logo': f"/static/{s.logo_path}" if s.logo_path else None,
+                'city': s.city,
+                'google_link': s.google_link
+            }
+            for s in new_stores
+        ],
+        'latest_store_id': latest_store_id
+    }), 200
 
 
 @auth_api_bp.route('/search-counts', methods=['GET'])

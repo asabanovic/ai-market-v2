@@ -4,15 +4,17 @@ export const useApi = () => {
 
   const apiFetch = async (
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    isFormData: boolean = false
   ): Promise<any> => {
     const url = `${baseURL}${endpoint}`
 
     // Get auth token from localStorage (if exists)
     const token = process.client ? localStorage.getItem('token') : null
 
+    // Don't set Content-Type for FormData - browser will set it with boundary
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     }
@@ -63,5 +65,13 @@ export const useApi = () => {
 
     delete: (endpoint: string, options?: RequestInit) =>
       apiFetch(endpoint, { ...options, method: 'DELETE' }),
+
+    // For file uploads using FormData
+    upload: (endpoint: string, formData: FormData, options?: RequestInit) =>
+      apiFetch(endpoint, {
+        ...options,
+        method: 'POST',
+        body: formData,
+      }, true),
   }
 }
