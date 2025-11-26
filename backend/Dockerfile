@@ -16,7 +16,7 @@ ENV PYTHONUNBUFFERED=1
 
 CMD echo "Starting backend..." && \
     python -c "from app import init_db; init_db()" && \
-    echo "Running migrations..." && \
-    alembic upgrade head && \
+    echo "Stamping alembic head..." && \
+    alembic stamp head && \
     echo "Starting gunicorn..." && \
     gunicorn main:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
