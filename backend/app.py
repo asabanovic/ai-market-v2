@@ -121,6 +121,8 @@ def init_db():
             if not admin_user:
                 # Create admin user
                 from datetime import datetime
+                from werkzeug.security import generate_password_hash
+                admin_password = os.environ.get('ADMIN_PASSWORD')
                 admin_user = User(
                     id=str(datetime.now().timestamp()),
                     email=admin_email,
@@ -129,7 +131,8 @@ def init_db():
                     city="Tuzla",
                     is_verified=True,
                     is_admin=True,
-                    package_id=1
+                    package_id=1,
+                    password_hash=generate_password_hash(admin_password) if admin_password else None
                 )
                 db.session.add(admin_user)
                 db.session.commit()
