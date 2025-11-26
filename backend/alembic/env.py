@@ -24,6 +24,9 @@ config = context.config
 
 # Set the database URL from environment variable
 database_url = os.environ.get("DATABASE_URL", "sqlite:///marketplace.db")
+# Fix for SQLAlchemy: postgres:// -> postgresql://
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
