@@ -594,6 +594,12 @@ def can_search(user=None):
     return counts['remaining'] > 0
 
 
+# Health check endpoint for Railway/deployment
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'healthy', 'service': 'ai-market-backend'}), 200
+
+
 # Homepage route
 @app.route('/')
 def index():
