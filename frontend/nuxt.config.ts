@@ -35,7 +35,7 @@ export default defineNuxtConfig({
 
   // Performance optimizations
   nitro: {
-    compressPublicAssets: true,
+    compressPublicAssets: false,
     minify: true,
   },
 
