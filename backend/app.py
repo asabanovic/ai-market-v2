@@ -30,8 +30,18 @@ app.secret_key = os.environ.get("SESSION_SECRET") or "dev-secret-change-in-produ
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # needed for url_for to generate with https
 
 # Configure CORS for frontend access
+# Allow configuring CORS origins via environment variable
+cors_origins_env = os.environ.get("CORS_ORIGINS", "")
+cors_origins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
+# Add any additional origins from environment
+if cors_origins_env:
+    cors_origins.extend([origin.strip() for origin in cors_origins_env.split(",") if origin.strip()])
+
 CORS(app,
-     origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
+     origins=cors_origins,
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization'],
      methods=['GET', 'POST', 'PATCH' ,'PUT', 'DELETE', 'OPTIONS'])

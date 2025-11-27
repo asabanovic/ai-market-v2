@@ -15,7 +15,19 @@ auth_api_bp = Blueprint('auth_api', __name__, url_prefix='/auth')
 # Add CORS headers to all responses in this blueprint
 @auth_api_bp.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    # Get origin from request and validate against allowed origins
+    origin = request.headers.get('Origin', 'http://localhost:3000')
+    cors_origins_env = os.environ.get("CORS_ORIGINS", "")
+    allowed_origins = ['http://localhost:3000', 'http://127.0.0.1:3000']
+    if cors_origins_env:
+        allowed_origins.extend([o.strip() for o in cors_origins_env.split(",") if o.strip()])
+
+    # Only set the origin if it's in our allowed list
+    if origin in allowed_origins:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', allowed_origins[0])
+
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
     response.headers.add('Access-Control-Allow-Credentials', 'true')

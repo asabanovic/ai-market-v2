@@ -973,12 +973,7 @@ useSeoMeta({
 
 <style scoped>
 .gradient-bg {
-  background:
-    linear-gradient(135deg, rgba(103, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%),
-    url('/static/images/gradient-background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: linear-gradient(135deg, rgba(103, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%);
   position: relative;
 }
 
