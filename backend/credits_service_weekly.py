@@ -8,12 +8,13 @@ from models import User, CreditTransaction, Referral
 import logging
 import secrets
 import string
+import os
 
 logger = logging.getLogger(__name__)
 
-# Credit amounts
-ADMIN_WEEKLY_CREDITS = 100000
-REGULAR_USER_WEEKLY_CREDITS = 10
+# Credit amounts - configurable via environment variables
+ADMIN_WEEKLY_CREDITS = int(os.environ.get('ADMIN_WEEKLY_CREDITS', 100000))
+REGULAR_USER_WEEKLY_CREDITS = int(os.environ.get('REGULAR_USER_WEEKLY_CREDITS', 10))
 REFERRAL_BONUS_CREDITS = 100
 
 
@@ -130,6 +131,15 @@ class WeeklyCreditsService:
         # Check if user is admin
         is_admin = user.is_admin
         weekly_credits_max = ADMIN_WEEKLY_CREDITS if is_admin else REGULAR_USER_WEEKLY_CREDITS
+
+        # For admins, always ensure they have maximum credits
+        # This handles the case where an admin was created before the credits were set up
+        if is_admin and (user.weekly_credits < weekly_credits_max):
+            logger.info(f"Auto-upgrading admin credits for user {user_id}: {user.weekly_credits} -> {weekly_credits_max}")
+            user.weekly_credits = weekly_credits_max
+            user.weekly_credits_used = 0
+            user.weekly_credits_reset_date = date.today()
+            db.session.commit()
 
         # Check if we need to reset weekly credits
         if auto_reset_weekly:
