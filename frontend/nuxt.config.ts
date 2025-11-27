@@ -33,15 +33,12 @@ export default defineNuxtConfig({
     }
   },
 
-  // Performance optimizations
+  // SSR configuration
+  ssr: true,
+
   nitro: {
     preset: 'node-server',
-    compressPublicAssets: false,
-  },
-
-  experimental: {
-    payloadExtraction: true,
-    viewTransition: true,
+    serveStatic: 'node',
   },
 
   // CSS
@@ -52,20 +49,6 @@ export default defineNuxtConfig({
       tailwindcss: {},
       autoprefixer: {},
     },
-  },
-
-  // Build optimizations
-  vite: {
-    build: {
-      cssCodeSplit: true,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'vendor': ['vue', 'vue-router'],
-          }
-        }
-      }
-    }
   },
 
   compatibilityDate: '2024-11-10'
