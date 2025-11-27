@@ -24,7 +24,7 @@
             placeholder="+387 XX XXX XXX"
             class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
             :class="phoneError ? 'border-red-300' : 'border-gray-300'"
-            @blur="validatePhone"
+            @input="validatePhone"
           />
           <p v-if="phoneError" class="mt-1 text-xs text-red-500">{{ phoneError }}</p>
           <p v-else class="mt-1 text-xs text-gray-500">Format: +387 6X XXX XXX ili 06X XXX XXX</p>
