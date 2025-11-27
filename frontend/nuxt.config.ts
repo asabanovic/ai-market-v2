@@ -35,8 +35,10 @@ export default defineNuxtConfig({
 
   // Performance optimizations
   nitro: {
+    preset: 'node-server',
     compressPublicAssets: false,
     minify: true,
+    serveStatic: true,
   },
 
   experimental: {
