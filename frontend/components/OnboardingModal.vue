@@ -24,7 +24,8 @@
             placeholder="+387 XX XXX XXX"
             class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
             :class="phoneError ? 'border-red-300' : 'border-gray-300'"
-            @input="validatePhone"
+            @input="handlePhoneInput"
+            @keypress="filterPhoneInput"
           />
           <p v-if="phoneError" class="mt-1 text-xs text-red-500">{{ phoneError }}</p>
           <p v-else class="mt-1 text-xs text-gray-500">Format: +387 6X XXX XXX ili 06X XXX XXX</p>
@@ -92,6 +93,22 @@ const isSubmitting = ref(false)
 const error = ref('')
 const phoneError = ref('')
 
+// Prevent letters from being typed - only allow digits, +, spaces, dashes, parentheses
+function filterPhoneInput(event: KeyboardEvent) {
+  const char = event.key
+  // Allow: digits, +, space, dash, parentheses, and control keys
+  if (!/[\d\+\s\-\(\)]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+    event.preventDefault()
+  }
+}
+
+// Handle input and strip any invalid characters (for paste events)
+function handlePhoneInput() {
+  // Remove any characters that aren't digits, +, spaces, dashes, or parentheses
+  form.value.phone = form.value.phone.replace(/[^\d\+\s\-\(\)]/g, '')
+  validatePhone()
+}
+
 // Validate Bosnian phone number formats
 // Accepts: +387 6X XXX XXX, 00387 6X XXX XXX, 06X XXX XXX, 06XXXXXXX
 function validatePhone() {
@@ -105,12 +122,6 @@ function validatePhone() {
 
   // Remove spaces, dashes, and parentheses for validation
   const cleanPhone = phone.replace(/[\s\-\(\)]/g, '')
-
-  // Check for invalid characters (only allow digits and leading +)
-  if (!/^\+?\d+$/.test(cleanPhone)) {
-    phoneError.value = 'Broj telefona može sadržavati samo brojeve'
-    return false
-  }
 
   // Bosnian phone patterns:
   // +387 6X XXX XXX (mobile)
