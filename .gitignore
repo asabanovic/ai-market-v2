@@ -287,3 +287,11 @@ local.settings.json
 coverage/
 .nyc_output/
 *.lcov
+
+# ==========================================
+# USER UPLOADS (Dynamic Content)
+# ==========================================
+
+# Uploaded files - these should be stored in cloud storage (S3, Railway Volume, etc.)
+backend/static/uploads/
+uploads/
