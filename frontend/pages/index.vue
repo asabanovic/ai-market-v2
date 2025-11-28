@@ -165,7 +165,7 @@
                     <span class="text-sm text-white font-medium ml-1">{{ example.user }}</span>
                   </div>
                   <div>
-                    <span class="text-xs text-gray-300">AI:</span>
+                    <span class="text-xs text-gray-300">Popust:</span>
                     <span class="text-sm text-gray-200 ml-1">{{ example.assistant }}</span>
                   </div>
                 </div>
