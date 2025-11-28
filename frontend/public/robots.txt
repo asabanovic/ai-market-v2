@@ -1,2 +1,9 @@
 User-agent: *
 Allow: /
+
+# Sitemap
+Sitemap: https://popust.ba/sitemap.xml
+
+# Disallow admin/internal paths
+Disallow: /admin
+Disallow: /api
