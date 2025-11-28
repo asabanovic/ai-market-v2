@@ -516,6 +516,90 @@ def get_cities():
         return jsonify({'cities': BOSNIAN_CITIES}), 200
 
 
+@auth_api_bp.route('/cities/populate', methods=['POST'])
+@require_jwt_auth
+def populate_cities_endpoint():
+    """Admin endpoint to populate cities with coordinates from OpenStreetMap"""
+    from models import City, User
+    import time
+    import requests
+
+    # Check if user is admin
+    user = User.query.get(request.current_user_id)
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    # Nominatim API endpoint (free, no API key required)
+    NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+    HEADERS = {
+        "User-Agent": "PopustBA/1.0 (https://popust.ba; contact@popust.ba)"
+    }
+
+    def geocode_city(city_name, country="Bosnia and Herzegovina"):
+        params = {
+            "q": f"{city_name}, {country}",
+            "format": "json",
+            "limit": 1
+        }
+        try:
+            response = requests.get(NOMINATIM_URL, params=params, headers=HEADERS, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            if data and len(data) > 0:
+                return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
+            return None
+        except Exception:
+            return None
+
+    # Create cities table if needed
+    db.create_all()
+
+    success_count = 0
+    failed_cities = []
+
+    for city_name in BOSNIAN_CITIES:
+        # Check if city exists
+        existing = City.query.filter_by(name=city_name).first()
+        if existing and existing.latitude and existing.longitude:
+            success_count += 1
+            continue
+
+        if not existing:
+            city = City(name=city_name)
+            db.session.add(city)
+        else:
+            city = existing
+
+        # Geocode
+        result = geocode_city(city_name)
+        if result:
+            city.latitude = result["lat"]
+            city.longitude = result["lon"]
+            db.session.commit()
+            success_count += 1
+        else:
+            # Try without country
+            result = geocode_city(city_name, "")
+            if result:
+                city.latitude = result["lat"]
+                city.longitude = result["lon"]
+                db.session.commit()
+                success_count += 1
+            else:
+                db.session.commit()
+                failed_cities.append(city_name)
+
+        # Rate limiting: 1 request per second (Nominatim requirement)
+        time.sleep(1.1)
+
+    return jsonify({
+        'success': True,
+        'total': len(BOSNIAN_CITIES),
+        'geocoded': success_count,
+        'failed': failed_cities
+    }), 200
+
+
 @auth_api_bp.route('/user/store-preferences', methods=['GET', 'PUT', 'OPTIONS'])
 def user_store_preferences():
     """Get or update user's preferred stores for search filtering"""
