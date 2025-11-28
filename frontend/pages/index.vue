@@ -309,7 +309,7 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
 const { get, post, put } = useApi()
-const { user, isAuthenticated } = useAuth()
+const { user, isAuthenticated, authReady, checkAuth } = useAuth()
 
 // Reactive state
 const searchQuery = ref('')
@@ -569,8 +569,34 @@ function stopLoadingMessages() {
   currentLoadingMessage.value = ''
 }
 
+// Helper to wait for auth to be ready
+async function waitForAuth() {
+  // If auth is already ready, return immediately
+  if (authReady.value) return
+
+  // Wait for auth to be ready (with timeout)
+  return new Promise<void>((resolve) => {
+    const unwatch = watch(authReady, (ready) => {
+      if (ready) {
+        unwatch()
+        resolve()
+      }
+    }, { immediate: true })
+
+    // Timeout after 3 seconds to prevent infinite wait
+    setTimeout(() => {
+      unwatch()
+      resolve()
+    }, 3000)
+  })
+}
+
 // Load initial data
 onMounted(async () => {
+  // First ensure auth is checked/ready
+  await checkAuth()
+  await waitForAuth()
+
   await loadSavingsStats()
   await loadFeaturedData()
   await loadStorePreferences()

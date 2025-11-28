@@ -103,11 +103,11 @@
       >
         <!-- Business Logo -->
         <div
-          v-if="product.business?.logo"
+          v-if="businessLogo"
           class="w-6 h-6 rounded-sm overflow-hidden"
         >
           <img
-            :src="`${config.public.apiBase}/static/${product.business.logo}`"
+            :src="businessLogo"
             :alt="`${product.business.name} logo`"
             class="w-full h-full object-contain"
           />
@@ -206,6 +206,20 @@ const discountPercentage = computed(() => {
     return Math.round(((props.product.base_price - props.product.discount_price) / props.product.base_price) * 100)
   }
   return 0
+})
+
+// Computed property for business logo - handles different API response formats
+const businessLogo = computed(() => {
+  const logo = props.product.business?.logo || props.product.business?.logo_path
+  if (!logo) return null
+
+  // If it's already a full URL, return as-is
+  if (logo.startsWith('http://') || logo.startsWith('https://')) {
+    return logo
+  }
+
+  // Otherwise, prepend the API base with /static/
+  return `${config.public.apiBase}/static/${logo}`
 })
 
 // Relevance level based on similarity score
@@ -344,14 +358,14 @@ function handleFavoriteUpdate() {
 
 async function shareProduct() {
   try {
-    const productUrl = `${window.location.origin}/?product=${props.product.id}`
+    const productUrl = `${window.location.origin}/proizvodi/${props.product.id}`
     await navigator.clipboard.writeText(productUrl)
     showSuccess('Link kopiran! Podijelite sa prijateljima.')
   } catch (error) {
     console.error('Error copying link:', error)
     // Fallback if clipboard API doesn't work
     const textArea = document.createElement('textarea')
-    textArea.value = `${window.location.origin}/?product=${props.product.id}`
+    textArea.value = `${window.location.origin}/proizvodi/${props.product.id}`
     document.body.appendChild(textArea)
     textArea.select()
     document.execCommand('copy')

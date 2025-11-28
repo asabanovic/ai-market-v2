@@ -84,7 +84,7 @@ def semantic_search(
             FROM products p
             INNER JOIN product_embeddings pe ON p.id = pe.product_id
             INNER JOIN businesses b ON p.business_id = b.id
-            WHERE (p.expires IS NULL OR p.expires >= CURRENT_DATE)
+            WHERE 1=1
         """]
 
         params = {

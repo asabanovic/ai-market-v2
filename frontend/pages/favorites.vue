@@ -110,22 +110,25 @@
               >
                 <!-- Product -->
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center gap-3">
+                  <NuxtLink
+                    :to="`/proizvodi/${favorite.product_id}`"
+                    class="flex items-center gap-3 group"
+                  >
                     <div class="flex-shrink-0 h-12 w-12">
                       <img
                         v-if="favorite.image_url"
                         :src="favorite.image_url"
                         :alt="favorite.name"
-                        class="h-12 w-12 rounded object-cover"
+                        class="h-12 w-12 rounded object-cover group-hover:ring-2 group-hover:ring-purple-500 transition-all"
                       />
-                      <div v-else class="h-12 w-12 rounded bg-gray-200 flex items-center justify-center">
+                      <div v-else class="h-12 w-12 rounded bg-gray-200 flex items-center justify-center group-hover:ring-2 group-hover:ring-purple-500 transition-all">
                         <Icon name="mdi:image-off" class="w-6 h-6 text-gray-400" />
                       </div>
                     </div>
                     <div class="max-w-xs">
-                      <div class="text-sm font-medium text-gray-900 truncate">{{ favorite.name }}</div>
+                      <div class="text-sm font-medium text-gray-900 truncate group-hover:text-purple-600 transition-colors">{{ favorite.name }}</div>
                     </div>
-                  </div>
+                  </NuxtLink>
                 </td>
 
                 <!-- Category -->

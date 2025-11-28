@@ -29,8 +29,8 @@ def search_by_vector(
     # Set ivfflat probes for better recall
     db_session.execute(text("SET ivfflat.probes = 10"))
 
-    # Build the WHERE clause
-    where_clauses = ["(p.expires IS NULL OR p.expires > NOW())"]
+    # Build the WHERE clause - show all products (expired discounts become regular products)
+    where_clauses = ["1=1"]
 
     if category:
         where_clauses.append(f"p.category = '{category}'")

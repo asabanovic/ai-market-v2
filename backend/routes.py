@@ -620,10 +620,8 @@ def index():
         or_(Product.expires.is_(None), Product.expires
             >= date.today())).order_by(db.func.random()).limit(6).all()
 
-    # Get businesses that have active products
-    featured_businesses = db.session.query(Business).join(Product).filter(
-        or_(Product.expires.is_(None), Product.expires >= date.today())
-    ).distinct().order_by(Business.name).all()
+    # Get businesses that have products
+    featured_businesses = db.session.query(Business).join(Product).distinct().order_by(Business.name).all()
 
     return render_template('index.html',
                            chat_examples=chat_examples,
@@ -716,12 +714,8 @@ def api_products():
         search = request.args.get('search')
         sort = request.args.get('sort', 'discount_desc')
 
-        # Base query
+        # Base query - show all products (expired discounts become regular products)
         query = Product.query.join(Business)
-
-        query = query.filter(
-                or_(Product.expires.is_(None), Product.expires >= date.today())
-            )
 
         # Apply filters
         if category:
@@ -1424,15 +1418,14 @@ def api_active_businesses():
             Business.logo_path.isnot(None)
         ).all()
 
-        # Filter by checking if they have active products
+        # Filter by checking if they have products (all products, including expired discounts)
         active_businesses = []
         for business in businesses:
-            has_active_products = db.session.query(Product).filter(
-                Product.business_id == business.id,
-                or_(Product.expires.is_(None), Product.expires >= today)
+            has_products = db.session.query(Product).filter(
+                Product.business_id == business.id
             ).first() is not None
 
-            if has_active_products:
+            if has_products:
                 active_businesses.append({
                     'id': business.id,
                     'name': business.name,
@@ -2255,9 +2248,8 @@ def products():
     if business_id:
         query = query.filter(Product.business_id == int(business_id))
 
-    # Only show non-expired products
-    query = query.filter(
-        or_(Product.expires.is_(None), Product.expires >= date.today()))
+    # Show all products (expired discounts become regular products)
+    # No expiry filter - products stay in catalog after discount expires
 
     # Apply sorting
     if sort_by == 'price_asc':
@@ -2284,9 +2276,7 @@ def products():
     cities = [city[0] for city in cities if city[0]]
 
     # Get businesses that have products
-    businesses = db.session.query(Business).join(Product).filter(
-        or_(Product.expires.is_(None), Product.expires >= date.today())
-    ).distinct().order_by(Business.name).all()
+    businesses = db.session.query(Business).join(Product).distinct().order_by(Business.name).all()
 
     # Calculate savings statistics for current page products
     page_products = products_paginated.items
@@ -3744,13 +3734,11 @@ def export_products_without_images(business_id):
     from datetime import date
     business = Business.query.get_or_404(business_id)
 
-    # Get all products without images, only active ones where discount hasn't expired
+    # Get all products without images
     products = Product.query.filter_by(
         business_id=business_id
     ).filter(
         or_(Product.image_path.is_(None), Product.image_path == '')
-    ).filter(
-        or_(Product.expires.is_(None), Product.expires >= date.today())
     ).all()
 
     # Create CSV in memory

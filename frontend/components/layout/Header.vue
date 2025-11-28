@@ -328,7 +328,7 @@
 
 <script setup lang="ts">
 const { isAuthenticated, authReady, user, logout } = useAuth()
-const { get, post } = useApi()
+const { get, put } = useApi()
 
 const showMobileMenu = ref(false)
 const showProfileDropdown = ref(false)
@@ -459,7 +459,7 @@ async function changeCity(city: string) {
 
   isSavingCity.value = true
   try {
-    const response = await post('/api/profile', { city })
+    const response = await put('/auth/user/profile', { city })
     if (response.success && user.value) {
       user.value.city = city
     }

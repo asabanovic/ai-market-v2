@@ -1235,8 +1235,8 @@ def generate_search_sql(query):
         DOSTUPNI TAGOVI: {', '.join(available_tags)}
         
         ## KRITIČNA PRAVILA ZA SQL:
-        1. UVIJEK filtriraj aktivne proizvode: (products.expires IS NULL OR products.expires >= CURRENT_DATE)
-        2. UVIJEK JOIN sa businesses: FROM products JOIN businesses ON products.business_id = businesses.id
+        1. UVIJEK JOIN sa businesses: FROM products JOIN businesses ON products.business_id = businesses.id
+        2. Proizvodi sa isteklim popustom se i dalje prikazuju (bez filtera na expires)
         3. Za pretragu koristiti SAMO ILIKE - NIKAD jsonb operatore!
         4. Sortiranje: ORDER BY COALESCE(products.discount_price, products.base_price) ASC, products.views DESC
         5. LIMIT 50
@@ -1340,7 +1340,6 @@ def generate_search_sql(query):
         FROM products 
         JOIN businesses ON products.business_id = businesses.id 
         WHERE (products.title ILIKE '%{search_term}%' OR products.category ILIKE '%{search_term}%')
-        AND (products.expires IS NULL OR products.expires >= CURRENT_DATE)
         ORDER BY products.discount_price ASC NULLS LAST 
         LIMIT 50
         """
