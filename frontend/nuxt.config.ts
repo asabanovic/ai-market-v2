@@ -73,7 +73,7 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'node-server',
-    serveStatic: 'node',
+    serveStatic: true,
     compressPublicAssets: true,
   },
 
