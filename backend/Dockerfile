@@ -14,9 +14,5 @@ COPY . .
 ENV PORT=5000
 ENV PYTHONUNBUFFERED=1
 
-CMD echo "Starting backend..." && \
-    python -c "from app import init_db; init_db()" && \
-    echo "Stamping alembic head..." && \
-    alembic stamp head && \
-    echo "Starting gunicorn..." && \
-    gunicorn main:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+# Use shell form to ensure $PORT is expanded at runtime
+CMD ["sh", "-c", "echo 'Running Alembic migrations...' && alembic upgrade head && echo 'Starting gunicorn on port $PORT...' && gunicorn main:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120"]
