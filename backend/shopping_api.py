@@ -17,8 +17,17 @@ import logging
 import os
 
 def format_logo_url(logo_path):
-    """Format logo path to include full backend URL for proper serving"""
+    """Format logo path to include full URL for proper serving
+
+    Handles both:
+    - S3 URLs (already absolute): https://bucket.s3.region.amazonaws.com/...
+    - Legacy local paths: uploads/business_logos/...
+    """
     if logo_path:
+        # If it's already an absolute URL (S3), return as-is
+        if logo_path.startswith('http://') or logo_path.startswith('https://'):
+            return logo_path
+        # Otherwise, prepend backend URL for local static files
         backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5001')
         return f"{backend_url}/static/{logo_path}"
     return None

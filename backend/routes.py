@@ -66,11 +66,19 @@ app.register_blueprint(referral_api_bp)
 app.register_blueprint(engagement_bp)
 
 
-# Helper function to format logo URL with full backend URL
+# Helper function to format logo URL with full URL
 def format_logo_url(logo_path):
-    """Format logo path to include full backend URL for proper serving"""
+    """Format logo path to include full URL for proper serving
+
+    Handles both:
+    - S3 URLs (already absolute): https://bucket.s3.region.amazonaws.com/...
+    - Legacy local paths: uploads/business_logos/...
+    """
     if logo_path:
-        # Use the backend URL so frontend can load images correctly
+        # If it's already an absolute URL (S3), return as-is
+        if logo_path.startswith('http://') or logo_path.startswith('https://'):
+            return logo_path
+        # Otherwise, prepend backend URL for local static files
         backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5001')
         return f"{backend_url}/static/{logo_path}"
     return None
@@ -670,7 +678,7 @@ def api_product_detail(product_id):
         'business': {
             'id': business.id,
             'name': business.name,
-            'logo': format_logo_url(business.logo_path).replace(os.environ.get('BACKEND_URL', 'http://localhost:5001') + '/static/', '') if business.logo_path else None,
+            'logo': format_logo_url(business.logo_path),
             'city': business.city
         } if business else None
     })
@@ -1141,9 +1149,12 @@ def api_my_businesses():
 @app.route('/api/businesses/<int:business_id>/logo', methods=['POST'])
 @require_jwt_auth
 def api_upload_business_logo(business_id):
-    """Upload business logo with JWT auth"""
+    """Upload business logo with JWT auth to S3"""
     try:
+        import boto3
         import uuid
+        import re
+
         business = Business.query.get_or_404(business_id)
 
         # Check if file was uploaded
@@ -1170,22 +1181,51 @@ def api_upload_business_logo(business_id):
                 'error': f'Dozvoljen tip fajla: {", ".join(allowed_extensions)}'
             }), 400
 
+        # Initialize S3 client
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            region_name=os.environ.get('AWS_REGION', 'eu-central-1')
+        )
+
+        bucket_name = os.environ.get('AWS_S3_BUCKET', 'aipijaca')
+
+        # Delete old logo from S3 if it exists
+        if business.logo_path and 'amazonaws.com' in business.logo_path:
+            try:
+                match = re.search(r'amazonaws\.com/(.+)$', business.logo_path)
+                if match:
+                    old_s3_key = match.group(1)
+                    app.logger.info(f"Deleting old logo from S3: {old_s3_key}")
+                    s3_client.delete_object(Bucket=bucket_name, Key=old_s3_key)
+            except Exception as e:
+                app.logger.warning(f"Failed to delete old logo from S3: {e}")
+
         # Generate unique filename
         unique_filename = f"{business_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+        s3_key = f"assets/images/business_logos/{business_id}/{unique_filename}"
 
-        # Ensure upload directory exists
-        upload_dir = os.path.join('static', 'uploads', 'business_logos', str(business_id))
-        os.makedirs(upload_dir, exist_ok=True)
+        # Upload to S3
+        s3_client.upload_fileobj(
+            file,
+            bucket_name,
+            s3_key,
+            ExtraArgs={
+                'ContentType': file.content_type
+            }
+        )
 
-        # Save file
-        file_path = os.path.join(upload_dir, unique_filename)
-        file.save(file_path)
+        # Generate S3 URL
+        logo_url = f"https://{bucket_name}.s3.{os.environ.get('AWS_REGION', 'eu-central-1')}.amazonaws.com/{s3_key}"
 
         # Update business record
-        business.logo_path = f"uploads/business_logos/{business_id}/{unique_filename}"
+        business.logo_path = logo_url
         db.session.commit()
 
-        return jsonify({'success': True, 'logo_path': business.logo_path})
+        app.logger.info(f"Logo uploaded for business {business_id}: {logo_url}")
+
+        return jsonify({'success': True, 'logo_path': logo_url})
 
     except Exception as e:
         app.logger.error(f"Error uploading logo: {e}")
@@ -2498,6 +2538,8 @@ def upload_business_logo(business_id):
     from PIL import Image
     import io
     import uuid
+    import boto3
+    import re
 
     business = Business.query.get_or_404(business_id)
 
@@ -2559,26 +2601,60 @@ def upload_business_logo(business_id):
                 'error': 'Datoteka nije validna slika'
             })
 
+        # Initialize S3 client
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            region_name=os.environ.get('AWS_REGION', 'eu-central-1')
+        )
+
+        bucket_name = os.environ.get('AWS_S3_BUCKET', 'aipijaca')
+
+        # Delete old logo from S3 if it exists
+        if business.logo_path and 'amazonaws.com' in business.logo_path:
+            try:
+                match = re.search(r'amazonaws\.com/(.+)$', business.logo_path)
+                if match:
+                    old_s3_key = match.group(1)
+                    app.logger.info(f"Deleting old logo from S3: {old_s3_key}")
+                    s3_client.delete_object(Bucket=bucket_name, Key=old_s3_key)
+            except Exception as e:
+                app.logger.warning(f"Failed to delete old logo from S3: {e}")
+
         # Create unique filename with UUID
         file_extension = 'png'  # Always save as PNG for consistency
         unique_filename = f"{business_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+        s3_key = f"assets/images/business_logos/{business_id}/{unique_filename}"
 
-        # Ensure upload directory exists per business
-        upload_dir = os.path.join('static', 'uploads', 'business_logos',
-                                  str(business_id))
-        os.makedirs(upload_dir, exist_ok=True)
+        # Save processed image to BytesIO buffer
+        buffer = io.BytesIO()
+        image.save(buffer, 'PNG', optimize=True)
+        buffer.seek(0)
 
-        # Save processed image
-        file_path = os.path.join(upload_dir, unique_filename)
-        image.save(file_path, 'PNG', optimize=True)
+        # Upload to S3
+        s3_client.upload_fileobj(
+            buffer,
+            bucket_name,
+            s3_key,
+            ExtraArgs={
+                'ContentType': 'image/png'
+            }
+        )
 
-        # Update business record (store path relative to static)
-        business.logo_path = f"uploads/business_logos/{business_id}/{unique_filename}"
+        # Generate S3 URL
+        logo_url = f"https://{bucket_name}.s3.{os.environ.get('AWS_REGION', 'eu-central-1')}.amazonaws.com/{s3_key}"
+
+        # Update business record
+        business.logo_path = logo_url
         db.session.commit()
 
-        return jsonify({'success': True, 'logo_path': business.logo_path})
+        app.logger.info(f"Logo uploaded for business {business_id}: {logo_url}")
+
+        return jsonify({'success': True, 'logo_path': logo_url})
 
     except Exception as e:
+        app.logger.error(f"Error uploading logo: {e}")
         return jsonify({
             'success': False,
             'error': 'Došlo je do greške prilikom obrade datoteke'
