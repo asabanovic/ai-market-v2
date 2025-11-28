@@ -295,3 +295,14 @@ coverage/
 # Uploaded files - these should be stored in cloud storage (S3, Railway Volume, etc.)
 backend/static/uploads/
 uploads/
+
+# ==========================================
+# LOCAL DEVELOPMENT FILES
+# ==========================================
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local startup logs
+startup.log.*
+*.pid
