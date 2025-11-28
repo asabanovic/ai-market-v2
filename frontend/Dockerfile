@@ -14,9 +14,6 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Remove dev dependencies after build to reduce image size
-RUN npm prune --production
-
 ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV NODE_ENV=production
