@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  devtools: { enabled: process.env.NODE_ENV !== 'production' },
+  devtools: { enabled: false },
 
   modules: [
     '@nuxt/image',
@@ -73,8 +73,7 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'node-server',
-    serveStatic: true,
-    compressPublicAssets: true,
+    serveStatic: 'node',
   },
 
   // CSS
