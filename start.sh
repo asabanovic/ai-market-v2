@@ -185,8 +185,12 @@ if check_port 3000; then
     sleep 2
 fi
 
-# Start frontend in background
+# Start frontend in background using Node 20 via nvm
 cd "$FRONTEND_DIR"
+# Source nvm and use Node 20 for Nuxt compatibility
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 20 > /dev/null 2>&1 || echo -e "   ${YELLOW}Note: nvm not found, using system Node${NC}"
 nohup npm run dev > "$LOG_FILE.frontend" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" > "$PROJECT_DIR/.frontend.pid"

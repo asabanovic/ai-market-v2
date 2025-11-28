@@ -256,9 +256,9 @@
 
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
             <div class="text-4xl mb-4">📅</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">10 kredita sedmično</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">40 kredita sedmično</h3>
             <p class="text-gray-600">
-              Registrovani korisnici dobijaju 10 kredita svake sedmice koji se obnavljaju svakog ponedjeljka. Neregistrovani dobijaju 1 besplatni test dnevno.
+              Registrovani korisnici dobijaju 40 kredita svake sedmice koji se obnavljaju svakog ponedjeljka. Neregistrovani dobijaju 1 besplatni test dnevno.
             </p>
           </div>
 
@@ -296,7 +296,7 @@
         <div v-if="!isAuthenticated" class="text-center mt-8">
           <NuxtLink to="/registracija"
              class="bg-green-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition duration-200 inline-block shadow-lg">
-            Registrujte se za 10 besplatnih kredita
+            Registrujte se za 40 besplatnih kredita
           </NuxtLink>
         </div>
       </div>
@@ -441,8 +441,8 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">⚡</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">10 sedmičnih pretraga</h3>
-            <p class="text-gray-600 text-sm">Umjesto 1 besplatnog testa, dobijate 10 kredita sedmično koji se obnavljaju svakog ponedjeljka.</p>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">40 sedmičnih pretraga</h3>
+            <p class="text-gray-600 text-sm">Umjesto 1 besplatnog testa, dobijate 40 kredita sedmično koji se obnavljaju svakog ponedjeljka.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
@@ -501,7 +501,7 @@
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
               Da! Popust.ba je potpuno besplatna platforma za sve korisnike. Nema skrivenih troškova, pretplata ili naknad.
-              Registrovani korisnici dobijaju 10 besplatnih pretraga sedmično, a mogu zaraditi dodatne kredite kroz referral program.
+              Registrovani korisnici dobijaju 40 besplatnih pretraga sedmično, a mogu zaraditi dodatne kredite kroz referral program.
             </p>
           </details>
 

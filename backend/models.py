@@ -52,8 +52,8 @@ class User(UserMixin, db.Model):
     onboarding_completed = db.Column(db.Boolean, default=False)
 
     # Weekly credits system - Two buckets:
-    # 1. Regular credits: 10 credits per week (reset every Monday, never exceed 10)
-    weekly_credits = db.Column(db.Integer, default=10)  # Regular credits (reset weekly)
+    # 1. Regular credits: 40 credits per week (reset every Monday, never exceed 40)
+    weekly_credits = db.Column(db.Integer, default=40)  # Regular credits (reset weekly)
     weekly_credits_used = db.Column(db.Integer, default=0)
     weekly_credits_reset_date = db.Column(db.Date, default=date.today)
 

@@ -46,7 +46,7 @@
             <ul class="space-y-2 text-sm text-purple-700">
               <li class="flex items-start">
                 <Icon name="mdi:check-circle" class="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
-                <span>10 BESPLATNIH pretraga SEDMIČNO</span>
+                <span>40 BESPLATNIH pretraga SEDMIČNO</span>
               </li>
               <li class="flex items-start">
                 <Icon name="mdi:check-circle" class="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />

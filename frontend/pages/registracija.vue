@@ -433,6 +433,6 @@ async function handleEmailRegister() {
 
 useSeoMeta({
   title: 'Registracija - Popust.ba',
-  description: 'Registrujte se za 10 sekundi i dobijte 10 BESPLATNIH pretraga sedmično!'
+  description: 'Registrujte se za 10 sekundi i dobijte 40 BESPLATNIH pretraga sedmično!'
 })
 </script>

@@ -90,25 +90,26 @@
             </div>
 
             <!-- Search Counter -->
-            <div
+            <NuxtLink
               v-if="searchCounts"
+              to="/krediti-uskoro"
               :class="[
-                'text-sm font-medium px-3 py-1 rounded-full border cursor-help',
+                'text-sm font-medium px-3 py-1 rounded-full border cursor-pointer hover:opacity-80 transition-opacity',
                 searchCounts.remaining === 0
                   ? 'border-red-200 bg-red-50 text-red-700'
                   : searchCounts.remaining <= 2
                   ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
                   : 'border-green-200 bg-green-50 text-green-700'
               ]"
-              :title="searchCounts.next_reset_date ? `Sljedeća dopuna: ${formatResetDate(searchCounts.next_reset_date)}` : ''"
+              :title="searchCounts.next_reset_date ? `Krediti se obnavljaju: ${formatResetDate(searchCounts.next_reset_date)}. Kliknite za više info.` : 'Kliknite za info o kreditima'"
             >
               <template v-if="searchCounts.is_unlimited">
                 Krediti: {{ searchCounts.remaining }}
               </template>
               <template v-else>
-                Krediti: {{ searchCounts.remaining }}/{{ searchCounts.weekly_limit || searchCounts.daily_limit || 10 }}
+                Krediti: {{ searchCounts.remaining }}/{{ searchCounts.weekly_limit || searchCounts.daily_limit || 40 }}
               </template>
-            </div>
+            </NuxtLink>
 
             <!-- Header Icons (Favorites & Cart) -->
             <HeaderIcons v-if="isAuthenticated" @toggle-sidebar="showSidebar = true" />
@@ -265,7 +266,7 @@
               Krediti: {{ searchCounts.remaining }}
             </template>
             <template v-else>
-              <div>Krediti: {{ searchCounts.remaining }}/{{ searchCounts.weekly_limit || searchCounts.daily_limit || 10 }}</div>
+              <div>Krediti: {{ searchCounts.remaining }}/{{ searchCounts.weekly_limit || searchCounts.daily_limit || 40 }}</div>
               <div v-if="searchCounts.next_reset_date" class="text-xs opacity-75 mt-1">
                 Dopuna: {{ formatResetDate(searchCounts.next_reset_date) }}
               </div>

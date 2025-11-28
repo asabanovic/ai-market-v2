@@ -368,7 +368,7 @@ Primjeri (unesite bilo šta slično):
 
 • Lista: hljeb, jaja, kafa, deterdžent
 
-Registracijom dobijate 10 BESPLATNIH pretraga SEDMIČNO i pristup listama za kupovinu!`
+Registracijom dobijate 40 BESPLATNIH pretraga SEDMIČNO i pristup listama za kupovinu!`
   }
 })
 

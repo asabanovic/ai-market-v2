@@ -528,7 +528,8 @@ def get_search_counts(user=None):
             }
         else:
             # For regular users, show standard weekly limit
-            weekly_limit = 10
+            from credits_service_weekly import REGULAR_USER_WEEKLY_CREDITS
+            weekly_limit = REGULAR_USER_WEEKLY_CREDITS
             return {
                 'weekly_limit': weekly_limit,
                 'used_this_week': max(0, weekly_limit - balance['regular_credits']),

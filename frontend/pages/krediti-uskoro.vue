@@ -27,7 +27,7 @@
               <div>
                 <h3 class="font-semibold text-blue-900 mb-2">Trenutno stanje:</h3>
                 <p class="text-blue-800">
-                  Svi registrovani korisnici dobijaju <strong class="text-blue-900">10 BESPLATNIH kredita sedmično</strong>.
+                  Svi registrovani korisnici dobijaju <strong class="text-blue-900">40 BESPLATNIH kredita sedmično</strong>.
                   Svaki proizvod koji pretražite troši 1 kredit. Krediti se automatski obnavljaju svakog ponedjeljka!
                 </p>
               </div>
@@ -113,7 +113,7 @@
         <div class="bg-gray-50 px-8 py-6 border-t border-gray-200">
           <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="text-center sm:text-left">
-              <p class="text-sm text-gray-600">U međuvremenu, iskoristite vaših 10 sedmičnih kredita!</p>
+              <p class="text-sm text-gray-600">U međuvremenu, iskoristite vaših 40 sedmičnih kredita!</p>
             </div>
             <NuxtLink
               to="/"
@@ -137,7 +137,7 @@
               Koliko kredita imam trenutno?
             </h3>
             <p class="text-gray-600 text-sm ml-7">
-              Svi korisnici imaju 10 kredita sedmično. Možete vidjeti koliko vam je preostalo nakon svake pretrage, a krediti se obnavljaju svakog ponedjeljka.
+              Svi korisnici imaju 40 kredita sedmično. Možete vidjeti koliko vam je preostalo nakon svake pretrage, a krediti se obnavljaju svakog ponedjeljka.
             </p>
           </div>
 
@@ -157,7 +157,7 @@
               Kada se obnavljaju krediti?
             </h3>
             <p class="text-gray-600 text-sm ml-7">
-              Krediti se automatski resetuju svakog dana u ponoć. Svi korisnici ponovo dobijaju punih 10 kredita.
+              Krediti se automatski resetuju svakog ponedjeljka. Svi korisnici ponovo dobijaju punih 40 kredita.
             </p>
           </div>
 

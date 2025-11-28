@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Credit amounts - configurable via environment variables
 ADMIN_WEEKLY_CREDITS = int(os.environ.get('ADMIN_WEEKLY_CREDITS', 100000))
-REGULAR_USER_WEEKLY_CREDITS = int(os.environ.get('REGULAR_USER_WEEKLY_CREDITS', 10))
+REGULAR_USER_WEEKLY_CREDITS = int(os.environ.get('REGULAR_USER_WEEKLY_CREDITS', 40))
 REFERRAL_BONUS_CREDITS = 100
 
 

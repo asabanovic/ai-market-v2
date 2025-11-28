@@ -811,10 +811,11 @@ def get_search_counts_jwt():
             }), 200
         else:
             # For regular users, show standard weekly limit
-            weekly_limit = balance['regular_credits'] + balance['extra_credits']
+            from credits_service_weekly import REGULAR_USER_WEEKLY_CREDITS
+            weekly_limit = REGULAR_USER_WEEKLY_CREDITS
             return jsonify({
-                'weekly_limit': 10,  # Base weekly limit
-                'used_this_week': 10 - balance['regular_credits'],
+                'weekly_limit': weekly_limit,  # Base weekly limit
+                'used_this_week': weekly_limit - balance['regular_credits'],
                 'remaining': total_credits,
                 'regular_credits': balance['regular_credits'],
                 'extra_credits': balance['extra_credits'],
