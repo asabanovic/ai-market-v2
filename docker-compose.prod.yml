@@ -39,6 +39,8 @@ services:
       - FLASK_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/railway
       - PORT=5001
+      - OAUTHLIB_INSECURE_TRANSPORT=1
+      - FRONTEND_URL=http://localhost:3000
     depends_on:
       db:
         condition: service_healthy

@@ -28,7 +28,7 @@ from models import SavingsStatistics
 from admin_embedding_routes import admin_embedding_bp
 
 # Import JWT-based auth API blueprint
-from auth_api import auth_api_bp, require_jwt_auth
+from auth_api import auth_api_bp, require_jwt_auth, generate_jwt_token
 from app import csrf
 
 # Import shopping list and favorites API blueprint
@@ -236,8 +236,14 @@ if google_bp:
 
             login_user(user)
             app.logger.info(f"Successfully logged in user: {email}")
-            return redirect(
-                url_for('index'))  # Redirect to home page after successful login
+
+            # Generate JWT token for frontend
+            token = generate_jwt_token(user.id, user.email)
+
+            # Redirect to frontend with token
+            # Use FRONTEND_URL env var, fallback to localhost:3000 for local dev
+            frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+            return redirect(f"{frontend_url}/auth/callback?token={token}")
 
         except Exception as e:
             app.logger.error(f"OAuth callback error: {e}")

@@ -213,11 +213,30 @@ async function loadStores() {
       name: b.name,
       logo: b.logo_path ? (b.logo_path.startsWith('http') ? b.logo_path : `${config.public.apiBase}/static/${b.logo_path}`) : null
     }))
+
+    // If no stores available, skip onboarding entirely
+    if (stores.value.length === 0) {
+      await skipOnboardingQuietly()
+    }
   } catch (error) {
     console.error('Error loading stores:', error)
+    // On error, also skip onboarding to avoid blocking user
+    await skipOnboardingQuietly()
   } finally {
     isLoadingStores.value = false
   }
+}
+
+async function skipOnboardingQuietly() {
+  try {
+    await post('/auth/user/onboarding', {
+      phone: '',
+      typical_products: ''
+    })
+  } catch (err) {
+    // Ignore errors
+  }
+  emit('complete')
 }
 
 function toggleStore(storeId: number) {
