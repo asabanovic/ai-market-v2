@@ -14,6 +14,10 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Fix Nitro static asset path bug: it generates "../public" but needs "../../../public"
+# Create symlink from chunks/public -> ../../public (which resolves to .output/public from chunks/)
+RUN ln -sf ../../public .output/server/chunks/public
+
 ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV NODE_ENV=production

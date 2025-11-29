@@ -2,7 +2,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
 
   modules: [
-    '@nuxt/image',
+    // '@nuxt/image', // Temporarily disabled to test static file serving
     '@nuxt/icon',
     '@vueuse/nuxt',
     '@pinia/nuxt',
@@ -73,7 +73,16 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'node-server',
-    serveStatic: 'node',
+    // Use static file serving
+    serveStatic: true,
+    // Fix asset path resolution - need extra ../ because nitro.mjs is in chunks/nitro/
+    publicAssets: [
+      {
+        baseURL: '/',
+        dir: '../../public',
+        maxAge: 60 * 60 * 24 * 365 // 1 year cache for static assets
+      }
+    ],
   },
 
   // CSS
