@@ -1,0 +1,64 @@
+# Production-like environment for testing Railway deployment locally
+# Usage: docker compose -f docker-compose.prod.yml up --build
+#
+# This replicates EXACTLY what Railway does:
+# - Builds using Dockerfile (no volume mounts)
+# - Uses production environment variables
+# - Runs production commands
+#
+# NOTE: This is a STANDALONE file, not an override, because docker-compose
+# volume overrides don't work properly (volumes: [] doesn't clear base volumes)
+
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      - NODE_ENV=production
+      - NUXT_PUBLIC_API_BASE=http://localhost:5001
+    depends_on:
+      - backend
+    # No volumes - uses built image
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/railway
+      - PORT=5001
+    depends_on:
+      db:
+        condition: service_healthy
+    # No volumes - uses built image
+
+  db:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=railway
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data_prod:
