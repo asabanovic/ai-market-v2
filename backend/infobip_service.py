@@ -140,7 +140,10 @@ def send_sms_otp(phone: str, code: str) -> Dict:
             'channel': 'sms'
         }
     """
+    print(f"📱 send_sms_otp called for {phone}")
+
     if not INFOBIP_SMS_ENABLED:
+        print(f"📱 SMS DISABLED")
         logger.warning(f"SMS service is disabled. Cannot send to {phone}")
         return {
             'success': False,
@@ -149,6 +152,7 @@ def send_sms_otp(phone: str, code: str) -> Dict:
         }
 
     if not INFOBIP_ENABLED:
+        print(f"📱 DEV MODE - no API key")
         logger.info(f"[DEV MODE] SMS OTP to {phone}: {code}")
         return {
             'success': True,
@@ -158,6 +162,7 @@ def send_sms_otp(phone: str, code: str) -> Dict:
         }
 
     try:
+        print(f"📱 Sending SMS via Infobip API...")
         # Infobip SMS API endpoint
         url = f"{INFOBIP_BASE_URL}/sms/2/text/advanced"
 
@@ -183,6 +188,7 @@ def send_sms_otp(phone: str, code: str) -> Dict:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         response_data = response.json()
 
+        print(f"📱 SMS API Response: {response.status_code} - {response_data}")
         logger.info(f"SMS API Response - Status: {response.status_code}, Data: {response_data}")
 
         if response.status_code == 200 and response_data.get('messages'):
