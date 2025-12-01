@@ -46,7 +46,7 @@
           <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <h3 class="text-xl font-semibold text-gray-900 mb-2">
-          Nema istorije
+          Nema historije
         </h3>
         <p class="text-gray-600 mb-6">
           Vaše prethodne shopping liste će se prikazati ovdje
