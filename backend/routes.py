@@ -112,15 +112,14 @@ from flask_dance.contrib.google import make_google_blueprint, google
 from flask_dance.consumer import oauth_authorized
 import os
 
-# Create Google OAuth blueprint with proper redirect URL for production
-# Use BACKEND_URL env var for Railway/production, fallback to localhost for dev
-base_url = os.environ.get("BACKEND_URL", "http://localhost:5001")
-
-redirect_url = f"{base_url}/auth/google/authorized"
-
-# Only initialize Google OAuth if credentials are provided
+# Create Google OAuth blueprint with explicit redirect URL
+# BACKEND_URL must be set in production (Railway env var)
 google_client_id = os.environ.get("AI_PIJACA_GOOGLE_CLIENT_ID")
 google_client_secret = os.environ.get("AI_PIJACA_GOOGLE_CLIENT_SECRET")
+backend_url_for_oauth = os.environ.get("BACKEND_URL", "http://localhost:5001")
+oauth_redirect_url = f"{backend_url_for_oauth}/auth/google/authorized"
+
+print(f"🔐 Google OAuth config: BACKEND_URL={backend_url_for_oauth}, redirect={oauth_redirect_url}")
 
 if google_client_id and google_client_secret:
     google_bp = make_google_blueprint(
@@ -130,8 +129,9 @@ if google_client_id and google_client_secret:
             "openid", "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        redirect_url=redirect_url)
+        redirect_url=oauth_redirect_url)
     app.register_blueprint(google_bp, url_prefix="/auth")
+    print(f"🔐 Google OAuth initialized successfully")
 else:
     google_bp = None
     app.logger.warning("Google OAuth credentials not found. Google login will not be available.")
