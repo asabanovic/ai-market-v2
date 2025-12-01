@@ -184,10 +184,10 @@
               </div>
             </template>
             <template v-else>
-              <NuxtLink to="/prijava" class="bg-green-500 text-white px-4 py-2 rounded-md btn-text hover:bg-green-600 transition-colors">
+              <NuxtLink to="/prijava" class="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:border-gray-300 hover:text-gray-800 transition-colors">
                 Prijava
               </NuxtLink>
-              <NuxtLink to="/registracija" class="bg-purple-600 text-white px-4 py-2 rounded-md btn-text hover:bg-purple-700 transition-colors purple-pattern-overlay">
+              <NuxtLink to="/registracija" class="px-4 py-2 text-sm font-medium border border-gray-800 rounded-lg text-gray-800 bg-white hover:bg-gray-800 hover:text-white transition-colors">
                 Registracija
               </NuxtLink>
             </template>
@@ -302,10 +302,10 @@
             </button>
           </template>
           <template v-else>
-            <NuxtLink to="/prijava" class="block mx-3 my-2 px-4 py-2 bg-green-500 text-white rounded-md nav-text hover:bg-green-600 transition-colors text-center">
+            <NuxtLink to="/prijava" class="block mx-3 my-2 px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:border-gray-300 hover:text-gray-800 nav-text transition-colors text-center">
               Prijava
             </NuxtLink>
-            <NuxtLink to="/registracija" class="block mx-3 my-2 px-4 py-2 bg-purple-600 text-white rounded-md nav-text hover:bg-purple-700 transition-colors text-center">
+            <NuxtLink to="/registracija" class="block mx-3 my-2 px-4 py-2 border border-gray-800 rounded-lg text-gray-800 bg-white hover:bg-gray-800 hover:text-white nav-text transition-colors text-center">
               Registracija
             </NuxtLink>
           </template>
