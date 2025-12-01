@@ -83,9 +83,6 @@
               </div>
               <label for="whatsapp-available" class="ml-3 text-sm">
                 <span class="font-medium text-gray-900">Imam WhatsApp 📱</span>
-                <p class="text-xs text-gray-600 mt-1">
-                  Kod će stići preko WhatsApp-a. Ako nemate WhatsApp, poslaćemo SMS.
-                </p>
               </label>
             </div>
           </div>
