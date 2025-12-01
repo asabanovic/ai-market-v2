@@ -113,11 +113,8 @@ from flask_dance.consumer import oauth_authorized
 import os
 
 # Create Google OAuth blueprint with proper redirect URL for production
-# Use absolute URL for production, relative for development
-base_url = os.environ.get("REPLIT_DOMAINS",
-                          "http://localhost:5001").split(',')[0]
-if not base_url.startswith('http'):
-    base_url = f"https://{base_url}"
+# Use BACKEND_URL env var for Railway/production, fallback to localhost for dev
+base_url = os.environ.get("BACKEND_URL", "http://localhost:5001")
 
 redirect_url = f"{base_url}/auth/google/authorized"
 

@@ -1,0 +1,15 @@
+# Ignore root-level detection - services are in subdirectories
+# Each service (backend, frontend) has its own config
+
+# Ignore frontend when deploying backend (use Root Directory setting)
+# Ignore backend when deploying frontend (use Root Directory setting)
+
+# Common ignores
+.git
+.gitignore
+*.md
+*.log
+.DS_Store
+.idea
+.vscode
+*.pid

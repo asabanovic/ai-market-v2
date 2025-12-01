@@ -39,9 +39,14 @@ You need to create **3 services**:
 DATABASE_URL         → (auto-injected from PostgreSQL service)
 SECRET_KEY           → (generate a secure random string)
 FLASK_ENV            → production
+BACKEND_URL          → https://your-backend.railway.app (REQUIRED for Google OAuth!)
 OPENAI_API_KEY       → your-openai-key
 ANTHROPIC_API_KEY    → your-anthropic-key
 ```
+
+**IMPORTANT:** `BACKEND_URL` must be set correctly for Google OAuth to work!
+- Production: `https://api.popust.ba`
+- Staging: `https://backend-staging-a928.up.railway.app`
 
 #### Backend Variables (Optional)
 ```
