@@ -36,7 +36,7 @@ def after_request(response):
 # JWT configuration
 JWT_SECRET = os.environ.get("SESSION_SECRET") or "dev-secret-change-in-production"
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+JWT_EXPIRATION_HOURS = 24 * 30  # 30 days
 
 
 def generate_jwt_token(user_id: str, email: str) -> str:
