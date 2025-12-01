@@ -28,8 +28,13 @@ if not INFOBIP_ENABLED:
     logger.warning("Infobip API key not configured. Emails will be logged only.")
 
 
+def get_logo_url():
+    """Get logo URL for email"""
+    return "https://popust.ba/logo.svg"
+
+
 def get_logo_base64():
-    """Get logo as base64 string for email"""
+    """Get logo as base64 string for email (deprecated - use get_logo_url instead)"""
     try:
         with open('static/images/logo.png', 'rb') as f:
             logo_data = f.read()
@@ -145,7 +150,7 @@ def send_contact_email(user_name: str, user_email: str, message: str) -> bool:
 def send_verification_email(user_email: str, user_name: str, verification_token: str, base_url: str) -> bool:
     """Send email verification to new users"""
     verification_url = f"{base_url}/verify/{verification_token}"
-    logo_base64 = get_logo_base64()
+    logo_url = get_logo_url()
 
     subject = "Verifikacija računa - Popust.ba"
     html_content = f"""
@@ -158,7 +163,6 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
             .header {{ text-align: center; padding: 20px 0; border-bottom: 2px solid #10B981; }}
-            .logo {{ display: inline-flex; align-items: center; font-size: 24px; font-weight: bold; color: #10B981; }}
             .content {{ padding: 30px 0; }}
             .button {{ display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }}
             .footer {{ border-top: 1px solid #eee; padding-top: 20px; text-align: center; font-size: 14px; color: #666; }}
@@ -167,10 +171,7 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">
-                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Popust.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
-                    Popust.ba
-                </div>
+                <img src="{logo_url}" alt="Popust.ba" style="height: 50px; width: auto;">
             </div>
 
             <div class="content">
@@ -206,6 +207,7 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
 
 def send_welcome_email(user_email: str, user_name: str) -> bool:
     """Send welcome email to verified users"""
+    logo_url = get_logo_url()
     subject = "Dobrodošli na Popust.ba!"
     html_content = f"""
     <!DOCTYPE html>
@@ -215,19 +217,21 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background-color: #10B981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-            .content {{ padding: 30px; background-color: #f9f9f9; }}
+            .header {{ text-align: center; padding: 20px 0; border-bottom: 2px solid #10B981; }}
+            .content {{ padding: 30px 0; }}
             .features {{ list-style: none; padding: 0; }}
             .features li {{ padding: 10px 0; padding-left: 30px; position: relative; }}
             .features li:before {{ content: "✓"; position: absolute; left: 0; color: #10B981; font-weight: bold; font-size: 20px; }}
+            .footer {{ border-top: 1px solid #eee; padding-top: 20px; text-align: center; font-size: 14px; color: #666; }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h2>Dobrodošli, {user_name}!</h2>
+                <img src="{logo_url}" alt="Popust.ba" style="height: 50px; width: auto;">
             </div>
             <div class="content">
+                <h2>Dobrodošli, {user_name}!</h2>
                 <p>Hvala vam što ste se registrovali na Popust.ba platformu za pronalaženje najboljih popusta u Bosni i Hercegovini.</p>
                 <p>Sada možete:</p>
                 <ul class="features">
@@ -238,8 +242,11 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
                 </ul>
                 <p>Počnite sa pretraživanjem već danas i uštedite na svakoj kupovini!</p>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://rabat.ba" style="display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Počnite pretraživanje</a>
+                    <a href="https://popust.ba" style="display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Počnite pretraživanje</a>
                 </div>
+            </div>
+            <div class="footer">
+                <p>&copy; 2025 Popust.ba. Sva prava zadržana.</p>
             </div>
         </div>
     </body>
@@ -252,7 +259,7 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
 def send_invitation_email(email: str, business_name: str, role: str, invitation_token: str, base_url: str) -> bool:
     """Send business invitation email"""
     invitation_url = f"{base_url}/invite/accept/{invitation_token}"
-    logo_base64 = get_logo_base64()
+    logo_url = get_logo_url()
 
     # Translate role to Bosnian
     role_translations = {
@@ -273,7 +280,6 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
             .header {{ text-align: center; padding: 20px 0; border-bottom: 2px solid #10B981; }}
-            .logo {{ display: inline-flex; align-items: center; font-size: 24px; font-weight: bold; color: #10B981; }}
             .content {{ padding: 30px 0; }}
             .button {{ display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }}
             .info-box {{ background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0; }}
@@ -283,10 +289,7 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">
-                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Popust.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
-                    Popust.ba
-                </div>
+                <img src="{logo_url}" alt="Popust.ba" style="height: 50px; width: auto;">
             </div>
 
             <div class="content">
@@ -337,7 +340,7 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
 def send_password_reset_email(user_email: str, user_name: str, reset_token: str, base_url: str) -> bool:
     """Send password reset email to users"""
     reset_url = f"{base_url}/reset-password/{reset_token}"
-    logo_base64 = get_logo_base64()
+    logo_url = get_logo_url()
 
     subject = "Resetiranje lozinke - Popust.ba"
     html_content = f"""
@@ -350,7 +353,6 @@ def send_password_reset_email(user_email: str, user_name: str, reset_token: str,
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
             .header {{ text-align: center; padding: 20px 0; border-bottom: 2px solid #EF4444; }}
-            .logo {{ display: inline-flex; align-items: center; font-size: 24px; font-weight: bold; color: #EF4444; }}
             .content {{ padding: 30px 0; }}
             .button {{ display: inline-block; background-color: #EF4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }}
             .footer {{ border-top: 1px solid #eee; padding-top: 20px; text-align: center; font-size: 14px; color: #666; }}
@@ -359,10 +361,7 @@ def send_password_reset_email(user_email: str, user_name: str, reset_token: str,
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">
-                    {f'<img src="data:image/png;base64,{logo_base64}" alt="Popust.ba" style="height: 32px; width: 32px; margin-right: 8px;">' if logo_base64 else ''}
-                    Popust.ba
-                </div>
+                <img src="{logo_url}" alt="Popust.ba" style="height: 50px; width: auto;">
             </div>
 
             <div class="content">
