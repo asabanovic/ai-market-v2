@@ -14,35 +14,7 @@
         </p>
       </div>
 
-      <!-- Login Method Toggle -->
-      <div class="flex bg-gray-100 rounded-lg p-1">
-        <button
-          type="button"
-          @click="loginMethod = 'phone'"
-          :class="[
-            'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all',
-            loginMethod === 'phone'
-              ? 'bg-white text-purple-600 shadow'
-              : 'text-gray-600 hover:text-gray-900'
-          ]"
-        >
-          📱 Telefon
-        </button>
-        <button
-          type="button"
-          @click="loginMethod = 'email'"
-          :class="[
-            'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all',
-            loginMethod === 'email'
-              ? 'bg-white text-purple-600 shadow'
-              : 'text-gray-600 hover:text-gray-900'
-          ]"
-        >
-          ✉️ Email
-        </button>
-      </div>
-
-      <!-- Phone Login (Passwordless) -->
+      <!-- Phone Login (Passwordless) - Hidden for now -->
       <form v-if="loginMethod === 'phone'" @submit.prevent="handlePhoneSubmit" class="space-y-6">
         <!-- Error/Success Messages -->
         <div v-if="errorMessage" class="bg-red-50 border border-red-200 rounded-md p-4">
@@ -245,7 +217,7 @@ const route = useRoute()
 const router = useRouter()
 const config = useRuntimeConfig()
 
-const loginMethod = ref('phone') // Default to phone
+const loginMethod = ref('email') // Default to email (phone login hidden for now)
 const phoneNumber = ref('')
 const whatsappAvailable = ref(true) // Default to WhatsApp enabled
 const otpCode = ref('')

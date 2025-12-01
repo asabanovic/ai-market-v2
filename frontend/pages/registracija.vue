@@ -14,35 +14,7 @@
         </p>
       </div>
 
-      <!-- Registration Method Toggle -->
-      <div class="flex bg-gray-100 rounded-lg p-1">
-        <button
-          type="button"
-          @click="registrationMethod = 'phone'"
-          :class="[
-            'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all',
-            registrationMethod === 'phone'
-              ? 'bg-white text-purple-600 shadow'
-              : 'text-gray-600 hover:text-gray-900'
-          ]"
-        >
-          📱 Telefon (Brže!)
-        </button>
-        <button
-          type="button"
-          @click="registrationMethod = 'email'"
-          :class="[
-            'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all',
-            registrationMethod === 'email'
-              ? 'bg-white text-purple-600 shadow'
-              : 'text-gray-600 hover:text-gray-900'
-          ]"
-        >
-          ✉️ Email
-        </button>
-      </div>
-
-      <!-- Phone Registration -->
+      <!-- Phone Registration - Hidden for now -->
       <form v-if="registrationMethod === 'phone'" @submit.prevent="handlePhoneSubmit" class="space-y-6">
         <!-- Error/Success Messages -->
         <div v-if="errorMessage" class="bg-red-50 border border-red-200 rounded-md p-4">
@@ -253,7 +225,7 @@ const { login, user } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
-const registrationMethod = ref('phone') // Default to phone
+const registrationMethod = ref('email') // Default to email (phone registration hidden for now)
 const phoneNumber = ref('')
 const whatsappAvailable = ref(true) // Default to WhatsApp enabled
 const otpCode = ref('')
