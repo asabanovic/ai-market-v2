@@ -244,7 +244,6 @@
     <!-- Exit Intent Modal -->
     <ExitIntentModal
       v-if="showExitIntentModal"
-      :product-count="savingsStats?.total_products || 100"
       @close="closeExitModal"
     />
 

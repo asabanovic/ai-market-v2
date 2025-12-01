@@ -115,8 +115,7 @@ echo -e " ${GREEN}✓${NC}"
 
 # Ensure database and extension exist
 echo -e "   ${YELLOW}Checking database setup...${NC}"
-docker exec pgvector psql -U postgres -lqt | cut -d \| -f 1 | grep -qw ai_pijaca
-if [ $? -ne 0 ]; then
+if ! docker exec pgvector psql -U postgres -lqt | cut -d \| -f 1 | grep -qw ai_pijaca; then
     echo -e "   ${YELLOW}Creating ai_pijaca database...${NC}"
     docker exec pgvector psql -U postgres -c "CREATE DATABASE ai_pijaca;" > /dev/null
 fi

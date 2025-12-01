@@ -33,7 +33,7 @@
           </h3>
 
           <p class="text-gray-600 text-center mb-6">
-            Pronašli smo {{productCount}} proizvoda na popustu u vašem gradu!
+            Svaki dan pratimo stotine proizvoda na popustu u trgovinama širom BiH!
           </p>
 
           <!-- Benefits -->
@@ -88,9 +88,6 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  productCount?: number
-}>()
 
 const emit = defineEmits<{
   close: []
