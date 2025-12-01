@@ -14,7 +14,7 @@ services:
       - /app/node_modules
       - /app/.nuxt
     environment:
-      - NUXT_PUBLIC_API_BASE=http://backend:5001
+      - NUXT_PUBLIC_API_BASE=http://localhost:5001
       - NODE_ENV=development
     depends_on:
       - backend
@@ -33,6 +33,7 @@ services:
       - FLASK_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/railway
       - SECRET_KEY=dev-secret-key-change-in-production
+      - PORT=5001
     depends_on:
       db:
         condition: service_healthy

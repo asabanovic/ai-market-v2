@@ -13,6 +13,7 @@
             />
             <span v-if="logoError" class="text-xl md:text-2xl font-bold text-purple-600 px-4 md:px-8">Popust</span>
           </NuxtLink>
+          <span class="hidden lg:inline-block text-sm text-gray-500 ml-2 border-l border-gray-300 pl-3">Kupuj pametnije</span>
         </div>
 
         <div class="hidden md:flex items-center space-x-6">

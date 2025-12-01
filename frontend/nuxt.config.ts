@@ -43,6 +43,21 @@ export default defineNuxtConfig({
         { name: 'geo.region', content: 'BA' },
         { name: 'geo.placename', content: 'Bosnia and Herzegovina' }
       ],
+      script: [
+        // Google Analytics
+        {
+          src: `https://www.googletagmanager.com/gtag/js?id=${process.env.NUXT_PUBLIC_GA_ID || 'G-XXXXXXXXXX'}`,
+          async: true
+        },
+        {
+          innerHTML: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${process.env.NUXT_PUBLIC_GA_ID || 'G-XXXXXXXXXX'}');
+          `
+        }
+      ],
       link: [
         // Favicons
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
@@ -64,7 +79,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5001',
-      googleOAuthEnabled: process.env.NUXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true' || false
+      googleOAuthEnabled: process.env.NUXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true' || false,
+      gaId: process.env.NUXT_PUBLIC_GA_ID || ''
     }
   },
 

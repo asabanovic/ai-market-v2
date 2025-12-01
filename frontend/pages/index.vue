@@ -3,6 +3,7 @@
     <!-- Hero Section with Chat -->
     <div class="gradient-bg py-12">
       <div class="mx-auto px-6 sm:px-6 lg:px-12 text-center">
+        <p class="text-sm text-purple-200 uppercase tracking-widest mb-2">Kupuj pametnije</p>
         <h1 class="typography-display-responsive text-white mb-4">
           Pronađite najbolje popuste u vašem gradu
         </h1>

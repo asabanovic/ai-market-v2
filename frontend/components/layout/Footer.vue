@@ -3,9 +3,10 @@
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="text-center">
         <div class="mb-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-3">Popust.ba</h3>
+          <h3 class="text-lg font-medium text-gray-900 mb-1">Popust.ba</h3>
+          <p class="text-xs text-purple-600 font-medium mb-3">Kupuj pametnije</p>
           <p class="text-sm text-gray-600 max-w-md mx-auto">
-            Pronađite najbolje akcije i popuste u vašem gradu uz pomoć Popust asistenta.
+            Pronađite najbolje akcije i popuste u vašem gradu.
           </p>
         </div>
 
