@@ -615,24 +615,15 @@ def health_check():
     return jsonify({'status': 'healthy', 'service': 'ai-market-backend'}), 200
 
 
-# Homepage route
+# Homepage route - API info endpoint
 @app.route('/')
 def index():
-    chat_examples = get_chat_examples()
-
-    # Get featured discount products with business relationship
-    featured_products = db.session.query(Product).join(Business).filter(
-        Product.discount_price.isnot(None),
-        or_(Product.expires.is_(None), Product.expires
-            >= date.today())).order_by(db.func.random()).limit(6).all()
-
-    # Get businesses that have products
-    featured_businesses = db.session.query(Business).join(Product).distinct().order_by(Business.name).all()
-
-    return render_template('index.html',
-                           chat_examples=chat_examples,
-                           featured_products=featured_products,
-                           featured_businesses=featured_businesses)
+    return jsonify({
+        'service': 'popust.ba-api',
+        'status': 'running',
+        'version': '2.0',
+        'docs': '/api'
+    })
 
 
 # API endpoint to get search counts
