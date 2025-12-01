@@ -150,7 +150,16 @@ def handle_preflight():
 if google_bp:
     # Helper to get frontend URL
     def get_frontend_url():
-        return os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        frontend_url = os.environ.get('FRONTEND_URL')
+        if frontend_url:
+            return frontend_url
+        # In production (Railway), FRONTEND_URL must be set
+        # Only use localhost fallback in development
+        flask_env = os.environ.get('FLASK_ENV', 'development')
+        if flask_env == 'production':
+            app.logger.error("FRONTEND_URL not set in production! This will cause redirect issues.")
+            return 'https://popust.ba'  # Hardcoded fallback for safety
+        return 'http://localhost:3000'
 
     # Handle OAuth errors (prevents infinite redirect loop)
     @oauth_error.connect_via(google_bp)

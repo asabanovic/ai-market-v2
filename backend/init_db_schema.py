@@ -38,6 +38,23 @@ def init_schema():
         db.create_all()
         logger.info("Database schema initialized successfully")
 
+        # Seed default packages if they don't exist
+        from models import Package
+        package_count = db.session.query(Package).count()
+        logger.info(f"Found {package_count} packages in database")
+
+        if package_count == 0:
+            packages = [
+                Package(name='Free', daily_limit=10),
+                Package(name='Trial', daily_limit=50),
+                Package(name='Medium', daily_limit=30),
+                Package(name='Premium', daily_limit=100)
+            ]
+            for package in packages:
+                db.session.add(package)
+            db.session.commit()
+            logger.info("Default packages seeded successfully")
+
         # Verify key tables exist
         from sqlalchemy import inspect
         inspector = inspect(db.engine)

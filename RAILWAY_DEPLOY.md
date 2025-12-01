@@ -40,13 +40,14 @@ DATABASE_URL         → (auto-injected from PostgreSQL service)
 SECRET_KEY           → (generate a secure random string)
 FLASK_ENV            → production
 BACKEND_URL          → https://your-backend.railway.app (REQUIRED for Google OAuth!)
+FRONTEND_URL         → https://your-frontend.railway.app (REQUIRED for OAuth redirects!)
 OPENAI_API_KEY       → your-openai-key
 ANTHROPIC_API_KEY    → your-anthropic-key
 ```
 
-**IMPORTANT:** `BACKEND_URL` must be set correctly for Google OAuth to work!
-- Production: `https://api.popust.ba`
-- Staging: `https://backend-staging-a928.up.railway.app`
+**IMPORTANT:** Both `BACKEND_URL` and `FRONTEND_URL` must be set correctly for Google OAuth to work!
+- Production: `BACKEND_URL=https://api.popust.ba`, `FRONTEND_URL=https://popust.ba`
+- Staging: `BACKEND_URL=https://backend-staging-a928.up.railway.app`, `FRONTEND_URL=https://popust-ba-staging.up.railway.app`
 
 #### Backend Variables (Optional)
 ```
