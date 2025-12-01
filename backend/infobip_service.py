@@ -28,6 +28,14 @@ INFOBIP_ENABLED = bool(INFOBIP_API_KEY)
 INFOBIP_WHATSAPP_ENABLED = os.environ.get("INFOBIP_WHATSAPP_ENABLED", "true").lower() == "true"
 INFOBIP_SMS_ENABLED = os.environ.get("INFOBIP_SMS_ENABLED", "true").lower() == "true"
 
+# Startup logging
+print(f"📱 Infobip config: ENABLED={INFOBIP_ENABLED}, SMS={INFOBIP_SMS_ENABLED}, WhatsApp={INFOBIP_WHATSAPP_ENABLED}")
+print(f"📱 Infobip BASE_URL={INFOBIP_BASE_URL}, SENDER={INFOBIP_SMS_SENDER}")
+if INFOBIP_API_KEY:
+    print(f"📱 Infobip API key: {INFOBIP_API_KEY[:10]}...")
+else:
+    print("📱 Infobip API key: NOT SET")
+
 if not INFOBIP_ENABLED:
     logger.warning("Infobip API key not configured. WhatsApp/SMS/Email will be logged only.")
 
