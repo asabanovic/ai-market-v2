@@ -78,7 +78,7 @@ const emit = defineEmits<{
 }>()
 
 const { user } = useAuth()
-const { get, post } = useApi()
+const { get, put } = useApi()
 
 const cities = ref<string[]>([])
 const selectedCity = ref('')
@@ -107,7 +107,7 @@ async function saveCity() {
 
   isSaving.value = true
   try {
-    const response = await post('/api/profile', {
+    const response = await put('/auth/user/profile', {
       city: selectedCity.value
     })
 

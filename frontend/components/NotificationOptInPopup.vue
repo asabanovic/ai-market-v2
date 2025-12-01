@@ -23,26 +23,29 @@
 
         <!-- Content -->
         <div class="text-center mb-6">
+          <div class="inline-block bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full mb-3">
+            USKORO DOLAZI
+          </div>
           <h3 class="text-xl font-bold text-gray-900 mb-3">
-            Primajte notifikacije o popustima!
+            SMS obavještenja o popustima!
           </h3>
           <p class="text-gray-600 text-sm leading-relaxed mb-4">
-            Omogućite SMS i Viber notifikacije kako biste bili obaviješteni kada proizvodi koje pratite dobiju popust ili promijene cijenu.
+            Pripremamo nešto posebno! Uskoro ćete moći primati SMS obavještenja kada vaši omiljeni proizvodi budu na popustu. Ostavite broj telefona i budite među prvima koji će saznati!
           </p>
-          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-left">
-            <p class="text-sm text-purple-900 font-medium mb-2">Prednosti:</p>
+          <div class="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 text-left">
+            <p class="text-sm text-purple-900 font-medium mb-2">Zašto se prijaviti sada?</p>
             <ul class="text-sm text-purple-800 space-y-1">
               <li class="flex items-start">
-                <Icon name="mdi:check-circle" class="w-4 h-4 text-purple-600 mr-2 mt-0.5 flex-shrink-0" />
-                <span>Budite prvi koji sazna za nove popuste</span>
+                <Icon name="mdi:star" class="w-4 h-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
+                <span>Budite među prvima koji dobiju pristup</span>
               </li>
               <li class="flex items-start">
-                <Icon name="mdi:check-circle" class="w-4 h-4 text-purple-600 mr-2 mt-0.5 flex-shrink-0" />
-                <span>Pratite cijene omiljenih proizvoda</span>
+                <Icon name="mdi:bell-ring" class="w-4 h-4 text-purple-600 mr-2 mt-0.5 flex-shrink-0" />
+                <span>Nikad više ne propustite popust</span>
               </li>
               <li class="flex items-start">
-                <Icon name="mdi:check-circle" class="w-4 h-4 text-purple-600 mr-2 mt-0.5 flex-shrink-0" />
-                <span>Uštedite više novca i vremena</span>
+                <Icon name="mdi:cash-multiple" class="w-4 h-4 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+                <span>Uštedite novac na proizvodima koje volite</span>
               </li>
             </ul>
           </div>
@@ -79,16 +82,16 @@
           <button
             @click="handleAccept"
             :disabled="isSaving || (!hasPhoneNumber && phoneNumber && !isPhoneValid)"
-            class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+            class="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
           >
-            {{ isSaving ? 'Čuvanje...' : (hasPhoneNumber ? 'Omogući notifikacije' : 'Sačuvaj i omogući') }}
+            {{ isSaving ? 'Čuvanje...' : 'Obavijesti me kada bude dostupno!' }}
           </button>
           <button
             @click="handleDecline"
             :disabled="isSaving"
             class="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
-            Ne želim notifikacije
+            Možda kasnije
           </button>
         </div>
 

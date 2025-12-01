@@ -617,7 +617,7 @@ async function loadCities() {
 
 async function loadProfileData() {
   try {
-    const data = await get('/api/profile')
+    const data = await get('/auth/user/profile')
     packageInfo.value = data.package
     searchCounts.value = data.search_counts
     recentSearches.value = data.recent_searches || []
@@ -639,7 +639,7 @@ async function handleSubmit() {
   showSuccess.value = false
 
   try {
-    const response = await post('/api/profile', formData.value)
+    const response = await put('/auth/user/profile', formData.value)
 
     if (response.success) {
       showSuccess.value = true

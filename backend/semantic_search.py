@@ -4,6 +4,7 @@ Uses OpenAI embeddings and PostgreSQL pgvector for similarity search
 """
 import os
 import logging
+from datetime import date
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from sqlalchemy import text
@@ -152,13 +153,23 @@ def semantic_search(
                 '_score': float(row.similarity)  # For compatibility
             }
 
-            # Calculate discount info
-            if product['discount_price'] and product['base_price']:
+            # Check if discount has expired
+            is_expired = False
+            if row.expires:
+                is_expired = date.today() > row.expires
+
+            # Calculate discount info - only show discount if not expired
+            if product['discount_price'] and product['base_price'] and not is_expired:
                 product['discount_percent'] = round(
                     ((product['base_price'] - product['discount_price']) / product['base_price']) * 100
                 )
                 product['savings'] = round(product['base_price'] - product['discount_price'], 2)
             else:
+                # If expired, treat as regular product (no discount)
+                if is_expired:
+                    product['discount_price'] = None
+                    product['price'] = product['base_price']
+                    product['expires'] = None
                 product['discount_percent'] = 0
                 product['savings'] = 0
 
