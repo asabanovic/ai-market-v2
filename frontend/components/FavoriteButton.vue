@@ -5,14 +5,14 @@
     :class="[
       'transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
       showLabel
-        ? 'flex items-center justify-center gap-2 flex-1 py-3 px-6 rounded-lg font-medium shadow-sm hover:shadow-md'
+        ? 'inline-flex items-center gap-2 py-2.5 px-4 rounded-lg font-medium text-sm'
         : 'p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-md hover:scale-110 hover:shadow-lg',
       isFavorited
         ? showLabel
           ? 'bg-red-500 hover:bg-red-600 text-white'
           : 'text-red-500 hover:text-red-600'
         : showLabel
-          ? 'bg-white border-2 border-gray-200 text-gray-700 hover:border-red-500 hover:text-red-500'
+          ? 'bg-white border border-gray-300 text-gray-700 hover:border-red-500 hover:text-red-500'
           : 'text-gray-600 hover:text-red-500'
     ]"
     :aria-label="isFavorited ? 'Ukloni iz omiljenih' : 'Sačuvaj u omiljene'"
@@ -21,10 +21,10 @@
     <Icon
       :name="isFavorited ? 'mdi:heart' : 'mdi:heart-outline'"
       :style="{ width: iconSize + 'px', height: iconSize + 'px' }"
-      class="transition-transform"
+      class="transition-transform flex-shrink-0"
       :class="{ 'animate-bounce': loading }"
     />
-    <span v-if="showLabel">{{ isFavorited ? 'Ukloni iz omiljenih' : 'Dodaj u omiljene' }}</span>
+    <span v-if="showLabel" class="whitespace-nowrap">{{ isFavorited ? 'U omiljenima' : 'Omiljeno' }}</span>
   </button>
 </template>
 

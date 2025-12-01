@@ -380,7 +380,8 @@ def product_to_dict(product):
         'discount_percentage': discount_percentage,
         'city': safe_get(product, 'city'),
         'category': safe_get(product, 'category'),
-        'business': business_data
+        'business': business_data,
+        'enriched_description': safe_get(product, 'enriched_description'),
     }
 
 
@@ -696,10 +697,11 @@ def api_product_detail(product_id):
         'base_price': product.base_price,
         'discount_price': product.discount_price,
         'image_path': product.image_path,
-        'product_image_url': product.product_image_url,
+        'product_url': product.product_url,
         'expires': product.expires.isoformat() if product.expires else None,
         'category': product.category,
         'city': product.city,
+        'enriched_description': product.enriched_description,
         'business': {
             'id': business.id,
             'name': business.name,

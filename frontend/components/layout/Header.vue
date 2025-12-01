@@ -330,11 +330,11 @@
 <script setup lang="ts">
 const { isAuthenticated, authReady, user, logout } = useAuth()
 const { get, put } = useApi()
+const { searchCounts, refreshCredits, clearCredits } = useSearchCredits()
 
 const showMobileMenu = ref(false)
 const showProfileDropdown = ref(false)
 const showSidebar = ref(false)
-const searchCounts = ref<any>(null)
 const logoError = ref(false)
 
 // City selector state
@@ -380,7 +380,7 @@ const userInitials = computed(() => {
 
 onMounted(async () => {
   if (isAuthenticated.value) {
-    await loadSearchCounts()
+    await refreshCredits()
     await loadCities()
   }
 })
@@ -396,22 +396,12 @@ async function loadCities() {
 
 watch(isAuthenticated, async (newVal) => {
   if (newVal) {
-    await loadSearchCounts()
+    await refreshCredits()
     await loadCities()
   } else {
-    searchCounts.value = null
+    clearCredits()
   }
 })
-
-async function loadSearchCounts() {
-  try {
-    const data = await get('/auth/search-counts')
-    searchCounts.value = data
-    console.log('Search counts loaded:', data)
-  } catch (error) {
-    console.error('Error loading search counts:', error)
-  }
-}
 
 function formatResetDate(dateString: string): string {
   try {

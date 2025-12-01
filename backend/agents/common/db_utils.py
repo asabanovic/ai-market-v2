@@ -1,5 +1,6 @@
 """Database utilities for agents."""
 
+from datetime import date
 from typing import List, Dict, Any, Optional, Callable
 from sqlalchemy import text
 from agents.common.llm_utils import get_embedding_model
@@ -72,17 +73,32 @@ def search_by_vector(
     products = []
 
     for row in result:
+        # Check if discount has expired
+        is_expired = False
+        if row.expires:
+            is_expired = date.today() > row.expires
+
+        # If discount has expired, treat as regular product
+        if is_expired:
+            discount_price = None
+            current_price = row.base_price
+            expires = None
+        else:
+            discount_price = row.discount_price
+            current_price = row.discount_price if row.discount_price else row.base_price
+            expires = row.expires
+
         product = {
             "id": row.id,
             "title": row.title,
             "base_price": row.base_price,
-            "discount_price": row.discount_price,
-            "current_price": row.discount_price if row.discount_price else row.base_price,
+            "discount_price": discount_price,
+            "current_price": current_price,
             "category": row.category,
             "tags": row.tags,
             "enriched_description": row.enriched_description,
             "city": row.city,
-            "expires": row.expires,
+            "expires": expires,
             "image_path": row.image_path,
             "similarity": float(row.similarity),
             "business": {

@@ -309,6 +309,7 @@
 const config = useRuntimeConfig()
 const { get, post, put } = useApi()
 const { user, isAuthenticated, authReady, checkAuth } = useAuth()
+const { updateCreditsRemaining } = useSearchCredits()
 
 // Reactive state
 const searchQuery = ref('')
@@ -812,9 +813,19 @@ function handleCitySaved(city: string) {
   }
 }
 
-// Watch for store selection changes (for anonymous users)
-watch(selectedStoreIds, (newVal) => {
-  if (!isAuthenticated.value) {
+// Watch for store selection changes - save preferences
+watch(selectedStoreIds, async (newVal) => {
+  if (isAuthenticated.value) {
+    // Save to backend for authenticated users
+    try {
+      await put('/auth/user/store-preferences', {
+        preferred_stores: newVal
+      })
+    } catch (error) {
+      console.error('Error saving store preferences:', error)
+    }
+  } else {
+    // Save to localStorage for anonymous users
     localStorage.setItem('preferred_stores', JSON.stringify(newVal))
   }
 })
@@ -906,6 +917,11 @@ async function performSearch() {
         credits_remaining: data.credits_remaining,
         is_anonymous: data.is_anonymous,  // Show teasers if true
         original_query: query  // Save query for login redirect
+      }
+
+      // Update credits in header immediately
+      if (data.credits_remaining !== undefined) {
+        updateCreditsRemaining(data.credits_remaining)
       }
 
       // If this was an anonymous search, mark it as used in localStorage

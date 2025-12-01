@@ -115,27 +115,33 @@
                 <span>Popust važi do: {{ formatDate(product.expires) }}</span>
               </div>
             </div>
+
+            <!-- Description inside Detalji -->
+            <div v-if="product.enriched_description" class="mt-6 pt-4 border-t border-gray-200">
+              <p class="text-gray-700 leading-relaxed text-sm">
+                {{ product.enriched_description }}
+              </p>
+            </div>
           </div>
         </div>
 
-        <!-- Product Description (below image/chart) -->
-        <div v-if="product.enriched_description || product.description" class="mb-8 bg-gray-50 rounded-2xl p-6">
+        <!-- Product Description (below image/chart) - shows when there IS price history -->
+        <div v-if="priceHistory.length > 1 && product.enriched_description" class="mb-8 bg-gray-50 rounded-2xl p-6">
           <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
             <Icon name="mdi:text-box-outline" class="w-5 h-5 text-purple-600" />
             Opis proizvoda
           </h3>
           <p class="text-gray-700 leading-relaxed">
-            {{ product.enriched_description || product.description }}
+            {{ product.enriched_description }}
           </p>
         </div>
 
         <!-- Product Meta Info -->
         <div class="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
           <!-- Business Info with Logo -->
-          <NuxtLink
+          <div
             v-if="product.business"
-            :to="`/radnja/${product.business.id}`"
-            class="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity"
+            class="flex items-center gap-3 mb-4"
           >
             <div
               v-if="product.business.logo || product.business.logo_path"
@@ -154,7 +160,7 @@
             </div>
 
             <div>
-              <span class="text-gray-900 font-semibold text-lg hover:text-purple-600 transition-colors">
+              <span class="text-gray-900 font-semibold text-lg">
                 {{ product.business.name }}
               </span>
               <div v-if="product.city || product.business.city" class="text-gray-500 text-sm flex items-center gap-1">
@@ -162,7 +168,7 @@
                 {{ product.city || product.business.city }}
               </div>
             </div>
-          </NuxtLink>
+          </div>
 
           <!-- Category and Expiry -->
           <div class="flex flex-wrap gap-3 mb-6">
@@ -180,16 +186,16 @@
           </div>
 
           <!-- Action Buttons -->
-          <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex flex-wrap gap-3">
             <!-- Add to Shopping List (only for logged-in users) -->
             <button
               v-if="isAuthenticated"
               @click="addToShoppingList"
               :disabled="isAddingToList"
-              class="flex items-center justify-center gap-2 flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              class="inline-flex items-center gap-2 py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Icon name="mdi:playlist-plus" class="w-5 h-5" />
-              <span>Dodaj u listu</span>
+              <Icon name="mdi:playlist-plus" class="w-5 h-5 flex-shrink-0" />
+              <span class="whitespace-nowrap">Dodaj u listu</span>
             </button>
 
             <!-- Favorite Button -->
@@ -198,26 +204,9 @@
               :size="20"
               :show-label="true"
               @updated="handleFavoriteUpdate"
+              class="!flex-none"
             />
 
-            <!-- Store finder button (only shown if user has city set) -->
-            <button
-              v-if="user?.city && product.business?.name"
-              @click="showMapModal = true"
-              class="flex items-center justify-center gap-2 flex-1 py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium shadow-sm hover:shadow-md"
-            >
-              <Icon name="mdi:map-marker" class="w-5 h-5" />
-              <span>Pronađi prodavnicu</span>
-            </button>
-
-            <!-- Share Button -->
-            <button
-              @click="shareProduct"
-              class="flex items-center justify-center gap-2 flex-1 py-3 px-6 bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md"
-            >
-              <Icon name="mdi:share-variant" class="w-5 h-5" />
-              <span>Podijeli</span>
-            </button>
           </div>
         </div>
 
@@ -294,66 +283,6 @@
           </div>
         </div>
 
-        <!-- Map Modal -->
-        <Teleport to="body">
-          <div
-            v-if="showMapModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4"
-            @click.self="showMapModal = false"
-          >
-            <!-- Backdrop -->
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showMapModal = false"></div>
-
-            <!-- Modal Content -->
-            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-              <!-- Header -->
-              <div class="flex items-center justify-between p-5 border-b">
-                <div>
-                  <h3 class="text-xl font-bold text-gray-900">Pronađi prodavnicu</h3>
-                </div>
-                <button
-                  @click="showMapModal = false"
-                  class="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <Icon name="mdi:close" class="w-6 h-6 text-gray-500" />
-                </button>
-              </div>
-
-              <!-- Content -->
-              <div class="p-6">
-                <!-- Store Info -->
-                <div class="flex items-center gap-4 mb-6">
-                  <div class="w-16 h-16 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <Icon name="mdi:store" class="w-8 h-8 text-purple-600" />
-                  </div>
-                  <div>
-                    <h4 class="font-bold text-gray-900 text-lg">{{ product?.business?.name }}</h4>
-                    <p class="text-gray-500 flex items-center gap-1">
-                      <Icon name="mdi:map-marker" class="w-4 h-4" />
-                      {{ user?.city }}, Bosna i Hercegovina
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Info Text -->
-                <p class="text-gray-600 text-sm mb-6">
-                  Kliknite na dugme ispod da pronađete najbližu prodavnicu "{{ product?.business?.name }}" u vašem gradu.
-                </p>
-
-                <!-- Google Maps Button -->
-                <a
-                  :href="googleMapsUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="flex items-center justify-center gap-2 w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-4 px-6 rounded-xl transition-colors text-lg"
-                >
-                  <Icon name="mdi:google-maps" class="w-6 h-6" />
-                  <span>Otvori u Google Maps</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </Teleport>
       </div>
 
       <!-- Loading state -->
@@ -410,13 +339,13 @@ const api = useApi()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
 const { handleApiError, showSuccess } = useCreditsToast()
-const { isAuthenticated, refreshUser, user } = useAuth()
+const { isAuthenticated, refreshUser } = useAuth()
 const { triggerCreditAnimation } = useCreditAnimation()
+const { refreshCredits } = useSearchCredits()
 
 const product = ref<any>(null)
 const isLoading = ref(false)
 const priceHistory = ref<any[]>([])
-const showMapModal = ref(false)
 const isAddingToList = ref(false)
 
 // Voting state
@@ -431,14 +360,6 @@ const newComment = ref('')
 const isSubmittingComment = ref(false)
 
 const commentLength = computed(() => newComment.value.trim().length)
-
-// Map URL computed properties
-const googleMapsUrl = computed(() => {
-  if (!product.value?.business?.name || !user.value?.city) return ''
-  const query = encodeURIComponent(`${product.value.business.name} ${user.value.city} Bosnia`)
-  return `https://www.google.com/maps/search/?api=1&query=${query}`
-})
-
 
 const formatPrice = (price: number) => {
   return price.toFixed(2)
@@ -588,25 +509,6 @@ function handleFavoriteUpdate() {
   favoritesStore.fetchFavorites()
 }
 
-async function shareProduct() {
-  if (!product.value) return
-
-  try {
-    const productUrl = `${window.location.origin}/proizvodi/${product.value.id}`
-    await navigator.clipboard.writeText(productUrl)
-    showSuccess('Link kopiran! Podijelite sa prijateljima.')
-  } catch (error) {
-    console.error('Error copying link:', error)
-    const textArea = document.createElement('textarea')
-    textArea.value = `${window.location.origin}/proizvodi/${product.value.id}`
-    document.body.appendChild(textArea)
-    textArea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textArea)
-    showSuccess('Link kopiran!')
-  }
-}
-
 // Voting functions
 async function loadVotes() {
   try {
@@ -646,6 +548,7 @@ async function handleVote(voteType: 'up' | 'down') {
       if (response.credits_earned > 0) {
         triggerCreditAnimation(response.credits_earned)
         await refreshUser()
+        await refreshCredits()
       }
     }
   } catch (error: any) {
@@ -683,8 +586,11 @@ async function submitComment() {
     if (response.success) {
       comments.value.unshift(response.comment)
       newComment.value = ''
-      triggerCreditAnimation(response.credits_earned)
-      await refreshUser()
+      if (response.credits_earned > 0) {
+        triggerCreditAnimation(response.credits_earned)
+        await refreshUser()
+        await refreshCredits()
+      }
     }
   } catch (error: any) {
     console.error('Error submitting comment:', error)
