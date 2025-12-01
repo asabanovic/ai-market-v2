@@ -39,7 +39,7 @@ def init_schema():
         logger.info("Database schema initialized successfully")
 
         # Seed default packages if they don't exist
-        from models import Package
+        from models import Package, User
         package_count = db.session.query(Package).count()
         logger.info(f"Found {package_count} packages in database")
 
@@ -54,6 +54,39 @@ def init_schema():
                 db.session.add(package)
             db.session.commit()
             logger.info("Default packages seeded successfully")
+
+        # Ensure admin account exists and has admin privileges
+        admin_email = os.environ.get('ADMIN_EMAIL', 'adnanxteam@gmail.com')
+        admin_user = db.session.query(User).filter_by(email=admin_email).first()
+
+        if not admin_user:
+            # Create admin user
+            from datetime import datetime
+            from werkzeug.security import generate_password_hash
+            admin_password = os.environ.get('ADMIN_PASSWORD')
+            admin_user = User(
+                id=str(datetime.now().timestamp()),
+                email=admin_email,
+                first_name="Admin",
+                last_name="User",
+                city="Tuzla",
+                is_verified=True,
+                is_admin=True,
+                package_id=1,
+                password_hash=generate_password_hash(admin_password) if admin_password else None
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+            logger.info(f"Admin account created for {admin_email}")
+        else:
+            # Make sure existing user is admin and verified
+            if not admin_user.is_admin or not admin_user.is_verified:
+                admin_user.is_admin = True
+                admin_user.is_verified = True
+                db.session.commit()
+                logger.info(f"Admin privileges updated for {admin_email}")
+            else:
+                logger.info(f"Admin account already configured for {admin_email}")
 
         # Verify key tables exist
         from sqlalchemy import inspect
