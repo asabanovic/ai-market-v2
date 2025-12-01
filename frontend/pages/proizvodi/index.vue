@@ -166,7 +166,7 @@
 
 <script setup lang="ts">
 const { get } = useApi()
-const { user } = useAuth()
+const { user, authReady } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
@@ -189,8 +189,8 @@ const filters = ref({
   sort: 'discount_desc'
 })
 
-// Load filters from URL query params
-onMounted(async () => {
+// Initialize page when auth is ready
+const initPage = () => {
   // Redirect non-logged-in users to login page
   if (!user.value) {
     router.push('/prijava?redirect=/proizvodi')
@@ -210,6 +210,20 @@ onMounted(async () => {
   loadBusinesses()
   loadCategories()
   loadProducts()
+}
+
+// Wait for auth to be ready before initializing
+onMounted(() => {
+  if (authReady.value) {
+    initPage()
+  }
+})
+
+// Watch for authReady to become true (if not ready on mount)
+watch(authReady, (ready) => {
+  if (ready) {
+    initPage()
+  }
 })
 
 // Watch for route changes

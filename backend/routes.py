@@ -283,19 +283,9 @@ def product_to_dict(product):
     discount_price = safe_get(product, 'discount_price')
     expires_val = safe_get(product, 'expires')
 
-    # Calculate discount information
-    has_discount = (discount_price is not None
-                    and base_price is not None and float(
-                        discount_price) < float(base_price))
-
-    discount_percentage = 0
-    if has_discount:
-        discount_percentage = round(
-            ((float(base_price) - float(discount_price)) /
-             float(base_price)) * 100)
-
-    # Normalize expiry date
+    # Normalize expiry date first (needed for has_discount check)
     expires_iso = None
+    expires_date = None
     if expires_val:
         if isinstance(expires_val, str):
             try:
@@ -312,7 +302,23 @@ def product_to_dict(product):
                 except:
                     expires_iso = None
         elif hasattr(expires_val, 'isoformat'):
+            expires_date = expires_val if isinstance(expires_val, date) else expires_val.date() if hasattr(expires_val, 'date') else None
             expires_iso = expires_val.isoformat()
+
+    # Check if discount has expired
+    is_expired = expires_date is not None and date.today() > expires_date
+
+    # Calculate discount information - only show discount if not expired
+    has_discount = (discount_price is not None
+                    and base_price is not None
+                    and float(discount_price) < float(base_price)
+                    and not is_expired)
+
+    discount_percentage = 0
+    if has_discount:
+        discount_percentage = round(
+            ((float(base_price) - float(discount_price)) /
+             float(base_price)) * 100)
 
     # Get business information
     business_data = {
@@ -340,13 +346,14 @@ def product_to_dict(product):
             'city': safe_get(product, 'business_city')
         }
 
+    # If discount is expired, don't show discount info - product becomes regular
     return {
         'id': safe_get(product, 'id'),
         'title': safe_get(product, 'title'),
         'image_path': safe_get(product, 'image_path'),
         'base_price': float(base_price) if base_price else 0,
-        'discount_price': float(discount_price) if discount_price else None,
-        'expires': expires_iso,
+        'discount_price': float(discount_price) if has_discount else None,
+        'expires': expires_iso if has_discount else None,
         'has_discount': has_discount,
         'discount_percentage': discount_percentage,
         'city': safe_get(product, 'city'),
