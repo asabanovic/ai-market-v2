@@ -22,11 +22,9 @@
             <Icon name="mdi:close" class="w-6 h-6" />
           </button>
 
-          <!-- Icon -->
+          <!-- Logo -->
           <div class="flex justify-center mb-4">
-            <div class="bg-purple-100 rounded-full p-4">
-              <Icon name="mdi:gift" class="w-12 h-12 text-purple-600" />
-            </div>
+            <img src="/logo.svg" alt="Popust.ba" class="h-12 w-auto" />
           </div>
 
           <!-- Content -->
