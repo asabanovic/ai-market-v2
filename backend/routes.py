@@ -109,7 +109,7 @@ if replit_bp:
 
 # Add Google OAuth support using Flask-Dance
 from flask_dance.contrib.google import make_google_blueprint, google
-from flask_dance.consumer import oauth_authorized
+from flask_dance.consumer import oauth_authorized, oauth_error
 import os
 
 # Create Google OAuth blueprint with explicit redirect URL
@@ -148,19 +148,37 @@ def handle_preflight():
 
 # Google OAuth authorized callback (only if Google OAuth is enabled)
 if google_bp:
+    # Helper to get frontend URL
+    def get_frontend_url():
+        return os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+
+    # Handle OAuth errors (prevents infinite redirect loop)
+    @oauth_error.connect_via(google_bp)
+    def google_oauth_error(blueprint, message, response):
+        app.logger.error(f"Google OAuth error: message={message}, response={response}")
+        # Log session state for debugging
+        app.logger.error(f"Session contents at error time: {dict(session)}")
+        frontend_url = get_frontend_url()
+        # Redirect to frontend with error instead of restarting OAuth
+        from urllib.parse import quote
+        error_msg = quote(str(message) if message else "OAuth authentication failed")
+        return redirect(f"{frontend_url}/prijava?error={error_msg}")
+
     @oauth_authorized.connect_via(google_bp)
     def google_logged_in(blueprint, token):
+        frontend_url = get_frontend_url()
+
         try:
             if not token:
                 app.logger.error("OAuth token missing")
-                return False
+                return redirect(f"{frontend_url}/prijava?error=no_token")
 
             # Get user info from Google
             resp = blueprint.session.get("/oauth2/v1/userinfo")
             if not resp.ok:
                 app.logger.error(
                     f"Failed to get Google user info: {resp.status_code}")
-                return False
+                return redirect(f"{frontend_url}/prijava?error=userinfo_failed")
 
             google_info = resp.json()
             google_user_id = str(google_info.get("id"))
@@ -168,7 +186,7 @@ if google_bp:
 
             if not email:
                 app.logger.error("No email provided by Google OAuth")
-                return False
+                return redirect(f"{frontend_url}/prijava?error=no_email")
 
             app.logger.info(f"Google OAuth login attempt for email: {email}")
 
@@ -227,7 +245,7 @@ if google_bp:
                         db.session.rollback()
                         app.logger.error(
                             f"Database error creating user {email}: {db_error}")
-                        return False
+                        return redirect(f"{frontend_url}/prijava?error=db_error")
             else:
                 app.logger.info(f"Existing user login via Google OAuth: {email}")
 
@@ -238,14 +256,12 @@ if google_bp:
             token = generate_jwt_token(user.id, user.email)
 
             # Redirect to frontend with token
-            # Use FRONTEND_URL env var, fallback to localhost:3000 for local dev
-            frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
             return redirect(f"{frontend_url}/auth/callback?token={token}")
 
         except Exception as e:
             app.logger.error(f"OAuth callback error: {e}")
             db.session.rollback()
-            return False
+            return redirect(f"{frontend_url}/prijava?error=callback_error")
 
 
 # Make session permanent
