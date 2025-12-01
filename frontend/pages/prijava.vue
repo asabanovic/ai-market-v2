@@ -257,10 +257,32 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const resendCooldown = ref(0)
+const phoneNumberTouched = ref(false)
 
 const emailFormData = ref({
   email: '',
   password: ''
+})
+
+// Phone validation - accepts Bosnian mobile formats
+// +387 6X XXX XXX, 00387 6X XXX XXX, 06X XXX XXX
+const isPhoneNumberValid = computed(() => {
+  const phone = phoneNumber.value.trim()
+  if (!phone) return false
+
+  // Remove spaces, dashes, and parentheses for validation
+  const cleanPhone = phone.replace(/[\s\-\(\)]/g, '')
+
+  const patterns = [
+    /^\+3876\d{7,8}$/,      // +387 6X XXX XXX(X)
+    /^003876\d{7,8}$/,      // 00387 6X XXX XXX(X)
+    /^06\d{7,8}$/,          // 06X XXX XXX(X)
+    /^\+3873\d{7,8}$/,      // +387 3X XXX XXX(X) landline
+    /^003873\d{7,8}$/,      // 00387 3X XXX XXX(X) landline
+    /^03\d{7,8}$/,          // 03X XXX XXX(X) landline
+  ]
+
+  return patterns.some(pattern => pattern.test(cleanPhone))
 })
 
 // Handle phone login
