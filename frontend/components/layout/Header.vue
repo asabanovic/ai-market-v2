@@ -6,9 +6,9 @@
         <div class="flex items-center">
           <NuxtLink to="/" class="flex items-center" :active-class="''" :exact-active-class="''">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="Popust Logo"
-              class="h-10 md:h-14 w-auto md:px-4 py-2 transition-transform hover:scale-105"
+              class="h-12 md:h-16 w-auto md:px-4 py-2 transition-transform hover:scale-105"
               @error="logoError = true"
             />
             <span v-if="logoError" class="text-xl md:text-2xl font-bold text-purple-600 px-4 md:px-8">Popust</span>

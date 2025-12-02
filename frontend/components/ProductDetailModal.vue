@@ -62,11 +62,12 @@
             <!-- Business Info -->
             <div class="bg-gray-50 rounded-xl p-4">
               <div class="flex items-center gap-3">
-                <div v-if="product.business?.logo" class="w-12 h-12 rounded-lg overflow-hidden">
+                <div v-if="product.business?.logo && !businessLogoError" class="w-12 h-12 rounded-lg overflow-hidden">
                   <img
                     :src="`${config.public.apiBase}/static/${product.business.logo}`"
                     :alt="product.business.name"
                     class="w-full h-full object-contain"
+                    @error="businessLogoError = true"
                   />
                 </div>
                 <div v-else class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center text-white text-xl font-bold">
@@ -89,7 +90,7 @@
                   :disabled="isVoting"
                   :class="[
                     'flex flex-col items-center gap-2 p-4 rounded-xl transition-all',
-                    userVote === 'up' ? 'bg-green-500 text-white scale-110' : 'bg-white text-gray-700 hover:bg-green-50 hover:scale-105'
+                    userVote === 'up' ? 'bg-green-500 text-white scale-110' : 'text-gray-700 hover:bg-green-50 hover:scale-105'
                   ]"
                 >
                   <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
@@ -104,7 +105,7 @@
                   :disabled="isVoting"
                   :class="[
                     'flex flex-col items-center gap-2 p-4 rounded-xl transition-all',
-                    userVote === 'down' ? 'bg-red-500 text-white scale-110' : 'bg-white text-gray-700 hover:bg-red-50 hover:scale-105'
+                    userVote === 'down' ? 'bg-red-500 text-white scale-110' : 'text-gray-700 hover:bg-red-50 hover:scale-105'
                   ]"
                 >
                   <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
@@ -133,7 +134,7 @@
               <textarea
                 v-model="newComment"
                 :disabled="isSubmittingComment"
-                placeholder="Ostavite komentar (min 20, max 1000 karaktera)..."
+                placeholder="Ostavite komentar (min 10, max 1000 karaktera)..."
                 rows="4"
                 class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all resize-none text-gray-900"
                 @input="validateComment"
@@ -141,8 +142,8 @@
               <div class="flex items-center justify-between mt-2">
                 <span :class="['text-sm', commentValidation.isValid ? 'text-gray-500' : 'text-red-500']">
                   {{ newComment.length }} / 1000 karaktera
-                  <span v-if="newComment.length > 0 && newComment.length < 20" class="ml-2 text-red-500">
-                    (min 20)
+                  <span v-if="newComment.length > 0 && newComment.length < 10" class="ml-2 text-red-500">
+                    (min 10)
                   </span>
                 </span>
                 <button
@@ -231,6 +232,7 @@ const isVoting = ref(false)
 const newComment = ref('')
 const isSubmittingComment = ref(false)
 const commentValidation = ref({ isValid: false, message: '' })
+const businessLogoError = ref(false)
 
 // Computed
 const discountPercentage = computed(() => {
@@ -288,12 +290,12 @@ const formatCommentDate = (dateString: string) => {
 
 const validateComment = () => {
   const length = newComment.value.trim().length
-  commentValidation.value.isValid = length >= 20 && length <= 1000
+  commentValidation.value.isValid = length >= 10 && length <= 1000
 
   if (length === 0) {
     commentValidation.value.message = ''
-  } else if (length < 20) {
-    commentValidation.value.message = `Potrebno još ${20 - length} karaktera`
+  } else if (length < 10) {
+    commentValidation.value.message = `Potrebno još ${10 - length} karaktera`
   } else if (length > 1000) {
     commentValidation.value.message = `Previše karaktera (${length - 1000} preko limita)`
   } else {
@@ -404,6 +406,7 @@ const submitComment = async () => {
 // Watch for modal opening to load data
 watch(() => props.show, (newValue) => {
   if (newValue) {
+    businessLogoError.value = false
     loadComments()
     loadVotes()
   }
