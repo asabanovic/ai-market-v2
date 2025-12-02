@@ -14,7 +14,7 @@ from sqlalchemy import or_, and_, func, case
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
 from app import app, db, csrf
-from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role
+from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, ShoppingListItem
 from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
@@ -1340,6 +1340,9 @@ def api_delete_business(business_id):
             }), 403
 
         business_name = business.name
+
+        # Delete shopping list items that reference this business
+        ShoppingListItem.query.filter_by(business_id=business_id).delete()
 
         # Delete all products associated with this business
         Product.query.filter_by(business_id=business_id).delete()
@@ -3422,6 +3425,7 @@ def delete_single_product(business_id, product_id):
 
 # Upload product image to S3
 @app.route('/biznisi/<int:business_id>/proizvodi/<int:product_id>/upload-image', methods=['POST'])
+@csrf.exempt
 @require_jwt_auth
 def upload_product_image(business_id, product_id):
     """Upload product image to S3 and update product"""
