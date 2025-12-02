@@ -222,7 +222,7 @@ class Product(db.Model):
 # Product embeddings table for semantic search
 class ProductEmbedding(db.Model):
     __tablename__ = 'product_embeddings'
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), primary_key=True, nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), primary_key=True, nullable=False)
     embedding = db.Column(Vector(1536), nullable=False)  # OpenAI text-embedding-3-small dimension
     embedding_text = db.Column(db.Text, nullable=True)  # Text that was embedded
     model_version = db.Column(db.String, nullable=True)  # e.g., 'text-embedding-3-small'
@@ -231,7 +231,7 @@ class ProductEmbedding(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationship
-    product = db.relationship('Product', backref='embedding_data', lazy=True)
+    product = db.relationship('Product', backref=db.backref('embedding_data', passive_deletes=True), lazy=True)
 
 # Product price history table for tracking price changes
 class ProductPriceHistory(db.Model):
@@ -243,7 +243,7 @@ class ProductPriceHistory(db.Model):
     recorded_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
 
     # Relationship
-    product = db.relationship('Product', backref='price_history', lazy=True)
+    product = db.relationship('Product', backref=db.backref('price_history', passive_deletes=True), lazy=True)
 
     __table_args__ = (
         db.Index('idx_price_history_product_id', 'product_id'),
@@ -446,11 +446,11 @@ class Favorite(db.Model):
     __tablename__ = 'favorites'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
-    product = db.relationship('Product', backref='favorites')
+    product = db.relationship('Product', backref=db.backref('favorites', passive_deletes=True))
 
     __table_args__ = (
         UniqueConstraint('user_id', 'product_id', name='uq_user_product_favorite'),
@@ -506,8 +506,8 @@ class ShoppingListItem(db.Model):
     __tablename__ = 'shopping_list_items'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     list_id = db.Column(db.Integer, db.ForeignKey('shopping_lists.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)  # Store-specific offer
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False)  # Store-specific offer
     qty = db.Column(db.Integer, default=1, nullable=False)
 
     # Price snapshots at time of addition
@@ -520,7 +520,7 @@ class ShoppingListItem(db.Model):
     purchased_at = db.Column(db.DateTime, nullable=True)  # When item was marked as purchased
 
     # Relationships
-    product = db.relationship('Product', backref='shopping_list_items')
+    product = db.relationship('Product', backref=db.backref('shopping_list_items', passive_deletes=True))
     business = db.relationship('Business', backref='shopping_list_items')
 
     __table_args__ = (
@@ -575,14 +575,14 @@ class SMSOutbox(db.Model):
 class ProductComment(db.Model):
     __tablename__ = 'product_comments'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     comment_text = db.Column(db.Text, nullable=False)  # 20-1000 characters
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
-    product = db.relationship('Product', backref='comments')
+    product = db.relationship('Product', backref=db.backref('comments', passive_deletes=True))
     user = db.relationship('User', backref='product_comments')
 
     __table_args__ = (
@@ -595,14 +595,14 @@ class ProductComment(db.Model):
 class ProductVote(db.Model):
     __tablename__ = 'product_votes'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     vote_type = db.Column(db.String, nullable=False)  # 'up' or 'down'
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
-    product = db.relationship('Product', backref='votes')
+    product = db.relationship('Product', backref=db.backref('votes', passive_deletes=True))
     user = db.relationship('User', backref='product_votes')
 
     __table_args__ = (
@@ -617,13 +617,13 @@ class UserEngagement(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     activity_type = db.Column(db.String, nullable=False)  # 'vote_up', 'vote_down', 'comment'
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     credits_earned = db.Column(db.Integer, nullable=False)  # +1 for votes, +2 for comments
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     user = db.relationship('User', backref='engagements')
-    product = db.relationship('Product', backref='engagements')
+    product = db.relationship('Product', backref=db.backref('engagements', passive_deletes=True))
 
     __table_args__ = (
         db.Index('idx_user_engagements_user_id', 'user_id'),
@@ -661,7 +661,7 @@ class Notification(db.Model):
 
     # Relationships
     user = db.relationship('User', backref='notifications')
-    product = db.relationship('Product', backref='notifications')
+    product = db.relationship('Product', backref=db.backref('notifications', passive_deletes=True))
 
     __table_args__ = (
         db.Index('idx_notifications_user_id', 'user_id'),

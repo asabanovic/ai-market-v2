@@ -14,7 +14,7 @@ from sqlalchemy import or_, and_, func, case
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
 from app import app, db, csrf
-from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, ShoppingListItem
+from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role
 from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
@@ -1341,10 +1341,7 @@ def api_delete_business(business_id):
 
         business_name = business.name
 
-        # Delete shopping list items that reference this business
-        ShoppingListItem.query.filter_by(business_id=business_id).delete()
-
-        # Delete all products associated with this business
+        # Delete all products associated with this business (CASCADE handles related records)
         Product.query.filter_by(business_id=business_id).delete()
 
         # Delete all business memberships
@@ -3295,6 +3292,7 @@ def bulk_import_products(business_id):
 def delete_all_products(business_id):
     business = Business.query.get_or_404(business_id)
 
+    # CASCADE will handle related records
     deleted_count = Product.query.filter_by(business_id=business_id).count()
     Product.query.filter_by(business_id=business_id).delete()
     db.session.commit()
@@ -3385,6 +3383,7 @@ def update_single_product(business_id, product_id):
 
 # Delete single product
 @app.route('/biznisi/<int:business_id>/proizvodi/<int:product_id>', methods=['DELETE'])
+@csrf.exempt
 @require_jwt_auth
 def delete_single_product(business_id, product_id):
     """Delete a single product"""
@@ -3403,7 +3402,7 @@ def delete_single_product(business_id, product_id):
                 'error': 'Proizvod nije pronađen ili ne pripada ovom biznisu'
             }), 404
 
-        # Delete the product
+        # Delete the product (CASCADE will handle related records)
         db.session.delete(product)
         db.session.commit()
 
@@ -3416,6 +3415,8 @@ def delete_single_product(business_id, product_id):
 
     except Exception as e:
         db.session.rollback()
+        import traceback
+        traceback.print_exc()
         app.logger.error(f"Delete product error: {e}")
         return jsonify({
             'success': False,
@@ -3669,6 +3670,8 @@ def bulk_delete_products(business_id):
                 'success': False,
                 'error': 'product_ids mora biti array'
             }), 400
+
+        # CASCADE will handle related records
 
         # Validate all products belong to this business
         deleted_count = Product.query.filter(
