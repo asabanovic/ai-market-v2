@@ -1,6 +1,13 @@
 export default defineNuxtConfig({
   devtools: { enabled: false },
 
+  // Generate unique build ID for cache busting
+  vite: {
+    define: {
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
+  },
+
   modules: [
     // '@nuxt/image', // Temporarily disabled to test static file serving
     '@nuxt/icon',
@@ -96,9 +103,16 @@ export default defineNuxtConfig({
       {
         baseURL: '/',
         dir: '../../public',
-        maxAge: 60 * 60 * 24 * 365 // 1 year cache for static assets
+        maxAge: 60 * 60 * 24 * 7 // 1 week cache for static assets (reduced from 1 year)
       }
     ],
+    // Add cache headers for different content types
+    routeRules: {
+      // HTML pages - no cache to always get fresh content
+      '/**': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
+      // Hashed assets (_nuxt/) - long cache since hash changes on content change
+      '/_nuxt/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+    },
   },
 
   // CSS
