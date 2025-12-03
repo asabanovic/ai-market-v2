@@ -85,16 +85,18 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Krediti</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OTP Kod</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrovan</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
+              <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50 cursor-pointer" @click="openUserProfile(user.id)">
                 <!-- User -->
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
                     <div>
-                      <div class="text-sm font-medium text-gray-900">
+                      <div class="text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors">
                         {{ user.first_name || 'N/A' }} {{ user.last_name || '' }}
+                        <Icon name="mdi:open-in-new" class="w-3 h-3 inline ml-1 opacity-0 group-hover:opacity-100" />
                       </div>
                       <div class="text-sm text-gray-500">{{ user.city || 'N/A' }}</div>
                     </div>
@@ -219,6 +221,17 @@
                 <!-- Created At -->
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {{ formatDate(user.created_at) }}
+                </td>
+
+                <!-- Actions -->
+                <td class="px-6 py-4 whitespace-nowrap" @click.stop>
+                  <button
+                    @click="openUserProfile(user.id)"
+                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    <Icon name="mdi:account-details" class="w-4 h-4 mr-1" />
+                    Profil
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -352,6 +365,10 @@ async function loadAllUserActivities() {
   // Load activity for all visible users in parallel
   const promises = users.value.map(u => loadUserActivity(u.id))
   await Promise.all(promises)
+}
+
+function openUserProfile(userId: string) {
+  navigateTo(`/admin/users/${userId}`)
 }
 
 useSeoMeta({

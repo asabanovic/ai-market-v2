@@ -1,10 +1,19 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-purple-100 via-white to-purple-50 flex items-center justify-center px-4">
     <div class="max-w-2xl mx-auto text-center">
+      <!-- Logo -->
+      <NuxtLink to="/" class="inline-block mb-8">
+        <img
+          src="/logo.svg"
+          alt="Popust.ba"
+          class="h-16 mx-auto"
+        />
+      </NuxtLink>
+
       <!-- Animated 404 -->
       <div class="mb-8 relative">
         <h1 class="text-9xl md:text-[12rem] font-extrabold text-purple-200 select-none">
-          404
+          {{ error?.statusCode || 404 }}
         </h1>
         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
           <div class="text-6xl animate-bounce">🛒</div>
@@ -66,6 +75,13 @@
 </template>
 
 <script setup lang="ts">
+defineProps<{
+  error: {
+    statusCode: number
+    message: string
+  }
+}>()
+
 const funnyMessages = [
   'Možda je ova stranica na akciji, ali u drugoj pijaci! 🏪',
   'Stranica je otišla da provjeri cijene kod konkurencije! 💸',

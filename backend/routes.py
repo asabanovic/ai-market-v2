@@ -4846,7 +4846,7 @@ def api_admin_users():
         return jsonify({'error': 'Internal server error'}), 500
 
 
-@app.route('/api/admin/users/<user_id>/activity')
+@app.route('/api/admin/users/<path:user_id>/activity')
 def api_admin_user_activity(user_id):
     """API endpoint to get user's daily activity (searches and engagements) for the last 7 days"""
     from auth_api import decode_jwt_token
@@ -4984,6 +4984,253 @@ def api_admin_otp_codes():
 
     except Exception as e:
         app.logger.error(f"Admin OTP codes error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users/<path:user_id>/profile')
+def api_admin_user_profile(user_id):
+    """API endpoint for admin to get comprehensive user profile"""
+    from auth_api import decode_jwt_token
+    from models import (User, UserSearch, UserEngagement, CreditTransaction,
+                        Favorite, ShoppingList, ProductComment, ProductVote,
+                        ProductReport, Notification, BusinessMembership, OTPCode)
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the target user
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Basic user info
+        user_data = {
+            'id': target_user.id,
+            'email': target_user.email,
+            'phone': target_user.phone,
+            'first_name': target_user.first_name,
+            'last_name': target_user.last_name,
+            'city': target_user.city,
+            'is_admin': target_user.is_admin,
+            'is_verified': target_user.is_verified,
+            'registration_method': target_user.registration_method,
+            'referral_code': target_user.referral_code,
+            'weekly_credits': target_user.weekly_credits,
+            'weekly_credits_used': target_user.weekly_credits_used,
+            'extra_credits': target_user.extra_credits,
+            'weekly_credits_reset_date': target_user.weekly_credits_reset_date.isoformat() if target_user.weekly_credits_reset_date else None,
+            'created_at': target_user.created_at.isoformat() if target_user.created_at else None,
+            'updated_at': target_user.updated_at.isoformat() if target_user.updated_at else None,
+        }
+
+        # Activity stats (last 30 days)
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+
+        # Searches - use db.session.query() because UserSearch has a 'query' column
+        total_searches = db.session.query(UserSearch).filter_by(user_id=user_id).count()
+        recent_searches = db.session.query(UserSearch).filter(
+            UserSearch.user_id == user_id,
+            UserSearch.created_at >= thirty_days_ago
+        ).count()
+
+        # Engagements (votes, comments, reports)
+        total_engagements = UserEngagement.query.filter_by(user_id=user_id).count()
+        recent_engagements = UserEngagement.query.filter(
+            UserEngagement.user_id == user_id,
+            UserEngagement.created_at >= thirty_days_ago
+        ).count()
+
+        # Favorites
+        total_favorites = Favorite.query.filter_by(user_id=user_id).count()
+
+        # Shopping lists
+        total_shopping_lists = ShoppingList.query.filter_by(user_id=user_id).count()
+        completed_lists = ShoppingList.query.filter_by(user_id=user_id, status='COMPLETED').count()
+
+        # Comments
+        total_comments = ProductComment.query.filter_by(user_id=user_id).count()
+
+        # Votes
+        total_votes = ProductVote.query.filter_by(user_id=user_id).count()
+        upvotes = ProductVote.query.filter_by(user_id=user_id, vote_type='up').count()
+        downvotes = ProductVote.query.filter_by(user_id=user_id, vote_type='down').count()
+
+        # Reports submitted
+        total_reports = ProductReport.query.filter_by(user_id=user_id).count()
+
+        # Credits earned from engagements
+        total_credits_earned = db.session.query(db.func.sum(UserEngagement.credits_earned)).filter(
+            UserEngagement.user_id == user_id
+        ).scalar() or 0
+
+        stats = {
+            'total_searches': total_searches,
+            'recent_searches': recent_searches,
+            'total_engagements': total_engagements,
+            'recent_engagements': recent_engagements,
+            'total_favorites': total_favorites,
+            'total_shopping_lists': total_shopping_lists,
+            'completed_lists': completed_lists,
+            'total_comments': total_comments,
+            'total_votes': total_votes,
+            'upvotes': upvotes,
+            'downvotes': downvotes,
+            'total_reports': total_reports,
+            'total_credits_earned': total_credits_earned,
+        }
+
+        # Activity chart data (last 30 days, grouped by day)
+        activity_data = []
+        for i in range(30):
+            day = datetime.now() - timedelta(days=29-i)
+            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+
+            day_searches = db.session.query(UserSearch).filter(
+                UserSearch.user_id == user_id,
+                UserSearch.created_at >= day_start,
+                UserSearch.created_at < day_end
+            ).count()
+
+            day_engagements = UserEngagement.query.filter(
+                UserEngagement.user_id == user_id,
+                UserEngagement.created_at >= day_start,
+                UserEngagement.created_at < day_end
+            ).count()
+
+            activity_data.append({
+                'date': day_start.strftime('%Y-%m-%d'),
+                'day': day_start.strftime('%d %b'),
+                'searches': day_searches,
+                'engagements': day_engagements
+            })
+
+        # Credit transactions (last 50)
+        credit_transactions = CreditTransaction.query.filter_by(user_id=user_id).order_by(
+            CreditTransaction.created_at.desc()
+        ).limit(50).all()
+
+        transactions_data = [{
+            'id': t.id,
+            'delta': t.delta,
+            'balance_after': t.balance_after,
+            'action': t.action,
+            'metadata': t.metadata,
+            'created_at': t.created_at.isoformat()
+        } for t in credit_transactions]
+
+        # Credit expenditure by action type
+        credit_by_action = db.session.query(
+            CreditTransaction.action,
+            db.func.sum(CreditTransaction.delta).label('total')
+        ).filter(
+            CreditTransaction.user_id == user_id
+        ).group_by(CreditTransaction.action).all()
+
+        credit_breakdown = {action: int(total) for action, total in credit_by_action}
+
+        # Recent searches (last 20)
+        recent_search_list = db.session.query(UserSearch).filter_by(user_id=user_id).order_by(
+            UserSearch.created_at.desc()
+        ).limit(20).all()
+
+        searches_data = [{
+            'id': s.id,
+            'query': s.query,
+            'created_at': s.created_at.isoformat()
+        } for s in recent_search_list]
+
+        # Recent engagements (last 20)
+        recent_engagement_list = UserEngagement.query.filter_by(user_id=user_id).order_by(
+            UserEngagement.created_at.desc()
+        ).limit(20).all()
+
+        engagements_data = []
+        for e in recent_engagement_list:
+            product = Product.query.get(e.product_id)
+            engagements_data.append({
+                'id': e.id,
+                'activity_type': e.activity_type,
+                'product_id': e.product_id,
+                'product_title': product.title if product else 'Obrisan proizvod',
+                'credits_earned': e.credits_earned,
+                'created_at': e.created_at.isoformat()
+            })
+
+        # Favorites (last 20)
+        recent_favorites = Favorite.query.filter_by(user_id=user_id).order_by(
+            Favorite.created_at.desc()
+        ).limit(20).all()
+
+        favorites_data = []
+        for f in recent_favorites:
+            product = Product.query.get(f.product_id)
+            favorites_data.append({
+                'id': f.id,
+                'product_id': f.product_id,
+                'product_title': product.title if product else 'Obrisan proizvod',
+                'product_image': product.image_path if product else None,
+                'created_at': f.created_at.isoformat()
+            })
+
+        # Business memberships
+        memberships = BusinessMembership.query.filter_by(user_id=user_id, is_active=True).all()
+        memberships_data = []
+        for m in memberships:
+            business = Business.query.get(m.business_id)
+            memberships_data.append({
+                'business_id': m.business_id,
+                'business_name': business.name if business else 'Nepoznato',
+                'role': m.role,
+                'created_at': m.created_at.isoformat()
+            })
+
+        # Latest OTP code
+        latest_otp = OTPCode.query.filter_by(phone=target_user.phone).order_by(
+            OTPCode.created_at.desc()
+        ).first() if target_user.phone else None
+
+        otp_data = None
+        if latest_otp:
+            otp_data = {
+                'code': latest_otp.code,
+                'is_used': latest_otp.is_used,
+                'created_at': latest_otp.created_at.isoformat(),
+                'expires_at': latest_otp.expires_at.isoformat(),
+                'expired': latest_otp.expires_at < datetime.now()
+            }
+
+        return jsonify({
+            'user': user_data,
+            'stats': stats,
+            'activity_chart': activity_data,
+            'credit_transactions': transactions_data,
+            'credit_breakdown': credit_breakdown,
+            'recent_searches': searches_data,
+            'recent_engagements': engagements_data,
+            'recent_favorites': favorites_data,
+            'business_memberships': memberships_data,
+            'latest_otp': otp_data
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin user profile error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
 
