@@ -73,7 +73,7 @@ export function useCreditsToast() {
     return showToast({
       type: 'warning',
       title: 'Limit artikala dostignut',
-      message: 'Dostigli ste limit od 10 artikala u listi. Povećajte količinu postojećih ili završite kupovinu.',
+      message: 'Dostigli ste limit od 50 artikala u listi. Povećajte količinu postojećih ili završite kupovinu.',
       duration: 7000
     })
   }

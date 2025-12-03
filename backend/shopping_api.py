@@ -231,7 +231,7 @@ def add_to_shopping_list():
     """
     Add item to shopping list
     Cost: 1 credit per add
-    Max 10 distinct items per list
+    Max 50 distinct items per list
     """
     try:
         user_id = request.current_user_id
@@ -288,11 +288,11 @@ def add_to_shopping_list():
             list_id=shopping_list.id
         ).count()
 
-        if item_count >= 10:
+        if item_count >= 50:
             return jsonify({
                 'code': 'LIST_ITEM_LIMIT',
-                'limit': 10,
-                'message': 'Dostigli ste limit od 10 artikala u listi'
+                'limit': 50,
+                'message': 'Dostigli ste limit od 50 artikala u listi'
             }), 400
 
         # Deduct 1 credit

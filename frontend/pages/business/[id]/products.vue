@@ -17,12 +17,34 @@
         </div>
       </div>
 
-      <!-- Add Product Forms -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Manual Form -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Dodaj proizvod - manuelno</h2>
-          <form @submit.prevent="submitManualProduct" class="space-y-4">
+      <!-- Add Product Forms - Collapsible -->
+      <div class="mb-8">
+        <button
+          @click="showAddProductForms = !showAddProductForms"
+          class="w-full flex items-center justify-between bg-white rounded-lg shadow-md p-4 hover:bg-gray-50 transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            <span class="text-lg font-semibold text-gray-900">Dodaj proizvod</span>
+          </div>
+          <svg
+            class="w-5 h-5 text-gray-500 transition-transform"
+            :class="{ 'rotate-180': showAddProductForms }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </button>
+
+        <div v-show="showAddProductForms" class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Manual Form -->
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Dodaj proizvod - manuelno</h2>
+            <form @submit.prevent="submitManualProduct" class="space-y-4">
             <div>
               <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Naziv proizvoda *</label>
               <input
@@ -144,60 +166,81 @@
             </button>
           </form>
         </div>
+        </div>
       </div>
 
-      <!-- Bulk Import JSON -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">📦 Bulk Import (JSON)</h2>
-        <form @submit.prevent="submitBulkImport" class="space-y-4">
-          <div>
-            <label for="products_json" class="block text-sm font-medium text-gray-700 mb-1">
-              JSON sa proizvodima
-              <a
-                href="https://github.com/asabanovic/ai-market/blob/main/BULK_IMPORT_PRODUCTS.md"
-                target="_blank"
-                class="text-blue-600 hover:text-blue-800 text-xs ml-2"
-              >
-                (Pogledaj format)
-              </a>
-            </label>
-            <textarea
-              v-model="bulkImportJson"
-              id="products_json"
-              rows="12"
-              required
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono text-gray-900"
-              placeholder='{"products": [{"title": "Proizvod", "base_price": 10, "category": "Kategorija"}]}'
-            ></textarea>
-            <p class="mt-1 text-xs text-gray-500">
-              Unesite JSON sa listom proizvoda. Sistem će automatski generisati tagove za svaki proizvod.
-            </p>
+      <!-- Bulk Import JSON - Collapsible -->
+      <div class="mb-8">
+        <button
+          @click="showBulkImport = !showBulkImport"
+          class="w-full flex items-center justify-between bg-white rounded-lg shadow-md p-4 hover:bg-gray-50 transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <span class="text-lg">📦</span>
+            <span class="text-lg font-semibold text-gray-900">Bulk Import (JSON)</span>
           </div>
-          <button
-            type="submit"
-            :disabled="isSubmittingBulk"
-            class="w-full bg-purple-600 text-white px-4 py-3 rounded-md font-medium hover:bg-purple-700 transition duration-200 flex items-center justify-center disabled:opacity-50"
+          <svg
+            class="w-5 h-5 text-gray-500 transition-transform"
+            :class="{ 'rotate-180': showBulkImport }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-            </svg>
-            {{ isSubmittingBulk ? 'Importuje se...' : 'Import proizvoda' }}
-          </button>
-        </form>
-        <div v-if="bulkImportStatus" class="mt-4">
-          <div :class="[bulkImportStatus.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200', 'border rounded-md p-4']">
-            <p :class="[bulkImportStatus.type === 'success' ? 'text-green-800' : 'text-red-800', 'text-sm']">
-              {{ bulkImportStatus.message }}
-            </p>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </button>
+
+        <div v-show="showBulkImport" class="mt-4 bg-white rounded-lg shadow-md p-6">
+          <form @submit.prevent="submitBulkImport" class="space-y-4">
+            <div>
+              <label for="products_json" class="block text-sm font-medium text-gray-700 mb-1">
+                JSON sa proizvodima
+                <a
+                  href="https://github.com/asabanovic/ai-market/blob/main/BULK_IMPORT_PRODUCTS.md"
+                  target="_blank"
+                  class="text-blue-600 hover:text-blue-800 text-xs ml-2"
+                >
+                  (Pogledaj format)
+                </a>
+              </label>
+              <textarea
+                v-model="bulkImportJson"
+                id="products_json"
+                rows="12"
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono text-gray-900"
+                placeholder='{"products": [{"title": "Proizvod", "base_price": 10, "category": "Kategorija"}]}'
+              ></textarea>
+              <p class="mt-1 text-xs text-gray-500">
+                Unesite JSON sa listom proizvoda. Sistem će automatski generisati tagove za svaki proizvod.
+              </p>
+            </div>
+            <button
+              type="submit"
+              :disabled="isSubmittingBulk"
+              class="w-full bg-purple-600 text-white px-4 py-3 rounded-md font-medium hover:bg-purple-700 transition duration-200 flex items-center justify-center disabled:opacity-50"
+            >
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              </svg>
+              {{ isSubmittingBulk ? 'Importuje se...' : 'Import proizvoda' }}
+            </button>
+          </form>
+          <div v-if="bulkImportStatus" class="mt-4">
+            <div :class="[bulkImportStatus.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200', 'border rounded-md p-4']">
+              <p :class="[bulkImportStatus.type === 'success' ? 'text-green-800' : 'text-red-800', 'text-sm']">
+                {{ bulkImportStatus.message }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Products List -->
       <div class="bg-white rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold text-gray-900">
-            Proizvodi ({{ totalProducts }})
+            Proizvodi ({{ filteredProductsCount }})
             <span v-if="selectedProducts.length > 0" class="ml-2 text-sm text-blue-600">
               ({{ selectedProducts.length }} označeno)
             </span>
@@ -229,14 +272,58 @@
           </div>
         </div>
 
-        <div v-if="products.length > 0" class="overflow-x-auto">
+        <!-- Search and Sort -->
+        <div class="mb-4 flex flex-col sm:flex-row gap-4">
+          <!-- Search Input -->
+          <div class="flex-1 relative">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Pretrazi proizvode po nazivu..."
+              class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+            >
+            <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <button
+              v-if="searchQuery"
+              @click="searchQuery = ''"
+              class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Sort Dropdown -->
+          <div class="sm:w-64">
+            <select
+              v-model="sortBy"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+            >
+              <option value="created_at_desc">Najnovije prvo</option>
+              <option value="created_at_asc">Najstarije prvo</option>
+              <option value="views_desc">Najvise pregleda</option>
+              <option value="views_asc">Najmanje pregleda</option>
+              <option value="discount_desc">Najveci popust</option>
+              <option value="discount_asc">Najmanji popust</option>
+              <option value="price_desc">Najvisa cijena</option>
+              <option value="price_asc">Najniza cijena</option>
+              <option value="title_asc">Naziv (A-Z)</option>
+              <option value="title_desc">Naziv (Z-A)</option>
+            </select>
+          </div>
+        </div>
+
+        <div v-if="filteredProducts.length > 0" class="overflow-x-auto">
           <table class="min-w-full table-auto">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left">
                   <input
                     type="checkbox"
-                    :checked="selectedProducts.length === products.length"
+                    :checked="selectedProducts.length === filteredProducts.length && filteredProducts.length > 0"
                     @change="toggleSelectAll"
                     class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   >
@@ -255,7 +342,7 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="product in products" :key="product.id" class="product-row">
+              <tr v-for="product in filteredProducts" :key="product.id" class="product-row">
                 <td class="px-4 py-4 whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -713,6 +800,10 @@ const business = ref<any>(null)
 const products = ref<any[]>([])
 const selectedProducts = ref<number[]>([])
 const notifications = ref<any[]>([])
+const searchQuery = ref('')
+const sortBy = ref('created_at_desc')
+const showAddProductForms = ref(false)
+const showBulkImport = ref(false)
 
 // Computed property for unique categories
 const uniqueCategories = computed(() => {
@@ -720,6 +811,27 @@ const uniqueCategories = computed(() => {
     .map(p => p.category)
     .filter(c => c && c.trim() !== '')
   return [...new Set(categories)].sort()
+})
+
+// Computed property for filtered products (now server-side, so just return products)
+const filteredProducts = computed(() => products.value)
+
+const filteredProductsCount = computed(() => totalProducts.value)
+
+// Debounced search
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+watch(searchQuery, (newValue) => {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    currentPage.value = 1
+    fetchProducts()
+  }, 300)
+})
+
+// Watch sortBy changes
+watch(sortBy, () => {
+  currentPage.value = 1
+  fetchProducts()
 })
 
 // Pagination state
@@ -785,7 +897,14 @@ async function fetchBusiness() {
 
 async function fetchProducts() {
   try {
-    const data = await get(`/api/businesses/${businessId.value}/products?page=${currentPage.value}&per_page=${perPage.value}`)
+    let url = `/api/businesses/${businessId.value}/products?page=${currentPage.value}&per_page=${perPage.value}`
+    if (searchQuery.value.trim()) {
+      url += `&search=${encodeURIComponent(searchQuery.value.trim())}`
+    }
+    if (sortBy.value) {
+      url += `&sort=${sortBy.value}`
+    }
+    const data = await get(url)
     products.value = data.products || []
 
     // Update pagination metadata
@@ -1174,7 +1293,7 @@ async function deleteProduct(productId: number) {
 function toggleSelectAll(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.checked) {
-    selectedProducts.value = products.value.map(p => p.id)
+    selectedProducts.value = filteredProducts.value.map(p => p.id)
   } else {
     selectedProducts.value = []
   }
@@ -1245,8 +1364,11 @@ function goToPage(page: number) {
   currentPage.value = page
   selectedProducts.value = [] // Clear selections when changing page
   fetchProducts()
-  // Scroll to top of products list
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  // Scroll to products list
+  const productsSection = document.querySelector('.bg-white.rounded-lg.shadow-md.p-6')
+  if (productsSection) {
+    productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 function goToNextPage() {

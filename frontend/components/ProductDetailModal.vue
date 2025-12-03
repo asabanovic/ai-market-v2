@@ -57,6 +57,32 @@
               <div v-if="product.expires" class="inline-block bg-yellow-100 text-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">
                 Važi do {{ formatBosnianDate(product.expires) }}
               </div>
+
+              <!-- Report Button -->
+              <div class="mt-3">
+                <button
+                  @click="openReportModal"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all group"
+                  :class="hasReported
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700'"
+                  :disabled="hasReported"
+                >
+                  <Icon name="mdi:flag-outline" class="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span v-if="hasReported">Prijavljeno</span>
+                  <span v-else>Prijavi</span>
+                  <div class="relative">
+                    <Icon
+                      name="mdi:help-circle-outline"
+                      class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-help transition-colors"
+                    />
+                    <div class="absolute bottom-full left-0 mb-2 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                      Prijavite ako je nesto pogresno (slika, cijena, istekla akcija)
+                      <div class="absolute top-full left-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
 
             <!-- Business Info -->
@@ -203,6 +229,98 @@
         </div>
       </div>
     </div>
+
+    <!-- Report Modal -->
+    <div
+      v-if="showReportModal"
+      class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4"
+      @click.self="closeReportModal"
+    >
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-modal-in" @click.stop>
+        <div class="text-center mb-6">
+          <!-- Product image thumbnail -->
+          <div class="w-20 h-20 rounded-xl overflow-hidden mx-auto mb-4 bg-gray-100">
+            <img
+              v-if="product.image_path || product.product_image_url"
+              :src="getImageUrl(product.image_path || product.product_image_url)"
+              :alt="product.title"
+              class="w-full h-full object-cover"
+            />
+            <div v-else class="flex items-center justify-center h-full text-gray-400">
+              <Icon name="mdi:image-off" class="w-8 h-8" />
+            </div>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Prijavi proizvod</h3>
+          <p class="text-gray-600 text-sm">
+            Prijavite ako je nesto pogresno sa ovim proizvodom (npr. pogresna slika, cijena, istekla akcija, itd.)
+          </p>
+        </div>
+
+        <!-- Report Form -->
+        <div v-if="!reportSubmitted">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Razlog prijave (opciono)
+            </label>
+            <textarea
+              v-model="reportReason"
+              placeholder="Opisite sta je pogresno..."
+              rows="3"
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all resize-none text-gray-900"
+            ></textarea>
+          </div>
+
+          <div class="flex gap-3">
+            <button
+              @click="closeReportModal"
+              class="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            >
+              Odustani
+            </button>
+            <button
+              @click="submitReport"
+              :disabled="isSubmittingReport"
+              class="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+            >
+              <span v-if="!isSubmittingReport">Prijavi (+5 kredita)</span>
+              <span v-else>Slanje...</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Success State -->
+        <div v-else class="text-center">
+          <h4 class="text-lg font-semibold text-gray-900 mb-2">Hvala na prijavi!</h4>
+          <p class="text-gray-600 mb-4">Pregledacemo ovaj proizvod u najkracem roku.</p>
+          <p class="text-green-600 font-medium mb-4">+5 kredita dodato na vas racun!</p>
+
+          <!-- Optional: Add more details -->
+          <div v-if="!reportReason && !feedbackSubmitted" class="bg-gray-50 rounded-xl p-4 mb-4">
+            <p class="text-sm text-gray-600 mb-2">Zelite li dodati vise detalja?</p>
+            <textarea
+              v-model="additionalFeedback"
+              placeholder="Dodatne informacije..."
+              rows="2"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none text-gray-900 mb-2"
+            ></textarea>
+            <button
+              @click="submitAdditionalFeedback"
+              :disabled="!additionalFeedback.trim()"
+              class="text-sm text-purple-600 hover:text-purple-700 font-medium disabled:opacity-50"
+            >
+              Posalji dodatne informacije
+            </button>
+          </div>
+
+          <button
+            @click="closeReportModal"
+            class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Zatvori
+          </button>
+        </div>
+      </div>
+    </div>
   </Teleport>
 </template>
 
@@ -217,7 +335,7 @@ const emit = defineEmits<{
 }>()
 
 const config = useRuntimeConfig()
-const { post } = useApi()
+const { get, post, put } = useApi()
 const { isAuthenticated, user, refreshUser } = useAuth()
 const { triggerCreditAnimation } = useCreditAnimation()
 const { refreshCredits } = useSearchCredits()
@@ -233,6 +351,15 @@ const newComment = ref('')
 const isSubmittingComment = ref(false)
 const commentValidation = ref({ isValid: false, message: '' })
 const businessLogoError = ref(false)
+
+// Report state
+const showReportModal = ref(false)
+const reportReason = ref('')
+const isSubmittingReport = ref(false)
+const reportSubmitted = ref(false)
+const hasReported = ref(false)
+const additionalFeedback = ref('')
+const feedbackSubmitted = ref(false)
 
 // Computed
 const discountPercentage = computed(() => {
@@ -403,12 +530,117 @@ const submitComment = async () => {
   }
 }
 
+// Report methods
+const checkReportStatus = async () => {
+  const productId = props.product?.id
+  if (!isAuthenticated.value || !productId) return
+
+  const token = localStorage.getItem('token')
+  if (!token) return
+
+  try {
+    const response = await fetch(`${config.public.apiBase}/api/products/${productId}/report/status`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success && data.has_reported) {
+        hasReported.value = true
+      }
+    }
+  } catch (error) {
+    console.error('Error checking report status:', error)
+  }
+}
+
+const openReportModal = () => {
+  if (!isAuthenticated.value) {
+    navigateTo('/registracija')
+    return
+  }
+  if (hasReported.value) return
+  showReportModal.value = true
+}
+
+const closeReportModal = () => {
+  showReportModal.value = false
+  // Reset state after close animation
+  setTimeout(() => {
+    if (!hasReported.value) {
+      reportReason.value = ''
+      reportSubmitted.value = false
+    }
+    additionalFeedback.value = ''
+    feedbackSubmitted.value = false
+  }, 300)
+}
+
+const submitReport = async () => {
+  isSubmittingReport.value = true
+  try {
+    const response = await post(`/api/products/${props.product.id}/report`, {
+      reason: reportReason.value.trim() || null
+    })
+
+    if (response.success) {
+      reportSubmitted.value = true
+      hasReported.value = true
+
+      // Trigger credit animation
+      if (response.credits_earned > 0) {
+        triggerCreditAnimation(response.credits_earned)
+        await refreshUser()
+        await refreshCredits()
+      }
+    }
+  } catch (error: any) {
+    console.error('Error submitting report:', error)
+    // Check if already reported - the error message contains this info
+    if (error.message?.includes('Vec ste prijavili') || error.message?.includes('already')) {
+      hasReported.value = true
+      showReportModal.value = false
+    }
+  } finally {
+    isSubmittingReport.value = false
+  }
+}
+
+const submitAdditionalFeedback = async () => {
+  if (!additionalFeedback.value.trim()) return
+
+  try {
+    const response = await put(`/api/products/${props.product.id}/report`, {
+      reason: additionalFeedback.value.trim()
+    })
+
+    if (response.success) {
+      feedbackSubmitted.value = true
+    }
+  } catch (error) {
+    console.error('Error submitting additional feedback:', error)
+  }
+}
+
 // Watch for modal opening to load data
-watch(() => props.show, (newValue) => {
+watch(() => props.show, async (newValue) => {
   if (newValue) {
     businessLogoError.value = false
+    // Reset report state for new product BEFORE checking
+    showReportModal.value = false
+    reportReason.value = ''
+    reportSubmitted.value = false
+    hasReported.value = false
+    additionalFeedback.value = ''
+    feedbackSubmitted.value = false
+
+    // Load data in parallel
     loadComments()
     loadVotes()
+    // Check if user already reported this product
+    await checkReportStatus()
   }
 })
 </script>

@@ -1,8 +1,8 @@
-# Product engagement API endpoints - comments, votes, and engagement history
+# Product engagement API endpoints - comments, votes, reports, and engagement history
 from flask import Blueprint, request, jsonify
 from auth_api import require_jwt_auth
 from app import db
-from models import Product, ProductComment, ProductVote, UserEngagement, User
+from models import Product, ProductComment, ProductVote, UserEngagement, User, ProductReport, Business
 from datetime import datetime
 from sqlalchemy import desc
 
@@ -302,4 +302,261 @@ def get_engagement_history():
 
     except Exception as e:
         print(f"Error getting engagement history: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== PRODUCT REPORTS ====================
+
+@engagement_bp.route('/products/<int:product_id>/report/status', methods=['GET'])
+@require_jwt_auth
+def get_report_status(product_id):
+    """Check if user has already reported this product."""
+    try:
+        user_id = request.current_user_id
+
+        # Check if user has any report for this product (any status)
+        existing_report = ProductReport.query.filter_by(
+            product_id=product_id,
+            user_id=user_id
+        ).first()
+
+        return jsonify({
+            'success': True,
+            'has_reported': existing_report is not None,
+            'status': existing_report.status if existing_report else None
+        })
+
+    except Exception as e:
+        print(f"Error checking report status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@engagement_bp.route('/products/<int:product_id>/report', methods=['POST'])
+@require_jwt_auth
+def report_product(product_id):
+    """Report a product issue (requires authentication). Awards 5 credits."""
+    try:
+        user_id = request.current_user_id
+        data = request.get_json() or {}
+
+        # Check if product exists
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Proizvod nije pronadjen'}), 404
+
+        # Check if user already reported this product (any status - prevent duplicate reports)
+        existing_report = ProductReport.query.filter_by(
+            product_id=product_id,
+            user_id=user_id
+        ).first()
+
+        if existing_report:
+            return jsonify({
+                'error': 'Vec ste prijavili ovaj proizvod. Cekamo pregled.',
+                'already_reported': True
+            }), 400
+
+        # Get optional reason (explanation)
+        reason = data.get('reason', '').strip() if data.get('reason') else None
+
+        # Create the report
+        report = ProductReport(
+            product_id=product_id,
+            user_id=user_id,
+            reason=reason
+        )
+        db.session.add(report)
+
+        # Award credits (+5 for reporting)
+        user = User.query.get(user_id)
+        user.extra_credits += 5
+
+        # Record engagement
+        engagement = UserEngagement(
+            user_id=user_id,
+            activity_type='report',
+            product_id=product_id,
+            credits_earned=5
+        )
+        db.session.add(engagement)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Hvala na prijavi! Pregledacemo ovaj proizvod.',
+            'credits_earned': 5,
+            'report_id': report.id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error reporting product: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@engagement_bp.route('/products/<int:product_id>/report', methods=['PUT'])
+@require_jwt_auth
+def update_report(product_id):
+    """Update an existing report with additional feedback (reason)."""
+    try:
+        user_id = request.current_user_id
+        data = request.get_json() or {}
+
+        # Find the user's pending report for this product
+        report = ProductReport.query.filter_by(
+            product_id=product_id,
+            user_id=user_id,
+            status='pending'
+        ).first()
+
+        if not report:
+            return jsonify({'error': 'Prijava nije pronadjena'}), 404
+
+        # Update the reason
+        reason = data.get('reason', '').strip()
+        if reason:
+            report.reason = reason
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Prijava je azurirana. Hvala na dodatnim informacijama!'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating report: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== ADMIN REPORTS MANAGEMENT ====================
+
+@engagement_bp.route('/admin/reports', methods=['GET'])
+@require_jwt_auth
+def get_all_reports():
+    """Get all product reports (admin only)"""
+    try:
+        user_id = request.current_user_id
+        user = User.query.get(user_id)
+
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Nemate dozvolu za ovu akciju'}), 403
+
+        # Get query parameters
+        status_filter = request.args.get('status', None)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        # Build query
+        query = ProductReport.query.order_by(desc(ProductReport.created_at))
+
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        reports = pagination.items
+
+        # Format data
+        reports_data = []
+        for report in reports:
+            product = Product.query.get(report.product_id)
+            reporter = User.query.get(report.user_id)
+            business = Business.query.get(product.business_id) if product else None
+
+            reports_data.append({
+                'id': report.id,
+                'product': {
+                    'id': product.id if product else None,
+                    'title': product.title if product else 'Obrisan proizvod',
+                    'image_path': product.image_path if product else None,
+                    'base_price': product.base_price if product else None,
+                    'discount_price': product.discount_price if product else None,
+                    'business': {
+                        'id': business.id if business else None,
+                        'name': business.name if business else 'Nepoznato'
+                    } if business else None
+                } if product else None,
+                'reporter': {
+                    'id': reporter.id if reporter else None,
+                    'first_name': reporter.first_name if reporter else 'Nepoznat',
+                    'last_name': reporter.last_name if reporter else '',
+                    'email': reporter.email if reporter else None
+                },
+                'reason': report.reason,
+                'status': report.status,
+                'admin_notes': report.admin_notes,
+                'created_at': report.created_at.isoformat(),
+                'reviewed_at': report.reviewed_at.isoformat() if report.reviewed_at else None
+            })
+
+        return jsonify({
+            'success': True,
+            'reports': reports_data,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            },
+            'stats': {
+                'pending': ProductReport.query.filter_by(status='pending').count(),
+                'reviewed': ProductReport.query.filter_by(status='reviewed').count(),
+                'resolved': ProductReport.query.filter_by(status='resolved').count(),
+                'dismissed': ProductReport.query.filter_by(status='dismissed').count()
+            }
+        })
+
+    except Exception as e:
+        print(f"Error getting reports: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@engagement_bp.route('/admin/reports/<int:report_id>', methods=['PUT'])
+@require_jwt_auth
+def update_report_status(report_id):
+    """Update a report's status (admin only)"""
+    try:
+        user_id = request.current_user_id
+        user = User.query.get(user_id)
+
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Nemate dozvolu za ovu akciju'}), 403
+
+        data = request.get_json()
+        report = ProductReport.query.get(report_id)
+
+        if not report:
+            return jsonify({'error': 'Prijava nije pronadjena'}), 404
+
+        # Update status
+        new_status = data.get('status')
+        if new_status and new_status in ['pending', 'reviewed', 'resolved', 'dismissed']:
+            report.status = new_status
+            report.reviewed_at = datetime.now()
+            report.reviewed_by = user_id
+
+        # Update admin notes
+        if 'admin_notes' in data:
+            report.admin_notes = data.get('admin_notes')
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Prijava je azurirana',
+            'report': {
+                'id': report.id,
+                'status': report.status,
+                'admin_notes': report.admin_notes,
+                'reviewed_at': report.reviewed_at.isoformat() if report.reviewed_at else None
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating report: {e}")
         return jsonify({'error': str(e)}), 500

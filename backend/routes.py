@@ -1036,23 +1036,71 @@ def api_business_products(business_id):
         # Get pagination parameters
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '', type=str).strip()
+        sort = request.args.get('sort', 'created_at_desc', type=str)
 
         # Ensure per_page is within reasonable bounds
         per_page = min(per_page, 100)  # Max 100 items per page
 
+        # Build base query with search filter
+        from models import ProductEmbedding
+        base_query = Product.query.filter_by(business_id=business_id)
+
+        if search:
+            base_query = base_query.filter(Product.title.ilike(f'%{search}%'))
+
         # Get total count
-        total_count = Product.query.filter_by(business_id=business_id).count()
+        total_count = base_query.count()
 
         # Calculate pagination
         total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
         offset = (page - 1) * per_page
 
         # Get paginated products with embeddings
-        from models import ProductEmbedding
         products_query = db.session.query(Product, ProductEmbedding).outerjoin(
             ProductEmbedding, Product.id == ProductEmbedding.product_id
-        ).filter(Product.business_id == business_id).order_by(
-            Product.created_at.desc()).limit(per_page).offset(offset).all()
+        ).filter(Product.business_id == business_id)
+
+        if search:
+            products_query = products_query.filter(Product.title.ilike(f'%{search}%'))
+
+        # Apply sorting
+        sort_mapping = {
+            'created_at_desc': Product.created_at.desc(),
+            'created_at_asc': Product.created_at.asc(),
+            'views_desc': Product.views.desc().nullslast(),
+            'views_asc': Product.views.asc().nullsfirst(),
+            'price_desc': Product.discount_price.desc().nullslast(),
+            'price_asc': Product.discount_price.asc().nullsfirst(),
+            'title_asc': Product.title.asc(),
+            'title_desc': Product.title.desc(),
+        }
+
+        # For discount sorting, we need to calculate discount percentage
+        if sort == 'discount_desc':
+            # Sort by discount percentage (highest first)
+            products_query = products_query.order_by(
+                db.case(
+                    (db.and_(Product.discount_price != None, Product.base_price > 0),
+                     ((Product.base_price - Product.discount_price) / Product.base_price * 100)),
+                    else_=0
+                ).desc()
+            )
+        elif sort == 'discount_asc':
+            # Sort by discount percentage (lowest first)
+            products_query = products_query.order_by(
+                db.case(
+                    (db.and_(Product.discount_price != None, Product.base_price > 0),
+                     ((Product.base_price - Product.discount_price) / Product.base_price * 100)),
+                    else_=0
+                ).asc()
+            )
+        elif sort in sort_mapping:
+            products_query = products_query.order_by(sort_mapping[sort])
+        else:
+            products_query = products_query.order_by(Product.created_at.desc())
+
+        products_query = products_query.limit(per_page).offset(offset).all()
 
         products_list = []
         for product, embedding in products_query:
@@ -4609,8 +4657,11 @@ def api_admin_stats():
         total_searches = db.session.query(UserSearch).count()
 
         # Get embedding statistics
-        from models import ProductEmbedding
+        from models import ProductEmbedding, ProductReport
         products_with_embeddings = db.session.query(ProductEmbedding).count()
+
+        # Get pending reports count
+        pending_reports = db.session.query(ProductReport).filter_by(status='pending').count()
         products_without_embeddings = total_products - products_with_embeddings
 
         # Get active (non-expired) products count
@@ -4664,7 +4715,8 @@ def api_admin_stats():
                 'products_with_embeddings': products_with_embeddings,
                 'products_without_embeddings': products_without_embeddings,
                 'active_products': active_products,
-                'expired_products': expired_products
+                'expired_products': expired_products,
+                'pending_reports': pending_reports
             },
             'recent_users': [{
                 'id': u.id,

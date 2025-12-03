@@ -27,8 +27,10 @@ export default defineNuxtPlugin(() => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        const error: any = new Error(`API Error: ${response.statusText}`)
+        const error: any = new Error(errorData.message || `API Error: ${response.statusText}`)
         error.statusCode = response.status
+        error.status = response.status
+        error.code = errorData.code
         error.data = errorData
         throw error
       }

@@ -668,3 +668,31 @@ class Notification(db.Model):
         db.Index('idx_notifications_created_at', 'created_at'),
         db.Index('idx_notifications_user_read', 'user_id', 'is_read'),
     )
+
+
+# ==================== PRODUCT REPORTS ====================
+
+# Product reports - users can report issues with products
+class ProductReport(db.Model):
+    __tablename__ = 'product_reports'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    reason = db.Column(db.String, nullable=True)  # Optional explanation from user
+    status = db.Column(db.String, nullable=False, default='pending')  # pending, reviewed, resolved, dismissed
+    admin_notes = db.Column(db.Text, nullable=True)  # Admin can add notes when reviewing
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_by = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+    # Relationships
+    product = db.relationship('Product', backref=db.backref('reports', passive_deletes=True))
+    user = db.relationship('User', foreign_keys=[user_id], backref='product_reports')
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref='reviewed_reports')
+
+    __table_args__ = (
+        db.Index('idx_product_reports_product_id', 'product_id'),
+        db.Index('idx_product_reports_user_id', 'user_id'),
+        db.Index('idx_product_reports_status', 'status'),
+        db.Index('idx_product_reports_created_at', 'created_at'),
+    )
