@@ -358,7 +358,7 @@
                 <td class="px-4 py-4 whitespace-nowrap">
                   <img
                     v-if="product.image_path"
-                    :src="product.image_path"
+                    :src="getFullImageUrl(product.image_path)"
                     :alt="product.title"
                     loading="lazy"
                     class="w-16 h-16 object-cover rounded border border-gray-200"
@@ -577,7 +577,7 @@
 
     <!-- Edit Product Modal -->
     <div v-if="showEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click.self="closeEditModal">
-      <div class="relative top-20 mx-auto p-8 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+      <div class="relative top-20 mx-auto p-8 border w-full max-w-5xl shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-gray-900">Uredi proizvod</h3>
           <button @click="closeEditModal" class="text-gray-400 hover:text-gray-600">
@@ -607,13 +607,14 @@
                 </div>
               </div>
 
-              <!-- Original Image (if different from current) -->
-              <div v-if="originalImagePath && originalImagePath !== editForm.image_path" class="flex-shrink-0">
+              <!-- Original Image (always show when available) -->
+              <div v-if="originalImagePath" class="flex-shrink-0">
                 <div class="relative">
-                  <img :src="getFullImageUrl(originalImagePath)" alt="Original" class="w-96 h-96 object-contain rounded-lg border-2 border-gray-300 shadow-md opacity-80 bg-gray-50">
-                  <span class="absolute -top-2 -right-2 px-3 py-1 text-xs font-bold bg-gray-500 text-white rounded-full shadow">Original</span>
+                  <img :src="getFullImageUrl(originalImagePath)" alt="Original" class="w-96 h-96 object-contain rounded-lg border-2 shadow-md bg-gray-50" :class="originalImagePath === editForm.image_path ? 'border-green-400' : 'border-gray-300 opacity-80'">
+                  <span class="absolute -top-2 -right-2 px-3 py-1 text-xs font-bold text-white rounded-full shadow" :class="originalImagePath === editForm.image_path ? 'bg-green-500' : 'bg-gray-500'">Original</span>
                 </div>
                 <button
+                  v-if="originalImagePath !== editForm.image_path"
                   type="button"
                   @click="revertToOriginal"
                   :disabled="isRevertingImage"
@@ -656,6 +657,29 @@
               <span class="text-xs text-gray-500 self-center">JPG, PNG ili GIF (max 5MB)</span>
             </div>
 
+            <!-- Custom Search Query Input (shows when images exist or search performed) -->
+            <div v-if="suggestedImages.length > 0 || isSuggestingImages" class="mb-4">
+              <div class="flex gap-3 items-end">
+                <div class="flex-1">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Promijeni pojam za pretragu:</label>
+                  <input
+                    v-model="imageSearchQuery"
+                    type="text"
+                    :placeholder="editForm.title || 'Unesite pojam za pretragu...'"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm"
+                  >
+                </div>
+                <button
+                  type="button"
+                  @click="suggestImages"
+                  :disabled="isSuggestingImages"
+                  class="px-4 py-2 text-sm font-medium text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 whitespace-nowrap"
+                >
+                  Nova pretraga
+                </button>
+              </div>
+            </div>
+
             <!-- Suggested Images Collapsible Section -->
             <div v-if="suggestedImages.length > 0" class="border border-gray-200 rounded-lg">
               <button
@@ -677,12 +701,12 @@
                 </svg>
               </button>
               <div v-show="showSuggestedImages" class="p-4 border-t border-gray-200">
-                <p class="text-xs text-gray-500 mb-3">Klikni na sliku za odabir i izrezivanje</p>
-                <div class="grid grid-cols-3 gap-4">
+                <p class="text-xs text-gray-500 mb-3">Klikni na sliku za odabir</p>
+                <div class="grid grid-cols-5 gap-4">
                   <div
                     v-for="(imgPath, idx) in suggestedImages"
                     :key="idx"
-                    @click="openCropperModal(imgPath)"
+                    @click="selectSuggestedImage(imgPath)"
                     class="relative cursor-pointer group"
                   >
                     <img
@@ -1017,6 +1041,7 @@ const originalImagePath = ref<string | null>(null)
 const isSuggestingImages = ref(false)
 const isRevertingImage = ref(false)
 const showSuggestedImages = ref(false)
+const imageSearchQuery = ref('')
 
 // Cropper state
 const showCropperModal = ref(false)
@@ -1256,7 +1281,8 @@ async function editProduct(productId: number) {
 
   // Reset suggestion state
   suggestedImages.value = []
-  originalImagePath.value = null
+  originalImagePath.value = product.image_path || null  // Store the original image path
+  imageSearchQuery.value = ''  // Reset search query
 
   // Fetch price history and suggested images in parallel
   try {
@@ -1267,9 +1293,12 @@ async function editProduct(productId: number) {
 
     priceHistory.value = historyData || []
 
-    if (suggestionsData.suggested_images) {
+    if (suggestionsData.suggested_images && suggestionsData.suggested_images.length > 0) {
       suggestedImages.value = suggestionsData.suggested_images
+      // Auto-expand suggested images when they exist
+      showSuggestedImages.value = true
     }
+    // If backend provides original_image_path (from previous suggestions), prefer that
     if (suggestionsData.original_image_path) {
       originalImagePath.value = suggestionsData.original_image_path
     }
@@ -1544,14 +1573,21 @@ function getFullImageUrl(path: string | null): string {
 
 // Image suggestion functions
 async function suggestImages() {
-  if (!editForm.value.id || !editForm.value.title) {
-    showNotification('Proizvod mora imati naziv za pretragu slika', 'error')
+  if (!editForm.value.id) {
+    showNotification('Proizvod mora biti sačuvan prije pretrage slika', 'error')
+    return
+  }
+
+  // Use custom query if provided, otherwise fall back to title
+  const searchQuery = imageSearchQuery.value.trim() || editForm.value.title
+  if (!searchQuery) {
+    showNotification('Unesite pojam za pretragu ili naziv proizvoda', 'error')
     return
   }
 
   isSuggestingImages.value = true
   try {
-    const data = await post(`/api/admin/products/${editForm.value.id}/suggest-images`, {})
+    const data = await post(`/api/admin/products/${editForm.value.id}/suggest-images`, { query: searchQuery })
 
     if (data.success) {
       suggestedImages.value = data.suggested_images || []
@@ -1560,6 +1596,8 @@ async function suggestImages() {
       }
       if (suggestedImages.value.length > 0) {
         showNotification(`Pronađeno ${suggestedImages.value.length} slika`, 'success')
+        // Auto-expand the section to show the images
+        showSuggestedImages.value = true
       } else {
         showNotification('Nisu pronađene slike za ovaj proizvod', 'info')
       }
@@ -1583,7 +1621,7 @@ async function selectSuggestedImage(imagePath: string) {
     })
 
     if (data.success) {
-      editForm.value.image_path = imagePath
+      editForm.value.image_path = data.image_path
       showNotification('Slika je odabrana', 'success')
     } else {
       showNotification(data.error || 'Greška pri odabiru slike', 'error')
@@ -1635,7 +1673,8 @@ function openCropperModal(imagePath: string) {
         highlight: false,
         cropBoxMovable: true,
         cropBoxResizable: true,
-        toggleDragModeOnDblclick: false
+        toggleDragModeOnDblclick: false,
+        checkCrossOrigin: false
       })
     }
   })

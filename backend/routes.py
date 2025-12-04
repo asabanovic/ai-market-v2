@@ -5277,11 +5277,15 @@ def api_admin_suggest_images(product_id):
             product.original_image_path = product.image_path
             db.session.commit()
 
+        # Get custom query from request body, fallback to product title
+        data = request.get_json() or {}
+        search_query = data.get('query') or product.title
+
         # Delete old suggestions first
         delete_suggestions_from_s3(product_id)
 
         # Search and upload new suggestions
-        suggestions = search_and_upload_suggestions(product_id, product.title, num_images=5)
+        suggestions = search_and_upload_suggestions(product_id, search_query, num_images=5)
 
         if not suggestions:
             return jsonify({
@@ -5540,9 +5544,9 @@ def api_admin_get_suggested_images(product_id):
 @app.route('/api/admin/search-test', methods=['POST'])
 @csrf.exempt
 def api_admin_search_test():
-    """Admin search test endpoint with configurable similarity threshold"""
+    """Admin search test endpoint - uses same agent search as homepage"""
     from auth_api import decode_jwt_token
-    from semantic_search import semantic_search
+    from agent_search import run_agent_search, format_agent_products
 
     # Check JWT authentication
     auth_header = request.headers.get('Authorization')
@@ -5563,27 +5567,29 @@ def api_admin_search_test():
 
         data = request.get_json()
         query = data.get('query', '').strip()
-        min_similarity = float(data.get('min_similarity', 0.45))
-        k = int(data.get('k', 20))
+        k = int(data.get('k', 10))
 
         if not query:
             return jsonify({'error': 'Query is required'}), 400
 
-        # Clamp min_similarity between 0 and 1
-        min_similarity = max(0.0, min(1.0, min_similarity))
-
-        # Run semantic search with custom threshold
-        products = semantic_search(
+        # Run agent-based search (same as homepage)
+        agent_result = run_agent_search(
             query=query,
+            user_id=payload['user_id'],
             k=k,
-            min_similarity=min_similarity
         )
+
+        # Format and flatten products for API response
+        raw_products = agent_result.get("products", [])
+        products = format_agent_products(raw_products)
 
         return jsonify({
             'query': query,
-            'min_similarity': min_similarity,
             'products_count': len(products),
-            'products': products
+            'products': products,
+            'explanation': agent_result.get("explanation"),
+            'grouped': agent_result.get("grouped", False),
+            'grouped_results': agent_result.get("grouped_results"),
         }), 200
 
     except Exception as e:

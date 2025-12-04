@@ -51,12 +51,12 @@
     </div>
 
     <!-- Product Image -->
-    <div class="h-48 bg-gray-100 flex items-center justify-center cursor-pointer" @click="showDetails">
+    <div class="h-48 bg-white flex items-center justify-center cursor-pointer" @click="showDetails">
       <img
         v-if="product.image_path || product.product_image_url"
         :src="getImageUrl(product.image_path || product.product_image_url)"
         :alt="product.title"
-        class="h-full w-full object-cover"
+        class="h-full w-full object-contain"
         @error="imageError = true"
       />
       <span v-else-if="!imageError" class="text-gray-400 text-sm">Nema Slike</span>
