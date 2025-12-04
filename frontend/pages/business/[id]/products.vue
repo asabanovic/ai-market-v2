@@ -657,27 +657,21 @@
               <span class="text-xs text-gray-500 self-center">JPG, PNG ili GIF (max 5MB)</span>
             </div>
 
-            <!-- Custom Search Query Input (shows when images exist or search performed) -->
-            <div v-if="suggestedImages.length > 0 || isSuggestingImages" class="mb-4">
+            <!-- Custom Search Query Input - always visible for custom search -->
+            <div class="mb-4">
               <div class="flex gap-3 items-end">
                 <div class="flex-1">
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Promijeni pojam za pretragu:</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Pojam za pretragu slika (opcionalno):</label>
                   <input
                     v-model="imageSearchQuery"
                     type="text"
                     :placeholder="editForm.title || 'Unesite pojam za pretragu...'"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm"
+                    @keyup.enter="suggestImages"
                   >
                 </div>
-                <button
-                  type="button"
-                  @click="suggestImages"
-                  :disabled="isSuggestingImages"
-                  class="px-4 py-2 text-sm font-medium text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 whitespace-nowrap"
-                >
-                  Nova pretraga
-                </button>
               </div>
+              <p class="text-xs text-gray-500 mt-1">Ako ostavite prazno, koristit će se naziv proizvoda</p>
             </div>
 
             <!-- Suggested Images Collapsible Section -->

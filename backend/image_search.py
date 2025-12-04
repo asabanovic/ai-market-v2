@@ -7,13 +7,72 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-def search_duckduckgo_images(query: str, num_results: int = 5) -> list[str]:
+def clean_search_query(query: str, is_custom_query: bool = False) -> str:
+    """
+    Clean and optimize search query for better image results.
+
+    - Extracts main product name from titles like "Sok Cola/Cola Zero 1 L Sky"
+    - Removes store/brand names that might be local
+    - Adds "product" to help find product photos (only for auto-generated queries)
+
+    Args:
+        query: The search query
+        is_custom_query: If True, the user provided this query manually, so don't modify it much
+    """
+    import re
+
+    # If it's a custom query, just use it as-is (user knows what they want)
+    if is_custom_query:
+        return query.strip()
+
+    # Common local brand/store names to remove (case insensitive)
+    local_brands = ['sky', 'bingo', 'konzum', 'mercator', 'dm', 'rossmann', 'lidl', 'aldi', 'hofer']
+
+    # Remove size/volume info like "1 L", "500ml", "250g", etc.
+    cleaned = re.sub(r'\b\d+\s*(l|ml|g|kg|kom|pcs)\b', '', query, flags=re.IGNORECASE)
+
+    # Split by common separators and take first meaningful part
+    # e.g., "Sok Cola/Cola Zero 1 L Sky" -> prioritize "Cola" or "Coca Cola"
+    parts = re.split(r'[/|,]', cleaned)
+
+    # Clean each part
+    cleaned_parts = []
+    for part in parts:
+        part = part.strip()
+        # Skip if it's just a local brand name
+        if part.lower() in local_brands:
+            continue
+        # Remove local brand names from within the part
+        for brand in local_brands:
+            part = re.sub(rf'\b{brand}\b', '', part, flags=re.IGNORECASE)
+        part = part.strip()
+        if part and len(part) > 2:
+            cleaned_parts.append(part)
+
+    # Use the first non-empty part, or original if nothing left
+    if cleaned_parts:
+        result = cleaned_parts[0].strip()
+    else:
+        result = query
+
+    # Clean up extra whitespace
+    result = ' '.join(result.split())
+
+    # Add "product" to help find product photos instead of logos/ads
+    if result and 'product' not in result.lower():
+        result = f"{result} product"
+
+    return result
+
+
+def search_duckduckgo_images(query: str, num_results: int = 5, is_custom_query: bool = False) -> list[str]:
     """
     Search DuckDuckGo for images and return URLs.
 
     Args:
         query: Search query (product title)
         num_results: Number of image URLs to return
+        is_custom_query: If True, don't modify the query (user knows what they want)
 
     Returns:
         List of image URLs
@@ -21,9 +80,13 @@ def search_duckduckgo_images(query: str, num_results: int = 5) -> list[str]:
     try:
         from duckduckgo_search import DDGS
 
+        # Clean the query for better results (unless it's a custom query)
+        cleaned_query = clean_search_query(query, is_custom_query=is_custom_query)
+        print(f"Image search: '{query}' -> '{cleaned_query}'")
+
         with DDGS() as ddgs:
             results = list(ddgs.images(
-                query,
+                cleaned_query,
                 region='wt-wt',
                 safesearch='moderate',
                 max_results=num_results + 3  # Get extra in case some fail
@@ -125,7 +188,7 @@ def upload_to_s3(image_bytes: bytes, s3_path: str, content_type: str) -> str | N
         return None
 
 
-def search_and_upload_suggestions(product_id: int, query: str, num_images: int = 5) -> list[str]:
+def search_and_upload_suggestions(product_id: int, query: str, num_images: int = 5, is_custom_query: bool = False) -> list[str]:
     """
     Search for images and upload them to S3.
 
@@ -133,12 +196,13 @@ def search_and_upload_suggestions(product_id: int, query: str, num_images: int =
         product_id: Product ID for organizing S3 paths
         query: Search query (product title)
         num_images: Number of images to fetch
+        is_custom_query: If True, don't modify the query (user provided it manually)
 
     Returns:
         List of S3 paths for successfully uploaded images
     """
     # Search for images
-    image_urls = search_duckduckgo_images(query, num_images + 3)  # Get extra in case some fail
+    image_urls = search_duckduckgo_images(query, num_images + 3, is_custom_query=is_custom_query)  # Get extra in case some fail
 
     if not image_urls:
         return []

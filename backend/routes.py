@@ -5279,13 +5279,16 @@ def api_admin_suggest_images(product_id):
 
         # Get custom query from request body, fallback to product title
         data = request.get_json() or {}
-        search_query = data.get('query') or product.title
+        custom_query = data.get('query')
+        search_query = custom_query or product.title
+        is_custom_query = bool(custom_query)
 
         # Delete old suggestions first
         delete_suggestions_from_s3(product_id)
 
         # Search and upload new suggestions
-        suggestions = search_and_upload_suggestions(product_id, search_query, num_images=5)
+        # If user provided custom query, use it as-is; otherwise clean up product title
+        suggestions = search_and_upload_suggestions(product_id, search_query, num_images=10, is_custom_query=is_custom_query)
 
         if not suggestions:
             return jsonify({
