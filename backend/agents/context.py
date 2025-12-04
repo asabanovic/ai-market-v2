@@ -37,7 +37,7 @@ class AgentContext:
     )
 
     similarity_threshold: float = field(
-        default=0.50,  # Higher threshold for better relevance (filters out unrelated products)
+        default=0.45,  # Threshold for relevance (0.45 allows single-word queries to match)
         metadata={"description": "Minimum similarity score for results (0.0-1.0)"}
     )
 

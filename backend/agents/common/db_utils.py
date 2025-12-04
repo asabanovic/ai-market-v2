@@ -148,14 +148,18 @@ async def search_by_vector_grouped(
     grouped_results = {}
 
     for item in search_items:
-        # Use expanded_query if available, otherwise fall back to query
-        query_text = item.get("expanded_query", item.get("query", ""))
+        # Use simple query for embedding (NOT expanded_query - expansion dilutes specificity)
+        # The expanded_query is still available for display/reference but not for embedding
+        query_text = item.get("query", item.get("original", ""))
+
+        # Normalize to lowercase for consistent embedding matching
+        query_text_normalized = query_text.lower() if query_text else query_text
 
         # Use corrected spelling for display, fallback to original if not available
         display_name = item.get("corrected", item.get("original", query_text))
 
-        # Generate embedding for this item
-        query_vector = embed_fn(query_text)
+        # Generate embedding for this item (using normalized lowercase)
+        query_vector = embed_fn(query_text_normalized)
 
         # Search for this specific item
         results = search_by_vector(

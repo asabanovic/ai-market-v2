@@ -191,6 +191,8 @@ class Product(db.Model):
     tags = db.Column(JSON, nullable=True)  # JSON array
     product_metadata = db.Column(JSON, nullable=True)  # JSON object (renamed from metadata)
     image_path = db.Column(db.String, nullable=True)
+    original_image_path = db.Column(db.String, nullable=True)  # First uploaded image (immutable)
+    suggested_images = db.Column(JSON, nullable=True)  # Array of S3 paths for AI-suggested images
     product_url = db.Column(db.String, nullable=True)
     views = db.Column(db.Integer, default=0)
     content_hash = db.Column(db.String, nullable=True)  # Hash to detect content changes for embeddings

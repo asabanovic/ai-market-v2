@@ -95,11 +95,11 @@ def vectorize_product(product: Product, force: bool = False) -> Optional[Product
         # Build text for embedding
         embedding_text = build_embedding_text(product)
 
-        # Generate embedding using OpenAI
+        # Generate embedding using OpenAI (normalize to lowercase for case-insensitive search)
         logger.info(f"Generating embedding for product {product.id}: {product.title}")
         response = openai_client.embeddings.create(
             model="text-embedding-3-small",
-            input=embedding_text
+            input=embedding_text.lower()
         )
 
         embedding_vector = response.data[0].embedding

@@ -284,8 +284,8 @@ def refresh_product_embeddings(full_rebuild: bool = False, product_ids: List[int
                             enriched_description = enriched_data['enriched_description']
                             embedding_text = enriched_data['embedding_text']
 
-                            # Generate embedding
-                            embedding = generate_embedding_with_retry(embedding_text)
+                            # Generate embedding (normalize to lowercase for case-insensitive search)
+                            embedding = generate_embedding_with_retry(embedding_text.lower())
 
                             if embedding is None:
                                 logger.error(f"Failed to generate embedding for product {product_id}: {product_name}")

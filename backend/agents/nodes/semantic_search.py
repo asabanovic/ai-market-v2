@@ -10,6 +10,14 @@ from agents.common.db_utils import search_by_vector, search_by_vector_grouped
 from agents.common.llm_utils import get_embedding_model, get_chat_model
 
 
+# Message shown when no products are found
+NO_RESULTS_MESSAGE = """Nisam našao relevantne proizvode za vašu pretragu.
+
+Svakim danom dodajemo nove artikle iz mnogih supermarketa i moguće je da traženi proizvod još uvijek nismo dodali. Vratite nam se za nekoliko dana - uvjereni smo da ćemo pronaći nešto za vas!
+
+Vratili smo vam kredit za ovu pretragu, pa pokušajte s nekim drugim artiklom. Također, u opisu svog profila možete dodati željeni proizvod, pa ćemo vas obavijestiti kada bude dodan."""
+
+
 def _get_context(runtime: Runtime[AgentContext]) -> AgentContext:
     """Get context from runtime or create default.
 
@@ -64,11 +72,14 @@ async def semantic_search_node(state: AgentState, runtime: Runtime[AgentContext]
     params = state.parameters or {}
     search_items = state.search_items or []
 
+    # Normalize query to lowercase for consistent embedding matching
+    query_normalized = query.lower() if query else query
+
     # Extract parameters from query or use defaults
     k = params.get("k") or context.default_k or 10  # Ensure k is never None
     category = params.get("category")
     max_price = params.get("max_price") or _extract_price_from_query(query)
-    similarity_threshold = context.similarity_threshold or 0.50
+    similarity_threshold = context.similarity_threshold or 0.45
 
     try:
         # Get database session
@@ -130,7 +141,7 @@ async def semantic_search_node(state: AgentState, runtime: Runtime[AgentContext]
         else:
             # Fallback to single query search (legacy behavior)
             embed_fn = get_embedding_model(context.embedding_model)
-            query_vector = embed_fn(query)
+            query_vector = embed_fn(query_normalized)
 
             results = search_by_vector(
                 db_session,
@@ -180,7 +191,7 @@ async def semantic_search_node(state: AgentState, runtime: Runtime[AgentContext]
 async def _generate_explanation(query: str, results: list, context: AgentContext) -> str:
     """Generate AI explanation for search results."""
     if not results:
-        return "Nisam našao relevantne proizvode za vašu pretragu."
+        return NO_RESULTS_MESSAGE
 
     # Format top results
     bullets = []
@@ -218,7 +229,7 @@ Objasni kratko (1-2 rečenice) zašto su ovi proizvodi relevantni."""}
 async def _generate_grouped_explanation(query: str, grouped_results: Dict, context: AgentContext) -> str:
     """Generate AI explanation for grouped search results."""
     if not grouped_results or all(len(items) == 0 for items in grouped_results.values()):
-        return "Nisam našao relevantne proizvode za vašu pretragu."
+        return NO_RESULTS_MESSAGE
 
     # Format results by group
     bullets = []

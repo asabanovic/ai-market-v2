@@ -20,7 +20,7 @@ openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 def semantic_search(
     query: str,
     k: int = 10,
-    min_similarity: float = 0.50,
+    min_similarity: float = 0.45,
     price_max: Optional[float] = None,
     price_min: Optional[float] = None,
     category: Optional[str] = None,
@@ -42,11 +42,12 @@ def semantic_search(
         List of product dictionaries with similarity scores
     """
     try:
-        # Generate query embedding
-        logger.info(f"Generating embedding for query: {query}")
+        # Generate query embedding (normalize to lowercase for case-insensitive search)
+        query_normalized = query.lower() if query else query
+        logger.info(f"Generating embedding for query: {query} (normalized: {query_normalized})")
         query_response = openai_client.embeddings.create(
             model="text-embedding-3-small",
-            input=query
+            input=query_normalized
         )
         query_embedding = query_response.data[0].embedding
 

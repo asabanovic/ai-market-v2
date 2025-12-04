@@ -1672,23 +1672,31 @@ def search():
             }), 429
 
     try:
-        # Import semantic search
-        from semantic_search import semantic_search, parse_price_filter_from_query
+        # Import agent-based search (with query expansion and multi-item parsing)
+        from agent_search import run_agent_search, format_agent_products
 
-        # Parse price filters from query
-        price_min, price_max = parse_price_filter_from_query(query)
-
-        # Perform semantic search using vector embeddings
+        # Perform agent-based semantic search
+        # This uses LangGraph to:
+        # 1. Parse query into multiple items (e.g., "mlijeko, jaja i hljeb" -> 3 searches)
+        # 2. Expand each item with synonyms for better matching
+        # 3. Return grouped results
         try:
-            products = semantic_search(
+            agent_result = run_agent_search(
                 query=query,
-                k=50,  # Get more results for better variety
-                min_similarity=0.50,  # Higher threshold for better relevance (filters out unrelated products)
-                price_min=price_min,
-                price_max=price_max,
-                business_ids=business_ids
+                user_id=authenticated_user_id,
+                k=10,  # Results per item
+                business_ids=business_ids,
             )
-            app.logger.info(f"Semantic search found {len(products)} products")
+
+            # Format and flatten products for API response
+            raw_products = agent_result.get("products", [])
+            products = format_agent_products(raw_products)
+
+            # Store explanation for later use
+            agent_explanation = agent_result.get("explanation")
+            is_grouped = agent_result.get("grouped", False)
+
+            app.logger.info(f"Agent search found {len(products)} products (grouped={is_grouped})")
         except Exception as e:
             app.logger.error(f"Semantic search failed: {e}")
 
@@ -5231,6 +5239,301 @@ def api_admin_user_profile(user_id):
         app.logger.error(f"Admin user profile error: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ==================== IMAGE SUGGESTION ENDPOINTS ====================
+
+@app.route('/api/admin/products/<int:product_id>/suggest-images', methods=['POST'])
+def api_admin_suggest_images(product_id):
+    """Search for images and upload suggestions to S3"""
+    from auth_api import decode_jwt_token
+    from image_search import search_and_upload_suggestions, delete_suggestions_from_s3
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        # Save original image if not already saved
+        if not product.original_image_path and product.image_path:
+            product.original_image_path = product.image_path
+            db.session.commit()
+
+        # Delete old suggestions first
+        delete_suggestions_from_s3(product_id)
+
+        # Search and upload new suggestions
+        suggestions = search_and_upload_suggestions(product_id, product.title, num_images=5)
+
+        if not suggestions:
+            return jsonify({
+                'success': True,
+                'suggested_images': [],
+                'original_image_path': product.original_image_path,
+                'message': 'No images found for this product'
+            }), 200
+
+        # Save suggestions to database
+        product.suggested_images = suggestions
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'suggested_images': suggestions,
+            'original_image_path': product.original_image_path
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Image suggestion error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/<int:product_id>/select-image', methods=['POST'])
+def api_admin_select_image(product_id):
+    """Select one of the suggested images as the main product image"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        data = request.get_json()
+        selected_path = data.get('image_path')
+
+        if not selected_path:
+            return jsonify({'error': 'image_path is required'}), 400
+
+        # Verify the selected path is in suggestions
+        if product.suggested_images and selected_path not in product.suggested_images:
+            return jsonify({'error': 'Invalid image path'}), 400
+
+        # Build the full S3 URL
+        bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+        region = os.environ.get('AWS_REGION', 'eu-central-1')
+        full_url = f"https://{bucket}.s3.{region}.amazonaws.com/{selected_path}"
+
+        # Update product image with full URL
+        product.image_path = full_url
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'image_path': product.image_path,
+            'original_image': product.original_image_path
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Select image error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/<int:product_id>/revert-image', methods=['POST'])
+def api_admin_revert_image(product_id):
+    """Revert to the original image"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        if not product.original_image_path:
+            return jsonify({'error': 'No original image available'}), 400
+
+        # Revert to original
+        product.image_path = product.original_image_path
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'image_path': product.image_path
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Revert image error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/<int:product_id>/upload-cropped-image', methods=['POST'])
+def api_admin_upload_cropped_image(product_id):
+    """Upload a cropped image for a product"""
+    from auth_api import decode_jwt_token
+    import boto3
+    from botocore.exceptions import ClientError
+    import uuid
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        # Get uploaded file
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+
+        image_file = request.files['image']
+        if not image_file:
+            return jsonify({'error': 'Empty image file'}), 400
+
+        # Read image data
+        image_data = image_file.read()
+
+        # Generate unique filename
+        unique_id = uuid.uuid4().hex[:8]
+        s3_path = f"popust/products/{product_id}/cropped_{unique_id}.jpg"
+
+        # Upload to S3
+        bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+        region = os.environ.get('AWS_REGION', 'eu-central-1')
+
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            region_name=region
+        )
+
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=s3_path,
+            Body=image_data,
+            ContentType='image/jpeg',
+            CacheControl='max-age=31536000'
+        )
+
+        # Build full URL
+        full_url = f"https://{bucket}.s3.{region}.amazonaws.com/{s3_path}"
+
+        # Update product
+        product.image_path = full_url
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'image_path': full_url
+        }), 200
+
+    except ClientError as e:
+        app.logger.error(f"S3 upload error: {e}")
+        return jsonify({'error': 'Failed to upload image'}), 500
+    except Exception as e:
+        app.logger.error(f"Upload cropped image error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/<int:product_id>/suggested-images', methods=['GET'])
+def api_admin_get_suggested_images(product_id):
+    """Get suggested images for a product"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        return jsonify({
+            'suggestions': product.suggested_images or [],
+            'current_image': product.image_path,
+            'original_image': product.original_image_path
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Get suggested images error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
