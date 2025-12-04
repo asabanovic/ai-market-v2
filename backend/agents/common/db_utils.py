@@ -148,9 +148,9 @@ async def search_by_vector_grouped(
     grouped_results = {}
 
     for item in search_items:
-        # Use simple query for embedding (NOT expanded_query - expansion dilutes specificity)
-        # The expanded_query is still available for display/reference but not for embedding
-        query_text = item.get("query", item.get("original", ""))
+        # Use embedding_text for vector search (optimized for semantic matching)
+        # Falls back to normalized_query then query then original
+        query_text = item.get("embedding_text") or item.get("normalized_query") or item.get("query") or item.get("original", "")
 
         # Normalize to lowercase for consistent embedding matching
         query_text_normalized = query_text.lower() if query_text else query_text

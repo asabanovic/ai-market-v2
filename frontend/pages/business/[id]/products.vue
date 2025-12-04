@@ -328,6 +328,7 @@
                     class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   >
                 </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slika</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opis za pretragu</th>
@@ -338,7 +339,6 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dodano</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Istek</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pregledi</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -350,6 +350,10 @@
                     @change="toggleProductSelection(product.id)"
                     class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   >
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                  <button @click="editProduct(product.id)" class="text-indigo-600 hover:text-indigo-900 mr-3">Uredi</button>
+                  <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">Obriši</button>
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">
                   <img
@@ -443,10 +447,6 @@
                     </svg>
                     <span class="text-sm font-medium text-gray-700">{{ product.views || 0 }}</span>
                   </div>
-                </td>
-                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                  <button @click="editProduct(product.id)" class="text-indigo-600 hover:text-indigo-900 mr-3">Uredi</button>
-                  <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">Obriši</button>
                 </td>
               </tr>
             </tbody>
@@ -590,33 +590,123 @@
         <form @submit.prevent="saveProduct" class="space-y-4">
           <!-- Image Preview and Upload -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Slika proizvoda</label>
-            <div class="flex items-start gap-4">
-              <div v-if="editForm.image_path" class="flex-shrink-0">
-                <img :src="editForm.image_path" :alt="editForm.title" class="w-32 h-32 object-cover rounded border border-gray-300">
+            <label class="block text-sm font-medium text-gray-700 mb-3">Slika proizvoda</label>
+
+            <!-- Current and Original Images Side by Side -->
+            <div class="flex items-start gap-8 mb-4">
+              <!-- Current Image -->
+              <div class="flex-shrink-0">
+                <div v-if="editForm.image_path" class="relative">
+                  <img :src="getFullImageUrl(editForm.image_path)" :alt="editForm.title" class="w-96 h-96 object-contain rounded-lg border-2 border-green-400 shadow-md bg-gray-50">
+                  <span class="absolute -top-2 -right-2 px-3 py-1 text-xs font-bold bg-green-500 text-white rounded-full shadow">Trenutna</span>
+                </div>
+                <div v-else class="w-96 h-96 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                  <svg class="w-24 h-24 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
               </div>
-              <div v-else class="flex-shrink-0 w-32 h-32 bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
-                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-              </div>
-              <div class="flex-1">
-                <input
-                  type="file"
-                  accept="image/*"
-                  @change="handleImageUpload"
-                  ref="imageInput"
-                  class="hidden"
-                >
+
+              <!-- Original Image (if different from current) -->
+              <div v-if="originalImagePath && originalImagePath !== editForm.image_path" class="flex-shrink-0">
+                <div class="relative">
+                  <img :src="getFullImageUrl(originalImagePath)" alt="Original" class="w-96 h-96 object-contain rounded-lg border-2 border-gray-300 shadow-md opacity-80 bg-gray-50">
+                  <span class="absolute -top-2 -right-2 px-3 py-1 text-xs font-bold bg-gray-500 text-white rounded-full shadow">Original</span>
+                </div>
                 <button
                   type="button"
-                  @click="$refs.imageInput.click()"
-                  :disabled="isUploadingImage"
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  @click="revertToOriginal"
+                  :disabled="isRevertingImage"
+                  class="mt-3 w-full px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
                 >
-                  {{ isUploadingImage ? 'Uploadujem...' : 'Promijeni sliku' }}
+                  {{ isRevertingImage ? 'Vraćam...' : 'Vrati original' }}
                 </button>
-                <p class="mt-1 text-xs text-gray-500">JPG, PNG ili GIF (max 5MB)</p>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3 mb-4">
+              <input
+                type="file"
+                accept="image/*"
+                @change="handleImageUpload"
+                ref="imageInput"
+                class="hidden"
+              >
+              <button
+                type="button"
+                @click="$refs.imageInput.click()"
+                :disabled="isUploadingImage"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {{ isUploadingImage ? 'Uploadujem...' : 'Upload slike' }}
+              </button>
+              <button
+                type="button"
+                @click="suggestImages"
+                :disabled="isSuggestingImages"
+                class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+              >
+                <svg v-if="isSuggestingImages" class="w-4 h-4 inline mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {{ isSuggestingImages ? 'Tražim...' : 'Predloži slike' }}
+              </button>
+              <span class="text-xs text-gray-500 self-center">JPG, PNG ili GIF (max 5MB)</span>
+            </div>
+
+            <!-- Suggested Images Collapsible Section -->
+            <div v-if="suggestedImages.length > 0" class="border border-gray-200 rounded-lg">
+              <button
+                type="button"
+                @click="showSuggestedImages = !showSuggestedImages"
+                class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <span class="text-sm font-medium text-gray-700">
+                  Predložene slike ({{ suggestedImages.length }})
+                </span>
+                <svg
+                  class="w-5 h-5 text-gray-500 transition-transform"
+                  :class="{ 'rotate-180': showSuggestedImages }"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              <div v-show="showSuggestedImages" class="p-4 border-t border-gray-200">
+                <p class="text-xs text-gray-500 mb-3">Klikni na sliku za odabir i izrezivanje</p>
+                <div class="grid grid-cols-3 gap-4">
+                  <div
+                    v-for="(imgPath, idx) in suggestedImages"
+                    :key="idx"
+                    @click="openCropperModal(imgPath)"
+                    class="relative cursor-pointer group"
+                  >
+                    <img
+                      :src="getFullImageUrl(imgPath)"
+                      :alt="`Suggestion ${idx + 1}`"
+                      class="w-full h-48 object-contain rounded border-2 transition-all bg-gray-50"
+                      :class="getFullImageUrl(imgPath) === editForm.image_path ? 'border-green-500 ring-2 ring-green-300' : 'border-gray-200 hover:border-purple-400'"
+                    >
+                    <div
+                      v-if="getFullImageUrl(imgPath) === editForm.image_path"
+                      class="absolute inset-0 bg-green-500 bg-opacity-20 rounded flex items-center justify-center"
+                    >
+                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <div
+                      v-else
+                      class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded transition-all flex items-center justify-center"
+                    >
+                      <span class="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black bg-opacity-50 px-2 py-1 rounded">Odaberi</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -783,9 +873,56 @@
       </div>
     </div>
   </div>
+
+  <!-- Image Cropper Modal -->
+  <div v-if="showCropperModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Izreži sliku</h3>
+        <button @click="closeCropperModal" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 mb-2">Odaberite dio slike za izrezivanje (1:1 omjer, 400x400px)</p>
+        <div class="flex justify-center bg-gray-100 rounded-lg p-4">
+          <img
+            ref="cropperImageRef"
+            :src="cropperImageUrl"
+            alt="Cropper"
+            class="max-h-96"
+          >
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3">
+        <button
+          type="button"
+          @click="closeCropperModal"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+        >
+          Otkaži
+        </button>
+        <button
+          type="button"
+          @click="applyCrop"
+          :disabled="isCropping"
+          class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50"
+        >
+          {{ isCropping ? 'Obrađujem...' : 'Primijeni' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
+import Cropper from 'cropperjs'
+import 'cropperjs/dist/cropper.css'
+
 definePageMeta({
   middleware: ['auth']
 })
@@ -873,6 +1010,22 @@ const isRegeneratingTagsSingle = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
 const customCategory = ref('')
 const priceHistory = ref<any[]>([])
+
+// Image suggestion state
+const suggestedImages = ref<string[]>([])
+const originalImagePath = ref<string | null>(null)
+const isSuggestingImages = ref(false)
+const isRevertingImage = ref(false)
+const showSuggestedImages = ref(false)
+
+// Cropper state
+const showCropperModal = ref(false)
+const cropperImageUrl = ref('')
+const cropperImagePath = ref('')
+const cropperImageRef = ref<HTMLImageElement | null>(null)
+const isCropping = ref(false)
+let cropperInstance: Cropper | null = null
+
 const editForm = ref({
   id: null as number | null,
   title: '',
@@ -1101,9 +1254,25 @@ async function editProduct(productId: number) {
   // Reset custom category if the product's category is not in the list
   customCategory.value = uniqueCategories.value.includes(product.category || '') ? '' : (product.category || '')
 
-  // Fetch price history
+  // Reset suggestion state
+  suggestedImages.value = []
+  originalImagePath.value = null
+
+  // Fetch price history and suggested images in parallel
   try {
-    priceHistory.value = await get(`/api/products/${productId}/price-history`)
+    const [historyData, suggestionsData] = await Promise.all([
+      get(`/api/products/${productId}/price-history`).catch(() => []),
+      get(`/api/admin/products/${productId}/suggested-images`).catch(() => ({}))
+    ])
+
+    priceHistory.value = historyData || []
+
+    if (suggestionsData.suggested_images) {
+      suggestedImages.value = suggestionsData.suggested_images
+    }
+    if (suggestionsData.original_image_path) {
+      originalImagePath.value = suggestionsData.original_image_path
+    }
   } catch (error) {
     priceHistory.value = []
   }
@@ -1114,6 +1283,10 @@ async function editProduct(productId: number) {
 function closeEditModal() {
   showEditModal.value = false
   priceHistory.value = []
+  // Reset suggestion state
+  suggestedImages.value = []
+  originalImagePath.value = null
+  showSuggestedImages.value = false
   // Reset form
   editForm.value = {
     id: null,
@@ -1355,6 +1528,185 @@ function handleImageError(event: Event) {
   target.style.display = 'none'
   if (target.nextElementSibling) {
     (target.nextElementSibling as HTMLElement).style.display = 'flex'
+  }
+}
+
+// Get full image URL from S3 path
+function getFullImageUrl(path: string | null): string {
+  if (!path) return ''
+  // If it's already a full URL, return it
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  // Otherwise, construct the S3 URL
+  return `https://aipijaca.s3.eu-central-1.amazonaws.com/${path}`
+}
+
+// Image suggestion functions
+async function suggestImages() {
+  if (!editForm.value.id || !editForm.value.title) {
+    showNotification('Proizvod mora imati naziv za pretragu slika', 'error')
+    return
+  }
+
+  isSuggestingImages.value = true
+  try {
+    const data = await post(`/api/admin/products/${editForm.value.id}/suggest-images`, {})
+
+    if (data.success) {
+      suggestedImages.value = data.suggested_images || []
+      if (data.original_image_path) {
+        originalImagePath.value = data.original_image_path
+      }
+      if (suggestedImages.value.length > 0) {
+        showNotification(`Pronađeno ${suggestedImages.value.length} slika`, 'success')
+      } else {
+        showNotification('Nisu pronađene slike za ovaj proizvod', 'info')
+      }
+    } else {
+      showNotification(data.error || 'Greška pri pretrazi slika', 'error')
+    }
+  } catch (error: any) {
+    console.error('Suggest images error:', error)
+    showNotification('Greška pri pretrazi slika', 'error')
+  } finally {
+    isSuggestingImages.value = false
+  }
+}
+
+async function selectSuggestedImage(imagePath: string) {
+  if (!editForm.value.id) return
+
+  try {
+    const data = await post(`/api/admin/products/${editForm.value.id}/select-image`, {
+      image_path: imagePath
+    })
+
+    if (data.success) {
+      editForm.value.image_path = imagePath
+      showNotification('Slika je odabrana', 'success')
+    } else {
+      showNotification(data.error || 'Greška pri odabiru slike', 'error')
+    }
+  } catch (error: any) {
+    console.error('Select image error:', error)
+    showNotification('Greška pri odabiru slike', 'error')
+  }
+}
+
+async function revertToOriginal() {
+  if (!editForm.value.id || !originalImagePath.value) return
+
+  isRevertingImage.value = true
+  try {
+    const data = await post(`/api/admin/products/${editForm.value.id}/revert-image`, {})
+
+    if (data.success) {
+      editForm.value.image_path = data.image_path || originalImagePath.value
+      showNotification('Vraćena originalna slika', 'success')
+    } else {
+      showNotification(data.error || 'Greška pri vraćanju slike', 'error')
+    }
+  } catch (error: any) {
+    console.error('Revert image error:', error)
+    showNotification('Greška pri vraćanju slike', 'error')
+  } finally {
+    isRevertingImage.value = false
+  }
+}
+
+// Cropper functions
+function openCropperModal(imagePath: string) {
+  cropperImagePath.value = imagePath
+  cropperImageUrl.value = getFullImageUrl(imagePath)
+  showCropperModal.value = true
+
+  // Initialize cropper after DOM update
+  nextTick(() => {
+    if (cropperImageRef.value && !cropperInstance) {
+      cropperInstance = new Cropper(cropperImageRef.value, {
+        aspectRatio: 1,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 0.8,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false
+      })
+    }
+  })
+}
+
+function closeCropperModal() {
+  showCropperModal.value = false
+  cropperImageUrl.value = ''
+  cropperImagePath.value = ''
+  if (cropperInstance) {
+    cropperInstance.destroy()
+    cropperInstance = null
+  }
+}
+
+async function applyCrop() {
+  if (!cropperInstance || !editForm.value.id) return
+
+  isCropping.value = true
+
+  try {
+    // Get cropped canvas with 400x400 dimensions
+    const canvas = cropperInstance.getCroppedCanvas({
+      width: 400,
+      height: 400,
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high'
+    })
+
+    if (!canvas) {
+      showNotification('Greška pri izrezivanju slike', 'error')
+      return
+    }
+
+    // Convert canvas to blob
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9)
+    })
+
+    if (!blob) {
+      showNotification('Greška pri obradi slike', 'error')
+      return
+    }
+
+    // Create FormData and upload
+    const formData = new FormData()
+    formData.append('image', blob, 'cropped.jpg')
+    formData.append('original_suggestion_path', cropperImagePath.value)
+
+    const response = await fetch(`${config.public.apiBase}/api/admin/products/${editForm.value.id}/upload-cropped-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${useCookie('auth_token').value}`
+      },
+      body: formData
+    })
+
+    const data = await response.json()
+
+    if (data.success) {
+      editForm.value.image_path = data.image_path
+      showNotification('Slika uspješno izrezana i spremljena', 'success')
+      closeCropperModal()
+    } else {
+      showNotification(data.error || 'Greška pri spremanju slike', 'error')
+    }
+  } catch (error: any) {
+    console.error('Crop error:', error)
+    showNotification('Greška pri izrezivanju slike', 'error')
+  } finally {
+    isCropping.value = false
   }
 }
 

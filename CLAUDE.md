@@ -50,4 +50,65 @@ For development work, **always use `./start.sh`** to avoid slow rebuilds.
 - Staging: https://popust-ba-staging.up.railway.app
 - Production: https://popust.ba
 
-See `RAILWAY_DEPLOY.md` for deployment instructions.
+### Railway Service Names
+
+- **Production backend**: `backend-prod`
+- **Staging backend**: `backend`
+- **Production frontend**: `frontend-prod`
+- **Staging frontend**: `frontend`
+
+### Running Migrations
+
+Migrations use Alembic. Run from the `backend/` directory.
+
+**Local development:**
+```bash
+cd backend
+alembic upgrade head
+```
+
+**Production:**
+```bash
+cd backend
+RAILWAY_ENVIRONMENT=production railway run --service backend-prod alembic upgrade head
+```
+
+**Staging:**
+```bash
+cd backend
+RAILWAY_ENVIRONMENT=staging railway run --service backend alembic upgrade head
+```
+
+### Creating New Migrations
+
+```bash
+cd backend
+alembic revision --autogenerate -m "Description of changes"
+```
+
+### Railway CLI Commands
+
+**Check deployment status:**
+```bash
+railway status
+```
+
+**View logs:**
+```bash
+# Production
+RAILWAY_ENVIRONMENT=production railway logs --service backend-prod
+
+# Staging
+RAILWAY_ENVIRONMENT=staging railway logs --service backend
+```
+
+**Redeploy service:**
+```bash
+# Production
+RAILWAY_ENVIRONMENT=production railway redeploy --service backend-prod
+
+# Staging
+RAILWAY_ENVIRONMENT=staging railway redeploy --service backend
+```
+
+See `RAILWAY_DEPLOY.md` for more deployment instructions.

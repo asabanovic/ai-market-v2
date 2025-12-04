@@ -5537,6 +5537,60 @@ def api_admin_get_suggested_images(product_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/search-test', methods=['POST'])
+@csrf.exempt
+def api_admin_search_test():
+    """Admin search test endpoint with configurable similarity threshold"""
+    from auth_api import decode_jwt_token
+    from semantic_search import semantic_search
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        data = request.get_json()
+        query = data.get('query', '').strip()
+        min_similarity = float(data.get('min_similarity', 0.45))
+        k = int(data.get('k', 20))
+
+        if not query:
+            return jsonify({'error': 'Query is required'}), 400
+
+        # Clamp min_similarity between 0 and 1
+        min_similarity = max(0.0, min(1.0, min_similarity))
+
+        # Run semantic search with custom threshold
+        products = semantic_search(
+            query=query,
+            k=k,
+            min_similarity=min_similarity
+        )
+
+        return jsonify({
+            'query': query,
+            'min_similarity': min_similarity,
+            'products_count': len(products),
+            'products': products
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin search test error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):

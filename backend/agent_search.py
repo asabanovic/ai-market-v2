@@ -17,7 +17,7 @@ from agents.state import InputState
 def run_agent_search(
     query: str,
     user_id: Optional[str] = None,
-    k: int = 10,
+    k: int = 8,
     business_ids: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """

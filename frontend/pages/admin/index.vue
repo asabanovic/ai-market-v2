@@ -68,6 +68,113 @@
           </div>
         </div>
 
+        <!-- Search Tester -->
+        <div class="mb-8 bg-white rounded-lg border border-gray-200 p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Test pretrage</h3>
+          <div class="space-y-4">
+            <!-- Search Input and Slider -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Upit za pretragu</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="npr. nes kafa, badem, mlijeko..."
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    @keyup.enter="runSearchTest"
+                  />
+                  <button
+                    @click="runSearchTest"
+                    :disabled="searchLoading || !searchQuery.trim()"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span v-if="searchLoading">...</span>
+                    <span v-else>Traži</span>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Min. sličnost: <span class="text-indigo-600 font-bold">{{ minSimilarity.toFixed(2) }}</span>
+                </label>
+                <input
+                  v-model.number="minSimilarity"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0.00</span>
+                  <span>0.45 (default)</span>
+                  <span>1.00</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Search Results -->
+            <div v-if="searchResults" class="mt-4">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-medium text-gray-700">
+                  Rezultati: <span class="text-indigo-600">{{ searchResults.products_count }}</span> proizvoda
+                </h4>
+                <span class="text-xs text-gray-500">
+                  min_similarity: {{ searchResults.min_similarity }}
+                </span>
+              </div>
+
+              <div v-if="searchResults.products_count === 0" class="text-center py-8 text-gray-500">
+                Nema rezultata za upit "{{ searchResults.query }}" sa minimalnom sličnošću {{ searchResults.min_similarity }}
+              </div>
+
+              <div v-else class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sličnost</th>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Proizvod</th>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kategorija</th>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cijena</th>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Biznis</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    <tr v-for="product in searchResults.products" :key="product.id" class="hover:bg-gray-50">
+                      <td class="px-3 py-2 whitespace-nowrap">
+                        <span
+                          class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                          :class="getSimilarityClass(product.similarity_score)"
+                        >
+                          {{ (product.similarity_score * 100).toFixed(1) }}%
+                        </span>
+                      </td>
+                      <td class="px-3 py-2">
+                        <div class="flex items-center">
+                          <img
+                            v-if="product.image_url"
+                            :src="product.image_url"
+                            class="w-10 h-10 rounded object-cover mr-3"
+                            :alt="product.title"
+                          />
+                          <div class="max-w-xs truncate text-sm text-gray-900">{{ product.title }}</div>
+                        </div>
+                      </td>
+                      <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{{ product.category }}</td>
+                      <td class="px-3 py-2 whitespace-nowrap">
+                        <span v-if="product.discount_price" class="text-green-600 font-medium">{{ product.discount_price }} KM</span>
+                        <span v-else class="text-gray-900">{{ product.base_price }} KM</span>
+                      </td>
+                      <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{{ product.business?.name }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Quick Stats -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div class="bg-white rounded-lg border border-gray-200 p-6">
@@ -284,6 +391,12 @@ const recentSearches = ref<any[]>([])
 const recentBusinesses = ref<any[]>([])
 const searchesPagination = ref<any>(null)
 
+// Search tester state
+const searchQuery = ref('')
+const minSimilarity = ref(0.45)
+const searchLoading = ref(false)
+const searchResults = ref<any>(null)
+
 onMounted(async () => {
   await loadDashboardData()
 })
@@ -333,6 +446,33 @@ function formatDateTime(dateString: string) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// Search tester functions
+async function runSearchTest() {
+  if (!searchQuery.value.trim()) return
+
+  searchLoading.value = true
+  try {
+    const data = await post('/api/admin/search-test', {
+      query: searchQuery.value,
+      min_similarity: minSimilarity.value,
+      k: 20
+    })
+    searchResults.value = data
+  } catch (error) {
+    console.error('Search test error:', error)
+    searchResults.value = { error: 'Greška pri pretrazi', products: [], products_count: 0 }
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function getSimilarityClass(score: number) {
+  if (score >= 0.6) return 'bg-green-100 text-green-800'
+  if (score >= 0.5) return 'bg-blue-100 text-blue-800'
+  if (score >= 0.45) return 'bg-yellow-100 text-yellow-800'
+  return 'bg-red-100 text-red-800'
 }
 
 useSeoMeta({
