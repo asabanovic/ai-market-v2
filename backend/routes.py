@@ -5357,6 +5357,10 @@ def api_admin_select_image(product_id):
         region = os.environ.get('AWS_REGION', 'eu-central-1')
         full_url = f"https://{bucket}.s3.{region}.amazonaws.com/{selected_path}"
 
+        # Store original image path if not already stored and current image exists
+        if not product.original_image_path and product.image_path:
+            product.original_image_path = product.image_path
+
         # Update product image with full URL
         product.image_path = full_url
         db.session.commit()
@@ -5541,6 +5545,155 @@ def api_admin_get_suggested_images(product_id):
 
     except Exception as e:
         app.logger.error(f"Get suggested images error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/images', methods=['GET'])
+def api_admin_products_images():
+    """Get all products with image info for bulk image matching"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get all products with business info
+        products = db.session.query(Product, Business).join(
+            Business, Product.business_id == Business.id
+        ).order_by(Product.id.desc()).all()
+
+        products_list = []
+        stats = {
+            'total': 0,
+            'has_image': 0,
+            'no_image': 0,
+            'has_original': 0,
+            'has_suggestions': 0
+        }
+
+        for product, business in products:
+            stats['total'] += 1
+
+            has_image = bool(product.image_path)
+            has_original = bool(product.original_image_path)
+            has_suggestions = bool(product.suggested_images and len(product.suggested_images) > 0)
+
+            if has_image:
+                stats['has_image'] += 1
+            else:
+                stats['no_image'] += 1
+
+            if has_original:
+                stats['has_original'] += 1
+
+            if has_suggestions:
+                stats['has_suggestions'] += 1
+
+            products_list.append({
+                'id': product.id,
+                'title': product.title,
+                'image_path': product.image_path,
+                'original_image_path': product.original_image_path,
+                'suggested_images': product.suggested_images or [],
+                'business_id': business.id,
+                'business_name': business.name,
+                'category': product.category
+            })
+
+        return jsonify({
+            'products': products_list,
+            'stats': stats
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Get products images error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/<int:product_id>/ai-match-images', methods=['POST'])
+@csrf.exempt
+def api_admin_ai_match_images(product_id):
+    """Run AI image matching for a product using GPT-4o Vision"""
+    from auth_api import decode_jwt_token
+    from image_search import search_and_upload_suggestions, delete_suggestions_from_s3
+    from image_matcher import match_product_images
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        # Check if we already have suggested images, if not fetch them
+        suggested_images = product.suggested_images or []
+
+        if not suggested_images:
+            # Delete old suggestions first
+            delete_suggestions_from_s3(product_id)
+
+            # Search and upload new suggestions
+            suggested_images = search_and_upload_suggestions(
+                product_id,
+                product.title,
+                num_images=10,
+                is_custom_query=False
+            )
+
+            if suggested_images:
+                product.suggested_images = suggested_images
+                db.session.commit()
+
+        if not suggested_images:
+            return jsonify({
+                'matches': [],
+                'best_match': None,
+                'analysis': 'No images found for this product'
+            }), 200
+
+        # Run AI matching with GPT-4o Vision
+        result = match_product_images(
+            product_title=product.title,
+            original_image_path=product.original_image_path,
+            suggested_image_paths=suggested_images
+        )
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        app.logger.error(f"AI image match error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
 
