@@ -176,30 +176,43 @@
       </div>
     </div>
 
-    <!-- Featured Businesses Section -->
-    <section v-if="featuredBusinesses && featuredBusinesses.length > 0" class="py-12 bg-gray-50">
+    <!-- Featured Businesses Section - Animated Marquee -->
+    <section v-if="featuredBusinesses && featuredBusinesses.length > 0" class="py-12 bg-gray-50 overflow-hidden">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <h2 class="typography-heading-1 text-gray-900 mb-2">SUPERMARKETI</h2>
           <p class="typography-body text-gray-600">Koristite naš Popust asistent da brzo pronađete gdje su danas najjeftiniji proizvodi i najbolje akcije</p>
         </div>
+      </div>
 
-        <div class="flex flex-wrap justify-center items-center gap-6">
-          <NuxtLink
-            v-for="business in featuredBusinesses"
-            :key="business.id"
-            :to="`/proizvodi?business=${business.id}`"
-            class="hover:opacity-75 transition-opacity"
-          >
-            <img
-              v-if="business.logo"
-              :src="business.logo"
-              :alt="business.name"
-              :title="business.name"
-              class="h-10 object-contain"
-              @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-            />
-          </NuxtLink>
+      <!-- Animated Scrolling Logos -->
+      <div class="relative">
+        <!-- Gradient overlays for smooth fade effect -->
+        <div class="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none"></div>
+        <div class="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none"></div>
+
+        <!-- Scrolling container -->
+        <div class="flex animate-marquee hover:[animation-play-state:paused]">
+          <!-- Repeat logos 4 times to ensure no gaps -->
+          <template v-for="repeat in 4" :key="'repeat-' + repeat">
+            <div class="flex items-center gap-12 shrink-0">
+              <NuxtLink
+                v-for="business in featuredBusinesses"
+                :key="repeat + '-' + business.id"
+                :to="`/proizvodi?business=${business.id}`"
+                class="shrink-0 hover:scale-110 transition-transform duration-300 px-6"
+              >
+                <img
+                  v-if="business.logo"
+                  :src="business.logo"
+                  :alt="business.name"
+                  :title="business.name"
+                  class="h-16 md:h-20 w-auto object-contain opacity-70 hover:opacity-100 transition-all duration-300"
+                  @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+                />
+              </NuxtLink>
+            </div>
+          </template>
         </div>
       </div>
     </section>
