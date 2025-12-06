@@ -13,6 +13,7 @@ def search_by_vector(
     filter_fn: Optional[Callable[[Dict[str, Any]], bool]] = None,
     category: Optional[str] = None,
     max_price: Optional[float] = None,
+    max_per_store: int = 2,
 ) -> List[Dict[str, Any]]:
     """Search for products using vector similarity.
 
@@ -23,6 +24,7 @@ def search_by_vector(
         filter_fn: Optional custom filter function.
         category: Optional category filter.
         max_price: Optional maximum price filter.
+        max_per_store: Maximum products per store (default 2), then sorted by similarity.
 
     Returns:
         List of product dictionaries with similarity scores.
@@ -66,11 +68,11 @@ def search_by_vector(
         LEFT JOIN businesses b ON p.business_id = b.id
         WHERE {where_sql}
         ORDER BY pe.embedding <=> '{vector_str}'::vector
-        LIMIT {k * 2}
+        LIMIT {k * 10}
     """
 
     result = db_session.execute(text(query))
-    products = []
+    all_products = []
 
     for row in result:
         # Check if discount has expired
@@ -113,12 +115,52 @@ def search_by_vector(
         if filter_fn and not filter_fn(product):
             continue
 
-        products.append(product)
+        all_products.append(product)
 
-        if len(products) >= k:
-            break
+    # Apply max_per_store limit: take top N from each store, then sort all by similarity
+    products = _limit_per_store(all_products, max_per_store=max_per_store, total_limit=k)
 
     return products
+
+
+def _limit_per_store(
+    products: List[Dict[str, Any]],
+    max_per_store: int,
+    total_limit: int
+) -> List[Dict[str, Any]]:
+    """Limit products per store, then return top results by similarity.
+
+    Args:
+        products: List of products sorted by similarity (highest first).
+        max_per_store: Maximum products to keep per store.
+        total_limit: Total number of results to return.
+
+    Returns:
+        Diversified list limited to max_per_store per store, sorted by similarity.
+    """
+    if not products or max_per_store <= 0:
+        return products[:total_limit]
+
+    from collections import defaultdict
+
+    # Count products per store and collect top N from each
+    store_counts: Dict[int, int] = defaultdict(int)
+    selected = []
+
+    for product in products:
+        business_id = product.get("business", {}).get("id")
+        if business_id is None:
+            selected.append(product)
+            continue
+
+        if store_counts[business_id] < max_per_store:
+            selected.append(product)
+            store_counts[business_id] += 1
+
+    # Sort by similarity (already sorted from DB, but re-sort after filtering)
+    selected.sort(key=lambda p: p.get("similarity", 0), reverse=True)
+
+    return selected[:total_limit]
 
 
 async def search_by_vector_grouped(

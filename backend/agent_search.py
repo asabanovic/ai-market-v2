@@ -66,8 +66,10 @@ def run_agent_search(
             asyncio.set_event_loop(loop)
 
         # Run async graph synchronously
+        # Pass context via config for langgraph 0.2.x compatibility
+        config = {"configurable": {"context": context}}
         result = loop.run_until_complete(
-            graph.ainvoke(input_state, context=context)
+            graph.ainvoke(input_state, config=config)
         )
 
         # Process results
