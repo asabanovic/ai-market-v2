@@ -196,21 +196,20 @@
           <!-- Repeat logos 4 times to ensure no gaps -->
           <template v-for="repeat in 4" :key="'repeat-' + repeat">
             <div class="flex items-center gap-12 shrink-0">
-              <NuxtLink
+              <div
                 v-for="business in featuredBusinesses"
                 :key="repeat + '-' + business.id"
-                :to="`/proizvodi?business=${business.id}`"
-                class="shrink-0 hover:scale-110 transition-transform duration-300 px-6"
+                class="shrink-0 px-6"
               >
                 <img
                   v-if="business.logo"
                   :src="business.logo"
                   :alt="business.name"
                   :title="business.name"
-                  class="h-16 md:h-20 w-auto object-contain opacity-70 hover:opacity-100 transition-all duration-300"
+                  class="h-16 md:h-20 w-auto object-contain opacity-70 transition-all duration-300"
                   @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
                 />
-              </NuxtLink>
+              </div>
             </div>
           </template>
         </div>
