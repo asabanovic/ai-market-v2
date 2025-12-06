@@ -1,28 +1,32 @@
 """General assistant node for generic queries."""
 
-from typing import Dict
-from langgraph.runtime import Runtime
+from typing import Any, Dict
 from agents.state import AgentState
 from agents.context import AgentContext
 from agents.prompts import GENERAL_ASSISTANT_PROMPT
 from agents.common.llm_utils import get_chat_model
 
 
-def _get_context(runtime: Runtime[AgentContext]) -> AgentContext:
+def _get_context(runtime: Any) -> AgentContext:
     """Get context from runtime or create default.
 
     Args:
-        runtime: LangGraph runtime.
+        runtime: LangGraph runtime or config dict.
 
     Returns:
         AgentContext: The context object.
     """
-    if runtime.context is None:
+    if runtime is None:
         return AgentContext()
-    return runtime.context
+    if isinstance(runtime, dict):
+        configurable = runtime.get('configurable', {})
+        return configurable.get('context', AgentContext())
+    if hasattr(runtime, 'context') and runtime.context is not None:
+        return runtime.context
+    return AgentContext()
 
 
-async def general_assistant_node(state: AgentState, runtime: Runtime[AgentContext]) -> Dict:
+async def general_assistant_node(state: AgentState, runtime: Any = None) -> Dict:
     """Handle general queries about the marketplace.
 
     Args:

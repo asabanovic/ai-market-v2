@@ -289,9 +289,10 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def product_to_dict(product):
+def product_to_dict(product, include_price_history=True):
     """Standardized product serializer that returns complete product schema with nested business data"""
     from datetime import datetime
+    from models import ProductPriceHistory
 
     # Helper function to safely get values from either object or dictionary
     def safe_get(obj, key, default=None):
@@ -368,6 +369,33 @@ def product_to_dict(product):
             'city': safe_get(product, 'business_city')
         }
 
+    # Get price history data for "was on sale" feature
+    price_history_data = None
+    product_id = safe_get(product, 'id')
+
+    if include_price_history and product_id and not has_discount:
+        # Only show historical price if product is NOT currently on discount
+        # First check ProductPriceHistory table for lowest historical discount price
+        lowest_history = ProductPriceHistory.query.filter(
+            ProductPriceHistory.product_id == product_id,
+            ProductPriceHistory.discount_price.isnot(None)
+        ).order_by(ProductPriceHistory.discount_price.asc()).first()
+
+        if lowest_history and lowest_history.discount_price:
+            # We have historical data
+            price_history_data = {
+                'lowest_price': float(lowest_history.discount_price),
+                'recorded_at': lowest_history.recorded_at.isoformat() if lowest_history.recorded_at else None,
+                'potential_savings': round(float(base_price) - float(lowest_history.discount_price), 2) if base_price else 0
+            }
+        elif discount_price and is_expired:
+            # Fallback: if discount just expired, use that as "was on sale" price
+            price_history_data = {
+                'lowest_price': float(discount_price),
+                'recorded_at': expires_iso,
+                'potential_savings': round(float(base_price) - float(discount_price), 2) if base_price and discount_price else 0
+            }
+
     # If discount is expired, don't show discount info - product becomes regular
     return {
         'id': safe_get(product, 'id'),
@@ -382,6 +410,7 @@ def product_to_dict(product):
         'category': safe_get(product, 'category'),
         'business': business_data,
         'enriched_description': safe_get(product, 'enriched_description'),
+        'price_history': price_history_data,
     }
 
 
@@ -689,26 +718,8 @@ def api_product_detail(product_id):
     if not product:
         return jsonify({'error': 'Product not found'}), 404
 
-    business = Business.query.get(product.business_id)
-
-    return jsonify({
-        'id': product.id,
-        'title': product.title,
-        'base_price': product.base_price,
-        'discount_price': product.discount_price,
-        'image_path': product.image_path,
-        'product_url': product.product_url,
-        'expires': product.expires.isoformat() if product.expires else None,
-        'category': product.category,
-        'city': product.city,
-        'enriched_description': product.enriched_description,
-        'business': {
-            'id': business.id,
-            'name': business.name,
-            'logo': format_logo_url(business.logo_path),
-            'city': business.city
-        } if business else None
-    })
+    # Use standardized product serializer that includes price_history
+    return jsonify(product_to_dict(product))
 
 
 # API endpoint for product price history

@@ -73,7 +73,7 @@
       </div>
 
       <!-- Price Info -->
-      <div class="mb-3">
+      <div class="mb-2">
         <span class="text-2xl font-bold text-gray-900">
           {{ formatPrice(product.discount_price || product.base_price) }} KM
         </span>
@@ -85,13 +85,42 @@
         </span>
       </div>
 
-      <!-- Expiry Date -->
-      <div class="mb-3 min-h-[2rem]">
+      <!-- Expiry Date OR Price History (same row, consistent height) -->
+      <div class="mb-2 min-h-[1.5rem] flex items-center justify-center">
+        <!-- Show expiry date for products with active discount -->
         <div
-          v-if="product.expires"
-          class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-md text-center text-sm font-medium"
+          v-if="product.expires && product.has_discount"
+          class="text-xs text-yellow-700 text-center"
         >
-          do {{ formatBosnianDate(product.expires) }}
+          do {{ formatShortDate(product.expires) }}
+        </div>
+        <!-- Show price history for products without active discount -->
+        <div
+          v-else-if="showPriceHistory && showSavingsCTA"
+          class="w-full bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-md px-2 py-1 text-xs"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600">Prethodna akcija: <strong class="text-green-600">{{ formatPrice(product.price_history.lowest_price) }} KM</strong></span>
+            <button
+              v-if="!isLoggedIn"
+              @click.stop="goToRegister"
+              class="text-purple-600 hover:text-purple-800 underline"
+            >
+              Obavijesti me
+            </button>
+            <button
+              v-else-if="!isFavorited"
+              @click.stop="addToFavorites"
+              class="text-purple-600 hover:text-purple-800 underline flex items-center gap-0.5"
+            >
+              <Icon name="mdi:bell-plus" class="w-3 h-3" />
+              Prati
+            </button>
+            <span v-else class="text-green-600 flex items-center gap-0.5">
+              <Icon name="mdi:bell-check" class="w-3 h-3" />
+              Pratim
+            </span>
+          </div>
         </div>
       </div>
 
@@ -116,9 +145,6 @@
 
         <span class="text-gray-700 font-medium text-sm">
           {{ product.business?.name || 'Nepoznat biznis' }}
-        </span>
-        <span v-if="product.city || product.business?.city" class="text-gray-500 text-sm">
-          {{ product.city || product.business?.city || 'BiH'}}
         </span>
       </div>
 
@@ -192,8 +218,30 @@ onMounted(() => {
   }
 })
 
+const router = useRouter()
+
 // Computed property to check if user is logged in
 const isLoggedIn = computed(() => !!user.value)
+
+// Check if product is in user's favorites
+const isFavorited = computed(() => {
+  if (!isLoggedIn.value) return false
+  return favoritesStore.isFavorited(props.product.id)
+})
+
+// Show price history section if product has historical price data and is NOT currently on discount
+const showPriceHistory = computed(() => {
+  return props.product.price_history &&
+         props.product.price_history.lowest_price &&
+         props.product.price_history.potential_savings > 0 &&
+         !props.product.has_discount
+})
+
+// Show savings CTA if potential savings are significant (> 0.50 KM)
+const showSavingsCTA = computed(() => {
+  return showPriceHistory.value &&
+         props.product.price_history.potential_savings >= 0.50
+})
 
 const discountPercentage = computed(() => {
   if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
@@ -307,6 +355,17 @@ function formatBosnianDate(dateString: string): string {
   return `${dayName}, ${day}. ${month} ${year}.`
 }
 
+function formatShortDate(dateString: string): string {
+  if (!dateString) return ''
+
+  const date = new Date(dateString)
+  const day = date.getDate()
+  const month = date.getMonth() + 1
+  const year = date.getFullYear()
+
+  return `${day}.${month}.${year}.`
+}
+
 function showDetails() {
   showModal.value = true
   // Update URL with product ID
@@ -348,6 +407,21 @@ async function addToShoppingList() {
 function handleFavoriteUpdate() {
   // Refresh favorites count in header
   favoritesStore.fetchFavorites()
+}
+
+// Navigate to registration page
+function goToRegister() {
+  router.push('/registracija')
+}
+
+// Add product to favorites (from the price history CTA)
+async function addToFavorites() {
+  try {
+    await favoritesStore.addFavorite(props.product.id)
+    showSuccess('Dodano u favorite! Dobićete obavještenje kada cijena padne.')
+  } catch (error) {
+    console.error('Error adding to favorites:', error)
+  }
 }
 
 async function shareProduct() {

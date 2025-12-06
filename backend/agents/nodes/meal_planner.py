@@ -1,8 +1,7 @@
 """Meal planning agent node."""
 
 import json
-from typing import Dict
-from langgraph.runtime import Runtime
+from typing import Any, Dict
 from agents.state import AgentState
 from agents.context import AgentContext
 from agents.prompts import MEAL_PLANNING_SYSTEM_PROMPT
@@ -10,18 +9,23 @@ from agents.common.db_utils import search_by_vector
 from agents.common.llm_utils import get_embedding_model, get_chat_model
 
 
-def _get_context(runtime: Runtime[AgentContext]) -> AgentContext:
+def _get_context(runtime: Any) -> AgentContext:
     """Get context from runtime or create default.
 
     Args:
-        runtime: LangGraph runtime.
+        runtime: LangGraph runtime or config dict.
 
     Returns:
         AgentContext: The context object.
     """
-    if runtime.context is None:
+    if runtime is None:
         return AgentContext()
-    return runtime.context
+    if isinstance(runtime, dict):
+        configurable = runtime.get('configurable', {})
+        return configurable.get('context', AgentContext())
+    if hasattr(runtime, 'context') and runtime.context is not None:
+        return runtime.context
+    return AgentContext()
 
 
 def _get_db_session(context: AgentContext):
@@ -49,7 +53,7 @@ def _get_db_session(context: AgentContext):
     return None
 
 
-async def meal_planner_node(state: AgentState, runtime: Runtime[AgentContext]) -> Dict:
+async def meal_planner_node(state: AgentState, runtime: Any = None) -> Dict:
     """Generate meal suggestions based on available products.
 
     Args:

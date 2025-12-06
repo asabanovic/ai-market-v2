@@ -1,8 +1,7 @@
 """Semantic search agent node."""
 
 import re
-from typing import Dict, Optional
-from langgraph.runtime import Runtime
+from typing import Any, Dict, Optional
 from agents.state import AgentState
 from agents.context import AgentContext
 from agents.prompts import SEMANTIC_SEARCH_SYSTEM_PROMPT
@@ -18,18 +17,23 @@ Svakim danom dodajemo nove artikle iz mnogih supermarketa i moguće je da traže
 Vratili smo vam kredit za ovu pretragu, pa pokušajte s nekim drugim artiklom. Također, u opisu svog profila možete dodati željeni proizvod, pa ćemo vas obavijestiti kada bude dodan."""
 
 
-def _get_context(runtime: Runtime[AgentContext]) -> AgentContext:
+def _get_context(runtime: Any) -> AgentContext:
     """Get context from runtime or create default.
 
     Args:
-        runtime: LangGraph runtime.
+        runtime: LangGraph runtime or config dict.
 
     Returns:
         AgentContext: The context object.
     """
-    if runtime.context is None:
+    if runtime is None:
         return AgentContext()
-    return runtime.context
+    if isinstance(runtime, dict):
+        configurable = runtime.get('configurable', {})
+        return configurable.get('context', AgentContext())
+    if hasattr(runtime, 'context') and runtime.context is not None:
+        return runtime.context
+    return AgentContext()
 
 
 def _get_db_session(context: AgentContext):
@@ -57,7 +61,7 @@ def _get_db_session(context: AgentContext):
     return None
 
 
-async def semantic_search_node(state: AgentState, runtime: Runtime[AgentContext]) -> Dict:
+async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
     """Execute semantic product search.
 
     Args:

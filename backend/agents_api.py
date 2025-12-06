@@ -221,10 +221,11 @@ def unified_search():
         context = AgentContext(db_session=db.session)
 
         # Invoke the graph asynchronously
+        # Note: langgraph 0.2.x uses config dict instead of context parameter
         import asyncio
         result = asyncio.run(graph.ainvoke(
             input_state.__dict__,
-            context=context
+            config={"configurable": {"context": context}}
         ))
 
         # Extract output
@@ -372,9 +373,10 @@ def semantic_search_direct():
         from agents.nodes.semantic_search import semantic_search_node
 
         # Create a simple graph with just semantic search
-        builder = StateGraph(AgentState, input_schema=InputState, context_schema=AgentContext)
+        # Using simpler constructor for langgraph 0.2.x compatibility
+        builder = StateGraph(AgentState)
         builder.add_node("search", semantic_search_node)
-        builder.add_edge("__start__", "search")
+        builder.set_entry_point("search")
         builder.add_edge("search", END)
         direct_graph = builder.compile()
 
@@ -385,11 +387,11 @@ def semantic_search_direct():
             default_k=data.get("k", 5)
         )
 
-        # Run search
+        # Run search with config dict pattern
         import asyncio
         result = asyncio.run(direct_graph.ainvoke(
             input_state.__dict__,
-            context=context
+            config={"configurable": {"context": context}}
         ))
 
         return jsonify({

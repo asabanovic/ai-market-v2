@@ -616,28 +616,87 @@ const formatCommentDate = (dateString: string) => {
   return date.toLocaleDateString('bs-BA', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// Load product, price history, votes and comments on mount
+// Load product using useAsyncData for SSR (required for OG meta tags)
+const { data: productData, pending: isLoadingProduct } = await useAsyncData(
+  `product-${route.params.id}`,
+  async () => {
+    const response = await $fetch(`${config.public.apiBase}/api/product/${route.params.id}`)
+    return response
+  },
+  { server: true }  // Ensure it runs on server for SSR meta tags
+)
+
+// Sync with reactive ref
+watch(productData, (newData) => {
+  if (newData) {
+    product.value = newData
+  }
+}, { immediate: true })
+
+// Load price history, votes and comments on mount (client-side only)
 onMounted(async () => {
-  isLoading.value = true
+  isLoading.value = isLoadingProduct.value
+
   try {
-    const [productResponse, historyResponse] = await Promise.all([
-      api.get(`/api/product/${route.params.id}`),
-      api.get(`/api/products/${route.params.id}/price-history`)
-    ])
-    product.value = productResponse
+    // Load price history
+    const historyResponse = await api.get(`/api/products/${route.params.id}/price-history`)
     priceHistory.value = historyResponse || []
 
-    // Load votes and comments after product loads
+    // Load votes and comments
     await Promise.all([loadVotes(), loadComments()])
   } catch (error) {
-    console.error('Failed to load product:', error)
+    console.error('Failed to load additional data:', error)
   } finally {
     isLoading.value = false
   }
 })
 
+// Helper function to format price for meta description
+const formatPriceForMeta = (price: number) => price.toFixed(2)
+
+// Computed values for SEO meta tags (uses SSR data)
+const productTitle = computed(() => productData.value?.title || 'Proizvod')
+const productDescription = computed(() => {
+  const p = productData.value
+  if (!p) return 'Pogledajte ovu ponudu na Popust.ba'
+
+  const price = p.has_discount && p.discount_price
+    ? `${formatPriceForMeta(p.discount_price)} KM (popust ${p.discount_percentage}%)`
+    : `${formatPriceForMeta(p.base_price)} KM`
+
+  const store = p.business?.name || ''
+  return `${p.title} - ${price}${store ? ` | ${store}` : ''} | Popust.ba`
+})
+
+const productImage = computed(() => {
+  const p = productData.value
+  if (!p?.image_path) return 'https://popust.ba/og-default.png'
+  const path = p.image_path
+  // Return absolute URL for OG image
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  return `https://api.popust.ba/static/${path}`
+})
+
+const productUrl = computed(() => `https://popust.ba/proizvodi/${route.params.id}`)
+
+// SEO Meta Tags - will be rendered on server for Facebook/social crawlers
 useSeoMeta({
-  title: computed(() => product.value ? `${product.value.title} - Popust.ba` : 'Proizvod - Popust.ba'),
-  description: computed(() => product.value?.title || 'Product details'),
+  title: computed(() => `${productTitle.value} - Popust.ba`),
+  description: productDescription,
+  // Open Graph tags for Facebook sharing
+  ogTitle: computed(() => productTitle.value),
+  ogDescription: productDescription,
+  ogImage: productImage,
+  ogUrl: productUrl,
+  ogType: 'product',
+  ogSiteName: 'Popust.ba',
+  ogLocale: 'bs_BA',
+  // Twitter Card tags
+  twitterCard: 'summary_large_image',
+  twitterTitle: computed(() => productTitle.value),
+  twitterDescription: productDescription,
+  twitterImage: productImage,
 })
 </script>
