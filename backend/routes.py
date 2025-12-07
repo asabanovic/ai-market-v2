@@ -878,6 +878,45 @@ def api_businesses():
         return jsonify({'error': 'Failed to load businesses'}), 500
 
 
+@app.route('/api/store-discounts-freshness')
+def api_store_discounts_freshness():
+    """Get the latest discount expiration date per store for freshness ticker"""
+    try:
+        today = date.today()
+
+        # Query to get each store's latest non-expired discount expiration date and count
+        query = db.session.query(
+            Business.id,
+            Business.name,
+            Business.logo_path,
+            func.max(Product.expires).label('latest_expires'),
+            func.count(Product.id).label('discount_count')
+        ).join(Product, Business.id == Product.business_id).filter(
+            Business.status == 'active',
+            Product.discount_price.isnot(None),
+            Product.expires >= today
+        ).group_by(Business.id, Business.name, Business.logo_path).all()
+
+        stores = []
+        for row in query:
+            stores.append({
+                'id': row.id,
+                'name': row.name,
+                'logo': format_logo_url(row.logo_path),
+                'latest_expires': row.latest_expires.isoformat() if row.latest_expires else None,
+                'discount_count': row.discount_count
+            })
+
+        # Sort by latest_expires (soonest first)
+        stores.sort(key=lambda x: x['latest_expires'] or '9999-12-31')
+
+        return jsonify({'stores': stores})
+
+    except Exception as e:
+        app.logger.error(f"Error in store discounts freshness API: {e}")
+        return jsonify({'error': 'Failed to load store freshness data'}), 500
+
+
 # API endpoint to create a new business
 @app.route('/api/businesses', methods=['POST'])
 @require_jwt_auth

@@ -3,47 +3,97 @@
     v-if="shouldShowBanner"
     class="bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-100 py-2 px-4 shadow-sm"
   >
-    <div class="max-w-7xl mx-auto flex items-center justify-center gap-4">
-      <Icon name="mdi:phone" class="w-5 h-5 flex-shrink-0 text-orange-600" />
-      <p class="text-sm font-medium text-gray-700">
-        Dodajte vaš broj telefona za SMS notifikacije o popustima
-      </p>
+    <div class="max-w-7xl mx-auto">
+      <!-- Desktop: horizontal layout -->
+      <div class="hidden sm:flex items-center justify-center gap-4">
+        <Icon name="mdi:phone" class="w-5 h-5 flex-shrink-0 text-orange-600" />
+        <p class="text-sm font-medium text-gray-700">
+          Dodajte vaš broj telefona za SMS notifikacije o popustima
+        </p>
 
-      <form @submit.prevent="savePhoneNumber" class="flex items-center gap-2">
-        <div class="relative">
-          <input
-            v-model="phoneNumber"
-            type="tel"
-            placeholder="+387 XX XXX XXX"
-            :class="[
-              'px-3 py-1.5 text-sm rounded-md border-2 text-gray-900 focus:outline-none w-48',
-              phoneNumber && !isValid ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-orange-200 focus:ring-orange-500 focus:border-orange-500'
-            ]"
-            :disabled="isSaving"
-            @input="formatPhoneNumber"
-            @blur="validatePhoneNumber"
-            maxlength="20"
-          />
-          <div v-if="phoneNumber && isValid" class="absolute right-2 top-1/2 -translate-y-1/2">
-            <Icon name="mdi:check-circle" class="w-4 h-4 text-green-500" />
+        <form @submit.prevent="savePhoneNumber" class="flex items-center gap-2">
+          <div class="relative">
+            <input
+              v-model="phoneNumber"
+              type="tel"
+              placeholder="+387 XX XXX XXX"
+              :class="[
+                'px-3 py-1.5 text-sm rounded-md border-2 text-gray-900 focus:outline-none w-48',
+                phoneNumber && !isValid ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-orange-200 focus:ring-orange-500 focus:border-orange-500'
+              ]"
+              :disabled="isSaving"
+              @input="formatPhoneNumber"
+              @blur="validatePhoneNumber"
+              maxlength="20"
+            />
+            <div v-if="phoneNumber && isValid" class="absolute right-2 top-1/2 -translate-y-1/2">
+              <Icon name="mdi:check-circle" class="w-4 h-4 text-green-500" />
+            </div>
           </div>
+          <button
+            type="submit"
+            :disabled="isSaving || !phoneNumber || !isValid"
+            class="bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-sm"
+          >
+            {{ isSaving ? 'Čuvanje...' : 'Sačuvaj' }}
+          </button>
+          <button
+            type="button"
+            @click="dismissBanner"
+            class="text-gray-500 hover:text-gray-700 transition-colors"
+            title="Zatvori za danas"
+          >
+            <Icon name="mdi:close" class="w-5 h-5" />
+          </button>
+        </form>
+      </div>
+
+      <!-- Mobile: stacked layout -->
+      <div class="sm:hidden">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <Icon name="mdi:phone" class="w-5 h-5 flex-shrink-0 text-orange-600" />
+            <p class="text-sm font-medium text-gray-700">
+              SMS notifikacije o popustima
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="dismissBanner"
+            class="text-gray-500 hover:text-gray-700 transition-colors"
+            title="Zatvori za danas"
+          >
+            <Icon name="mdi:close" class="w-5 h-5" />
+          </button>
         </div>
-        <button
-          type="submit"
-          :disabled="isSaving || !phoneNumber || !isValid"
-          class="bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-sm"
-        >
-          {{ isSaving ? 'Čuvanje...' : 'Sačuvaj' }}
-        </button>
-        <button
-          type="button"
-          @click="dismissBanner"
-          class="text-gray-500 hover:text-gray-700 transition-colors"
-          title="Zatvori za danas"
-        >
-          <Icon name="mdi:close" class="w-5 h-5" />
-        </button>
-      </form>
+        <form @submit.prevent="savePhoneNumber" class="flex items-center gap-2">
+          <div class="relative flex-1">
+            <input
+              v-model="phoneNumber"
+              type="tel"
+              placeholder="+387 XX XXX XXX"
+              :class="[
+                'w-full px-3 py-1.5 text-sm rounded-md border-2 text-gray-900 focus:outline-none',
+                phoneNumber && !isValid ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-orange-200 focus:ring-orange-500 focus:border-orange-500'
+              ]"
+              :disabled="isSaving"
+              @input="formatPhoneNumber"
+              @blur="validatePhoneNumber"
+              maxlength="20"
+            />
+            <div v-if="phoneNumber && isValid" class="absolute right-2 top-1/2 -translate-y-1/2">
+              <Icon name="mdi:check-circle" class="w-4 h-4 text-green-500" />
+            </div>
+          </div>
+          <button
+            type="submit"
+            :disabled="isSaving || !phoneNumber || !isValid"
+            class="bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-sm"
+          >
+            {{ isSaving ? 'Čuvanje...' : 'Sačuvaj' }}
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </template>

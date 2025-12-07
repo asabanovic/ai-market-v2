@@ -1,5 +1,8 @@
 <template>
   <div>
+    <!-- Discount Freshness Ticker -->
+    <DiscountTicker :stores="discountFreshness" />
+
     <!-- Hero Section with Chat -->
     <div class="gradient-bg py-12">
       <div class="mx-auto px-6 sm:px-6 lg:px-12 text-center">
@@ -330,6 +333,7 @@ const searchResults = ref<any>(null)
 const savingsStats = ref<any>(null)
 const featuredBusinesses = ref<any[]>([])
 const featuredProducts = ref<any[]>([])
+const discountFreshness = ref<any[]>([])
 const showRegistrationModal = ref(false)
 const registrationMessage = ref('')
 const expandedGroups = ref<Set<string>>(new Set())
@@ -613,6 +617,7 @@ onMounted(async () => {
   await loadFeaturedData()
   await loadStorePreferences()
   await checkForNewStores()
+  await loadDiscountFreshness()
 
   // Auto-search if autoSearch query param is present (from login/register redirect)
   const route = useRoute()
@@ -724,6 +729,15 @@ async function loadFeaturedData() {
     featuredBusinesses.value = await get('/api/active-businesses')
   } catch (error) {
     console.error('Error loading featured data:', error)
+  }
+}
+
+async function loadDiscountFreshness() {
+  try {
+    const data = await get('/api/store-discounts-freshness')
+    discountFreshness.value = data.stores || []
+  } catch (error) {
+    console.error('Error loading discount freshness:', error)
   }
 }
 
