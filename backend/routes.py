@@ -771,13 +771,20 @@ def api_products():
             query = query.filter(Product.title.ilike(f'%{search}%'))
 
         # Apply sorting
+        today = date.today()
         if sort == 'discount_desc':
             # Sort by discount percentage (highest first)
             # Calculate discount as (base_price - discount_price) / base_price
             # Products with discount_price get sorted by percentage, others go to end
+            # Only count discount if not expired (expires is null or expires >= today)
             query = query.order_by(
                 db.case(
-                    (db.and_(Product.base_price > 0, Product.discount_price.isnot(None), Product.discount_price < Product.base_price),
+                    (db.and_(
+                        Product.base_price > 0,
+                        Product.discount_price.isnot(None),
+                        Product.discount_price < Product.base_price,
+                        db.or_(Product.expires.is_(None), Product.expires >= today)
+                    ),
                      (Product.base_price - Product.discount_price) / Product.base_price),
                     else_=0
                 ).desc()
@@ -802,9 +809,15 @@ def api_products():
             query = query.order_by(Product.created_at.desc())
         else:
             # Default: discount descending
+            # Only count discount if not expired (expires is null or expires >= today)
             query = query.order_by(
                 db.case(
-                    (db.and_(Product.base_price > 0, Product.discount_price.isnot(None), Product.discount_price < Product.base_price),
+                    (db.and_(
+                        Product.base_price > 0,
+                        Product.discount_price.isnot(None),
+                        Product.discount_price < Product.base_price,
+                        db.or_(Product.expires.is_(None), Product.expires >= today)
+                    ),
                      (Product.base_price - Product.discount_price) / Product.base_price),
                     else_=0
                 ).desc()
