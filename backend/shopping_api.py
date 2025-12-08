@@ -195,6 +195,27 @@ def remove_favorite(favorite_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@shopping_api_bp.route('/favorites/all', methods=['DELETE'])
+@require_jwt_auth
+def remove_all_favorites():
+    """Remove all favorites for the current user"""
+    try:
+        user_id = request.current_user_id
+
+        # Delete all favorites for this user
+        deleted_count = Favorite.query.filter_by(user_id=user_id).delete()
+        db.session.commit()
+
+        logger.info(f"User {user_id} removed all favorites ({deleted_count} items)")
+
+        return jsonify({'deleted': deleted_count}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error removing all favorites: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 # ==================== SHOPPING LIST ENDPOINTS ====================
 
 def get_or_create_active_list(user_id: str) -> ShoppingList:

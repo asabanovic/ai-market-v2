@@ -132,6 +132,19 @@ export const useFavoritesStore = defineStore('favorites', () => {
     }
   }
 
+  async function clearAll() {
+    const { $api } = useNuxtApp()
+
+    try {
+      await $api.delete('/favorites/all')
+      items.value = []
+      return { success: true }
+    } catch (error: any) {
+      console.error('Failed to clear all favorites:', error)
+      return { success: false, error }
+    }
+  }
+
   function reset() {
     items.value = []
     loading.value = false
@@ -153,6 +166,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     addFavorite,
     removeFavorite,
     toggleFavorite,
+    clearAll,
     reset
   }
 })

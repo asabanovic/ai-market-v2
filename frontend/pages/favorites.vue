@@ -2,9 +2,54 @@
   <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Omiljeni Proizvodi</h1>
-        <p class="mt-2 text-gray-600">Vaša lista omiljenih proizvoda</p>
+      <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Omiljeni Proizvodi</h1>
+          <p class="mt-2 text-gray-600">Vaša lista omiljenih proizvoda</p>
+        </div>
+        <button
+          v-if="favoritesStore.count > 0 && !favoritesStore.loading"
+          @click="showClearConfirmation = true"
+          class="inline-flex items-center px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-all duration-200"
+        >
+          <Icon name="mdi:delete" class="w-5 h-5 mr-2" />
+          Obriši sve
+        </button>
+      </div>
+
+      <!-- Clear All Confirmation Modal -->
+      <div
+        v-if="showClearConfirmation"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        @click.self="showClearConfirmation = false"
+      >
+        <div class="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="bg-red-100 rounded-full p-2">
+              <Icon name="mdi:alert" class="w-6 h-6 text-red-600" />
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">Obrisati sve omiljene?</h3>
+          </div>
+          <p class="text-gray-600 mb-6">
+            Jeste li sigurni da želite obrisati sve omiljene proizvode ({{ favoritesStore.count }})?
+            Ova akcija se ne može poništiti.
+          </p>
+          <div class="flex justify-end gap-3">
+            <button
+              @click="showClearConfirmation = false"
+              class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+            >
+              Odustani
+            </button>
+            <button
+              @click="clearAllFavorites"
+              :disabled="isClearing"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              {{ isClearing ? 'Brisanje...' : 'Da, obriši sve' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Statistics Section -->
@@ -90,8 +135,70 @@
             </div>
           </div>
 
-          <!-- Products Table -->
-          <table class="min-w-full divide-y divide-gray-200">
+          <!-- Mobile: Card Layout -->
+          <div class="md:hidden divide-y divide-gray-200">
+            <div
+              v-for="favorite in store.paginatedItems"
+              :key="'mobile-' + favorite.favorite_id"
+              class="p-4 bg-white"
+            >
+              <NuxtLink
+                :to="`/proizvodi/${favorite.product_id}`"
+                class="flex items-start gap-3 mb-3"
+              >
+                <div class="flex-shrink-0 h-16 w-16">
+                  <img
+                    v-if="favorite.image_url"
+                    :src="favorite.image_url"
+                    :alt="favorite.name"
+                    class="h-16 w-16 rounded object-cover"
+                  />
+                  <div v-else class="h-16 w-16 rounded bg-gray-200 flex items-center justify-center">
+                    <Icon name="mdi:image-off" class="w-6 h-6 text-gray-400" />
+                  </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-gray-900 line-clamp-2">{{ favorite.name }}</div>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="text-base font-bold text-purple-600">{{ favorite.price.toFixed(2) }} KM</span>
+                    <span v-if="favorite.old_price" class="text-xs text-gray-500 line-through">
+                      {{ favorite.old_price.toFixed(2) }} KM
+                    </span>
+                    <span
+                      v-if="favorite.discount_percent"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"
+                    >
+                      -{{ favorite.discount_percent }}%
+                    </span>
+                  </div>
+                  <div v-if="favorite.expires" class="mt-1">
+                    <span :class="getExpiryClass(favorite.expires)" class="text-xs font-medium">
+                      {{ getDaysLeft(favorite.expires) }}
+                    </span>
+                  </div>
+                </div>
+              </NuxtLink>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="addToCart(favorite)"
+                  class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-all"
+                >
+                  <Icon name="mdi:playlist-plus" class="w-4 h-4 mr-1" />
+                  Dodaj u listu
+                </button>
+                <button
+                  @click="removeFavorite(favorite.favorite_id)"
+                  class="inline-flex items-center justify-center px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-all"
+                  title="Ukloni"
+                >
+                  <Icon name="mdi:heart-off" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desktop: Table Layout -->
+          <table class="hidden md:table min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
@@ -237,6 +344,8 @@ const { handleApiError, showSuccess } = useCreditsToast()
 
 const itemsPerPage = 10
 const storePages = ref<Record<number, number>>({})
+const showClearConfirmation = ref(false)
+const isClearing = ref(false)
 
 // Statistics computed property
 const stats = computed(() => {
@@ -343,6 +452,23 @@ async function removeFavorite(favoriteId: number) {
     showSuccess('Uklonjeno iz omiljenih')
   } else if (result.error) {
     handleApiError(result.error)
+  }
+}
+
+async function clearAllFavorites() {
+  isClearing.value = true
+  try {
+    const result = await favoritesStore.clearAll()
+    if (result.success) {
+      showSuccess('Svi omiljeni proizvodi su obrisani')
+      showClearConfirmation.value = false
+      // Reset store pages
+      storePages.value = {}
+    } else if (result.error) {
+      handleApiError(result.error)
+    }
+  } finally {
+    isClearing.value = false
   }
 }
 
