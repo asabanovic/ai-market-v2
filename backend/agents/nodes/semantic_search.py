@@ -156,6 +156,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
                 category=category,
                 max_price=max_price,
                 business_ids=business_ids,
+                query_text=query,  # Pass original query for hybrid trigram matching
             )
 
             # Filter by similarity threshold

@@ -6,6 +6,15 @@ from sqlalchemy import text
 from agents.common.llm_utils import get_embedding_model
 
 
+# Hybrid search weights (can be tuned)
+VECTOR_WEIGHT = 0.6  # Semantic similarity weight
+TEXT_WEIGHT = 0.4    # Trigram/lexical similarity weight
+
+# Minimum thresholds for including a result
+MIN_VECTOR_SCORE = 0.25  # Minimum semantic similarity
+MIN_TEXT_SCORE = 0.15    # Minimum trigram similarity
+
+
 def search_by_vector(
     db_session,
     query_vector: List[float],
@@ -15,8 +24,12 @@ def search_by_vector(
     max_price: Optional[float] = None,
     max_per_store: int = 2,
     business_ids: Optional[List[int]] = None,
+    query_text: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Search for products using vector similarity.
+    """Search for products using hybrid vector + trigram similarity.
+
+    Combines pgvector semantic search with pg_trgm trigram matching for
+    better results on exact brand names, typos, and short queries.
 
     Args:
         db_session: SQLAlchemy database session.
@@ -27,6 +40,7 @@ def search_by_vector(
         max_price: Optional maximum price filter.
         max_per_store: Maximum products per store (default 2), then sorted by similarity.
         business_ids: Optional list of business IDs to filter by.
+        query_text: Original query text for trigram matching (optional but recommended).
 
     Returns:
         List of product dictionaries with similarity scores.
@@ -52,30 +66,96 @@ def search_by_vector(
     # Convert vector to PostgreSQL format
     vector_str = "[" + ",".join(map(str, query_vector)) + "]"
 
-    query = f"""
-        SELECT
-            p.id,
-            p.title,
-            p.base_price,
-            p.discount_price,
-            p.category,
-            p.tags,
-            p.enriched_description,
-            p.city,
-            p.expires,
-            p.image_path,
-            p.business_id,
-            b.name as business_name,
-            b.logo_path as business_logo,
-            b.city as business_city,
-            1 - (pe.embedding <=> '{vector_str}'::vector) as similarity
-        FROM products p
-        INNER JOIN product_embeddings pe ON p.id = pe.product_id
-        LEFT JOIN businesses b ON p.business_id = b.id
-        WHERE {where_sql}
-        ORDER BY pe.embedding <=> '{vector_str}'::vector
-        LIMIT {k * 10}
-    """
+    # Escape query text for SQL (handle single quotes)
+    safe_query_text = (query_text or "").replace("'", "''").lower()
+
+    # Use hybrid search if we have query text, otherwise fall back to vector-only
+    if query_text and len(query_text.strip()) > 0:
+        # Hybrid query combining vector similarity and trigram matching
+        query = f"""
+            WITH q AS (
+                SELECT
+                    '{safe_query_text}'::text AS query_text,
+                    '{vector_str}'::vector AS query_vec
+            )
+            SELECT
+                p.id,
+                p.title,
+                p.base_price,
+                p.discount_price,
+                p.category,
+                p.tags,
+                p.enriched_description,
+                p.city,
+                p.expires,
+                p.image_path,
+                p.business_id,
+                b.name as business_name,
+                b.logo_path as business_logo,
+                b.city as business_city,
+                -- Semantic/vector score (0 to 1, higher is better)
+                1 - (pe.embedding <=> q.query_vec) AS vector_score,
+                -- Trigram score on title (0 to 1)
+                COALESCE(similarity(lower(p.title), q.query_text), 0) AS title_score,
+                -- Trigram score on enriched description (0 to 1)
+                COALESCE(similarity(lower(COALESCE(p.enriched_description, '')), q.query_text), 0) AS desc_score,
+                -- Combined text score (best of title or description)
+                GREATEST(
+                    COALESCE(similarity(lower(p.title), q.query_text), 0),
+                    COALESCE(similarity(lower(COALESCE(p.enriched_description, '')), q.query_text), 0) * 0.8
+                ) AS text_score,
+                -- Final hybrid score
+                (
+                    {VECTOR_WEIGHT} * (1 - (pe.embedding <=> q.query_vec)) +
+                    {TEXT_WEIGHT} * GREATEST(
+                        COALESCE(similarity(lower(p.title), q.query_text), 0),
+                        COALESCE(similarity(lower(COALESCE(p.enriched_description, '')), q.query_text), 0) * 0.8
+                    )
+                ) AS final_score
+            FROM products p
+            INNER JOIN product_embeddings pe ON p.id = pe.product_id
+            LEFT JOIN businesses b ON p.business_id = b.id
+            CROSS JOIN q
+            WHERE {where_sql}
+              AND (
+                  -- Keep results that pass either threshold
+                  (1 - (pe.embedding <=> q.query_vec)) > {MIN_VECTOR_SCORE}
+                  OR similarity(lower(p.title), q.query_text) > {MIN_TEXT_SCORE}
+                  OR similarity(lower(COALESCE(p.enriched_description, '')), q.query_text) > {MIN_TEXT_SCORE}
+              )
+            ORDER BY final_score DESC
+            LIMIT {k * 10}
+        """
+    else:
+        # Fall back to vector-only search if no query text
+        query = f"""
+            SELECT
+                p.id,
+                p.title,
+                p.base_price,
+                p.discount_price,
+                p.category,
+                p.tags,
+                p.enriched_description,
+                p.city,
+                p.expires,
+                p.image_path,
+                p.business_id,
+                b.name as business_name,
+                b.logo_path as business_logo,
+                b.city as business_city,
+                1 - (pe.embedding <=> '{vector_str}'::vector) AS vector_score,
+                0.0 AS title_score,
+                0.0 AS desc_score,
+                0.0 AS text_score,
+                1 - (pe.embedding <=> '{vector_str}'::vector) AS final_score
+            FROM products p
+            INNER JOIN product_embeddings pe ON p.id = pe.product_id
+            LEFT JOIN businesses b ON p.business_id = b.id
+            WHERE {where_sql}
+            ORDER BY pe.embedding <=> '{vector_str}'::vector
+            LIMIT {k * 10}
+        """
 
     result = db_session.execute(text(query))
     all_products = []
@@ -108,7 +188,11 @@ def search_by_vector(
             "city": row.city,
             "expires": expires,
             "image_path": row.image_path,
-            "similarity": float(row.similarity),
+            # Use final_score as the primary similarity metric
+            "similarity": float(row.final_score),
+            # Also expose component scores for debugging
+            "vector_score": float(row.vector_score),
+            "text_score": float(row.text_score),
             "business": {
                 "id": row.business_id,
                 "name": row.business_name,
@@ -179,7 +263,7 @@ async def search_by_vector_grouped(
     max_price: Optional[float] = None,
     business_ids: Optional[List[int]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Search for products using vector similarity for multiple items, grouped by item.
+    """Search for products using hybrid vector + trigram similarity for multiple items.
 
     Args:
         db_session: SQLAlchemy database session.
@@ -208,10 +292,14 @@ async def search_by_vector_grouped(
         # Use corrected spelling for display, fallback to original if not available
         display_name = item.get("corrected", item.get("original", query_text))
 
+        # Get the original query text for trigram matching
+        # Prefer the original user input for better brand/exact matching
+        original_text = item.get("original", query_text)
+
         # Generate embedding for this item (using normalized lowercase)
         query_vector = embed_fn(query_text_normalized)
 
-        # Search for this specific item
+        # Search for this specific item with hybrid scoring
         results = search_by_vector(
             db_session=db_session,
             query_vector=query_vector,
@@ -220,6 +308,7 @@ async def search_by_vector_grouped(
             category=category,
             max_price=max_price,
             business_ids=business_ids,
+            query_text=original_text,  # Pass original text for trigram matching
         )
 
         grouped_results[display_name] = results
