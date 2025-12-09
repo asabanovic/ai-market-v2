@@ -211,10 +211,14 @@ def unified_search():
                         "requires_registration": True
                     }), 403
 
+        # Get business_ids filter from request
+        business_ids = data.get("business_ids")
+
         # Create input state
         input_state = InputState(
             query=query,
-            user_id=user_id
+            user_id=user_id,
+            business_ids=business_ids
         )
 
         # Create context with DB session

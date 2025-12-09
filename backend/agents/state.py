@@ -20,6 +20,9 @@ class AgentState:
     user_id: Optional[str] = field(default=None)
     """User ID for personalization."""
 
+    business_ids: Optional[List[int]] = field(default=None)
+    """Optional list of business IDs to filter results."""
+
     # Routing
     intent: Literal["semantic_search", "meal_planning", "general", "unknown"] = field(default="unknown")
     """Detected intent from the supervisor."""
@@ -62,6 +65,9 @@ class InputState:
 
     user_id: Optional[str] = field(default=None)
     """Optional user ID for personalization."""
+
+    business_ids: Optional[List[int]] = field(default=None)
+    """Optional list of business IDs to filter results."""
 
 
 @dataclass

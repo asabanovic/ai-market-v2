@@ -14,6 +14,7 @@ def search_by_vector(
     category: Optional[str] = None,
     max_price: Optional[float] = None,
     max_per_store: int = 2,
+    business_ids: Optional[List[int]] = None,
 ) -> List[Dict[str, Any]]:
     """Search for products using vector similarity.
 
@@ -25,6 +26,7 @@ def search_by_vector(
         category: Optional category filter.
         max_price: Optional maximum price filter.
         max_per_store: Maximum products per store (default 2), then sorted by similarity.
+        business_ids: Optional list of business IDs to filter by.
 
     Returns:
         List of product dictionaries with similarity scores.
@@ -37,6 +39,10 @@ def search_by_vector(
 
     if category:
         where_clauses.append(f"p.category = '{category}'")
+
+    if business_ids:
+        ids_str = ",".join(map(str, business_ids))
+        where_clauses.append(f"p.business_id IN ({ids_str})")
 
     if max_price:
         where_clauses.append(f"COALESCE(p.discount_price, p.base_price) <= {max_price}")
@@ -171,6 +177,7 @@ async def search_by_vector_grouped(
     filter_fn: Optional[Callable[[Dict[str, Any]], bool]] = None,
     category: Optional[str] = None,
     max_price: Optional[float] = None,
+    business_ids: Optional[List[int]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Search for products using vector similarity for multiple items, grouped by item.
 
@@ -182,6 +189,7 @@ async def search_by_vector_grouped(
         filter_fn: Optional custom filter function.
         category: Optional category filter.
         max_price: Optional maximum price filter.
+        business_ids: Optional list of business IDs to filter by.
 
     Returns:
         Dictionary mapping original item names to their search results.
@@ -211,6 +219,7 @@ async def search_by_vector_grouped(
             filter_fn=filter_fn,
             category=category,
             max_price=max_price,
+            business_ids=business_ids,
         )
 
         grouped_results[display_name] = results

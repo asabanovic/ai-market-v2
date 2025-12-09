@@ -75,6 +75,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
     query = state.query
     params = state.parameters or {}
     search_items = state.search_items or []
+    business_ids = getattr(state, 'business_ids', None)
 
     # Normalize query to lowercase for consistent embedding matching
     query_normalized = query.lower() if query else query
@@ -105,6 +106,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
                 k=k,
                 category=category,
                 max_price=max_price,
+                business_ids=business_ids,
             )
 
             # Filter by similarity threshold for each group
@@ -153,6 +155,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
                 k=k,
                 category=category,
                 max_price=max_price,
+                business_ids=business_ids,
             )
 
             # Filter by similarity threshold
