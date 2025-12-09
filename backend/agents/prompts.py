@@ -83,23 +83,11 @@ PRAVILA ZA NORMALIZACIJU (normalized_query):
 
 PRAVILA ZA EMBEDDING (embedding_text):
 - Kreni od normalized_query
-- Dodaj malo konteksta za bolje embedding pogađanje:
-    - generički tip (instant kafa, čokolada, deterdžent, gazirano piće, itd)
-    - tipično pakovanje/upotreba ako je očigledno (tegla, vrećica, litra, komad)
-    - generički opis šta korisnik vjerovatno traži
-- DRŽI GA KRATKIM: max 25-30 riječi
-- NE nabrajaj konkurentske brendove
-- NE širi na nepovezane proizvode. Fokusiraj se usko na ono što korisnik vjerovatno misli
-
-BOSANSKO SUPERMARKET ZNANJE:
-- "nes kafa" skoro uvijek znači "Nescafe instant kafa" (Nescafé Gold/Classic)
-- "cola" obično znači "Coca-Cola" ili sličan gazirani napitak
-- "badem" znači bademi (orašasti plod), ne kikiriki
-- "milka" znači Milka čokolada
-- "nutella" znači Nutella krem namaz
-- "poli" ili "poli salama" znači Poli Salama (mesni proizvod, salama od Perutnina Ptuj)
-- "poliko" znači Poliko salama (pileća salama od Cekin)
-- Koristi ovo znanje, ali budi konzervativan: kad si u nedoumici, preferiraj generičke riječi umjesto specifičnih brendova
+- KRATKO dodaj samo generički tip proizvoda ako je očigledno (npr. "kafa" → "kafa napitak")
+- DRŽI GA VRLO KRATKIM: max 10-15 riječi
+- NE nagađaj brendove ili kategorije ako nisi siguran
+- NE širi nepoznate termine - ako ne znaš šta je, ostavi kako jeste
+- Ako je upit već specifičan brend/proizvod, NE dodaj ništa - samo ponovi normalized_query
 
 FORMAT ODGOVORA:
 Vrati isključivo JSON array objekata sa poljima:
@@ -121,16 +109,16 @@ Odgovor:
   "original": "nes kafa",
   "corrected": "nescafe kafa",
   "normalized_query": "nescafe kafa",
-  "embedding_text": "nescafe instant kafa u tegli za pripremu crne kafe kod kuće"
+  "embedding_text": "nescafe kafa"
 }]
 
-Korisnik: badem 200g
+Korisnik: poli
 Odgovor:
 [{
-  "original": "badem 200g",
-  "corrected": "badem 200 g",
-  "normalized_query": "badem 200 g",
-  "embedding_text": "badem 200 g jezgra badema kao orašasti plod u malom pakovanju"
+  "original": "poli",
+  "corrected": "poli",
+  "normalized_query": "poli",
+  "embedding_text": "poli"
 }]
 
 Korisnik: coca cola 2l
@@ -139,16 +127,7 @@ Odgovor:
   "original": "coca cola 2l",
   "corrected": "coca cola 2 l",
   "normalized_query": "coca cola 2 l",
-  "embedding_text": "coca cola gazirano piće 2 litre plastična boca"
-}]
-
-Korisnik: gold kafa nescafe
-Odgovor:
-[{
-  "original": "gold kafa nescafe",
-  "corrected": "nescafe gold kafa",
-  "normalized_query": "nescafe gold kafa",
-  "embedding_text": "nescafe gold instant kafa u tegli poznata kao gold kafa premium"
+  "embedding_text": "coca cola 2 l"
 }]
 
 Korisnik: mlijeko i jaja
@@ -157,12 +136,12 @@ Odgovor:
   "original": "mlijeko",
   "corrected": "mlijeko",
   "normalized_query": "mlijeko",
-  "embedding_text": "mlijeko svježe mlijeko UHT mlijeko kravlje mlijeko 1 litar"
+  "embedding_text": "mlijeko"
 }, {
   "original": "jaja",
   "corrected": "jaja",
   "normalized_query": "jaja",
-  "embedding_text": "jaja kokošija jaja svježa jaja pakovanje 10 komada"
+  "embedding_text": "jaja"
 }]
 
 Korisnik: cokloada milka
@@ -171,15 +150,6 @@ Odgovor:
   "original": "cokloada milka",
   "corrected": "čokolada milka",
   "normalized_query": "milka čokolada",
-  "embedding_text": "milka čokolada mlječna čokolada tabla slatkiši"
-}]
-
-Korisnik: badem
-Odgovor:
-[{
-  "original": "badem",
-  "corrected": "badem",
-  "normalized_query": "badem",
-  "embedding_text": "badem bademi jezgra orašasti plodovi grickalice"
+  "embedding_text": "milka čokolada"
 }]
 """

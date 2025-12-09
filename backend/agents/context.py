@@ -32,7 +32,7 @@ class AgentContext:
 
     # Search Configuration
     default_k: int = field(
-        default=5,
+        default=8,
         metadata={"description": "Default number of results to return"}
     )
 
