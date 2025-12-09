@@ -5,6 +5,7 @@ This module provides a synchronous wrapper around the async LangGraph agent
 for use in Flask routes.
 """
 import asyncio
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import date
 
@@ -12,6 +13,80 @@ from app import db
 from agents import graph
 from agents.context import AgentContext
 from agents.state import InputState
+from models import SearchLog
+
+logger = logging.getLogger(__name__)
+
+
+def log_search_results(
+    query: str,
+    results: List[Dict[str, Any]],
+    metadata: Dict[str, Any],
+    search_items: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """
+    Log search results for quality evaluation.
+
+    Args:
+        query: The original search query
+        results: List of product results (flat or grouped)
+        metadata: Search metadata including params
+        search_items: Parsed query items from LLM (if any)
+    """
+    try:
+        search_params = metadata.get("search_params", {})
+
+        # Build results detail with scores
+        results_detail = []
+        rank = 1
+
+        # Handle both grouped and flat results
+        if isinstance(results, dict):
+            # Grouped results
+            for group_name, group_products in results.items():
+                for product in group_products:
+                    results_detail.append({
+                        "product_id": product.get("id"),
+                        "title": product.get("title"),
+                        "group": group_name,
+                        "similarity": product.get("similarity", 0),
+                        "vector_score": product.get("vector_score", 0),
+                        "text_score": product.get("text_score", 0),
+                        "rank": rank,
+                    })
+                    rank += 1
+        else:
+            # Flat results
+            for product in results:
+                results_detail.append({
+                    "product_id": product.get("id"),
+                    "title": product.get("title"),
+                    "group": product.get("search_group"),
+                    "similarity": product.get("similarity", 0),
+                    "vector_score": product.get("vector_score", 0),
+                    "text_score": product.get("text_score", 0),
+                    "rank": rank,
+                })
+                rank += 1
+
+        # Create log entry
+        log_entry = SearchLog(
+            query=query,
+            similarity_threshold=search_params.get("similarity_threshold"),
+            k=search_params.get("k"),
+            result_count=metadata.get("result_count", len(results_detail)),
+            total_before_filter=metadata.get("total_before_filter"),
+            results_detail=results_detail,
+            parsed_query=search_items,
+        )
+
+        db.session.add(log_entry)
+        db.session.commit()
+
+    except Exception as e:
+        logger.error(f"Failed to log search results: {e}")
+        # Don't fail the search if logging fails
+        db.session.rollback()
 
 
 def run_agent_search(
@@ -76,6 +151,15 @@ def run_agent_search(
         raw_results = result.get("results", [])
         explanation = result.get("explanation")
         metadata = result.get("metadata", {})
+        search_items = result.get("search_items")  # Parsed query items from LLM
+
+        # Log search results for quality evaluation
+        log_search_results(
+            query=query,
+            results=raw_results,
+            metadata=metadata,
+            search_items=search_items,
+        )
 
         # Check if results are grouped (dict) or flat (list)
         if isinstance(raw_results, dict):

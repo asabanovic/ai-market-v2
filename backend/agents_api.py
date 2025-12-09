@@ -8,7 +8,7 @@ from agents.graph import graph
 from agents.context import AgentContext
 from agents.state import InputState, OutputState
 from auth_api import require_jwt_auth, decode_jwt_token
-from models import UserSearch, User, AnonymousSearch
+from models import UserSearch, User, AnonymousSearch, SearchLog
 
 # Create blueprint
 agents_api_bp = Blueprint('agents_api', __name__, url_prefix='/api')
@@ -133,6 +133,71 @@ def log_search(user_id, query, results, user_ip=None):
         db.session.rollback()
 
 
+def log_search_quality(query, results, metadata, search_items=None):
+    """Log search results to SearchLog table for quality evaluation.
+
+    Args:
+        query: The original search query
+        results: List of product results
+        metadata: Search metadata including params
+        search_items: Parsed query items from LLM (if any)
+    """
+    try:
+        search_params = metadata.get("search_params", {})
+
+        # Build results detail with scores
+        results_detail = []
+        rank = 1
+
+        # Handle both grouped (dict) and flat (list) results
+        if isinstance(results, dict):
+            for group_name, group_products in results.items():
+                for product in group_products:
+                    results_detail.append({
+                        "product_id": product.get("id"),
+                        "title": product.get("title"),
+                        "image_path": product.get("image_path"),
+                        "group": group_name,
+                        "similarity": product.get("similarity", 0),
+                        "vector_score": product.get("vector_score", 0),
+                        "text_score": product.get("text_score", 0),
+                        "rank": rank,
+                    })
+                    rank += 1
+        else:
+            for product in results:
+                results_detail.append({
+                    "product_id": product.get("id"),
+                    "title": product.get("title"),
+                    "image_path": product.get("image_path"),
+                    "group": product.get("search_group"),
+                    "similarity": product.get("similarity", 0),
+                    "vector_score": product.get("vector_score", 0),
+                    "text_score": product.get("text_score", 0),
+                    "rank": rank,
+                })
+                rank += 1
+
+        # Create log entry
+        log_entry = SearchLog(
+            query=query,
+            similarity_threshold=search_params.get("similarity_threshold"),
+            k=search_params.get("k"),
+            result_count=metadata.get("result_count", len(results_detail)),
+            total_before_filter=metadata.get("total_before_filter"),
+            results_detail=results_detail,
+            parsed_query=search_items,
+        )
+
+        db.session.add(log_entry)
+        db.session.commit()
+        current_app.logger.info(f"Logged search quality: '{query}' with {len(results_detail)} results")
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to log search quality: {e}")
+        db.session.rollback()
+
+
 @agents_api_bp.route('/search', methods=['POST'])
 def unified_search():
     """Unified search endpoint - the main entry point for all user queries.
@@ -244,6 +309,10 @@ def unified_search():
 
         # Log search for tracking (both successful and failed)
         log_search(user_id, query, output.results, user_ip=user_ip)
+
+        # Log search for quality evaluation (detailed scores)
+        search_items = result.get("search_items")  # Parsed query items from LLM
+        log_search_quality(query, output.results, output.metadata, search_items)
 
         # Record anonymous search (first time only)
         if is_anonymous and user_ip:

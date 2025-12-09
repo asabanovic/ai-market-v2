@@ -251,7 +251,7 @@
               <!-- Suggested Images with Match Scores -->
               <div v-if="modalMatchResult">
                 <h4 class="text-sm font-medium text-gray-700 mb-2">Predlozene slike (klikni za odabir):</h4>
-                <div class="grid grid-cols-5 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   <div
                     v-for="(match, index) in modalMatchResult.matches"
                     :key="index"

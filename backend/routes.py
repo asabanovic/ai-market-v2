@@ -26,6 +26,7 @@ from models import SavingsStatistics
 
 # Import admin embedding blueprint
 from admin_embedding_routes import admin_embedding_bp
+from admin_search_routes import admin_search_bp
 
 # Import JWT-based auth API blueprint
 from auth_api import auth_api_bp, require_jwt_auth, generate_jwt_token
@@ -138,6 +139,7 @@ else:
 
 # Register admin embedding blueprint
 app.register_blueprint(admin_embedding_bp)
+app.register_blueprint(admin_search_bp)
 
 # Handle CORS preflight requests globally
 @app.before_request

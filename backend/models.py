@@ -698,3 +698,34 @@ class ProductReport(db.Model):
         db.Index('idx_product_reports_status', 'status'),
         db.Index('idx_product_reports_created_at', 'created_at'),
     )
+
+
+# ==================== SEARCH QUALITY TRACKING ====================
+
+# SearchLog - detailed search result logging for quality evaluation
+class SearchLog(db.Model):
+    __tablename__ = 'search_logs'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    query = db.Column(db.String, nullable=False, index=True)
+
+    # Search parameters used
+    similarity_threshold = db.Column(db.Float, nullable=True)
+    k = db.Column(db.Integer, nullable=True)
+
+    # Results summary
+    result_count = db.Column(db.Integer, nullable=False)
+    total_before_filter = db.Column(db.Integer, nullable=True)
+
+    # Detailed results with scores (JSON array)
+    # Each item: {product_id, title, similarity, vector_score, text_score, rank}
+    results_detail = db.Column(JSON, nullable=True)
+
+    # Parsed query info from LLM (if any)
+    parsed_query = db.Column(JSON, nullable=True)  # The search_items from parser
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    __table_args__ = (
+        db.Index('idx_search_logs_query', 'query'),
+        db.Index('idx_search_logs_created_at', 'created_at'),
+    )
