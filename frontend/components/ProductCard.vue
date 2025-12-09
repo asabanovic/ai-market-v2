@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[relevanceBorderClass, product.is_teaser ? 'opacity-90' : '']">
+  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[product.is_teaser ? 'opacity-90' : '']">
     <!-- Teaser Blur Overlay (Anonymous Users) -->
     <div
       v-if="product.is_teaser"
@@ -22,21 +22,6 @@
       </div>
     </div>
 
-    <!-- Relevance Badge -->
-    <div
-      v-if="product.similarity !== undefined"
-      :class="relevanceBadgeClass"
-      class="absolute top-3 left-3 px-3 py-1.5 rounded-md text-sm font-extrabold z-20 shadow-lg cursor-help"
-      :title="relevanceTooltip"
-    >
-      <div class="flex items-center gap-1">
-        <span>{{ relevanceLabel }}</span>
-        <svg class="w-3 h-3 opacity-70" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-        </svg>
-      </div>
-    </div>
-
     <!-- Discount Badge -->
     <div
       v-if="discountPercentage > 0"
@@ -45,8 +30,8 @@
       -{{ discountPercentage }}%
     </div>
 
-    <!-- Favorite Button (moved down if relevance badge exists) -->
-    <div :class="['absolute left-3 z-10', product.similarity !== undefined ? 'top-12' : 'top-3']">
+    <!-- Favorite Button -->
+    <div class="absolute left-3 top-3 z-10">
       <FavoriteButton :product-id="product.id" :size="32" @updated="handleFavoriteUpdate" />
     </div>
 
@@ -262,69 +247,6 @@ const businessLogo = computed(() => {
 
   // Otherwise, prepend the API base with /static/
   return `${config.public.apiBase}/static/${logo}`
-})
-
-// Relevance level based on similarity score
-const relevanceLevel = computed(() => {
-  const similarity = props.product.similarity
-  if (similarity === undefined) return null
-
-  // Define thresholds for relevance
-  if (similarity >= 0.75) return 'high'      // Highly relevant - green
-  if (similarity >= 0.55) return 'medium'    // Somewhat related - orange
-  return 'low'                                // Least related - red
-})
-
-const relevanceBadgeClass = computed(() => {
-  switch (relevanceLevel.value) {
-    case 'high':
-      return 'bg-green-600 text-white'
-    case 'medium':
-      return 'bg-orange-600 text-white'
-    case 'low':
-      return 'bg-red-500 text-white'
-    default:
-      return ''
-  }
-})
-
-const relevanceBorderClass = computed(() => {
-  switch (relevanceLevel.value) {
-    case 'high':
-      return 'border-4 border-green-500 shadow-green-200 shadow-lg'
-    case 'medium':
-      return 'border-4 border-orange-500 shadow-orange-200 shadow-lg'
-    case 'low':
-      return 'border-4 border-red-400 shadow-red-200 shadow-lg'
-    default:
-      return ''
-  }
-})
-
-const relevanceLabel = computed(() => {
-  const similarity = props.product.similarity
-  if (similarity === undefined) return ''
-
-  const percentage = Math.round(similarity * 100)
-  return `${percentage}%`
-})
-
-const relevanceTooltip = computed(() => {
-  const similarity = props.product.similarity
-  if (similarity === undefined) return ''
-
-  const percentage = Math.round(similarity * 100)
-
-  switch (relevanceLevel.value) {
-    case 'high':
-      return `Indeks relevantnosti: ${percentage}% - Odlično poklapanje sa vašom pretragom`
-    case 'medium':
-      return `Indeks relevantnosti: ${percentage}% - Dobro poklapanje, sličan proizvod`
-    case 'low':
-      return `Indeks relevantnosti: ${percentage}% - Slabije poklapanje, može biti zanimljivo`
-    default:
-      return ''
-  }
 })
 
 function getImageUrl(path: string): string {
