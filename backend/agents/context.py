@@ -37,7 +37,7 @@ class AgentContext:
     )
 
     similarity_threshold: float = field(
-        default=0.30,  # Lowered for hybrid scoring (0.6*vec + 0.4*text can result in lower combined scores)
+        default=0.20,  # Lowered further for hybrid scoring with short brand queries
         metadata={"description": "Minimum similarity score for results (0.0-1.0)"}
     )
 
