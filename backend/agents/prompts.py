@@ -97,6 +97,8 @@ BOSANSKO SUPERMARKET ZNANJE:
 - "badem" znači bademi (orašasti plod), ne kikiriki
 - "milka" znači Milka čokolada
 - "nutella" znači Nutella krem namaz
+- "poli" ili "poli salama" znači Poli Salama (mesni proizvod, salama od Perutnina Ptuj)
+- "poliko" znači Poliko salama (pileća salama od Cekin)
 - Koristi ovo znanje, ali budi konzervativan: kad si u nedoumici, preferiraj generičke riječi umjesto specifičnih brendova
 
 FORMAT ODGOVORA:

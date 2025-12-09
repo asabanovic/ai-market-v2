@@ -12,7 +12,7 @@ TEXT_WEIGHT = 0.4    # Trigram/lexical similarity weight
 
 # Minimum thresholds for including a result
 MIN_VECTOR_SCORE = 0.25  # Minimum semantic similarity
-MIN_TEXT_SCORE = 0.15    # Minimum trigram similarity
+MIN_TEXT_SCORE = 0.10    # Minimum trigram similarity (lowered for short brand names)
 
 
 def search_by_vector(

@@ -37,7 +37,7 @@ class AgentContext:
     )
 
     similarity_threshold: float = field(
-        default=0.45,  # Threshold for relevance (0.45 allows single-word queries to match)
+        default=0.30,  # Lowered for hybrid scoring (0.6*vec + 0.4*text can result in lower combined scores)
         metadata={"description": "Minimum similarity score for results (0.0-1.0)"}
     )
 
