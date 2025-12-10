@@ -317,6 +317,17 @@ def verify_otp():
     # Generate JWT token
     token = generate_jwt_token(user.id, user.email or user.phone)
 
+    # Log the login event
+    try:
+        from activity_api import log_user_login
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if ip_address:
+            ip_address = ip_address.split(',')[0].strip()
+        user_agent = request.headers.get('User-Agent', '')
+        log_user_login(user.id, 'phone', ip_address, user_agent)
+    except Exception as login_track_error:
+        logger.warning(f"Failed to track phone login: {login_track_error}")
+
     return jsonify({
         'success': True,
         'token': token,

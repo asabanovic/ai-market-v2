@@ -35,6 +35,9 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
+    # Last login tracking
+    last_login = db.Column(db.DateTime, nullable=True)
+
     # Phone number for SMS notifications and authentication
     phone = db.Column(db.String, unique=True, nullable=True)
     phone_verified = db.Column(db.Boolean, default=False)
@@ -728,4 +731,63 @@ class SearchLog(db.Model):
     __table_args__ = (
         db.Index('idx_search_logs_query', 'query'),
         db.Index('idx_search_logs_created_at', 'created_at'),
+    )
+
+
+# ==================== USER ACTIVITY TRACKING ====================
+
+# UserActivity - detailed event logging for user interactions
+class UserActivity(db.Model):
+    __tablename__ = 'user_activities'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+
+    # Activity type: 'page_view', 'filter', 'pagination', 'login', etc.
+    activity_type = db.Column(db.String(50), nullable=False)
+
+    # Page or feature being used
+    page = db.Column(db.String(100), nullable=True)  # e.g., 'proizvodi', 'favorites', 'home'
+
+    # Additional context (JSON for flexible storage)
+    # For page_view: {filters: {category, store, sort}, page_number}
+    # For filter: {filter_type, old_value, new_value}
+    # For login: {method: 'email'/'phone', ip_address}
+    activity_data = db.Column(JSON, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('activities', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_user_activities_user_id', 'user_id'),
+        db.Index('idx_user_activities_type', 'activity_type'),
+        db.Index('idx_user_activities_created_at', 'created_at'),
+        db.Index('idx_user_activities_user_type', 'user_id', 'activity_type'),
+    )
+
+
+# UserLogin - dedicated table for login history
+class UserLogin(db.Model):
+    __tablename__ = 'user_logins'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+
+    # Login method: 'email', 'phone', 'google', etc.
+    login_method = db.Column(db.String(20), nullable=True)
+
+    # IP address for security/analytics
+    ip_address = db.Column(db.String(50), nullable=True)
+
+    # User agent for device tracking
+    user_agent = db.Column(db.String(500), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('logins', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_user_logins_user_id', 'user_id'),
+        db.Index('idx_user_logins_created_at', 'created_at'),
     )

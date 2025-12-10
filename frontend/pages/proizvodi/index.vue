@@ -26,23 +26,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- Category Filter -->
-          <div>
-            <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
-              Kategorija
-            </label>
-            <select
-              id="category"
-              v-model="filters.category"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              @change="loadProducts"
-            >
-              <option value="">Sve kategorije</option>
-              <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-            </select>
-          </div>
-
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Business Filter -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -64,7 +48,7 @@
               id="sort"
               v-model="filters.sort"
               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              @change="loadProducts"
+              @change="onSortChange"
             >
               <option value="discount_desc">Najveći popust</option>
               <option value="price_asc">Najjeftinije</option>
@@ -169,13 +153,13 @@ const { get } = useApi()
 const { user, authReady } = useAuth()
 const route = useRoute()
 const router = useRouter()
+const { trackPageView, trackFilter, trackPagination } = useActivityTracking()
 
 // State
 const products = ref<any[]>([])
 const showRegistrationPrompt = ref(false)
 const totalActiveProducts = ref(0)
 const businesses = ref<any[]>([])
-const categories = ref<string[]>([])
 const isLoading = ref(true)
 const currentPage = ref(1)
 const totalPages = ref(1)
@@ -185,7 +169,6 @@ const selectedStoreIds = ref<number[]>([])
 
 // Filters
 const filters = ref({
-  category: '',
   sort: 'discount_desc'
 })
 
@@ -197,7 +180,6 @@ const initPage = () => {
     return
   }
 
-  filters.value.category = (route.query.category as string) || ''
   filters.value.sort = (route.query.sort as string) || 'discount_desc'
   currentPage.value = parseInt(route.query.page as string) || 1
 
@@ -207,8 +189,14 @@ const initPage = () => {
     selectedStoreIds.value = storeParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
   }
 
+  // Track page view
+  trackPageView('proizvodi', {
+    sort: filters.value.sort,
+    page: currentPage.value,
+    stores: selectedStoreIds.value
+  })
+
   loadBusinesses()
-  loadCategories()
   loadProducts()
 }
 
@@ -228,7 +216,6 @@ watch(authReady, (ready) => {
 
 // Watch for route changes
 watch(() => route.query, () => {
-  filters.value.category = (route.query.category as string) || ''
   filters.value.sort = (route.query.sort as string) || 'discount_desc'
   currentPage.value = parseInt(route.query.page as string) || 1
 
@@ -243,6 +230,15 @@ watch(() => route.query, () => {
 
 function onStoresChange() {
   currentPage.value = 1
+  // Track store filter change
+  trackFilter('proizvodi', 'stores', selectedStoreIds.value)
+  loadProducts()
+}
+
+function onSortChange() {
+  currentPage.value = 1
+  // Track sort filter change
+  trackFilter('proizvodi', 'sort', filters.value.sort)
   loadProducts()
 }
 
@@ -273,21 +269,11 @@ async function loadBusinesses() {
   }
 }
 
-async function loadCategories() {
-  try {
-    const data = await get('/api/categories')
-    categories.value = data.categories || []
-  } catch (error) {
-    console.error('Error loading categories:', error)
-  }
-}
-
 async function loadProducts() {
   isLoading.value = true
 
   try {
     const params = new URLSearchParams()
-    if (filters.value.category) params.append('category', filters.value.category)
     if (selectedStoreIds.value.length > 0) {
       params.append('stores', selectedStoreIds.value.join(','))
     }
@@ -312,7 +298,6 @@ async function loadProducts() {
 
 function resetFilters() {
   filters.value = {
-    category: '',
     sort: 'discount_desc'
   }
   selectedStoreIds.value = []
@@ -324,13 +309,16 @@ function resetFilters() {
 function changePage(page: number) {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
+
+  // Track pagination
+  trackPagination('proizvodi', page)
+
   window.scrollTo({ top: 0, behavior: 'smooth' })
   loadProducts()
 }
 
 function updateURL() {
   const query: any = {}
-  if (filters.value.category) query.category = filters.value.category
   if (selectedStoreIds.value.length > 0) query.stores = selectedStoreIds.value.join(',')
   if (filters.value.sort && filters.value.sort !== 'discount_desc') query.sort = filters.value.sort
   if (currentPage.value > 1) query.page = currentPage.value.toString()

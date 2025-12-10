@@ -147,6 +147,17 @@ def api_login():
 
         app.logger.info(f"API login successful for: {email}")
 
+        # Log the login event
+        try:
+            from activity_api import log_user_login
+            ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+            if ip_address:
+                ip_address = ip_address.split(',')[0].strip()
+            user_agent = request.headers.get('User-Agent', '')
+            log_user_login(user.id, 'email', ip_address, user_agent)
+        except Exception as login_track_error:
+            app.logger.warning(f"Failed to track login: {login_track_error}")
+
         return jsonify({
             'token': token,
             'user': user_data

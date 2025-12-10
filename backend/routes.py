@@ -44,12 +44,16 @@ from referral_api import referral_api_bp
 # Import engagement API blueprint
 from engagement_api import engagement_bp
 
+# Import activity tracking API blueprint
+from activity_api import activity_api_bp
+
 # Disable CSRF for API endpoints (JWT-based)
 csrf.exempt(auth_api_bp)
 csrf.exempt(shopping_api_bp)
 csrf.exempt(phone_auth_bp)
 csrf.exempt(referral_api_bp)
 csrf.exempt(engagement_bp)
+csrf.exempt(activity_api_bp)
 
 # Register auth API blueprint
 app.register_blueprint(auth_api_bp)
@@ -65,6 +69,9 @@ app.register_blueprint(referral_api_bp)
 
 # Register engagement API blueprint
 app.register_blueprint(engagement_bp)
+
+# Register activity tracking API blueprint
+app.register_blueprint(activity_api_bp)
 
 
 # Helper function to format logo URL with full URL
