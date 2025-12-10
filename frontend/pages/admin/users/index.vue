@@ -211,7 +211,7 @@
                 </td>
 
                 <!-- Preferred Stores -->
-                <td class="px-6 py-4">
+                <td class="px-6 py-4" @click.stop>
                   <div v-if="user.preferred_stores && user.preferred_stores.length > 0" class="flex flex-wrap gap-1 max-w-xs">
                     <span
                       v-for="store in user.preferred_stores.slice(0, 3)"
@@ -221,13 +221,13 @@
                     >
                       {{ truncateStoreName(store.name) }}
                     </span>
-                    <span
+                    <button
                       v-if="user.preferred_stores.length > 3"
-                      class="px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700"
-                      :title="user.preferred_stores.slice(3).map((s: any) => s.name).join(', ')"
+                      @click="showStoresModal(user)"
+                      class="px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700 hover:bg-purple-200 cursor-pointer"
                     >
                       +{{ user.preferred_stores.length - 3 }}
-                    </span>
+                    </button>
                   </div>
                   <div v-else class="text-sm text-gray-400">
                     Sve
@@ -310,6 +310,39 @@
         </div>
       </div>
     </div>
+
+    <!-- Stores Modal -->
+    <div
+      v-if="storesModalUser"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      @click.self="storesModalUser = null"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-gray-900">
+            Prodavnice - {{ storesModalUser.first_name || storesModalUser.email }}
+          </h3>
+          <button
+            @click="storesModalUser = null"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <Icon name="mdi:close" class="w-6 h-6" />
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto max-h-[60vh]">
+          <div class="space-y-2">
+            <div
+              v-for="store in storesModalUser.preferred_stores"
+              :key="store.id"
+              class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+            >
+              <Icon name="mdi:store" class="w-5 h-5 text-purple-600" />
+              <span class="text-gray-900">{{ store.name }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -337,6 +370,7 @@ const pagination = ref({
 })
 const userActivity = ref<Record<string, any[]>>({})
 const loadingActivity = ref<Record<string, boolean>>({})
+const storesModalUser = ref<any>(null)
 
 // Computed stats
 const totalUsers = computed(() => pagination.value.total)
@@ -415,6 +449,10 @@ function truncateStoreName(name: string): string {
     return name.substring(0, 10) + '...'
   }
   return name
+}
+
+function showStoresModal(user: any) {
+  storesModalUser.value = user
 }
 
 async function loadUserActivity(userId: string) {
