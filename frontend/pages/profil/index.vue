@@ -283,7 +283,7 @@
             </button>
             <button
               type="submit"
-              :disabled="isSaving || (profile.phone && !isPhoneValid)"
+              :disabled="isSaving || !hasProfileChanges || (profile.phone && !isPhoneValid)"
               class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ isSaving ? 'Čuvanje...' : 'Sačuvaj promjene' }}
@@ -335,7 +335,28 @@ const profile = ref({
   is_admin: false
 })
 
+const originalProfile = ref({
+  email: '',
+  first_name: '',
+  last_name: '',
+  phone: '',
+  city: '',
+  notification_preferences: 'none',
+  is_admin: false
+})
+
 const cities = ref<string[]>([])
+
+// Check if profile has any changes
+const hasProfileChanges = computed(() => {
+  return (
+    profile.value.first_name !== originalProfile.value.first_name ||
+    profile.value.last_name !== originalProfile.value.last_name ||
+    profile.value.phone !== originalProfile.value.phone ||
+    profile.value.city !== originalProfile.value.city ||
+    profile.value.notification_preferences !== originalProfile.value.notification_preferences
+  )
+})
 
 async function loadProfile() {
   isLoading.value = true
@@ -344,7 +365,7 @@ async function loadProfile() {
 
   try {
     const data = await get('/auth/user/profile')
-    profile.value = {
+    const profileData = {
       email: data.email || '',
       first_name: data.first_name || '',
       last_name: data.last_name || '',
@@ -353,6 +374,8 @@ async function loadProfile() {
       notification_preferences: data.notification_preferences || 'none',
       is_admin: data.is_admin || false
     }
+    profile.value = { ...profileData }
+    originalProfile.value = { ...profileData }
 
     // Validate phone if it exists
     if (profile.value.phone) {
@@ -438,6 +461,10 @@ async function saveProfile() {
 
     if (response.success) {
       successMessage.value = response.message || 'Profil uspješno ažuriran!'
+
+      // Update original profile to match current (so hasProfileChanges becomes false)
+      originalProfile.value = { ...profile.value }
+
       // Refresh user data in auth store
       await refreshUser()
 

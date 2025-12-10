@@ -187,7 +187,8 @@ def api_verify():
             'phone': user.phone,
             'city': user.city,
             'is_admin': user.is_admin,
-            'onboarding_completed': user.onboarding_completed or False
+            'onboarding_completed': user.onboarding_completed or False,
+            'preferences': user.preferences or {}
         }
 
         return jsonify({'user': user_data}), 200
@@ -498,6 +499,80 @@ def user_profile():
         db.session.rollback()
         app.logger.error(f"Profile error: {e}")
         return jsonify({'error': 'Greška pri ažuriranju profila'}), 500
+
+
+@auth_api_bp.route('/user/interests', methods=['PUT', 'OPTIONS'])
+def update_user_interests():
+    """Update user grocery interests and optionally phone number"""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    # Require JWT auth
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Missing authorization header'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request data'}), 400
+
+        # Update phone if provided
+        if 'phone' in data and data['phone']:
+            phone = data['phone'].strip()
+            # Validate phone format (basic validation)
+            clean_phone = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+            if clean_phone and len(clean_phone) >= 9:
+                # Check if phone is already used by another user
+                existing = User.query.filter(User.phone == phone, User.id != user.id).first()
+                if existing:
+                    return jsonify({'error': 'Ovaj broj telefona je već registrovan'}), 400
+                user.phone = phone
+
+        # Update grocery interests
+        if 'grocery_interests' in data:
+            interests = data['grocery_interests']
+            if isinstance(interests, list):
+                # Ensure preferences is a dict
+                if not user.preferences:
+                    user.preferences = {}
+                elif not isinstance(user.preferences, dict):
+                    user.preferences = {}
+
+                # Clean and deduplicate interests
+                clean_interests = list(set([i.strip() for i in interests if i and i.strip()]))
+                user.preferences['grocery_interests'] = clean_interests
+
+                # Mark preferences as modified for SQLAlchemy to detect the change
+                flag_modified(user, 'preferences')
+
+        db.session.commit()
+
+        app.logger.info(f"Interests updated for user: {user.email}, interests: {user.preferences.get('grocery_interests', [])}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Interesi uspješno sačuvani',
+            'grocery_interests': user.preferences.get('grocery_interests', []) if user.preferences else []
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Update interests error: {e}")
+        return jsonify({'error': 'Greška pri spremanju interesa'}), 500
 
 
 @auth_api_bp.route('/cities', methods=['GET'])

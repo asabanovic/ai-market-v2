@@ -390,19 +390,31 @@ def product_to_dict(product, include_price_history=True):
             ProductPriceHistory.discount_price.isnot(None)
         ).order_by(ProductPriceHistory.discount_price.asc()).first()
 
+        # Count total price history entries for this product
+        history_count = ProductPriceHistory.query.filter(
+            ProductPriceHistory.product_id == product_id
+        ).count()
+
         if lowest_history and lowest_history.discount_price:
             # We have historical data
             price_history_data = {
                 'lowest_price': float(lowest_history.discount_price),
                 'recorded_at': lowest_history.recorded_at.isoformat() if lowest_history.recorded_at else None,
-                'potential_savings': round(float(base_price) - float(lowest_history.discount_price), 2) if base_price else 0
+                'potential_savings': round(float(base_price) - float(lowest_history.discount_price), 2) if base_price else 0,
+                'history_count': history_count
             }
         elif discount_price and is_expired:
             # Fallback: if discount just expired, use that as "was on sale" price
             price_history_data = {
                 'lowest_price': float(discount_price),
                 'recorded_at': expires_iso,
-                'potential_savings': round(float(base_price) - float(discount_price), 2) if base_price and discount_price else 0
+                'potential_savings': round(float(base_price) - float(discount_price), 2) if base_price and discount_price else 0,
+                'history_count': 1
+            }
+        elif history_count > 0:
+            # Product has price history but no discount data - still show the count
+            price_history_data = {
+                'history_count': history_count
             }
 
     # If discount is expired, don't show discount info - product becomes regular
@@ -5358,6 +5370,76 @@ def api_admin_user_profile(user_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# ==================== ADMIN PRODUCTS API ====================
+
+@app.route('/api/admin/products')
+def api_admin_products():
+    """API endpoint to get all products grouped by business for admin panel"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    # Get all products with their business information
+    products = db.session.query(Product, Business).join(Business).order_by(
+        Business.name, Product.title).all()
+
+    # Group products by business
+    businesses_dict = {}
+    for product, business in products:
+        if business.id not in businesses_dict:
+            businesses_dict[business.id] = {
+                'id': business.id,
+                'name': business.name,
+                'logo': business.logo,
+                'products': []
+            }
+        businesses_dict[business.id]['products'].append({
+            'id': product.id,
+            'title': product.title,
+            'base_price': float(product.base_price) if product.base_price else 0,
+            'discount_price': float(product.discount_price) if product.discount_price else None,
+            'image_path': product.image_path,
+            'expires': product.expires.isoformat() if product.expires else None,
+            'category': product.category,
+            'enriched_description': product.enriched_description
+        })
+
+    # Convert to list and sort by business name
+    businesses_with_products = sorted(businesses_dict.values(), key=lambda x: x['name'])
+
+    # Get summary stats
+    total_products = len(products)
+    total_businesses = len(businesses_with_products)
+    products_with_images = sum(1 for p, _ in products if p.image_path)
+    products_with_discounts = sum(1 for p, _ in products if p.discount_price and p.discount_price < (p.base_price or 0))
+
+    return jsonify({
+        'stats': {
+            'total_products': total_products,
+            'total_businesses': total_businesses,
+            'products_with_images': products_with_images,
+            'products_with_discounts': products_with_discounts
+        },
+        'businesses_with_products': businesses_with_products
+    })
 
 
 # ==================== IMAGE SUGGESTION ENDPOINTS ====================

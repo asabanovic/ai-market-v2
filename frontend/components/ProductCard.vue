@@ -30,6 +30,16 @@
       -{{ discountPercentage }}%
     </div>
 
+    <!-- Price History Badge -->
+    <div
+      v-if="priceHistoryCount > 0 && !discountPercentage"
+      class="absolute top-3 right-3 bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-bold z-10 flex items-center gap-1"
+      :title="`${priceHistoryCount} prethodn${priceHistoryCount === 1 ? 'a' : 'e'} cijena`"
+    >
+      <Icon name="mdi:chart-line" class="w-3 h-3" />
+      +{{ priceHistoryCount }}
+    </div>
+
     <!-- Favorite Button -->
     <div class="absolute left-3 top-3 z-10">
       <FavoriteButton :product-id="product.id" :size="32" @updated="handleFavoriteUpdate" />
@@ -226,6 +236,11 @@ const showPriceHistory = computed(() => {
 const showSavingsCTA = computed(() => {
   return showPriceHistory.value &&
          props.product.price_history.potential_savings >= 0.50
+})
+
+// Get count of price history entries (for the badge)
+const priceHistoryCount = computed(() => {
+  return props.product.price_history?.history_count || 0
 })
 
 const discountPercentage = computed(() => {

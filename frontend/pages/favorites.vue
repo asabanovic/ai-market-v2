@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 class="text-3xl font-bold text-gray-900">Omiljeni Proizvodi</h1>
           <p class="mt-2 text-gray-600">Vaša lista omiljenih proizvoda</p>
@@ -15,6 +15,28 @@
           <Icon name="mdi:delete" class="w-5 h-5 mr-2" />
           Obriši sve
         </button>
+      </div>
+
+      <!-- Interest Setup Banner - Always visible for logged in users -->
+      <div
+        v-if="showInterestBanner"
+        class="mb-6 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-4 md:p-5 text-white shadow-lg"
+      >
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 class="font-bold text-lg">Obavještenja o popustima</h3>
+            <p class="text-purple-100 text-sm mt-1">
+              Odaberite namirnice koje kupujete i javit ćemo vam čim budu na akciji!
+            </p>
+          </div>
+          <button
+            @click="openInterestPopup"
+            class="px-5 py-2.5 bg-white text-purple-700 font-semibold rounded-lg hover:bg-purple-50 transition-colors shadow-md whitespace-nowrap flex items-center gap-2"
+          >
+            <Icon name="mdi:cog" class="w-5 h-5" />
+            Uredi interese
+          </button>
+        </div>
       </div>
 
       <!-- Clear All Confirmation Modal -->
@@ -341,11 +363,31 @@ definePageMeta({
 const favoritesStore = useFavoritesStore()
 const cartStore = useCartStore()
 const { handleApiError, showSuccess } = useCreditsToast()
+const { user } = useAuth()
 
 const itemsPerPage = 10
 const storePages = ref<Record<number, number>>({})
 const showClearConfirmation = ref(false)
 const isClearing = ref(false)
+const showInterestPopup = ref(false)
+const bannerDismissed = ref(false)
+
+// Always show interest banner for logged in users (so they can update their selections)
+const showInterestBanner = computed(() => {
+  // Must be logged in to show
+  return !!user.value
+})
+
+function openInterestPopup() {
+  // Emit event to app.vue to open the popup
+  if (process.client) {
+    window.dispatchEvent(new CustomEvent('open-interest-popup'))
+  }
+}
+
+function dismissInterestBanner() {
+  bannerDismissed.value = true
+}
 
 // Statistics computed property
 const stats = computed(() => {
