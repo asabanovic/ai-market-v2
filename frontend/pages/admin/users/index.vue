@@ -82,6 +82,8 @@
                   </div>
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poslednja prijava</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prodavnice</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Krediti</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OTP Kod</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrovan</th>
@@ -183,6 +185,52 @@
                     >
                       {{ user.is_verified ? 'Verifikovan' : 'Nije verifikovan' }}
                     </span>
+                  </div>
+                </td>
+
+                <!-- Last Login -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div v-if="user.last_login" class="text-sm">
+                    <div class="flex items-center gap-1 mb-1">
+                      <Icon
+                        :name="getDeviceIcon(user.last_login.device_type)"
+                        class="w-4 h-4 text-gray-500"
+                      />
+                      <span class="text-gray-900">{{ user.last_login.device_type || 'N/A' }}</span>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      {{ user.last_login.os_name || '' }} {{ user.last_login.browser_name ? `/ ${user.last_login.browser_name}` : '' }}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">
+                      {{ formatDate(user.last_login.created_at) }}
+                    </div>
+                  </div>
+                  <div v-else class="text-sm text-gray-400">
+                    N/A
+                  </div>
+                </td>
+
+                <!-- Preferred Stores -->
+                <td class="px-6 py-4">
+                  <div v-if="user.preferred_stores && user.preferred_stores.length > 0" class="flex flex-wrap gap-1 max-w-xs">
+                    <span
+                      v-for="store in user.preferred_stores.slice(0, 3)"
+                      :key="store.id"
+                      class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700"
+                      :title="store.name"
+                    >
+                      {{ truncateStoreName(store.name) }}
+                    </span>
+                    <span
+                      v-if="user.preferred_stores.length > 3"
+                      class="px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700"
+                      :title="user.preferred_stores.slice(3).map((s: any) => s.name).join(', ')"
+                    >
+                      +{{ user.preferred_stores.length - 3 }}
+                    </span>
+                  </div>
+                  <div v-else class="text-sm text-gray-400">
+                    Sve
                   </div>
                 </td>
 
@@ -347,6 +395,26 @@ function formatDate(dateString: string) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function getDeviceIcon(deviceType: string | null): string {
+  switch (deviceType) {
+    case 'mobile':
+      return 'mdi:cellphone'
+    case 'tablet':
+      return 'mdi:tablet'
+    case 'desktop':
+      return 'mdi:monitor'
+    default:
+      return 'mdi:help-circle-outline'
+  }
+}
+
+function truncateStoreName(name: string): string {
+  if (name.length > 12) {
+    return name.substring(0, 10) + '...'
+  }
+  return name
 }
 
 async function loadUserActivity(userId: string) {

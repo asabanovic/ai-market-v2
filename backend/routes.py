@@ -4830,7 +4830,7 @@ def api_admin_stats():
 def api_admin_users():
     """API endpoint for admin to view all users with their registration method and OTP codes"""
     from auth_api import decode_jwt_token
-    from models import OTPCode
+    from models import OTPCode, UserLogin
 
     # Check JWT authentication
     auth_header = request.headers.get('Authorization')
@@ -4875,7 +4875,10 @@ def api_admin_users():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         users = pagination.items
 
-        # Get OTP codes for each user
+        # Get all businesses for mapping store IDs to names
+        all_businesses = {b.id: b.name for b in Business.query.all()}
+
+        # Get OTP codes and last login for each user
         user_data = []
         for u in users:
             latest_otp = None
@@ -4893,6 +4896,30 @@ def api_admin_users():
                         'expired': latest_otp_record.expires_at < datetime.now()
                     }
 
+            # Get last login info with device details
+            last_login = None
+            last_login_record = UserLogin.query.filter_by(
+                user_id=u.id
+            ).order_by(UserLogin.created_at.desc()).first()
+
+            if last_login_record:
+                last_login = {
+                    'login_method': last_login_record.login_method,
+                    'device_type': last_login_record.device_type,
+                    'os_name': last_login_record.os_name,
+                    'browser_name': last_login_record.browser_name,
+                    'ip_address': last_login_record.ip_address,
+                    'created_at': last_login_record.created_at.isoformat() if last_login_record.created_at else None
+                }
+
+            # Get user's preferred stores
+            preferred_store_ids = u.preferences.get('preferred_stores', []) if u.preferences else []
+            preferred_stores = [
+                {'id': store_id, 'name': all_businesses.get(store_id, f'Unknown ({store_id})')}
+                for store_id in preferred_store_ids
+                if store_id in all_businesses
+            ]
+
             user_data.append({
                 'id': u.id,
                 'email': u.email,
@@ -4908,7 +4935,9 @@ def api_admin_users():
                 'weekly_credits': u.weekly_credits,
                 'weekly_credits_used': u.weekly_credits_used,
                 'extra_credits': u.extra_credits,
-                'latest_otp': latest_otp
+                'latest_otp': latest_otp,
+                'last_login': last_login,
+                'preferred_stores': preferred_stores
             })
 
         return jsonify({

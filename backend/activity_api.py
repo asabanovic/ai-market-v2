@@ -1,10 +1,74 @@
 """API endpoints for user activity tracking."""
 
+import re
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from app import db
 from models import UserActivity, UserLogin, User
 from auth_api import require_jwt_auth, decode_jwt_token
+
+
+def parse_user_agent(user_agent):
+    """Parse user agent string to extract device type, OS, and browser.
+
+    Returns:
+        dict with keys: device_type, os_name, browser_name
+    """
+    if not user_agent:
+        return {'device_type': None, 'os_name': None, 'browser_name': None}
+
+    ua = user_agent.lower()
+
+    # Detect device type
+    device_type = 'desktop'
+    if 'mobile' in ua or 'android' in ua and 'mobile' not in ua:
+        if 'tablet' in ua or 'ipad' in ua:
+            device_type = 'tablet'
+        elif any(x in ua for x in ['iphone', 'ipod', 'android', 'mobile', 'phone']):
+            device_type = 'mobile'
+    elif 'tablet' in ua or 'ipad' in ua:
+        device_type = 'tablet'
+
+    # Detect OS
+    os_name = None
+    if 'windows nt 10' in ua or 'windows nt 11' in ua:
+        os_name = 'Windows'
+    elif 'windows' in ua:
+        os_name = 'Windows'
+    elif 'mac os x' in ua or 'macintosh' in ua:
+        if 'iphone' in ua or 'ipad' in ua or 'ipod' in ua:
+            os_name = 'iOS'
+        else:
+            os_name = 'macOS'
+    elif 'android' in ua:
+        os_name = 'Android'
+    elif 'linux' in ua:
+        os_name = 'Linux'
+    elif 'cros' in ua:
+        os_name = 'ChromeOS'
+
+    # Detect browser
+    browser_name = None
+    if 'edg/' in ua or 'edge/' in ua:
+        browser_name = 'Edge'
+    elif 'opr/' in ua or 'opera' in ua:
+        browser_name = 'Opera'
+    elif 'chrome' in ua and 'chromium' not in ua:
+        browser_name = 'Chrome'
+    elif 'safari' in ua and 'chrome' not in ua:
+        browser_name = 'Safari'
+    elif 'firefox' in ua:
+        browser_name = 'Firefox'
+    elif 'msie' in ua or 'trident' in ua:
+        browser_name = 'Internet Explorer'
+    elif 'samsung' in ua:
+        browser_name = 'Samsung Browser'
+
+    return {
+        'device_type': device_type,
+        'os_name': os_name,
+        'browser_name': browser_name
+    }
 
 # Create blueprint
 activity_api_bp = Blueprint('activity_api', __name__, url_prefix='/api/activity')
@@ -157,17 +221,23 @@ def log_user_login(user_id, login_method='email', ip_address=None, user_agent=No
         if user:
             user.last_login = datetime.now()
 
+        # Parse user agent for device info
+        device_info = parse_user_agent(user_agent)
+
         # Create login record
         login = UserLogin(
             user_id=user_id,
             login_method=login_method,
             ip_address=ip_address,
-            user_agent=user_agent[:500] if user_agent else None
+            user_agent=user_agent[:500] if user_agent else None,
+            device_type=device_info['device_type'],
+            os_name=device_info['os_name'],
+            browser_name=device_info['browser_name']
         )
         db.session.add(login)
         db.session.commit()
 
-        current_app.logger.info(f"Logged login for user {user_id} via {login_method}")
+        current_app.logger.info(f"Logged login for user {user_id} via {login_method} on {device_info['device_type']}/{device_info['os_name']}")
         return True
 
     except Exception as e:

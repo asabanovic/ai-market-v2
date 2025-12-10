@@ -782,6 +782,11 @@ class UserLogin(db.Model):
     # User agent for device tracking
     user_agent = db.Column(db.String(500), nullable=True)
 
+    # Parsed device info from user agent
+    device_type = db.Column(db.String(20), nullable=True)  # 'mobile', 'tablet', 'desktop'
+    os_name = db.Column(db.String(50), nullable=True)  # 'Windows', 'macOS', 'iOS', 'Android', 'Linux'
+    browser_name = db.Column(db.String(50), nullable=True)  # 'Chrome', 'Firefox', 'Safari', etc.
+
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
