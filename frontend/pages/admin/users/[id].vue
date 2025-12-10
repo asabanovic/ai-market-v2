@@ -194,17 +194,17 @@
               </div>
 
               <!-- Recent Activity Summary -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="border border-gray-200 rounded-lg p-4">
                   <h4 class="font-medium text-gray-900 mb-2">Posljednjih 30 dana</h4>
                   <div class="space-y-2 text-sm">
                     <div class="flex justify-between">
                       <span class="text-gray-500">Pretrage</span>
-                      <span class="font-medium">{{ stats.recent_searches }}</span>
+                      <span class="font-medium text-gray-900">{{ stats.recent_searches }}</span>
                     </div>
                     <div class="flex justify-between">
                       <span class="text-gray-500">Interakcije</span>
-                      <span class="font-medium">{{ stats.recent_engagements }}</span>
+                      <span class="font-medium text-gray-900">{{ stats.recent_engagements }}</span>
                     </div>
                   </div>
                 </div>
@@ -213,12 +213,35 @@
                   <div class="space-y-2 text-sm">
                     <div class="flex justify-between">
                       <span class="text-gray-500">Glasovi (gore/dolje)</span>
-                      <span class="font-medium">{{ stats.upvotes }} / {{ stats.downvotes }}</span>
+                      <span class="font-medium text-gray-900">{{ stats.upvotes }} / {{ stats.downvotes }}</span>
                     </div>
                     <div class="flex justify-between">
                       <span class="text-gray-500">Prijave proizvoda</span>
-                      <span class="font-medium">{{ stats.total_reports }}</span>
+                      <span class="font-medium text-gray-900">{{ stats.total_reports }}</span>
                     </div>
+                  </div>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4">
+                  <h4 class="font-medium text-gray-900 mb-2">Poslednja prijava</h4>
+                  <div v-if="userData.last_login" class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Uredjaj</span>
+                      <span class="font-medium text-gray-900 flex items-center gap-1">
+                        <Icon :name="getDeviceIcon(userData.last_login.device_type)" class="w-4 h-4" />
+                        {{ userData.last_login.device_type || 'N/A' }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">OS / Browser</span>
+                      <span class="font-medium text-gray-900">{{ userData.last_login.os_name || 'N/A' }} / {{ userData.last_login.browser_name || 'N/A' }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Vrijeme</span>
+                      <span class="font-medium text-gray-900">{{ formatDateTime(userData.last_login.created_at) }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="text-sm text-gray-400">
+                    Nema podataka o prijavi
                   </div>
                 </div>
               </div>
@@ -563,6 +586,19 @@ function getEngagementIcon(type: string): string {
     'report': 'mdi:flag',
   }
   return icons[type] || 'mdi:star'
+}
+
+function getDeviceIcon(deviceType: string | null): string {
+  switch (deviceType) {
+    case 'mobile':
+      return 'mdi:cellphone'
+    case 'tablet':
+      return 'mdi:tablet'
+    case 'desktop':
+      return 'mdi:monitor'
+    default:
+      return 'mdi:help-circle-outline'
+  }
 }
 
 function getEngagementColor(type: string): string {

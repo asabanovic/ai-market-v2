@@ -5102,7 +5102,7 @@ def api_admin_user_profile(user_id):
     from auth_api import decode_jwt_token
     from models import (User, UserSearch, UserEngagement, CreditTransaction,
                         Favorite, ShoppingList, ProductComment, ProductVote,
-                        ProductReport, Notification, BusinessMembership, OTPCode)
+                        ProductReport, Notification, BusinessMembership, OTPCode, UserLogin)
 
     # Check JWT authentication
     auth_header = request.headers.get('Authorization')
@@ -5126,6 +5126,22 @@ def api_admin_user_profile(user_id):
         if not target_user:
             return jsonify({'error': 'User not found'}), 404
 
+        # Get last login info
+        last_login_record = UserLogin.query.filter_by(
+            user_id=user_id
+        ).order_by(UserLogin.created_at.desc()).first()
+
+        last_login = None
+        if last_login_record:
+            last_login = {
+                'login_method': last_login_record.login_method,
+                'device_type': last_login_record.device_type,
+                'os_name': last_login_record.os_name,
+                'browser_name': last_login_record.browser_name,
+                'ip_address': last_login_record.ip_address,
+                'created_at': last_login_record.created_at.isoformat() if last_login_record.created_at else None
+            }
+
         # Basic user info
         user_data = {
             'id': target_user.id,
@@ -5144,6 +5160,7 @@ def api_admin_user_profile(user_id):
             'weekly_credits_reset_date': target_user.weekly_credits_reset_date.isoformat() if target_user.weekly_credits_reset_date else None,
             'created_at': target_user.created_at.isoformat() if target_user.created_at else None,
             'updated_at': target_user.updated_at.isoformat() if target_user.updated_at else None,
+            'last_login': last_login,
         }
 
         # Activity stats (last 30 days)
