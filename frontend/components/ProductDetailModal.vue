@@ -146,7 +146,7 @@
                 </NuxtLink> da glasate i zaradite kredite!
               </p>
               <p v-else class="text-center text-sm text-green-600 mt-4">
-                💰 +1 kredit za svaki glas!
+                💰 +2 kredita za svaki glas!
               </p>
             </div>
           </div>
@@ -177,13 +177,13 @@
                   :disabled="!commentValidation.isValid || isSubmittingComment"
                   class="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  <span v-if="!isSubmittingComment">Objavi (+2 kredita 💰)</span>
+                  <span v-if="!isSubmittingComment">Objavi (+5 kredita 💰)</span>
                   <span v-else>Objavljivanje...</span>
                 </button>
               </div>
             </div>
             <div v-else class="mb-6 p-4 bg-purple-50 rounded-xl text-center">
-              <p class="text-gray-700 mb-2">Prijavite se da ostavite komentar i zaradite 2 kredita!</p>
+              <p class="text-gray-700 mb-2">Prijavite se da ostavite komentar i zaradite 5 kredita!</p>
               <NuxtLink to="/registracija" class="text-purple-600 hover:underline font-medium">
                 Registrujte se besplatno
               </NuxtLink>

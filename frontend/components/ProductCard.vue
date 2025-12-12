@@ -22,10 +22,100 @@
       </div>
     </div>
 
+    <!-- Social Interaction Header (Transparent) -->
+    <div class="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/70 via-black/40 to-transparent px-2 py-2 pointer-events-none">
+      <div class="flex items-center justify-between pointer-events-auto">
+        <!-- Favorite (Heart) -->
+        <button
+          @click.stop="toggleFavorite"
+          class="flex items-center gap-1 px-2 py-1 rounded-full transition-all cursor-pointer"
+          :class="isFavorited ? 'text-red-500' : 'text-white hover:text-red-400'"
+          :title="isFavorited ? 'Ukloni iz favorita' : 'Dodaj u favorite'"
+        >
+          <svg class="w-5 h-5" :fill="isFavorited ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+        </button>
+
+        <!-- Vote Buttons -->
+        <div class="flex items-center gap-2">
+          <!-- Thumbs Up -->
+          <button
+            @click.stop="vote('up')"
+            class="flex items-center gap-1 px-2 py-1 rounded-full transition-all cursor-pointer"
+            :class="userVote === 'up' ? 'text-green-400 bg-green-500/20' : 'text-white hover:text-green-400'"
+            :title="'Preporuči (+2 kredita)'"
+          >
+            <svg class="w-5 h-5" :fill="userVote === 'up' ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+            </svg>
+            <span v-if="upvotes > 0" class="text-xs font-medium">{{ upvotes }}</span>
+          </button>
+
+          <!-- Thumbs Down -->
+          <button
+            @click.stop="vote('down')"
+            class="flex items-center gap-1 px-2 py-1 rounded-full transition-all cursor-pointer"
+            :class="userVote === 'down' ? 'text-red-400 bg-red-500/20' : 'text-white hover:text-red-400'"
+            :title="'Ne preporučujem (+2 kredita)'"
+          >
+            <svg class="w-5 h-5" :fill="userVote === 'down' ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+            </svg>
+            <span v-if="downvotes > 0" class="text-xs font-medium">{{ downvotes }}</span>
+          </button>
+
+          <!-- Comment Button -->
+          <button
+            @click.stop="toggleQuickComment"
+            class="flex items-center gap-1 px-2 py-1 rounded-full transition-all cursor-pointer"
+            :class="showQuickCommentInput ? 'text-purple-400 bg-purple-500/20' : 'text-white hover:text-purple-400'"
+            :title="'Ostavi komentar (+5 kredita)'"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span v-if="commentCount > 0" class="text-xs font-medium">{{ commentCount }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Comment Cloud Popup -->
+    <div
+      v-if="showQuickCommentInput"
+      class="absolute top-12 left-2 right-2 z-30 bg-white rounded-lg shadow-xl p-3 border border-purple-200 pointer-events-auto"
+      @click.stop
+    >
+      <p class="text-xs text-purple-700 mb-2 font-medium">Podijelite vaše iskustvo s ovim proizvodom i zaradite kredite!</p>
+      <div class="flex items-start gap-2">
+        <textarea
+          v-model="quickComment"
+          rows="2"
+          maxlength="280"
+          class="flex-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-gray-900"
+          placeholder="Vaš komentar... (min 5 karaktera)"
+          @keydown.enter.prevent="submitQuickComment"
+        />
+        <button
+          @click.stop="submitQuickComment"
+          :disabled="quickComment.trim().length < 5 || isSubmittingComment"
+          class="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg v-if="isSubmittingComment" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span v-else>+5</span>
+        </button>
+      </div>
+      <p class="text-xs text-gray-500 mt-1">{{ quickComment.length }}/280 · Dobijate +5 kredita</p>
+    </div>
+
     <!-- Discount Badge -->
     <div
       v-if="discountPercentage > 0"
-      class="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded-md text-sm font-bold z-10"
+      class="absolute top-10 right-3 bg-red-500 text-white px-2 py-1 rounded-md text-sm font-bold z-10"
     >
       -{{ discountPercentage }}%
     </div>
@@ -33,20 +123,15 @@
     <!-- Price History Badge -->
     <div
       v-if="priceHistoryCount > 0 && !discountPercentage"
-      class="absolute top-3 right-3 bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-bold z-10 flex items-center gap-1"
+      class="absolute top-10 right-3 bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-bold z-10 flex items-center gap-1"
       :title="`${priceHistoryCount} prethodn${priceHistoryCount === 1 ? 'a' : 'e'} cijena`"
     >
       <Icon name="mdi:chart-line" class="w-3 h-3" />
       +{{ priceHistoryCount }}
     </div>
 
-    <!-- Favorite Button -->
-    <div class="absolute left-3 top-3 z-10">
-      <FavoriteButton :product-id="product.id" :size="32" @updated="handleFavoriteUpdate" />
-    </div>
-
     <!-- Product Image -->
-    <div class="h-48 bg-white flex items-center justify-center cursor-pointer" @click="showDetails">
+    <div class="h-48 bg-white flex items-center justify-center cursor-pointer pt-6" @click="showDetails">
       <img
         v-if="product.image_path || product.product_image_url"
         :src="getImageUrl(product.image_path || product.product_image_url)"
@@ -80,14 +165,18 @@
         </span>
       </div>
 
-      <!-- Expiry Date OR Price History (same row, consistent height) -->
+      <!-- Countdown Timer OR Price History (same row, consistent height) -->
       <div class="mb-2 min-h-[1.5rem] flex items-center justify-center">
-        <!-- Show expiry date for products with active discount -->
+        <!-- Show countdown for products with active discount -->
         <div
-          v-if="product.expires && product.has_discount"
-          class="text-xs text-yellow-700 text-center"
+          v-if="product.expires && hasActiveDiscount && countdownText"
+          class="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
+          :class="isExpiringSoon ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'"
         >
-          do {{ formatShortDate(product.expires) }}
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ countdownText }}</span>
         </div>
         <!-- Show price history for products without active discount -->
         <div
@@ -105,7 +194,7 @@
             </button>
             <button
               v-else-if="!isFavorited"
-              @click.stop="addToFavorites"
+              @click.stop="toggleFavorite"
               class="text-purple-600 hover:text-purple-800 underline flex items-center gap-0.5"
             >
               <Icon name="mdi:bell-plus" class="w-3 h-3" />
@@ -191,8 +280,9 @@ import { useFavoritesStore } from '~/stores/favorites'
 const config = useRuntimeConfig()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
-const { handleApiError, showSuccess } = useCreditsToast()
+const { handleApiError, showSuccess, showWarning } = useCreditsToast()
 const { user } = useAuth()
+const { post } = useApi()
 
 const props = defineProps<{
   product: any
@@ -202,6 +292,33 @@ const showModal = ref(false)
 const imageError = ref(false)
 const isAddingToList = ref(false)
 
+// Engagement state
+const upvotes = ref(0)
+const downvotes = ref(0)
+const commentCount = ref(0)
+const userVote = ref<string | null>(null)
+const showQuickCommentInput = ref(false)
+const quickComment = ref('')
+const isSubmittingComment = ref(false)
+const isVoting = ref(false)
+
+// Countdown timer state
+const countdownText = ref('')
+const isExpiringSoon = ref(false)
+let countdownInterval: ReturnType<typeof setInterval> | null = null
+
+// Compute has active discount (handle both has_discount flag and manual check)
+const hasActiveDiscount = computed(() => {
+  // Check has_discount flag from API first
+  if (props.product.has_discount !== undefined) {
+    return props.product.has_discount
+  }
+  // Fallback: manual check
+  return props.product.discount_price &&
+         props.product.base_price > 0 &&
+         props.product.discount_price < props.product.base_price
+})
+
 // Check URL for product parameter on mount
 onMounted(() => {
   if (process.client) {
@@ -210,6 +327,18 @@ onMounted(() => {
     if (productId && parseInt(productId) === props.product.id) {
       showModal.value = true
     }
+
+    // Start countdown timer if product has expiry
+    if (props.product.expires && hasActiveDiscount.value) {
+      updateCountdown()
+      countdownInterval = setInterval(updateCountdown, 1000) // Update every second for ticking effect
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (countdownInterval) {
+    clearInterval(countdownInterval)
   }
 })
 
@@ -264,6 +393,46 @@ const businessLogo = computed(() => {
   return `${config.public.apiBase}/static/${logo}`
 })
 
+// Update countdown timer
+function updateCountdown() {
+  if (!props.product.expires) {
+    countdownText.value = ''
+    return
+  }
+
+  const now = new Date()
+  const expiry = new Date(props.product.expires + 'T23:59:59') // End of day
+  const diff = expiry.getTime() - now.getTime()
+
+  if (diff <= 0) {
+    countdownText.value = 'Isteklo'
+    isExpiringSoon.value = true
+    return
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+  // Mark as expiring soon if less than 2 days
+  isExpiringSoon.value = days < 2
+
+  if (days > 0) {
+    // Show days, hours, minutes for multi-day countdowns
+    countdownText.value = `${days}d ${hours}h ${minutes}m`
+  } else if (hours > 0) {
+    // Show hours, minutes, seconds when less than a day
+    countdownText.value = `${hours}h ${minutes}m ${seconds}s`
+  } else if (minutes > 0) {
+    // Show minutes and seconds when less than an hour
+    countdownText.value = `${minutes}m ${seconds}s`
+  } else {
+    // Show just seconds in final countdown
+    countdownText.value = `${seconds}s`
+  }
+}
+
 function getImageUrl(path: string): string {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -277,34 +446,9 @@ function formatPrice(price: number | string): string {
   return numPrice.toFixed(2)
 }
 
-function formatBosnianDate(dateString: string): string {
-  if (!dateString) return ''
-
-  const date = new Date(dateString)
-  const days = ['Nedjelja', 'Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota']
-  const months = ['januar', 'februar', 'mart', 'april', 'maj', 'juni', 'juli', 'august', 'septembar', 'oktobar', 'novembar', 'decembar']
-
-  const dayName = days[date.getDay()]
-  const day = date.getDate()
-  const month = months[date.getMonth()]
-  const year = date.getFullYear()
-
-  return `${dayName}, ${day}. ${month} ${year}.`
-}
-
-function formatShortDate(dateString: string): string {
-  if (!dateString) return ''
-
-  const date = new Date(dateString)
-  const day = date.getDate()
-  const month = date.getMonth() + 1
-  const year = date.getFullYear()
-
-  return `${day}.${month}.${year}.`
-}
-
 function showDetails() {
   showModal.value = true
+  showQuickCommentInput.value = false
   // Update URL with product ID
   const url = new URL(window.location.href)
   url.searchParams.set('product', props.product.id.toString())
@@ -341,23 +485,107 @@ async function addToShoppingList() {
   }
 }
 
-function handleFavoriteUpdate() {
-  // Refresh favorites count in header
-  favoritesStore.fetchFavorites()
-}
-
 // Navigate to registration page
 function goToRegister() {
   router.push('/registracija')
 }
 
-// Add product to favorites (from the price history CTA)
-async function addToFavorites() {
+// Toggle favorite
+async function toggleFavorite() {
+  if (!isLoggedIn.value) {
+    router.push('/registracija')
+    return
+  }
+
   try {
-    await favoritesStore.addFavorite(props.product.id)
-    showSuccess('Dodano u favorite! Dobićete obavještenje kada cijena padne.')
+    if (isFavorited.value) {
+      await favoritesStore.removeFavorite(props.product.id)
+      showSuccess('Uklonjeno iz favorita')
+    } else {
+      await favoritesStore.addFavorite(props.product.id)
+      showSuccess('Dodano u favorite!')
+    }
   } catch (error) {
-    console.error('Error adding to favorites:', error)
+    console.error('Error toggling favorite:', error)
+  }
+}
+
+// Vote on product
+async function vote(voteType: 'up' | 'down') {
+  if (!isLoggedIn.value) {
+    router.push('/registracija')
+    return
+  }
+
+  if (isVoting.value) return
+  isVoting.value = true
+
+  try {
+    const response = await post(`/api/products/${props.product.id}/vote`, {
+      vote_type: voteType
+    })
+
+    if (response.success) {
+      upvotes.value = response.vote_stats.upvotes
+      downvotes.value = response.vote_stats.downvotes
+
+      // Update user's vote state
+      if (response.message === 'Vote removed') {
+        userVote.value = null
+      } else {
+        userVote.value = voteType
+      }
+
+      if (response.credits_earned > 0) {
+        showSuccess(`+${response.credits_earned} kredita za glasanje! Sada imate ukupno ${response.total_credits} kredita.`)
+      }
+    }
+  } catch (error: any) {
+    console.error('Error voting:', error)
+    handleApiError(error)
+  } finally {
+    isVoting.value = false
+  }
+}
+
+// Toggle quick comment input
+function toggleQuickComment() {
+  if (!isLoggedIn.value) {
+    router.push('/registracija')
+    return
+  }
+  showQuickCommentInput.value = !showQuickCommentInput.value
+  if (showQuickCommentInput.value) {
+    quickComment.value = ''
+  }
+}
+
+// Submit quick comment
+async function submitQuickComment() {
+  if (!isLoggedIn.value || quickComment.value.trim().length < 5 || isSubmittingComment.value) return
+
+  isSubmittingComment.value = true
+
+  try {
+    const response = await post(`/api/products/${props.product.id}/quick-comment`, {
+      comment_text: quickComment.value.trim()
+    })
+
+    if (response.success) {
+      commentCount.value = response.comment_count
+      showSuccess(`+${response.credits_earned} kredita za komentar! Sada imate ukupno ${response.total_credits} kredita.`)
+      quickComment.value = ''
+      showQuickCommentInput.value = false
+    }
+  } catch (error: any) {
+    console.error('Error adding comment:', error)
+    if (error.message) {
+      showWarning(error.message)
+    } else {
+      handleApiError(error)
+    }
+  } finally {
+    isSubmittingComment.value = false
   }
 }
 
@@ -378,6 +606,16 @@ async function shareProduct() {
     showSuccess('Link kopiran!')
   }
 }
+
+// Expose method to update engagement stats from parent
+defineExpose({
+  updateEngagementStats: (stats: { upvotes: number; downvotes: number; comments: number; user_vote: string | null }) => {
+    upvotes.value = stats.upvotes
+    downvotes.value = stats.downvotes
+    commentCount.value = stats.comments
+    userVote.value = stats.user_vote
+  }
+})
 </script>
 
 <style scoped>

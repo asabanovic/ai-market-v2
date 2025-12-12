@@ -188,7 +188,8 @@ def api_verify():
             'city': user.city,
             'is_admin': user.is_admin,
             'onboarding_completed': user.onboarding_completed or False,
-            'preferences': user.preferences or {}
+            'preferences': user.preferences or {},
+            'first_search_reward_claimed': user.first_search_reward_claimed or False
         }
 
         return jsonify({'user': user_data}), 200

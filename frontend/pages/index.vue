@@ -7,7 +7,7 @@
     <div class="gradient-bg py-4 lg:py-12">
       <div class="mx-auto px-0 lg:px-12 text-center">
         <h1 class="typography-display-responsive text-white mb-4">
-          Recite nam šta kupujete - javimo vam kad bude na popustu
+          Recite nam šta kupujete - javimo Vam kad bude na popustu
         </h1>
         <ClientOnly>
           <template v-if="!user">
@@ -777,9 +777,9 @@ onMounted(async () => {
     setTimeout(() => {
       performSearch()
     }, 500)
-  } else if (user.value) {
-    // Pre-fill search with a random common item for logged-in users
-    // This encourages them to try searching right away
+  } else if (user.value && !user.value.first_search_reward_claimed) {
+    // Pre-fill search with a random common item for new users who haven't searched yet
+    // This encourages them to try their first search
     searchQuery.value = getRandomSearchSuggestion()
   }
 

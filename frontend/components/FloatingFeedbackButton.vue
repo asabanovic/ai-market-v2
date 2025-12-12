@@ -4,7 +4,7 @@
       <button
         v-if="shouldShow"
         @click="openFeedback"
-        class="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 group"
+        class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 group"
         aria-label="Ostavite povratne informacije"
       >
         <!-- Pulsing ring effect -->

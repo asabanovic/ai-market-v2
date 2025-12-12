@@ -7,6 +7,7 @@ interface User {
   is_admin?: boolean
   phone?: string
   city?: string
+  first_search_reward_claimed?: boolean
 }
 
 interface LoginCredentials {

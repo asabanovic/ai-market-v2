@@ -6107,27 +6107,55 @@ def api_submit_feedback():
         return text
 
     try:
+        # Get text fields
+        what_to_improve = truncate(data.get('what_to_improve'), 500)
+        how_to_help = truncate(data.get('how_to_help'), 500)
+        what_would_make_you_use = truncate(data.get('what_would_make_you_use'), 500)
+        comments = truncate(data.get('comments'), 1000)
+
         feedback = UserFeedback(
             user_id=user_id,
             anonymous_id=anonymous_id,
             rating=data.get('rating'),
-            what_to_improve=truncate(data.get('what_to_improve'), 500),
-            how_to_help=truncate(data.get('how_to_help'), 500),
-            what_would_make_you_use=truncate(data.get('what_would_make_you_use'), 500),
-            comments=truncate(data.get('comments'), 1000),
+            what_to_improve=what_to_improve,
+            how_to_help=how_to_help,
+            what_would_make_you_use=what_would_make_you_use,
+            comments=comments,
             trigger_type=truncate(data.get('trigger_type'), 50),
             page_url=truncate(data.get('page_url'), 500),
             user_agent=user_agent[:500] if user_agent else None,
             device_type=device_type
         )
         db.session.add(feedback)
+
+        # Award +5 credits if logged in user provides at least 20 characters in any text field
+        credits_awarded = False
+        MIN_CHARS_FOR_CREDITS = 20
+
+        if user_id:
+            # Check if any field has at least 20 characters
+            qualifies = any([
+                what_to_improve and len(what_to_improve.strip()) >= MIN_CHARS_FOR_CREDITS,
+                how_to_help and len(how_to_help.strip()) >= MIN_CHARS_FOR_CREDITS,
+                what_would_make_you_use and len(what_would_make_you_use.strip()) >= MIN_CHARS_FOR_CREDITS,
+                comments and len(comments.strip()) >= MIN_CHARS_FOR_CREDITS
+            ])
+
+            if qualifies:
+                user = User.query.get(user_id)
+                if user:
+                    user.extra_credits += 5
+                    credits_awarded = True
+                    app.logger.info(f"Awarded +5 feedback credits to user {user_id}")
+
         db.session.commit()
 
-        app.logger.info(f"Feedback submitted: user={user_id or 'anonymous'}, rating={data.get('rating')}, trigger={data.get('trigger_type')}")
+        app.logger.info(f"Feedback submitted: user={user_id or 'anonymous'}, rating={data.get('rating')}, trigger={data.get('trigger_type')}, credits_awarded={credits_awarded}")
 
         return jsonify({
             'success': True,
-            'message': 'Hvala vam na povratnim informacijama!'
+            'message': 'Hvala vam na povratnim informacijama!',
+            'credits_awarded': credits_awarded
         }), 201
 
     except Exception as e:

@@ -1,10 +1,10 @@
 # Product engagement API endpoints - comments, votes, reports, and engagement history
 from flask import Blueprint, request, jsonify
-from auth_api import require_jwt_auth
+from auth_api import require_jwt_auth, decode_jwt_token
 from app import db
 from models import Product, ProductComment, ProductVote, UserEngagement, User, ProductReport, Business
 from datetime import datetime
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 engagement_bp = Blueprint('engagement', __name__, url_prefix='/api')
 
@@ -82,25 +82,29 @@ def add_product_comment(product_id):
         )
         db.session.add(comment)
 
-        # Award credits (+2 for comments)
+        # Award credits (+5 for comments)
         user = User.query.get(user_id)
-        user.extra_credits += 2
+        user.extra_credits += 5
 
         # Record engagement
         engagement = UserEngagement(
             user_id=user_id,
             activity_type='comment',
             product_id=product_id,
-            credits_earned=2
+            credits_earned=5
         )
         db.session.add(engagement)
 
         db.session.commit()
 
+        # Get total credits for gamified display
+        total_credits = (user.weekly_credits_used or 0) + (user.extra_credits or 0)
+
         return jsonify({
             'success': True,
             'message': 'Comment added successfully',
-            'credits_earned': 2,
+            'credits_earned': 5,
+            'total_credits': total_credits,
             'comment': {
                 'id': comment.id,
                 'comment_text': comment.comment_text,
@@ -154,11 +158,11 @@ def vote_product(product_id):
                 # Same vote - remove it (toggle off)
                 db.session.delete(existing_vote)
 
-                # Deduct the credit they earned for voting
+                # Deduct the credits they earned for voting
                 user = User.query.get(user_id)
-                if user.extra_credits > 0:
-                    user.extra_credits -= 1
-                    credits_earned = -1  # Indicate credit was taken back
+                if user.extra_credits >= 2:
+                    user.extra_credits -= 2
+                    credits_earned = -2  # Indicate credits were taken back
 
                 message = 'Vote removed'
             else:
@@ -167,7 +171,7 @@ def vote_product(product_id):
                 existing_vote.updated_at = datetime.now()
                 message = 'Vote updated'
         else:
-            # New vote - award credits (+1 for votes)
+            # New vote - award credits (+2 for votes)
             vote = ProductVote(
                 product_id=product_id,
                 user_id=user_id,
@@ -177,15 +181,15 @@ def vote_product(product_id):
 
             # Award credits
             user = User.query.get(user_id)
-            user.extra_credits += 1
-            credits_earned = 1
+            user.extra_credits += 2
+            credits_earned = 2
 
             # Record engagement
             engagement = UserEngagement(
                 user_id=user_id,
                 activity_type=f'vote_{vote_type}',
                 product_id=product_id,
-                credits_earned=1
+                credits_earned=2
             )
             db.session.add(engagement)
 
@@ -197,10 +201,15 @@ def vote_product(product_id):
         upvotes = ProductVote.query.filter_by(product_id=product_id, vote_type='up').count()
         downvotes = ProductVote.query.filter_by(product_id=product_id, vote_type='down').count()
 
+        # Get updated total credits
+        user = User.query.get(user_id)
+        total_credits = (user.weekly_credits_used or 0) + (user.extra_credits or 0)
+
         return jsonify({
             'success': True,
             'message': message,
             'credits_earned': credits_earned,
+            'total_credits': total_credits,
             'vote_stats': {
                 'upvotes': upvotes,
                 'downvotes': downvotes
@@ -559,4 +568,172 @@ def update_report_status(report_id):
     except Exception as e:
         db.session.rollback()
         print(f"Error updating report: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== BULK ENGAGEMENT STATS ====================
+
+@engagement_bp.route('/products/engagement-stats', methods=['POST'])
+def get_bulk_engagement_stats():
+    """Get engagement stats (votes, comments) for multiple products at once.
+
+    This is more efficient than making individual requests for each product.
+    Also returns the current user's votes if authenticated.
+    """
+    try:
+        data = request.get_json()
+        product_ids = data.get('product_ids', [])
+
+        if not product_ids or len(product_ids) > 100:
+            return jsonify({'error': 'Provide 1-100 product IDs'}), 400
+
+        # Get current user if authenticated
+        user_id = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            try:
+                token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+                payload = decode_jwt_token(token)
+                if payload:
+                    user_id = payload.get('user_id')
+            except:
+                pass
+
+        # Get vote counts (upvotes and downvotes)
+        upvote_counts = db.session.query(
+            ProductVote.product_id,
+            func.count(ProductVote.id)
+        ).filter(
+            ProductVote.product_id.in_(product_ids),
+            ProductVote.vote_type == 'up'
+        ).group_by(ProductVote.product_id).all()
+
+        downvote_counts = db.session.query(
+            ProductVote.product_id,
+            func.count(ProductVote.id)
+        ).filter(
+            ProductVote.product_id.in_(product_ids),
+            ProductVote.vote_type == 'down'
+        ).group_by(ProductVote.product_id).all()
+
+        # Get comment counts
+        comment_counts = db.session.query(
+            ProductComment.product_id,
+            func.count(ProductComment.id)
+        ).filter(
+            ProductComment.product_id.in_(product_ids)
+        ).group_by(ProductComment.product_id).all()
+
+        # Get user's votes if authenticated
+        user_votes = {}
+        if user_id:
+            votes = ProductVote.query.filter(
+                ProductVote.product_id.in_(product_ids),
+                ProductVote.user_id == user_id
+            ).all()
+            for vote in votes:
+                user_votes[vote.product_id] = vote.vote_type
+
+        # Build response
+        upvotes_map = {pid: count for pid, count in upvote_counts}
+        downvotes_map = {pid: count for pid, count in downvote_counts}
+        comments_map = {pid: count for pid, count in comment_counts}
+
+        stats = {}
+        for pid in product_ids:
+            stats[str(pid)] = {
+                'upvotes': upvotes_map.get(pid, 0),
+                'downvotes': downvotes_map.get(pid, 0),
+                'comments': comments_map.get(pid, 0),
+                'user_vote': user_votes.get(pid, None)
+            }
+
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+
+    except Exception as e:
+        print(f"Error getting bulk engagement stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@engagement_bp.route('/products/<int:product_id>/quick-comment', methods=['POST'])
+@require_jwt_auth
+def add_quick_comment(product_id):
+    """Add a quick comment to a product (shorter minimum, for quick feedback).
+
+    Quick comments are for short reactions (min 5 chars instead of 20).
+    Awards +5 credits for sharing experience.
+    """
+    try:
+        user_id = request.current_user_id
+        data = request.get_json()
+
+        # Validate input
+        comment_text = data.get('comment_text', '').strip()
+        if not comment_text:
+            return jsonify({'error': 'Komentar je obavezan'}), 400
+
+        # Shorter minimum for quick comments (5 chars)
+        if len(comment_text) < 5:
+            return jsonify({'error': 'Komentar mora imati najmanje 5 karaktera'}), 400
+        if len(comment_text) > 280:
+            return jsonify({'error': 'Komentar mora imati manje od 280 karaktera'}), 400
+
+        # Check if product exists
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Proizvod nije pronadjen'}), 404
+
+        # Create comment
+        comment = ProductComment(
+            product_id=product_id,
+            user_id=user_id,
+            comment_text=comment_text
+        )
+        db.session.add(comment)
+
+        # Award credits (+5 for quick comments)
+        user = User.query.get(user_id)
+        user.extra_credits += 5
+
+        # Record engagement
+        engagement = UserEngagement(
+            user_id=user_id,
+            activity_type='quick_comment',
+            product_id=product_id,
+            credits_earned=5
+        )
+        db.session.add(engagement)
+
+        db.session.commit()
+
+        # Get updated comment count
+        comment_count = ProductComment.query.filter_by(product_id=product_id).count()
+
+        # Get total credits for gamified display
+        total_credits = (user.weekly_credits_used or 0) + (user.extra_credits or 0)
+
+        return jsonify({
+            'success': True,
+            'message': 'Komentar dodan!',
+            'credits_earned': 5,
+            'total_credits': total_credits,
+            'comment_count': comment_count,
+            'comment': {
+                'id': comment.id,
+                'comment_text': comment.comment_text,
+                'created_at': comment.created_at.isoformat(),
+                'user': {
+                    'id': user.id,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name
+                }
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error adding quick comment: {e}")
         return jsonify({'error': str(e)}), 500
