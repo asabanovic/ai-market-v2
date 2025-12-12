@@ -14,7 +14,7 @@ from sqlalchemy import or_, and_, func, case
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
 from app import app, db, csrf
-from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role
+from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, UserFeedback
 from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
@@ -6044,6 +6044,184 @@ def api_admin_search_test():
 
     except Exception as e:
         app.logger.error(f"Admin search test error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== FEEDBACK API ====================
+
+@app.route('/api/feedback', methods=['POST'])
+@csrf.exempt
+def api_submit_feedback():
+    """Submit user feedback - works for both logged-in and anonymous users"""
+    from auth_api import decode_jwt_token
+    import hashlib
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    # Get user if logged in
+    user_id = None
+    auth_header = request.headers.get('Authorization')
+    if auth_header:
+        try:
+            token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+            payload = decode_jwt_token(token)
+            if payload:
+                user_id = payload.get('user_id')
+        except:
+            pass
+
+    # Generate anonymous ID from IP if not logged in
+    anonymous_id = None
+    if not user_id:
+        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if ip:
+            anonymous_id = hashlib.sha256(ip.encode()).hexdigest()[:32]
+
+    # Parse device info
+    user_agent = request.headers.get('User-Agent', '')
+    device_type = 'desktop'
+    if 'Mobile' in user_agent or 'Android' in user_agent:
+        device_type = 'mobile'
+    elif 'Tablet' in user_agent or 'iPad' in user_agent:
+        device_type = 'tablet'
+
+    try:
+        feedback = UserFeedback(
+            user_id=user_id,
+            anonymous_id=anonymous_id,
+            rating=data.get('rating'),
+            what_to_improve=data.get('what_to_improve'),
+            how_to_help=data.get('how_to_help'),
+            what_would_make_you_use=data.get('what_would_make_you_use'),
+            comments=data.get('comments'),
+            trigger_type=data.get('trigger_type'),
+            page_url=data.get('page_url'),
+            user_agent=user_agent[:500] if user_agent else None,
+            device_type=device_type
+        )
+        db.session.add(feedback)
+        db.session.commit()
+
+        app.logger.info(f"Feedback submitted: user={user_id or 'anonymous'}, rating={data.get('rating')}, trigger={data.get('trigger_type')}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Hvala vam na povratnim informacijama!'
+        }), 201
+
+    except Exception as e:
+        app.logger.error(f"Error submitting feedback: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to submit feedback'}), 500
+
+
+@app.route('/api/feedback/check', methods=['GET'])
+@csrf.exempt
+def api_check_feedback_status():
+    """Check if user should see feedback popup (for registered users - after 3 credits spent)"""
+    from auth_api import decode_jwt_token
+    from models import CreditTransaction
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'show_feedback': False}), 200
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'show_feedback': False}), 200
+
+        user_id = payload.get('user_id')
+
+        # Check if user has already given feedback
+        existing_feedback = UserFeedback.query.filter_by(user_id=user_id).first()
+        if existing_feedback:
+            return jsonify({
+                'show_feedback': False,
+                'has_given_feedback': True
+            }), 200
+
+        # Count credits spent (negative transactions)
+        credits_spent = db.session.query(func.abs(func.sum(CreditTransaction.delta))).filter(
+            CreditTransaction.user_id == user_id,
+            CreditTransaction.delta < 0
+        ).scalar() or 0
+
+        # Show feedback popup after 3 credits spent
+        show_feedback = credits_spent >= 3
+
+        return jsonify({
+            'show_feedback': show_feedback,
+            'credits_spent': credits_spent,
+            'has_given_feedback': False
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error checking feedback status: {e}")
+        return jsonify({'show_feedback': False}), 200
+
+
+@app.route('/api/admin/feedback', methods=['GET'])
+@csrf.exempt
+def api_admin_get_feedback():
+    """Get all feedback for admin dashboard"""
+    from auth_api import decode_jwt_token
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get feedback with pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+
+        feedback_query = UserFeedback.query.order_by(UserFeedback.created_at.desc())
+        feedback_paginated = feedback_query.paginate(page=page, per_page=per_page, error_out=False)
+
+        feedback_list = []
+        for fb in feedback_paginated.items:
+            user_email = None
+            if fb.user_id:
+                user = User.query.get(fb.user_id)
+                user_email = user.email if user else None
+
+            feedback_list.append({
+                'id': fb.id,
+                'user_id': fb.user_id,
+                'user_email': user_email,
+                'anonymous_id': fb.anonymous_id[:8] + '...' if fb.anonymous_id else None,
+                'rating': fb.rating,
+                'what_to_improve': fb.what_to_improve,
+                'how_to_help': fb.how_to_help,
+                'what_would_make_you_use': fb.what_would_make_you_use,
+                'comments': fb.comments,
+                'trigger_type': fb.trigger_type,
+                'device_type': fb.device_type,
+                'created_at': fb.created_at.isoformat() if fb.created_at else None
+            })
+
+        return jsonify({
+            'feedback': feedback_list,
+            'total': feedback_paginated.total,
+            'page': page,
+            'pages': feedback_paginated.pages
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting feedback: {e}")
         return jsonify({'error': str(e)}), 500
 
 

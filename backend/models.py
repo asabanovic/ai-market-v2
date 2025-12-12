@@ -800,3 +800,45 @@ class UserLogin(db.Model):
         db.Index('idx_user_logins_user_id', 'user_id'),
         db.Index('idx_user_logins_created_at', 'created_at'),
     )
+
+
+# UserFeedback - collect user feedback and suggestions
+class UserFeedback(db.Model):
+    __tablename__ = 'user_feedback'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # User info (nullable for anonymous users)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+
+    # For anonymous users, track by IP/session
+    anonymous_id = db.Column(db.String(100), nullable=True)  # Could be IP hash or session ID
+
+    # Rating (1-5 stars)
+    rating = db.Column(db.Integer, nullable=True)
+
+    # Feedback questions
+    what_to_improve = db.Column(db.Text, nullable=True)  # "What's one thing you would improve?"
+    how_to_help = db.Column(db.Text, nullable=True)  # "How can we be more helpful?"
+    what_would_make_you_use = db.Column(db.Text, nullable=True)  # "What would make you use this every time you shop?"
+
+    # General comments
+    comments = db.Column(db.Text, nullable=True)
+
+    # Context
+    trigger_type = db.Column(db.String(50), nullable=True)  # 'scroll_bottom', 'credits_spent', 'manual'
+    page_url = db.Column(db.String(500), nullable=True)
+
+    # Device info
+    user_agent = db.Column(db.String(500), nullable=True)
+    device_type = db.Column(db.String(20), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('feedback', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_user_feedback_user_id', 'user_id'),
+        db.Index('idx_user_feedback_created_at', 'created_at'),
+        db.Index('idx_user_feedback_trigger', 'trigger_type'),
+    )

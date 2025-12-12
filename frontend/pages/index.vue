@@ -744,8 +744,43 @@ onUnmounted(() => {
   // Clean up exit intent listener
   if (process.client) {
     document.removeEventListener('mouseout', handleMouseOut)
+    window.removeEventListener('scroll', handleScrollForFeedback)
   }
 })
+
+// Scroll detection for anonymous feedback popup
+const feedbackScrollTriggered = ref(false)
+
+function setupScrollFeedbackDetection() {
+  if (process.client && !user.value) {
+    window.addEventListener('scroll', handleScrollForFeedback)
+  }
+}
+
+function handleScrollForFeedback() {
+  if (feedbackScrollTriggered.value || user.value) return
+
+  // Check if search results exist
+  if (!searchResults.value?.products) return
+
+  // Get scroll position
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  const windowHeight = window.innerHeight
+  const documentHeight = document.documentElement.scrollHeight
+
+  // Trigger when user has scrolled 80% of the way down
+  const scrollPercentage = (scrollTop + windowHeight) / documentHeight
+
+  if (scrollPercentage > 0.8) {
+    feedbackScrollTriggered.value = true
+    window.removeEventListener('scroll', handleScrollForFeedback)
+
+    // Call the global function exposed by app.vue
+    if ((window as any).showAnonymousFeedback) {
+      (window as any).showAnonymousFeedback()
+    }
+  }
+}
 
 function setupExitIntent() {
   // Don't show if user is logged in
@@ -1063,6 +1098,11 @@ async function performSearch() {
         }
         // Reset group refs for new results
         groupRefs.value = {}
+      }
+
+      // Setup scroll detection for anonymous feedback popup
+      if (data.is_anonymous) {
+        setupScrollFeedbackDetection()
       }
     }
   } catch (error) {

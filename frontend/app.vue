@@ -23,6 +23,17 @@
 
     <!-- Floating Interest Button -->
     <FloatingInterestButton @click="openInterestPopup" />
+
+    <!-- Feedback Popup -->
+    <FeedbackPopup
+      :show="showFeedbackPopup"
+      :trigger-type="feedbackTriggerType"
+      @close="closeFeedbackPopup"
+      @submitted="handleFeedbackSubmitted"
+    />
+
+    <!-- Floating Feedback Button (for logged-in users) -->
+    <FloatingFeedbackButton @open-feedback="openFeedbackManually" />
   </div>
 </template>
 
@@ -30,10 +41,17 @@
 // Global app setup
 const colorMode = useColorMode()
 const { user, checkAuth } = useAuth()
+const { get } = useApi()
 
 const showOnboardingModal = ref(false)
 const showInterestPopup = ref(false)
 const isNewUserForInterest = ref(false)
+
+// Feedback state
+const showFeedbackPopup = ref(false)
+const feedbackTriggerType = ref('manual')
+const hasGivenFeedback = ref(false)
+const feedbackChecked = ref(false)
 
 // Check auth and onboarding status on mount
 onMounted(async () => {
@@ -120,4 +138,74 @@ function handleInterestComplete() {
 function handleInterestSkip() {
   showInterestPopup.value = false
 }
+
+// ==================== FEEDBACK LOGIC ====================
+
+// Check if we should show feedback popup for logged-in users
+async function checkFeedbackStatus() {
+  if (!user.value || feedbackChecked.value || hasGivenFeedback.value) return
+
+  try {
+    const response = await get('/api/feedback/check')
+    feedbackChecked.value = true
+
+    if (response.has_given_feedback) {
+      hasGivenFeedback.value = true
+      return
+    }
+
+    if (response.show_feedback) {
+      // Wait a bit before showing the popup
+      setTimeout(() => {
+        feedbackTriggerType.value = 'credits_spent'
+        showFeedbackPopup.value = true
+      }, 3000)
+    }
+  } catch (error) {
+    console.error('Error checking feedback status:', error)
+  }
+}
+
+function openFeedbackManually() {
+  feedbackTriggerType.value = 'manual'
+  showFeedbackPopup.value = true
+}
+
+function closeFeedbackPopup() {
+  showFeedbackPopup.value = false
+  // Store in localStorage to avoid showing again in this session (for anonymous trigger)
+  if (feedbackTriggerType.value === 'scroll_bottom') {
+    localStorage.setItem('feedback_popup_dismissed', 'true')
+  }
+}
+
+function handleFeedbackSubmitted() {
+  hasGivenFeedback.value = true
+  localStorage.setItem('feedback_submitted', 'true')
+}
+
+// Expose function for anonymous scroll trigger (called from index.vue)
+function showAnonymousFeedback() {
+  // Check if already dismissed or submitted
+  if (localStorage.getItem('feedback_popup_dismissed') || localStorage.getItem('feedback_submitted')) {
+    return
+  }
+  feedbackTriggerType.value = 'scroll_bottom'
+  showFeedbackPopup.value = true
+}
+
+// Make it available globally for index.vue to call
+if (process.client) {
+  (window as any).showAnonymousFeedback = showAnonymousFeedback
+}
+
+// Watch for user login to check feedback status
+watch(user, async (newUser) => {
+  if (newUser && !feedbackChecked.value) {
+    // Delay to not overwhelm user right after login
+    setTimeout(() => {
+      checkFeedbackStatus()
+    }, 5000)
+  }
+}, { immediate: true })
 </script>
