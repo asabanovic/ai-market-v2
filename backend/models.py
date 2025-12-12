@@ -263,6 +263,10 @@ class UserSearch(db.Model):
     user_ip = db.Column(db.String(50), nullable=True)  # For tracking anonymous users
     query = db.Column(db.String, nullable=False)
     results = db.Column(JSON, nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)  # Browser user agent string
+    device_type = db.Column(db.String(50), nullable=True)  # mobile, tablet, desktop
+    browser = db.Column(db.String(100), nullable=True)  # Chrome, Firefox, Safari, etc.
+    os = db.Column(db.String(100), nullable=True)  # Windows, macOS, iOS, Android, etc.
     created_at = db.Column(db.DateTime, default=datetime.now)
 
 # Contact messages table

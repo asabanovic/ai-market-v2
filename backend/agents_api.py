@@ -110,6 +110,55 @@ def check_and_deduct_credits(user, credits_needed):
     return True, "Success", new_total_remaining
 
 
+def parse_user_agent(user_agent_string):
+    """Parse user agent string to extract device type, browser, and OS"""
+    if not user_agent_string:
+        return {'device_type': None, 'browser': None, 'os': None}
+
+    ua = user_agent_string.lower()
+
+    # Detect device type
+    device_type = 'desktop'
+    if 'mobile' in ua or ('android' in ua and 'mobile' in ua):
+        device_type = 'mobile'
+    elif 'tablet' in ua or 'ipad' in ua:
+        device_type = 'tablet'
+    elif 'android' in ua:
+        device_type = 'tablet'
+
+    # Detect OS
+    os_name = None
+    if 'windows' in ua:
+        os_name = 'Windows'
+    elif 'mac os' in ua or 'macintosh' in ua:
+        os_name = 'macOS'
+    elif 'iphone' in ua or 'ipad' in ua:
+        os_name = 'iOS'
+    elif 'android' in ua:
+        os_name = 'Android'
+    elif 'linux' in ua:
+        os_name = 'Linux'
+
+    # Detect browser
+    browser = None
+    if 'edg/' in ua or 'edge/' in ua:
+        browser = 'Edge'
+    elif 'opr/' in ua or 'opera' in ua:
+        browser = 'Opera'
+    elif 'chrome' in ua and 'safari' in ua:
+        browser = 'Chrome'
+    elif 'firefox' in ua:
+        browser = 'Firefox'
+    elif 'safari' in ua and 'chrome' not in ua:
+        browser = 'Safari'
+
+    return {
+        'device_type': device_type,
+        'browser': browser,
+        'os': os_name
+    }
+
+
 def log_search(user_id, query, results, user_ip=None):
     """Log search to UserSearch table for tracking."""
     try:
@@ -119,15 +168,23 @@ def log_search(user_id, query, results, user_ip=None):
                 return obj.isoformat()
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
+        # Get user agent and parse device info
+        user_agent = request.headers.get('User-Agent', '')
+        ua_info = parse_user_agent(user_agent)
+
         search_log = UserSearch(
             user_id=user_id,
             query=query,
             results=json.dumps(results, default=json_serializer) if results else json.dumps([]),
-            user_ip=user_ip
+            user_ip=user_ip,
+            user_agent=user_agent[:500] if user_agent else None,
+            device_type=ua_info['device_type'],
+            browser=ua_info['browser'],
+            os=ua_info['os']
         )
         db.session.add(search_log)
         db.session.commit()
-        current_app.logger.info(f"Logged search: '{query}' by {'user ' + str(user_id) if user_id else f'anonymous ({user_ip})'}")
+        current_app.logger.info(f"Logged search: '{query}' by {'user ' + str(user_id) if user_id else f'anonymous ({user_ip})'} ({ua_info['device_type']}/{ua_info['browser']})")
     except Exception as e:
         current_app.logger.error(f"Failed to log search: {e}")
         db.session.rollback()

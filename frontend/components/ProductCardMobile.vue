@@ -1,0 +1,247 @@
+<template>
+  <div
+    class="product-card-mobile bg-white flex flex-col relative snap-center"
+    :class="[product.is_teaser ? 'opacity-90' : '']"
+  >
+    <!-- Teaser Blur Overlay (Anonymous Users) -->
+    <div
+      v-if="product.is_teaser"
+      class="absolute inset-0 backdrop-blur-md bg-white/30 z-50 flex items-center justify-center"
+    >
+      <div class="bg-white rounded-lg shadow-lg p-6 mx-4 text-center">
+        <Icon name="mdi:lock" class="w-10 h-10 text-purple-600 mx-auto mb-3" />
+        <h3 class="text-lg font-bold text-gray-900 mb-2">
+          Registrujte se da vidite više
+        </h3>
+        <NuxtLink
+          to="/registracija"
+          class="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+          @click.stop
+        >
+          Besplatna registracija
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Discount Badge -->
+    <div
+      v-if="discountPercentage > 0"
+      class="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-lg text-base font-bold z-10"
+    >
+      -{{ discountPercentage }}%
+    </div>
+
+    <!-- Favorite Button -->
+    <div class="absolute left-3 top-3 z-10">
+      <FavoriteButton :product-id="product.id" :size="36" @click.stop />
+    </div>
+
+    <!-- Product Image - Large -->
+    <div
+      class="h-56 bg-gray-50 flex items-center justify-center p-4 cursor-pointer"
+      @click="showDetails"
+    >
+      <img
+        v-if="product.image_path || product.product_image_url"
+        :src="getImageUrl(product.image_path || product.product_image_url)"
+        :alt="product.title"
+        class="max-h-full max-w-full object-contain"
+        @error="imageError = true"
+      />
+      <span v-else class="text-gray-400">Nema Slike</span>
+    </div>
+
+    <!-- Product Info -->
+    <div class="p-4 flex-1 flex flex-col">
+      <!-- Title -->
+      <h3
+        class="text-gray-900 font-semibold text-base leading-snug line-clamp-2 mb-2 cursor-pointer"
+        @click="showDetails"
+      >
+        {{ product.title || 'Nepoznat proizvod' }}
+      </h3>
+
+      <!-- Store Info -->
+      <div class="flex items-center gap-2 mb-3">
+        <div
+          v-if="businessLogo"
+          class="w-6 h-6 rounded overflow-hidden flex-shrink-0"
+        >
+          <img
+            :src="businessLogo"
+            :alt="product.business?.name"
+            class="w-full h-full object-contain"
+          />
+        </div>
+        <div v-else class="w-6 h-6 bg-purple-600 rounded flex items-center justify-center flex-shrink-0">
+          <span class="text-white text-xs font-bold">
+            {{ product.business?.name?.[0] || '?' }}
+          </span>
+        </div>
+        <span class="text-gray-600 text-sm">
+          {{ product.business?.name || 'Nepoznata prodavnica' }}
+        </span>
+      </div>
+
+      <!-- Price -->
+      <div class="flex items-baseline gap-2 mb-4">
+        <span class="text-2xl font-bold text-gray-900">
+          {{ formatPrice(product.discount_price || product.base_price) }} KM
+        </span>
+        <span
+          v-if="product.discount_price && product.base_price > product.discount_price"
+          class="text-base text-gray-400 line-through"
+        >
+          {{ formatPrice(product.base_price) }} KM
+        </span>
+      </div>
+
+      <!-- Expiry if applicable -->
+      <div v-if="product.expires && product.has_discount" class="text-sm text-yellow-700 mb-3">
+        Akcija do {{ formatShortDate(product.expires) }}
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-auto space-y-2">
+        <!-- Add to List (logged in only) -->
+        <button
+          v-if="isLoggedIn"
+          @click.stop="addToShoppingList"
+          :disabled="isAddingToList"
+          class="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+        >
+          <Icon name="mdi:playlist-plus" class="w-5 h-5" />
+          Dodaj u listu
+        </button>
+
+        <!-- Details Button -->
+        <button
+          @click.stop="showDetails"
+          class="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+        >
+          Pogledaj detalje
+        </button>
+      </div>
+    </div>
+
+    <!-- Product Details Modal -->
+    <ProductDetailModal
+      :show="showModal"
+      :product="product"
+      @close="closeModal"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useCartStore } from '~/stores/cart'
+
+const config = useRuntimeConfig()
+const cartStore = useCartStore()
+const { handleApiError, showSuccess } = useCreditsToast()
+const { user } = useAuth()
+
+const props = defineProps<{
+  product: any
+}>()
+
+const showModal = ref(false)
+const imageError = ref(false)
+const isAddingToList = ref(false)
+
+const isLoggedIn = computed(() => !!user.value)
+
+const discountPercentage = computed(() => {
+  if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
+    return Math.round(((props.product.base_price - props.product.discount_price) / props.product.base_price) * 100)
+  }
+  return 0
+})
+
+const businessLogo = computed(() => {
+  const logo = props.product.business?.logo || props.product.business?.logo_path
+  if (!logo) return null
+
+  if (logo.startsWith('http://') || logo.startsWith('https://')) {
+    return logo
+  }
+
+  return `${config.public.apiBase}/static/${logo}`
+})
+
+function getImageUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  return `${config.public.apiBase}/static/${path}`
+}
+
+function formatPrice(price: number | string): string {
+  const numPrice = typeof price === 'number' ? price : parseFloat(price) || 0
+  return numPrice.toFixed(2)
+}
+
+function formatShortDate(dateString: string): string {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const day = date.getDate()
+  const month = date.getMonth() + 1
+  const year = date.getFullYear()
+  return `${day}.${month}.${year}.`
+}
+
+function showDetails() {
+  showModal.value = true
+  const url = new URL(window.location.href)
+  url.searchParams.set('product', props.product.id.toString())
+  window.history.pushState({}, '', url.toString())
+}
+
+function closeModal() {
+  showModal.value = false
+  const url = new URL(window.location.href)
+  url.searchParams.delete('product')
+  window.history.pushState({}, '', url.toString())
+}
+
+async function addToShoppingList() {
+  isAddingToList.value = true
+
+  try {
+    const result = await cartStore.addItem(
+      props.product.id,
+      props.product.business?.id || 1,
+      1
+    )
+
+    if (result.success) {
+      showSuccess(`"${props.product.title}" dodano!`)
+    } else if (result.error) {
+      handleApiError(result.error)
+    }
+  } catch (error) {
+    console.error('Error adding to shopping list:', error)
+  } finally {
+    isAddingToList.value = false
+  }
+}
+</script>
+
+<style scoped>
+.product-card-mobile {
+  width: 85vw;
+  min-width: 85vw;
+  max-width: 320px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin: 0 4px;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

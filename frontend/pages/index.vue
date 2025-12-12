@@ -4,8 +4,8 @@
     <DiscountTicker :stores="discountFreshness" />
 
     <!-- Hero Section with Chat -->
-    <div class="gradient-bg py-12">
-      <div class="mx-auto px-6 sm:px-6 lg:px-12 text-center">
+    <div class="gradient-bg py-4 lg:py-12">
+      <div class="mx-auto px-0 lg:px-12 text-center">
         <h1 class="typography-display-responsive text-white mb-4">
           Pronađite najbolje popuste u vašem gradu
         </h1>
@@ -18,7 +18,7 @@
         </ClientOnly>
 
         <!-- Chat Interface -->
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-full mx-auto" style="max-width: 95vw;">
+        <div class="bg-white lg:rounded-xl shadow-2xl p-4 lg:p-6 w-full lg:max-w-[95vw] lg:mx-auto">
           <div class="mb-4">
             <label for="chat-input" class="block text-left typography-label text-gray-700 mb-2">
               ✨ Testirajte Popust asistenta - unesite proizvode koje trebate:
@@ -77,18 +77,18 @@
           </div>
 
           <!-- Results area -->
-          <div v-if="searchResults" class="mt-6">
+          <div v-if="searchResults" class="mt-4 lg:mt-6">
 
             <!-- Explanation/Response -->
-            <div v-if="searchResults.response" class="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-purple-500 rounded-lg p-5 mb-6 shadow-md">
-              <div class="flex items-start gap-3">
-                <div class="flex-shrink-0">
+            <div v-if="searchResults.response" class="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-purple-500 rounded-lg p-3 lg:p-5 mb-4 lg:mb-6 shadow-md">
+              <div class="flex items-start gap-2 lg:gap-3">
+                <div class="flex-shrink-0 hidden lg:block">
                   <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div class="flex-1">
-                  <p class="text-base text-gray-800 leading-relaxed font-medium" v-html="sanitizeResponse(searchResults.response)" />
+                  <p class="text-sm lg:text-base text-gray-800 leading-relaxed font-medium" v-html="sanitizeResponse(searchResults.response)" />
                 </div>
               </div>
             </div>
@@ -96,16 +96,41 @@
             <!-- Search Results (for both logged-in and anonymous users) -->
             <div v-if="searchResults.products">
               <!-- Grouped Results with Collapsible Sections -->
-              <div v-if="isGroupedResults(searchResults.products)" class="space-y-4">
+              <div v-if="isGroupedResults(searchResults.products)" class="space-y-0 lg:space-y-4">
+                <!-- Mobile/Tablet: Quick Navigation Pills -->
+                <div class="lg:hidden sticky top-0 z-20 bg-white py-2 px-4 border-b border-gray-200 shadow-sm">
+                  <div class="relative">
+                    <!-- Scroll hint gradient on right -->
+                    <div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+                    <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide pr-8">
+                      <button
+                        v-for="(products, groupName) in searchResults.products"
+                        :key="'nav-' + groupName"
+                        @click="scrollToGroup(groupName)"
+                        :class="[
+                          'flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap',
+                          activeGroup === groupName
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ]"
+                      >
+                        {{ capitalizeWords(groupName) }}
+                        <span class="ml-1 text-xs opacity-75">({{ products?.length || 0 }})</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div
                   v-for="(products, groupName) in searchResults.products"
                   :key="groupName"
-                  class="border border-gray-200 rounded-lg overflow-hidden"
+                  :ref="el => setGroupRef(groupName, el)"
+                  class="border-b border-gray-200 lg:border lg:rounded-lg overflow-hidden bg-white"
                 >
                   <!-- Group Header (Collapsible) -->
                   <button
                     @click="toggleGroup(groupName)"
-                    class="w-full px-4 py-3 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                    class="w-full px-4 py-2 lg:py-3 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors z-10"
                   >
                     <!-- Collapse Icon -->
                     <svg
@@ -132,9 +157,44 @@
                   </button>
 
                   <!-- Products Grid (Collapsible) -->
-                  <div v-if="expandedGroups.has(groupName)" class="p-4">
-                    <div v-if="products && products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                      <ProductCard v-for="product in products" :key="product.id" :product="product" />
+                  <div v-if="expandedGroups.has(groupName)" class="py-3 lg:p-4">
+                    <div v-if="products && products.length > 0">
+                      <!-- Mobile/Tablet: Horizontal scroll cards -->
+                      <div class="lg:hidden relative">
+                        <!-- Left Arrow -->
+                        <div class="absolute left-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                          <div class="w-8 h-16 bg-gradient-to-r from-white/90 to-transparent flex items-center justify-start pl-1">
+                            <svg class="w-5 h-5 text-gray-400 animate-pulse-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <!-- Right Arrow -->
+                        <div class="absolute right-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                          <div class="w-8 h-16 bg-gradient-to-l from-white/90 to-transparent flex items-center justify-end pr-1">
+                            <svg class="w-5 h-5 text-gray-400 animate-pulse-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 px-4 gap-3">
+                          <ProductCardMobile v-for="product in products" :key="'mobile-' + product.id" :product="product" />
+                        </div>
+                        <!-- Swipe hint text -->
+                        <div v-if="products.length > 1" class="flex justify-center items-center gap-2 text-xs text-gray-400 mt-1">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                          </svg>
+                          <span>Prevucite za više</span>
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </div>
+                      </div>
+                      <!-- Desktop: Regular grid -->
+                      <div class="hidden lg:grid lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                        <ProductCard v-for="product in products" :key="product.id" :product="product" />
+                      </div>
                     </div>
                     <div v-else class="text-gray-500 text-sm text-center py-4">
                       Nema pronađenih proizvoda za ovu stavku.
@@ -144,8 +204,17 @@
               </div>
 
               <!-- Flat Results (legacy) -->
-              <div v-else-if="searchResults.products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <ProductCard v-for="product in searchResults.products" :key="product.id" :product="product" />
+              <div v-else-if="searchResults.products.length > 0">
+                <!-- Mobile/Tablet: Horizontal scroll cards -->
+                <div class="lg:hidden py-3">
+                  <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 px-4 gap-3">
+                    <ProductCardMobile v-for="product in searchResults.products" :key="'mobile-' + product.id" :product="product" />
+                  </div>
+                </div>
+                <!-- Desktop: Regular grid -->
+                <div class="hidden lg:grid lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <ProductCard v-for="product in searchResults.products" :key="product.id" :product="product" />
+                </div>
               </div>
 
               <!-- No results message -->
@@ -339,6 +408,35 @@ const registrationMessage = ref('')
 const expandedGroups = ref<Set<string>>(new Set())
 const currentLoadingMessage = ref('')
 const loadingMessageInterval = ref<any>(null)
+
+// Mobile navigation state
+const activeGroup = ref<string>('')
+const groupRefs = ref<Record<string, HTMLElement | null>>({})
+
+function setGroupRef(groupName: string, el: any) {
+  if (el) {
+    groupRefs.value[groupName] = el as HTMLElement
+  }
+}
+
+function scrollToGroup(groupName: string) {
+  const el = groupRefs.value[groupName]
+  if (el) {
+    // Ensure group is expanded
+    if (!expandedGroups.value.has(groupName)) {
+      expandedGroups.value.add(groupName)
+      expandedGroups.value = new Set(expandedGroups.value)
+    }
+    // Scroll with offset for sticky header
+    const offset = 60
+    const elementPosition = el.getBoundingClientRect().top + window.scrollY
+    window.scrollTo({
+      top: elementPosition - offset,
+      behavior: 'smooth'
+    })
+    activeGroup.value = groupName
+  }
+}
 
 // Store filter state
 const allStores = ref<any[]>([])
@@ -957,7 +1055,14 @@ async function performSearch() {
 
       // Expand all groups by default when new results come in
       if (isGroupedResults(data.results)) {
-        expandedGroups.value = new Set(Object.keys(data.results))
+        const groupNames = Object.keys(data.results)
+        expandedGroups.value = new Set(groupNames)
+        // Set first group as active for mobile navigation
+        if (groupNames.length > 0) {
+          activeGroup.value = groupNames[0]
+        }
+        // Reset group refs for new results
+        groupRefs.value = {}
       }
     }
   } catch (error) {
@@ -1096,5 +1201,27 @@ useSeoMeta({
 
 .animate-fade-in {
   animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Hide scrollbar for navigation pills */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Subtle pulse animation for scroll arrows */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
 }
 </style>

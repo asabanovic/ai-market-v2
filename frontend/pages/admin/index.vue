@@ -301,8 +301,73 @@
           </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Recent Searches - Full Width Table -->
+        <div class="bg-white rounded-lg border border-gray-200 mb-8">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Zadnjih 30 pretraga</h3>
+            <p class="text-sm text-gray-500 mt-1">Sve pretrage sa informacijama o uređaju</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vrijeme</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Upit</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Korisnik</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uređaj</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Browser</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="search in recentSearches" :key="search.id" class="hover:bg-gray-50">
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {{ formatDateTime(search.created_at) }}
+                  </td>
+                  <td class="px-4 py-3">
+                    <p class="text-sm text-gray-900 max-w-xs truncate" :title="search.query">{{ search.query }}</p>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="search.user_name" class="text-sm text-indigo-600">{{ search.user_name }}</span>
+                    <span v-else class="text-sm text-gray-400 italic">Anonimni</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      v-if="search.device_type"
+                      class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                      :class="{
+                        'bg-blue-100 text-blue-800': search.device_type === 'desktop',
+                        'bg-green-100 text-green-800': search.device_type === 'mobile',
+                        'bg-purple-100 text-purple-800': search.device_type === 'tablet'
+                      }"
+                    >
+                      <svg v-if="search.device_type === 'desktop'" class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M21 14H3V4h18m0-2H3c-1.11 0-2 .89-2 2v10c0 1.1.9 2 2 2h7v2H8v2h8v-2h-2v-2h7c1.1 0 2-.9 2-2V4c0-1.11-.9-2-2-2z"/>
+                      </svg>
+                      <svg v-else-if="search.device_type === 'mobile'" class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14z"/>
+                      </svg>
+                      <svg v-else class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z"/>
+                      </svg>
+                      {{ search.device_type }}
+                    </span>
+                    <span v-else class="text-xs text-gray-400">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {{ search.browser || '-' }}
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {{ search.os || '-' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent Activity - Users and Businesses -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Recent Users -->
           <div class="bg-white rounded-lg border border-gray-200">
             <div class="px-6 py-4 border-b border-gray-200">
@@ -319,52 +384,6 @@
                     <p class="text-xs text-gray-500">{{ formatDate(user.created_at) }}</p>
                     <span v-if="user.is_admin" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Admin</span>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Recent Searches -->
-          <div class="bg-white rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h3 class="text-lg font-medium text-gray-900">Najnovije pretrage</h3>
-            </div>
-            <div class="divide-y divide-gray-200">
-              <div v-for="search in recentSearches" :key="search.id" class="px-6 py-4">
-                <div class="flex justify-between">
-                  <div class="flex-1">
-                    <p class="text-sm text-gray-900 truncate">{{ search.query }}</p>
-                    <div class="flex items-center space-x-2 mt-1">
-                      <p class="text-xs text-gray-500">{{ formatDateTime(search.created_at) }}</p>
-                      <span class="text-xs text-gray-400">•</span>
-                      <p class="text-xs text-indigo-600">{{ search.user_name || 'Anonimni korisnik' }}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pagination -->
-            <div v-if="searchesPagination && searchesPagination.pages > 1" class="px-6 py-3 border-t border-gray-200 bg-gray-50">
-              <div class="flex items-center justify-between">
-                <div class="text-sm text-gray-700">
-                  Strana {{ searchesPagination.page }} od {{ searchesPagination.pages }}
-                </div>
-                <div class="flex space-x-2">
-                  <button
-                    v-if="searchesPagination.has_prev"
-                    @click="loadSearches(searchesPagination.page - 1)"
-                    class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    ← Prethodna
-                  </button>
-                  <button
-                    v-if="searchesPagination.has_next"
-                    @click="loadSearches(searchesPagination.page + 1)"
-                    class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    Sljedeća →
-                  </button>
                 </div>
               </div>
             </div>

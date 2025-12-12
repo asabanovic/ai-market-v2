@@ -74,6 +74,56 @@ app.register_blueprint(engagement_bp)
 app.register_blueprint(activity_api_bp)
 
 
+# Helper function to parse user agent string
+def parse_user_agent(user_agent_string):
+    """Parse user agent string to extract device type, browser, and OS"""
+    if not user_agent_string:
+        return {'device_type': None, 'browser': None, 'os': None}
+
+    ua = user_agent_string.lower()
+
+    # Detect device type
+    device_type = 'desktop'
+    if 'mobile' in ua or 'android' in ua and 'mobile' in ua:
+        device_type = 'mobile'
+    elif 'tablet' in ua or 'ipad' in ua:
+        device_type = 'tablet'
+    elif 'android' in ua:
+        device_type = 'tablet'  # Android without mobile is likely tablet
+
+    # Detect OS
+    os_name = None
+    if 'windows' in ua:
+        os_name = 'Windows'
+    elif 'mac os' in ua or 'macintosh' in ua:
+        os_name = 'macOS'
+    elif 'iphone' in ua or 'ipad' in ua:
+        os_name = 'iOS'
+    elif 'android' in ua:
+        os_name = 'Android'
+    elif 'linux' in ua:
+        os_name = 'Linux'
+
+    # Detect browser
+    browser = None
+    if 'edg/' in ua or 'edge/' in ua:
+        browser = 'Edge'
+    elif 'opr/' in ua or 'opera' in ua:
+        browser = 'Opera'
+    elif 'chrome' in ua and 'safari' in ua:
+        browser = 'Chrome'
+    elif 'firefox' in ua:
+        browser = 'Firefox'
+    elif 'safari' in ua and 'chrome' not in ua:
+        browser = 'Safari'
+
+    return {
+        'device_type': device_type,
+        'browser': browser,
+        'os': os_name
+    }
+
+
 # Helper function to format logo URL with full URL
 def format_logo_url(logo_path):
     """Format logo path to include full URL for proper serving
@@ -1623,7 +1673,7 @@ def api_categories():
 def api_featured_data():
     """API endpoint for featured products and deals"""
     try:
-        # Get featured products (products with discounts, limited to 6)
+        # Get featured products (products with discounts and good images, limited to 6)
         # Calculate discount percentage inline for ordering
         discount_expr = case(
             (Product.discount_price < Product.base_price,
@@ -1634,11 +1684,34 @@ def api_featured_data():
         # Get today's date for filtering expired products
         today = date.today()
 
+        # First, try to get products WITH images (cleaner look for homepage)
         featured_products = Product.query.join(Business).filter(
             Product.discount_price.isnot(None),
             Product.discount_price < Product.base_price,
+            Product.image_path.isnot(None),  # Must have an image
+            Product.image_path != '',  # Image path not empty
             or_(Product.expires.is_(None), Product.expires >= today)  # Filter out expired products
-        ).order_by(discount_expr.desc()).limit(6).all()
+        ).order_by(
+            func.random()  # Randomize for variety
+        ).limit(12).all()  # Get more, then sort by discount
+
+        # Sort by discount percentage and take top 6
+        featured_products = sorted(
+            featured_products,
+            key=lambda p: ((p.base_price - p.discount_price) / p.base_price * 100) if p.base_price and p.discount_price else 0,
+            reverse=True
+        )[:6]
+
+        # If not enough products with images, fall back to any products with discounts
+        if len(featured_products) < 6:
+            existing_ids = [p.id for p in featured_products]
+            additional = Product.query.join(Business).filter(
+                Product.discount_price.isnot(None),
+                Product.discount_price < Product.base_price,
+                Product.id.notin_(existing_ids) if existing_ids else True,
+                or_(Product.expires.is_(None), Product.expires >= today)
+            ).order_by(discount_expr.desc()).limit(6 - len(featured_products)).all()
+            featured_products.extend(additional)
 
         products = []
         for product in featured_products:
@@ -1789,10 +1862,16 @@ def search():
 
             # Log failed search attempts for tracking
             from models import UserSearch
+            user_agent = request.headers.get('User-Agent', '')
+            ua_info = parse_user_agent(user_agent)
             search_log = UserSearch(
                 user_id=authenticated_user_id,
                 query=query,
-                results=json.dumps([])  # Empty results for failed search
+                results=json.dumps([]),  # Empty results for failed search
+                user_agent=user_agent[:500] if user_agent else None,
+                device_type=ua_info['device_type'],
+                browser=ua_info['browser'],
+                os=ua_info['os']
             )
             db.session.add(search_log)
             db.session.commit()
@@ -1819,15 +1898,21 @@ def search():
 
         # Log ALL searches (both with and without results) for tracking purposes
         # This helps track user behavior and improve search quality
+        user_agent = request.headers.get('User-Agent', '')
+        ua_info = parse_user_agent(user_agent)
         search_log = UserSearch(
             user_id=authenticated_user_id,
             query=query,
-            results=json.dumps(results_data)
+            results=json.dumps(results_data),
+            user_agent=user_agent[:500] if user_agent else None,
+            device_type=ua_info['device_type'],
+            browser=ua_info['browser'],
+            os=ua_info['os']
         )
         db.session.add(search_log)
         db.session.commit()
 
-        app.logger.info(f"Logged search: '{query}' by {'user ' + authenticated_user_id if authenticated_user_id else 'anonymous'} - {len(results_data)} results")
+        app.logger.info(f"Logged search: '{query}' by {'user ' + authenticated_user_id if authenticated_user_id else 'anonymous'} - {len(results_data)} results ({ua_info['device_type']}/{ua_info['browser']})")
 
         # Check if semantic search returned no results
         if not products:
@@ -1975,10 +2060,16 @@ def search():
             db.session.rollback()
 
             from models import UserSearch
+            user_agent = request.headers.get('User-Agent', '')
+            ua_info = parse_user_agent(user_agent)
             search_log = UserSearch(
                 user_id=authenticated_user_id,
                 query=query,
-                results=json.dumps([])  # Empty results for failed search
+                results=json.dumps([]),  # Empty results for failed search
+                user_agent=user_agent[:500] if user_agent else None,
+                device_type=ua_info['device_type'],
+                browser=ua_info['browser'],
+                os=ua_info['os']
             )
             db.session.add(search_log)
             db.session.commit()
@@ -4785,10 +4876,10 @@ def api_admin_stats():
         recent_users = db.session.query(User).order_by(
             User.created_at.desc()).limit(10).all()
 
-        # Get recent searches
+        # Get recent searches (30 for full-width table)
         recent_searches = db.session.query(UserSearch, User).outerjoin(
             User, UserSearch.user_id == User.id).order_by(
-            UserSearch.created_at.desc()).limit(10).all()
+            UserSearch.created_at.desc()).limit(30).all()
 
         # Get recent businesses
         recent_businesses = db.session.query(Business).order_by(
@@ -4823,7 +4914,10 @@ def api_admin_stats():
                 'query': search.query,
                 'user_name': f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email if user else None,
                 'user_email': user.email if user else None,
-                'created_at': search.created_at.isoformat() if search.created_at else None
+                'created_at': search.created_at.isoformat() if search.created_at else None,
+                'device_type': search.device_type,
+                'browser': search.browser,
+                'os': search.os
             } for search, user in recent_searches],
             'recent_businesses': [{
                 'id': b.id,
