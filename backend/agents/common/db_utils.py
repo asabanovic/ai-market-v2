@@ -25,6 +25,7 @@ def search_by_vector(
     max_per_store: int = 2,
     business_ids: Optional[List[int]] = None,
     query_text: Optional[str] = None,
+    only_discounted: bool = False,
 ) -> List[Dict[str, Any]]:
     """Search for products using hybrid vector + trigram similarity.
 
@@ -41,6 +42,7 @@ def search_by_vector(
         max_per_store: Maximum products per store (default 2), then sorted by similarity.
         business_ids: Optional list of business IDs to filter by.
         query_text: Original query text for trigram matching (optional but recommended).
+        only_discounted: If True, only return products with active discounts.
 
     Returns:
         List of product dictionaries with similarity scores.
@@ -60,6 +62,11 @@ def search_by_vector(
 
     if max_price:
         where_clauses.append(f"COALESCE(p.discount_price, p.base_price) <= {max_price}")
+
+    if only_discounted:
+        # Only include products with active discounts (discount_price exists and not expired)
+        where_clauses.append("p.discount_price IS NOT NULL")
+        where_clauses.append("(p.expires IS NULL OR p.expires >= CURRENT_DATE)")
 
     where_sql = " AND ".join(where_clauses)
 
@@ -262,6 +269,7 @@ async def search_by_vector_grouped(
     category: Optional[str] = None,
     max_price: Optional[float] = None,
     business_ids: Optional[List[int]] = None,
+    only_discounted: bool = False,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Search for products using hybrid vector + trigram similarity for multiple items.
 
@@ -309,6 +317,7 @@ async def search_by_vector_grouped(
             max_price=max_price,
             business_ids=business_ids,
             query_text=original_text,  # Pass original text for trigram matching
+            only_discounted=only_discounted,
         )
 
         grouped_results[display_name] = results

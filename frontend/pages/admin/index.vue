@@ -325,7 +325,12 @@
                     {{ formatDateTime(search.created_at) }}
                   </td>
                   <td class="px-4 py-3">
-                    <p class="text-sm text-gray-900 max-w-xs truncate" :title="search.query">{{ search.query }}</p>
+                    <div class="flex items-center gap-2">
+                      <p class="text-sm text-gray-900 max-w-xs truncate" :title="search.query">{{ search.query }}</p>
+                      <span v-if="search.only_discounted" class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title="Samo popusti filter">
+                        %
+                      </span>
+                    </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span v-if="search.user_name" class="text-sm text-indigo-600">{{ search.user_name }}</span>

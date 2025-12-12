@@ -76,6 +76,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
     params = state.parameters or {}
     search_items = state.search_items or []
     business_ids = getattr(state, 'business_ids', None)
+    only_discounted = getattr(state, 'only_discounted', False)
 
     # Normalize query to lowercase for consistent embedding matching
     query_normalized = query.lower() if query else query
@@ -107,6 +108,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
                 category=category,
                 max_price=max_price,
                 business_ids=business_ids,
+                only_discounted=only_discounted,
             )
 
             # Filter by similarity threshold for each group
@@ -157,6 +159,7 @@ async def semantic_search_node(state: AgentState, runtime: Any = None) -> Dict:
                 max_price=max_price,
                 business_ids=business_ids,
                 query_text=query,  # Pass original query for hybrid trigram matching
+                only_discounted=only_discounted,
             )
 
             # Filter by similarity threshold

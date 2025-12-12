@@ -7,7 +7,7 @@
     <div class="gradient-bg py-4 lg:py-12">
       <div class="mx-auto px-0 lg:px-12 text-center">
         <h1 class="typography-display-responsive text-white mb-4">
-          Pronađite najbolje popuste u vašem gradu
+          Recite nam šta kupujete - javimo vam kad bude na popustu
         </h1>
         <ClientOnly>
           <template v-if="!user">
@@ -41,6 +41,26 @@
 
             <!-- Store Filter -->
             <div class="mt-3 flex items-center gap-2 flex-wrap">
+              <!-- Discounted Only Toggle -->
+              <label class="flex items-center gap-2 cursor-pointer">
+                <span class="text-xs text-gray-600">Samo popusti</span>
+                <button
+                  type="button"
+                  @click="onlyDiscounted = !onlyDiscounted"
+                  :class="[
+                    'relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2',
+                    onlyDiscounted ? 'bg-purple-600' : 'bg-gray-200'
+                  ]"
+                >
+                  <span
+                    :class="[
+                      'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                      onlyDiscounted ? 'translate-x-4' : 'translate-x-0'
+                    ]"
+                  />
+                </button>
+              </label>
+
               <StoreSelector
                 v-model="selectedStoreIds"
                 :stores="allStores"
@@ -177,7 +197,7 @@
                             </svg>
                           </div>
                         </div>
-                        <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 px-4 gap-3">
+                        <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 gap-4" style="padding-left: calc((100vw - 78vw) / 2); padding-right: calc((100vw - 78vw) / 2);">
                           <ProductCardMobile v-for="product in products" :key="'mobile-' + product.id" :product="product" />
                         </div>
                         <!-- Swipe hint text -->
@@ -207,7 +227,7 @@
               <div v-else-if="searchResults.products.length > 0">
                 <!-- Mobile/Tablet: Horizontal scroll cards -->
                 <div class="lg:hidden py-3">
-                  <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 px-4 gap-3">
+                  <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 gap-4" style="padding-left: calc((100vw - 78vw) / 2); padding-right: calc((100vw - 78vw) / 2);">
                     <ProductCardMobile v-for="product in searchResults.products" :key="'mobile-' + product.id" :product="product" />
                   </div>
                 </div>
@@ -394,6 +414,7 @@ const config = useRuntimeConfig()
 const { get, post, put } = useApi()
 const { user, isAuthenticated, authReady, checkAuth } = useAuth()
 const { updateCreditsRemaining } = useSearchCredits()
+const { showSuccess } = useCreditsToast()
 
 // Reactive state
 const searchQuery = ref('')
@@ -441,6 +462,7 @@ function scrollToGroup(groupName: string) {
 // Store filter state
 const allStores = ref<any[]>([])
 const selectedStoreIds = ref<number[]>([])
+const onlyDiscounted = ref(false)
 
 // New store popup state
 const showNewStorePopup = ref(false)
@@ -642,6 +664,35 @@ const funMessages: Record<string, string[]> = {
   ]
 }
 
+// Common Bosnian household items for search suggestions
+const commonSearchItems = [
+  'mlijeko, hljeb, jaja',
+  'piletina, povrće, riža',
+  'kafa, šećer, mlijeko',
+  'brasno, ulje, jaja',
+  'jogurt, sir, kajmak',
+  'banane, jabuke, narandže',
+  'paradajz, paprika, krastavci',
+  'šampon, sapun, pasta za zube',
+  'deterdžent, omekšivač',
+  'čokolada, keks, čips',
+  'tjestenina, sos, parmezan',
+  'mesni narezak, salama, šunka',
+  'sok, mineralna voda',
+  'maslac, margarin, pavlaka',
+  'čaj, med, limun',
+  'luk, bijeli luk, krompir',
+  'pirinač, grah, leća',
+  'konzerve, tunjevina',
+  'pelene, maramice',
+  'WC papir, ubrusi'
+]
+
+function getRandomSearchSuggestion(): string {
+  const index = Math.floor(Math.random() * commonSearchItems.length)
+  return commonSearchItems[index]
+}
+
 function getLoadingMessages(query: string): string[] {
   const lowerQuery = query.toLowerCase()
 
@@ -726,6 +777,10 @@ onMounted(async () => {
     setTimeout(() => {
       performSearch()
     }, 500)
+  } else if (user.value) {
+    // Pre-fill search with a random common item for logged-in users
+    // This encourages them to try searching right away
+    searchQuery.value = getRandomSearchSuggestion()
   }
 
   // Check for product ID in URL (for direct links)
@@ -1038,6 +1093,10 @@ async function performSearch() {
       searchPayload.business_ids = selectedStoreIds.value
     }
 
+    if (onlyDiscounted.value) {
+      searchPayload.only_discounted = true
+    }
+
     // Use new agent endpoint with multi-agent system
     const data = await post('/api/search', searchPayload)
 
@@ -1081,6 +1140,11 @@ async function performSearch() {
       // Update credits in header immediately
       if (data.credits_remaining !== undefined) {
         updateCreditsRemaining(data.credits_remaining)
+      }
+
+      // Show celebration toast for first search bonus
+      if (data.first_search_bonus) {
+        showSuccess('Čestitamo! Dobili ste +3 bonus kredita za vašu prvu pretragu!', 'Bonus krediti!')
       }
 
       // If this was an anonymous search, mark it as used in localStorage

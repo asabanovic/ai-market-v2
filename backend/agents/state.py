@@ -23,6 +23,9 @@ class AgentState:
     business_ids: Optional[List[int]] = field(default=None)
     """Optional list of business IDs to filter results."""
 
+    only_discounted: bool = field(default=False)
+    """Filter to show only discounted products."""
+
     # Routing
     intent: Literal["semantic_search", "meal_planning", "general", "unknown"] = field(default="unknown")
     """Detected intent from the supervisor."""
@@ -68,6 +71,9 @@ class InputState:
 
     business_ids: Optional[List[int]] = field(default=None)
     """Optional list of business IDs to filter results."""
+
+    only_discounted: bool = field(default=False)
+    """Filter to show only discounted products."""
 
 
 @dataclass

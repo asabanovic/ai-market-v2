@@ -1931,6 +1931,7 @@ def search():
             current_user, 'is_admin', False) or app.config.get('DEBUG', False))
 
         # Deduct credits and increment counters ONLY for successful searches (with results)
+        first_search_bonus_awarded = False
         if current_user.is_authenticated:
             from credits_service_weekly import WeeklyCreditsService
             try:
@@ -1941,6 +1942,13 @@ def search():
                     metadata={'query': query}
                 )
                 app.logger.info(f"Deducted 1 credit for search by user {current_user.id}")
+
+                # Check and award first search bonus (+3 extra credits)
+                if not current_user.first_search_reward_claimed:
+                    current_user.extra_credits += 3
+                    current_user.first_search_reward_claimed = True
+                    first_search_bonus_awarded = True
+                    app.logger.info(f"Awarded +3 first search bonus to user {current_user.id}")
             except Exception as credit_error:
                 app.logger.error(f"Failed to deduct credit: {credit_error}")
         else:
@@ -2019,6 +2027,10 @@ def search():
 
             # Ensure products have the proper nested structure for frontend
             response_data['products'] = results_data
+
+            # Add first search bonus flag if awarded
+            if first_search_bonus_awarded:
+                response_data['first_search_bonus'] = True
 
             # Add debug info only if authorized
             if debug_available:
@@ -4917,7 +4929,8 @@ def api_admin_stats():
                 'created_at': search.created_at.isoformat() if search.created_at else None,
                 'device_type': search.device_type,
                 'browser': search.browser,
-                'os': search.os
+                'os': search.os,
+                'only_discounted': search.only_discounted
             } for search, user in recent_searches],
             'recent_businesses': [{
                 'id': b.id,
@@ -6087,17 +6100,23 @@ def api_submit_feedback():
     elif 'Tablet' in user_agent or 'iPad' in user_agent:
         device_type = 'tablet'
 
+    # Truncate text fields to prevent abuse
+    def truncate(text, max_len):
+        if text and isinstance(text, str):
+            return text[:max_len]
+        return text
+
     try:
         feedback = UserFeedback(
             user_id=user_id,
             anonymous_id=anonymous_id,
             rating=data.get('rating'),
-            what_to_improve=data.get('what_to_improve'),
-            how_to_help=data.get('how_to_help'),
-            what_would_make_you_use=data.get('what_would_make_you_use'),
-            comments=data.get('comments'),
-            trigger_type=data.get('trigger_type'),
-            page_url=data.get('page_url'),
+            what_to_improve=truncate(data.get('what_to_improve'), 500),
+            how_to_help=truncate(data.get('how_to_help'), 500),
+            what_would_make_you_use=truncate(data.get('what_would_make_you_use'), 500),
+            comments=truncate(data.get('comments'), 1000),
+            trigger_type=truncate(data.get('trigger_type'), 50),
+            page_url=truncate(data.get('page_url'), 500),
             user_agent=user_agent[:500] if user_agent else None,
             device_type=device_type
         )

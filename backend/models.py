@@ -63,6 +63,9 @@ class User(UserMixin, db.Model):
     # 2. Extra credits: Earned credits (referrals, purchases) - these accumulate
     extra_credits = db.Column(db.Integer, default=0)  # Never reset, can go up or down
 
+    # First search reward - bonus credits for completing first search
+    first_search_reward_claimed = db.Column(db.Boolean, default=False, nullable=False)
+
     # Referral system
     referral_code = db.Column(db.String(20), unique=True, nullable=True)  # Auto-generated unique code
     custom_referral_code = db.Column(db.String(50), unique=True, nullable=True)  # User-chosen custom code (e.g., "adnan")
@@ -267,6 +270,7 @@ class UserSearch(db.Model):
     device_type = db.Column(db.String(50), nullable=True)  # mobile, tablet, desktop
     browser = db.Column(db.String(100), nullable=True)  # Chrome, Firefox, Safari, etc.
     os = db.Column(db.String(100), nullable=True)  # Windows, macOS, iOS, Android, etc.
+    only_discounted = db.Column(db.Boolean, default=False)  # Whether "Samo popusti" filter was used
     created_at = db.Column(db.DateTime, default=datetime.now)
 
 # Contact messages table

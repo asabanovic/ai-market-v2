@@ -58,7 +58,8 @@
             <textarea
               v-model="whatToImprove"
               rows="2"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm"
+              maxlength="500"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
               placeholder="npr. Dodajte više prodavnica, brža pretraga..."
             />
           </div>
@@ -71,7 +72,8 @@
             <textarea
               v-model="howToHelp"
               rows="2"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm"
+              maxlength="500"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
               placeholder="npr. Obavještenja o popustima, praćenje cijena..."
             />
           </div>
@@ -84,7 +86,8 @@
             <textarea
               v-model="whatWouldMakeYouUse"
               rows="2"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm"
+              maxlength="500"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
               placeholder="npr. Lista za kupovinu, uporedba cijena..."
             />
           </div>
@@ -97,7 +100,8 @@
             <textarea
               v-model="comments"
               rows="2"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm"
+              maxlength="1000"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
               placeholder="Bilo šta drugo što želite podijeliti..."
             />
           </div>

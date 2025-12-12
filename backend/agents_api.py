@@ -159,7 +159,7 @@ def parse_user_agent(user_agent_string):
     }
 
 
-def log_search(user_id, query, results, user_ip=None):
+def log_search(user_id, query, results, user_ip=None, only_discounted=False):
     """Log search to UserSearch table for tracking."""
     try:
         # Custom JSON encoder to handle date objects
@@ -180,11 +180,13 @@ def log_search(user_id, query, results, user_ip=None):
             user_agent=user_agent[:500] if user_agent else None,
             device_type=ua_info['device_type'],
             browser=ua_info['browser'],
-            os=ua_info['os']
+            os=ua_info['os'],
+            only_discounted=only_discounted
         )
         db.session.add(search_log)
         db.session.commit()
-        current_app.logger.info(f"Logged search: '{query}' by {'user ' + str(user_id) if user_id else f'anonymous ({user_ip})'} ({ua_info['device_type']}/{ua_info['browser']})")
+        discount_indicator = " [SAMO POPUSTI]" if only_discounted else ""
+        current_app.logger.info(f"Logged search: '{query}'{discount_indicator} by {'user ' + str(user_id) if user_id else f'anonymous ({user_ip})'} ({ua_info['device_type']}/{ua_info['browser']})")
     except Exception as e:
         current_app.logger.error(f"Failed to log search: {e}")
         db.session.rollback()
@@ -292,6 +294,9 @@ def unified_search():
         credits_remaining = None
         is_anonymous = not user_id
 
+        # Track if first search bonus should be awarded
+        first_search_bonus_awarded = False
+
         # Check user credits if logged in
         if user_id:
             # Get user from database
@@ -316,6 +321,17 @@ def unified_search():
                     "credits_needed": credits_needed
                 }), 403
 
+            # Check and award first search bonus (+3 extra credits)
+            if not user.first_search_reward_claimed:
+                user.extra_credits += 3
+                user.first_search_reward_claimed = True
+                # Recalculate remaining credits to include the bonus
+                weekly_remaining = user.weekly_credits - user.weekly_credits_used
+                credits_remaining = weekly_remaining + user.extra_credits
+                first_search_bonus_awarded = True
+                db.session.commit()
+                current_app.logger.info(f"Awarded +3 first search bonus to user {user_id}")
+
         else:
             # Anonymous user - allow 1 free search, then require registration
             user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -336,11 +352,15 @@ def unified_search():
         # Get business_ids filter from request
         business_ids = data.get("business_ids")
 
+        # Get only_discounted filter from request
+        only_discounted = data.get("only_discounted", False)
+
         # Create input state
         input_state = InputState(
             query=query,
             user_id=user_id,
-            business_ids=business_ids
+            business_ids=business_ids,
+            only_discounted=only_discounted
         )
 
         # Create context with DB session
@@ -365,7 +385,7 @@ def unified_search():
         )
 
         # Log search for tracking (both successful and failed)
-        log_search(user_id, query, output.results, user_ip=user_ip)
+        log_search(user_id, query, output.results, user_ip=user_ip, only_discounted=only_discounted)
 
         # Log search for quality evaluation (detailed scores)
         search_items = result.get("search_items")  # Parsed query items from LLM
@@ -415,6 +435,10 @@ def unified_search():
         # Add credits info for logged-in users
         if user_id and credits_remaining is not None:
             response_data["credits_remaining"] = credits_remaining
+
+        # Add first search bonus flag if awarded
+        if first_search_bonus_awarded:
+            response_data["first_search_bonus"] = True
 
         return jsonify(response_data), 200
 

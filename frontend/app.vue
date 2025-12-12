@@ -145,19 +145,30 @@ function handleInterestSkip() {
 async function checkFeedbackStatus() {
   if (!user.value || feedbackChecked.value || hasGivenFeedback.value) return
 
+  // Check localStorage first
+  if (process.client && localStorage.getItem('feedback_submitted')) {
+    hasGivenFeedback.value = true
+    feedbackChecked.value = true
+    return
+  }
+
   try {
     const response = await get('/api/feedback/check')
     feedbackChecked.value = true
 
     if (response.has_given_feedback) {
       hasGivenFeedback.value = true
+      localStorage.setItem('feedback_submitted', 'true')
       return
     }
 
-    if (response.show_feedback) {
+    // Show popup if credits trigger OR random chance (20%)
+    const shouldShowRandom = Math.random() < 0.2 // 20% chance
+
+    if (response.show_feedback || shouldShowRandom) {
       // Wait a bit before showing the popup
       setTimeout(() => {
-        feedbackTriggerType.value = 'credits_spent'
+        feedbackTriggerType.value = response.show_feedback ? 'credits_spent' : 'random'
         showFeedbackPopup.value = true
       }, 3000)
     }

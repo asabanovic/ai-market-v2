@@ -84,9 +84,11 @@
       <!-- Step 2: Additional Info (Optional) -->
       <div v-else-if="step === 2">
         <div class="text-center mb-6">
-          <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Icon name="mdi:bell-outline" class="w-8 h-8 text-purple-600" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Popust.ba"
+            class="w-16 h-16 mx-auto mb-4 object-contain"
+          />
           <h2 class="text-2xl font-bold text-gray-900 mb-2">Još malo...</h2>
           <p class="text-gray-600 text-sm">
             Pomozite nam da vas obavijestimo kada vaši omiljeni proizvodi budu na akciji

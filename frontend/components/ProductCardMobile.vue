@@ -230,12 +230,12 @@ async function addToShoppingList() {
 
 <style scoped>
 .product-card-mobile {
-  width: 85vw;
-  min-width: 85vw;
-  max-width: 320px;
+  width: 78vw;
+  min-width: 78vw;
+  max-width: 300px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  margin: 0 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .line-clamp-2 {
