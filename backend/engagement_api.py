@@ -97,8 +97,9 @@ def add_product_comment(product_id):
 
         db.session.commit()
 
-        # Get total credits for gamified display
-        total_credits = (user.weekly_credits_used or 0) + (user.extra_credits or 0)
+        # Get total credits for gamified display (remaining weekly + extra)
+        regular_credits_remaining = max(0, (user.weekly_credits or 0) - (user.weekly_credits_used or 0))
+        total_credits = regular_credits_remaining + (user.extra_credits or 0)
 
         return jsonify({
             'success': True,
@@ -201,9 +202,10 @@ def vote_product(product_id):
         upvotes = ProductVote.query.filter_by(product_id=product_id, vote_type='up').count()
         downvotes = ProductVote.query.filter_by(product_id=product_id, vote_type='down').count()
 
-        # Get updated total credits
+        # Get updated total credits (remaining weekly + extra)
         user = User.query.get(user_id)
-        total_credits = (user.weekly_credits_used or 0) + (user.extra_credits or 0)
+        regular_credits_remaining = max(0, (user.weekly_credits or 0) - (user.weekly_credits_used or 0))
+        total_credits = regular_credits_remaining + (user.extra_credits or 0)
 
         return jsonify({
             'success': True,
@@ -712,8 +714,9 @@ def add_quick_comment(product_id):
         # Get updated comment count
         comment_count = ProductComment.query.filter_by(product_id=product_id).count()
 
-        # Get total credits for gamified display
-        total_credits = (user.weekly_credits_used or 0) + (user.extra_credits or 0)
+        # Get total credits for gamified display (remaining weekly + extra)
+        regular_credits_remaining = max(0, (user.weekly_credits or 0) - (user.weekly_credits_used or 0))
+        total_credits = regular_credits_remaining + (user.extra_credits or 0)
 
         return jsonify({
             'success': True,

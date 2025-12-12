@@ -246,21 +246,6 @@
           <span class="leading-none">Dodaj u listu</span>
         </button>
 
-        <!-- Comment Button -->
-        <button
-          @click.stop="showDetails"
-          class="w-full py-2.5 px-4 bg-white border-2 border-gray-200 text-gray-700 hover:border-purple-500 hover:text-purple-600 rounded-lg transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md"
-        >
-          Ostavi Komentar
-        </button>
-
-        <!-- Share Button -->
-        <button
-          @click.stop="shareProduct"
-          class="w-full py-2.5 px-4 bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 rounded-lg transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md"
-        >
-          Podijeli
-        </button>
       </div>
     </div>
 
@@ -401,8 +386,19 @@ function updateCountdown() {
   }
 
   const now = new Date()
-  const expiry = new Date(props.product.expires + 'T23:59:59') // End of day
+  // Handle different date formats - extract just the date part if it's a full ISO string
+  let expiresDate = props.product.expires
+  if (typeof expiresDate === 'string' && expiresDate.includes('T')) {
+    expiresDate = expiresDate.split('T')[0]
+  }
+  const expiry = new Date(expiresDate + 'T23:59:59') // End of day
   const diff = expiry.getTime() - now.getTime()
+
+  // Check for invalid date
+  if (isNaN(diff)) {
+    countdownText.value = ''
+    return
+  }
 
   if (diff <= 0) {
     countdownText.value = 'Isteklo'
