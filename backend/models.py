@@ -202,6 +202,7 @@ class Product(db.Model):
     discount_price = db.Column(db.Float, nullable=True)
     expires = db.Column(db.Date, nullable=True)
     category = db.Column(db.String, nullable=True)
+    category_group = db.Column(db.String, nullable=True)  # Simplified category: meso, mlijeko, pica, etc.
     tags = db.Column(JSON, nullable=True)  # JSON array
     product_metadata = db.Column(JSON, nullable=True)  # JSON object (renamed from metadata)
     image_path = db.Column(db.String, nullable=True)

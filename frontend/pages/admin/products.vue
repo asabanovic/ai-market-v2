@@ -205,9 +205,26 @@
                     <span>{{ businessData.business.city || 'Nepoznato' }}</span>
                     <span v-if="businessData.business.contact_phone">{{ businessData.business.contact_phone }}</span>
                     <span>{{ businessData.products.length }} proizvoda</span>
+                    <span class="text-purple-600">
+                      {{ getCategorizationProgress(businessData) }}
+                    </span>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="flex items-center space-x-3">
+                  <button
+                    @click="categorizeBusinessProducts(businessData.business.id)"
+                    :disabled="isCategorizingBusiness.has(businessData.business.id)"
+                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <svg v-if="isCategorizingBusiness.has(businessData.business.id)" class="animate-spin -ml-1 mr-1.5 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <svg v-else class="-ml-1 mr-1.5 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    {{ isCategorizingBusiness.has(businessData.business.id) ? 'Kategoriziram...' : 'AI Kategoriziraj' }}
+                  </button>
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     ID: {{ businessData.business.id }}
                   </span>
@@ -234,6 +251,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Osnovna cijena</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena sa popustom</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tagovi</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupa</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
                   </tr>
                 </thead>
@@ -305,6 +323,16 @@
                         </span>
                       </div>
                     </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span
+                        v-if="product.category_group"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                        :class="getCategoryGroupColor(product.category_group)"
+                      >
+                        {{ getCategoryGroupIcon(product.category_group) }} {{ product.category_group }}
+                      </span>
+                      <span v-else class="text-gray-400 text-xs">-</span>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         @click="vectorizeSingleProduct(product.id)"
@@ -358,6 +386,59 @@ const productEmbeddingStatus = ref<Map<number, string>>(new Map())
 const selectedProductIds = ref<Set<number>>(new Set())
 const isRegenerating = ref(false)
 const isVectorizingProduct = ref<Set<number>>(new Set())
+const isCategorizingBusiness = ref<Set<number>>(new Set())
+
+// Category group helpers
+const categoryGroupIcons: Record<string, string> = {
+  meso: '🥩',
+  mlijeko: '🥛',
+  pica: '🥤',
+  voce_povrce: '🥬',
+  kuhinja: '🍳',
+  ves: '🧺',
+  ciscenje: '🧹',
+  higijena: '🧴',
+  slatkisi: '🍫',
+  kafa: '☕',
+  smrznuto: '🧊',
+  pekara: '🥖',
+  ljubimci: '🐕',
+  bebe: '👶'
+}
+
+const categoryGroupColors: Record<string, string> = {
+  meso: 'bg-red-100 text-red-800',
+  mlijeko: 'bg-blue-100 text-blue-800',
+  pica: 'bg-cyan-100 text-cyan-800',
+  voce_povrce: 'bg-green-100 text-green-800',
+  kuhinja: 'bg-yellow-100 text-yellow-800',
+  ves: 'bg-indigo-100 text-indigo-800',
+  ciscenje: 'bg-teal-100 text-teal-800',
+  higijena: 'bg-pink-100 text-pink-800',
+  slatkisi: 'bg-amber-100 text-amber-800',
+  kafa: 'bg-orange-100 text-orange-800',
+  smrznuto: 'bg-sky-100 text-sky-800',
+  pekara: 'bg-lime-100 text-lime-800',
+  ljubimci: 'bg-violet-100 text-violet-800',
+  bebe: 'bg-rose-100 text-rose-800'
+}
+
+function getCategoryGroupIcon(group: string): string {
+  return categoryGroupIcons[group] || '📦'
+}
+
+function getCategoryGroupColor(group: string): string {
+  return categoryGroupColors[group] || 'bg-gray-100 text-gray-800'
+}
+
+function getCategorizationProgress(businessData: any): string {
+  const total = businessData.products.length
+  const categorized = businessData.products.filter((p: any) => p.category_group).length
+  if (categorized === total) {
+    return `✅ ${categorized}/${total} kategorizirano`
+  }
+  return `${categorized}/${total} kategorizirano`
+}
 
 const averageProductsPerBusiness = computed(() => {
   if (!stats.value.total_businesses || stats.value.total_businesses === 0) return 0
@@ -632,6 +713,48 @@ async function vectorizeSingleProduct(productId: number) {
   } finally {
     isVectorizingProduct.value.delete(productId)
     isVectorizingProduct.value = new Set(isVectorizingProduct.value)
+  }
+}
+
+async function categorizeBusinessProducts(businessId: number) {
+  isCategorizingBusiness.value.add(businessId)
+  isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+
+  try {
+    const response = await post('/api/admin/products/categorize', {
+      business_id: businessId
+    })
+
+    toast.add({
+      title: 'Uspješno',
+      description: response.message || `Kategorizirano ${response.categorized_count} proizvoda`,
+      color: 'green'
+    })
+
+    // If there are more products to categorize, ask if user wants to continue
+    if (response.remaining_count > 0) {
+      const continueCateg = confirm(`Još ${response.remaining_count} proizvoda čeka kategorizaciju. Nastaviti?`)
+      if (continueCateg) {
+        // Reload data first then continue
+        await loadProducts()
+        await categorizeBusinessProducts(businessId)
+        return
+      }
+    }
+
+    // Reload products to show updated categories
+    await loadProducts()
+
+  } catch (error: any) {
+    console.error(`Error categorizing products for business ${businessId}:`, error)
+    toast.add({
+      title: 'Greška',
+      description: error.message || 'Nije moguće kategorizirati proizvode',
+      color: 'red'
+    })
+  } finally {
+    isCategorizingBusiness.value.delete(businessId)
+    isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
   }
 }
 

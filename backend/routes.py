@@ -847,13 +847,8 @@ def api_products():
 
         # Apply filters
         if category:
-            # Map UI category to DB categories
-            db_categories = CATEGORY_MAPPING.get(category)
-            if db_categories:
-                query = query.filter(Product.category.in_(db_categories))
-            else:
-                # Direct match fallback
-                query = query.filter(Product.category == category)
+            # First try to match by category_group (our new simplified categories)
+            query = query.filter(Product.category_group == category)
         if stores:
             # Filter by multiple store IDs
             store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
@@ -925,38 +920,23 @@ def api_products():
         for product in paginated.items:
             products.append(product_to_dict(product))
 
-        # Calculate category counts (for the UI filter)
-        # Build base query for counts (same filters except category)
-        count_query = Product.query.join(Business)
-        if stores:
-            store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
-            if store_ids:
-                count_query = count_query.filter(Product.business_id.in_(store_ids))
-        elif business_id:
-            count_query = count_query.filter(Product.business_id == int(business_id))
-
-        # Get counts per DB category
-        db_category_counts = db.session.query(
-            Product.category,
+        # Calculate category counts (for the UI filter) - using category_group
+        category_counts_query = db.session.query(
+            Product.category_group,
             func.count(Product.id)
-        ).join(Business)
+        ).join(Business).filter(Product.category_group.isnot(None))
+
         if stores:
             store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
             if store_ids:
-                db_category_counts = db_category_counts.filter(Product.business_id.in_(store_ids))
+                category_counts_query = category_counts_query.filter(Product.business_id.in_(store_ids))
         elif business_id:
-            db_category_counts = db_category_counts.filter(Product.business_id == int(business_id))
-        db_category_counts = db_category_counts.group_by(Product.category).all()
+            category_counts_query = category_counts_query.filter(Product.business_id == int(business_id))
+
+        category_counts_result = category_counts_query.group_by(Product.category_group).all()
 
         # Convert to dict
-        db_counts = {cat: count for cat, count in db_category_counts if cat}
-
-        # Map to UI categories
-        category_counts = {}
-        for ui_cat, db_cats in CATEGORY_MAPPING.items():
-            count = sum(db_counts.get(db_cat, 0) for db_cat in db_cats)
-            if count > 0:
-                category_counts[ui_cat] = count
+        category_counts = {cat: count for cat, count in category_counts_result if cat}
 
         return jsonify({
             'products': products,
@@ -5597,6 +5577,8 @@ def api_admin_products():
             'image_path': product.image_path,
             'expires': product.expires.isoformat() if product.expires else None,
             'category': product.category,
+            'category_group': product.category_group,
+            'tags': product.tags,
             'enriched_description': product.enriched_description
         })
 
@@ -6072,6 +6054,223 @@ def api_admin_ai_match_images(product_id):
         app.logger.error(f"AI image match error: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# Valid category groups for products
+VALID_CATEGORY_GROUPS = [
+    'meso', 'mlijeko', 'pica', 'voce_povrce', 'kuhinja', 'ves', 'ciscenje',
+    'higijena', 'slatkisi', 'kafa', 'smrznuto', 'pekara', 'ljubimci', 'bebe'
+]
+
+@app.route('/api/admin/products/categorize', methods=['POST'])
+@csrf.exempt
+def api_admin_categorize_products():
+    """Categorize products for a business using AI (OpenAI)"""
+    from auth_api import decode_jwt_token
+    from openai_utils import openai_client
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        data = request.get_json()
+        business_id = data.get('business_id')
+
+        if not business_id:
+            return jsonify({'error': 'business_id is required'}), 400
+
+        # Get products without category_group for this business
+        products = Product.query.filter(
+            Product.business_id == business_id,
+            (Product.category_group.is_(None) | (Product.category_group == ''))
+        ).limit(100).all()  # Process in batches of 100
+
+        if not products:
+            return jsonify({
+                'success': True,
+                'message': 'No products need categorization',
+                'categorized_count': 0
+            })
+
+        # Prepare products for AI
+        products_for_ai = []
+        for p in products:
+            products_for_ai.append({
+                'id': p.id,
+                'title': p.title,
+                'category': p.category or ''
+            })
+
+        # Call OpenAI to categorize
+        system_prompt = f"""You are a product categorization expert for a Bosnian marketplace.
+
+Your task: Assign each product to ONE of these category groups based on its title:
+
+CATEGORY GROUPS:
+- meso: Meat products (chicken, beef, pork, sausages, deli meats, salami)
+- mlijeko: Dairy products (milk, yogurt, cheese, kajmak, butter, cream)
+- pica: Beverages (water, juice, soda, beer, wine, energy drinks)
+- voce_povrce: Fresh fruits and vegetables
+- kuhinja: Kitchen staples (oil, flour, sugar, salt, spices, rice, pasta, canned goods)
+- ves: Laundry products (detergent, fabric softener, stain remover)
+- ciscenje: Cleaning products (floor cleaner, dish soap, disinfectant, wipes)
+- higijena: Personal hygiene (shampoo, soap, toothpaste, deodorant, toilet paper)
+- slatkisi: Sweets and snacks (chocolate, candy, chips, cookies, biscuits)
+- kafa: Coffee and tea products
+- smrznuto: Frozen products (frozen vegetables, pizza, ice cream, frozen meals)
+- pekara: Bakery products (bread, rolls, pastries)
+- ljubimci: Pet supplies (pet food, treats, accessories)
+- bebe: Baby products (diapers, baby food, wipes, formula)
+
+RULES:
+1. Return ONLY valid category group IDs from the list above
+2. If unsure, make your best guess based on the product title
+3. "Kućne potrepštine" products could be: ves, ciscenje, or higijena - determine from title
+4. "Namirnice" could be: kuhinja, slatkisi, or kafa - determine from title
+5. Return JSON array matching input order
+
+Return ONLY valid JSON:
+[
+  {{"id": 123, "category_group": "meso"}},
+  {{"id": 456, "category_group": "mlijeko"}}
+]"""
+
+        user_prompt = f"""Categorize these products:
+
+{json.dumps(products_for_ai, ensure_ascii=False, indent=2)}
+
+Return category_group for each product ID."""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            max_tokens=4000
+        )
+
+        result_text = response.choices[0].message.content.strip()
+
+        # Parse response - handle both array and object with array
+        try:
+            result = json.loads(result_text)
+            if isinstance(result, dict) and 'products' in result:
+                categorizations = result['products']
+            elif isinstance(result, list):
+                categorizations = result
+            else:
+                # Try to find array in the response
+                categorizations = list(result.values())[0] if result else []
+        except:
+            return jsonify({'error': 'Failed to parse AI response'}), 500
+
+        # Update products in database
+        updated_count = 0
+        for cat_item in categorizations:
+            product_id = cat_item.get('id')
+            category_group = cat_item.get('category_group', '').lower()
+
+            if product_id and category_group in VALID_CATEGORY_GROUPS:
+                product = Product.query.get(product_id)
+                if product:
+                    product.category_group = category_group
+                    updated_count += 1
+
+        db.session.commit()
+
+        # Check if there are more products to categorize
+        remaining = Product.query.filter(
+            Product.business_id == business_id,
+            (Product.category_group.is_(None) | (Product.category_group == ''))
+        ).count()
+
+        return jsonify({
+            'success': True,
+            'categorized_count': updated_count,
+            'remaining_count': remaining,
+            'message': f'Categorized {updated_count} products. {remaining} remaining.'
+        })
+
+    except Exception as e:
+        app.logger.error(f"Categorization error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/category-stats', methods=['GET'])
+@csrf.exempt
+def api_admin_category_stats():
+    """Get category_group statistics for products"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        business_id = request.args.get('business_id')
+
+        # Build query
+        query = db.session.query(
+            Product.business_id,
+            Business.name.label('business_name'),
+            func.count(Product.id).label('total'),
+            func.count(Product.category_group).label('categorized')
+        ).join(Business).group_by(Product.business_id, Business.name)
+
+        if business_id:
+            query = query.filter(Product.business_id == int(business_id))
+
+        results = query.all()
+
+        stats = []
+        for row in results:
+            stats.append({
+                'business_id': row.business_id,
+                'business_name': row.business_name,
+                'total_products': row.total,
+                'categorized_products': row.categorized,
+                'uncategorized_products': row.total - row.categorized,
+                'percentage': round((row.categorized / row.total * 100) if row.total > 0 else 0, 1)
+            })
+
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+
+    except Exception as e:
+        app.logger.error(f"Category stats error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
