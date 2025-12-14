@@ -812,6 +812,24 @@ def api_product_price_history(product_id):
 
 
 # API endpoint for products list
+# Category mapping: UI category ID -> list of DB category names
+CATEGORY_MAPPING = {
+    'meso': ['Meso i mesni proizvodi', 'Delikates'],
+    'mlijeko': ['Mliječni proizvodi'],
+    'pica': ['Pića'],
+    'voce_povrce': ['Voće i povrće'],
+    'kuhinja': ['Namirnice'],  # Ulje, brašno, začini, tjestenina
+    'ves': ['Kućne potrepštine'],  # Will need sub-filtering
+    'ciscenje': ['Kućne potrepštine'],  # Will need sub-filtering
+    'higijena': ['Higijena'],
+    'slatkisi': ['Slatkiši', 'Grickalice'],
+    'kafa': ['Namirnice'],  # Kafa/čaj subset - will need sub-filtering
+    'smrznuto': ['Smrznuto'],
+    'pekara': ['Pekara'],
+    'ljubimci': ['Kućni ljubimci'],
+    'bebe': ['Higijena'],  # Baby products subset
+}
+
 @app.route('/api/products')
 def api_products():
     """API endpoint for products listing with pagination"""
@@ -829,7 +847,13 @@ def api_products():
 
         # Apply filters
         if category:
-            query = query.filter(Product.category == category)
+            # Map UI category to DB categories
+            db_categories = CATEGORY_MAPPING.get(category)
+            if db_categories:
+                query = query.filter(Product.category.in_(db_categories))
+            else:
+                # Direct match fallback
+                query = query.filter(Product.category == category)
         if stores:
             # Filter by multiple store IDs
             store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
@@ -901,12 +925,46 @@ def api_products():
         for product in paginated.items:
             products.append(product_to_dict(product))
 
+        # Calculate category counts (for the UI filter)
+        # Build base query for counts (same filters except category)
+        count_query = Product.query.join(Business)
+        if stores:
+            store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
+            if store_ids:
+                count_query = count_query.filter(Product.business_id.in_(store_ids))
+        elif business_id:
+            count_query = count_query.filter(Product.business_id == int(business_id))
+
+        # Get counts per DB category
+        db_category_counts = db.session.query(
+            Product.category,
+            func.count(Product.id)
+        ).join(Business)
+        if stores:
+            store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]
+            if store_ids:
+                db_category_counts = db_category_counts.filter(Product.business_id.in_(store_ids))
+        elif business_id:
+            db_category_counts = db_category_counts.filter(Product.business_id == int(business_id))
+        db_category_counts = db_category_counts.group_by(Product.category).all()
+
+        # Convert to dict
+        db_counts = {cat: count for cat, count in db_category_counts if cat}
+
+        # Map to UI categories
+        category_counts = {}
+        for ui_cat, db_cats in CATEGORY_MAPPING.items():
+            count = sum(db_counts.get(db_cat, 0) for db_cat in db_cats)
+            if count > 0:
+                category_counts[ui_cat] = count
+
         return jsonify({
             'products': products,
             'page': page,
             'per_page': per_page,
             'total': paginated.total,
-            'total_pages': paginated.pages
+            'total_pages': paginated.pages,
+            'category_counts': category_counts
         })
 
     except Exception as e:

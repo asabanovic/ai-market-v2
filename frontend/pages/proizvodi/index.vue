@@ -7,25 +7,17 @@
         <p class="text-gray-600">Filtrirajte po kategoriji i prodavnici da pronađete najbolje popuste</p>
       </div>
 
+      <!-- Category Selector -->
+      <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+        <CategorySelector
+          v-model="selectedCategory"
+          :category-counts="categoryCounts"
+          @update:model-value="onCategoryChange"
+        />
+      </div>
+
       <!-- Filters Section -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <!-- Marketing Message -->
-        <div class="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
-          <div class="flex items-start">
-            <svg class="w-6 h-6 text-purple-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p class="text-sm font-medium text-purple-900">
-                Tražite određeni proizvod? Koristite pametnu pretragu na <NuxtLink to="/" class="underline hover:text-purple-600">početnoj stranici</NuxtLink> za najbolje rezultate!
-              </p>
-              <p class="text-xs text-purple-700 mt-1">
-                Ovdje možete pregledati proizvode po kategoriji i prodavnici.
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Business Filter -->
           <div>
@@ -166,6 +158,8 @@ const totalPages = ref(1)
 const totalProducts = ref(0)
 const perPage = 24
 const selectedStoreIds = ref<number[]>([])
+const selectedCategory = ref<string | null>(null)
+const categoryCounts = ref<Record<string, number>>({})
 
 // Filters
 const filters = ref({
@@ -189,11 +183,18 @@ const initPage = () => {
     selectedStoreIds.value = storeParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
   }
 
+  // Parse category from URL
+  const categoryParam = route.query.category as string
+  if (categoryParam) {
+    selectedCategory.value = categoryParam
+  }
+
   // Track page view
   trackPageView('proizvodi', {
     sort: filters.value.sort,
     page: currentPage.value,
-    stores: selectedStoreIds.value
+    stores: selectedStoreIds.value,
+    category: selectedCategory.value
   })
 
   loadBusinesses()
@@ -225,6 +226,10 @@ watch(() => route.query, () => {
   } else {
     selectedStoreIds.value = []
   }
+
+  const categoryParam = route.query.category as string
+  selectedCategory.value = categoryParam || null
+
   loadProducts()
 })
 
@@ -239,6 +244,13 @@ function onSortChange() {
   currentPage.value = 1
   // Track sort filter change
   trackFilter('proizvodi', 'sort', filters.value.sort)
+  loadProducts()
+}
+
+function onCategoryChange() {
+  currentPage.value = 1
+  // Track category filter change
+  trackFilter('proizvodi', 'category', selectedCategory.value)
   loadProducts()
 }
 
@@ -277,6 +289,9 @@ async function loadProducts() {
     if (selectedStoreIds.value.length > 0) {
       params.append('stores', selectedStoreIds.value.join(','))
     }
+    if (selectedCategory.value) {
+      params.append('category', selectedCategory.value)
+    }
     if (filters.value.sort) params.append('sort', filters.value.sort)
     params.append('page', currentPage.value.toString())
     params.append('per_page', perPage.toString())
@@ -286,6 +301,11 @@ async function loadProducts() {
     products.value = data.products || []
     totalPages.value = data.total_pages || 1
     totalProducts.value = data.total || 0
+
+    // Update category counts if provided
+    if (data.category_counts) {
+      categoryCounts.value = data.category_counts
+    }
 
     updateURL()
   } catch (error) {
@@ -301,6 +321,7 @@ function resetFilters() {
     sort: 'discount_desc'
   }
   selectedStoreIds.value = []
+  selectedCategory.value = null
   currentPage.value = 1
   updateURL()
   loadProducts()
@@ -320,6 +341,7 @@ function changePage(page: number) {
 function updateURL() {
   const query: any = {}
   if (selectedStoreIds.value.length > 0) query.stores = selectedStoreIds.value.join(',')
+  if (selectedCategory.value) query.category = selectedCategory.value
   if (filters.value.sort && filters.value.sort !== 'discount_desc') query.sort = filters.value.sort
   if (currentPage.value > 1) query.page = currentPage.value.toString()
 

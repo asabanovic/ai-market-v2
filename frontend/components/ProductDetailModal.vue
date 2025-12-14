@@ -88,10 +88,10 @@
             <!-- Business Info -->
             <div class="bg-gray-50 rounded-xl p-4">
               <div class="flex items-center gap-3">
-                <div v-if="product.business?.logo && !businessLogoError" class="w-12 h-12 rounded-lg overflow-hidden">
+                <div v-if="businessLogo && !businessLogoError" class="w-12 h-12 rounded-lg overflow-hidden bg-white">
                   <img
-                    :src="`${config.public.apiBase}/static/${product.business.logo}`"
-                    :alt="product.business.name"
+                    :src="businessLogo"
+                    :alt="product.business?.name"
                     class="w-full h-full object-contain"
                     @error="businessLogoError = true"
                   />
@@ -367,6 +367,20 @@ const discountPercentage = computed(() => {
     return Math.round(((props.product.base_price - props.product.discount_price) / props.product.base_price) * 100)
   }
   return 0
+})
+
+// Computed property for business logo - handles different API response formats
+const businessLogo = computed(() => {
+  const logo = props.product.business?.logo || props.product.business?.logo_path
+  if (!logo) return null
+
+  // If it's already a full URL, return as-is
+  if (logo.startsWith('http://') || logo.startsWith('https://')) {
+    return logo
+  }
+
+  // Otherwise, prepend the API base with /static/
+  return `${config.public.apiBase}/static/${logo}`
 })
 
 // Methods
