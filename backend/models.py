@@ -66,6 +66,14 @@ class User(UserMixin, db.Model):
     # First search reward - bonus credits for completing first search
     first_search_reward_claimed = db.Column(db.Boolean, default=False, nullable=False)
 
+    # Feedback bonus tracking - user gets +5 credits per feedback, once per 40 credits spent
+    # Value represents number of feedback bonuses already claimed
+    # User can claim bonus N+1 when total_credits_spent >= N * 40
+    feedback_bonuses_claimed = db.Column(db.Integer, default=0, nullable=False)
+
+    # Lifetime credits spent - tracks total credits ever spent (never resets)
+    lifetime_credits_spent = db.Column(db.Integer, default=0, nullable=False)
+
     # Referral system
     referral_code = db.Column(db.String(20), unique=True, nullable=True)  # Auto-generated unique code
     custom_referral_code = db.Column(db.String(50), unique=True, nullable=True)  # User-chosen custom code (e.g., "adnan")

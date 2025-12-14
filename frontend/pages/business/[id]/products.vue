@@ -191,7 +191,7 @@
         </button>
 
         <div v-show="showBulkImport" class="mt-4 bg-white rounded-lg shadow-md p-6">
-          <form @submit.prevent="submitBulkImport" class="space-y-4">
+          <form @submit.prevent="openBulkPreview" class="space-y-4">
             <div>
               <label for="products_json" class="block text-sm font-medium text-gray-700 mb-1">
                 JSON sa proizvodima
@@ -217,13 +217,14 @@
             </div>
             <button
               type="submit"
-              :disabled="isSubmittingBulk"
+              :disabled="!bulkImportJson.trim()"
               class="w-full bg-purple-600 text-white px-4 py-3 rounded-md font-medium hover:bg-purple-700 transition duration-200 flex items-center justify-center disabled:opacity-50"
             >
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
               </svg>
-              {{ isSubmittingBulk ? 'Importuje se...' : 'Import proizvoda' }}
+              Pregled proizvoda
             </button>
           </form>
           <div v-if="bulkImportStatus" class="mt-4">
@@ -935,6 +936,165 @@
       </div>
     </div>
   </div>
+
+  <!-- Bulk Import Preview Modal -->
+  <div v-if="showBulkPreview" class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+    <!-- Floating action buttons -->
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex gap-4 z-[60]">
+      <button
+        @click="cancelBulkPreview"
+        class="px-6 py-3 text-lg font-medium text-gray-700 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        Otkaži
+      </button>
+      <button
+        @click="confirmBulkUpload"
+        :disabled="isSubmittingBulk || previewProducts.length === 0"
+        class="px-8 py-3 text-lg font-medium text-white bg-green-600 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        {{ isSubmittingBulk ? 'Uploading...' : `Upload ${previewProducts.length} proizvoda` }}
+      </button>
+    </div>
+
+    <div class="relative mx-auto p-6 w-full max-w-7xl">
+      <!-- Header -->
+      <div class="bg-white rounded-t-xl shadow-lg p-6 mb-0">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="text-2xl font-bold text-gray-900">Pregled proizvoda za upload</h3>
+            <p class="text-gray-600 mt-1">
+              {{ filteredPreviewProducts.length }} od {{ previewProducts.length }} proizvoda
+              <span v-if="previewSearchQuery"> (filtrirano)</span>
+              . Kliknite na X da uklonite proizvod.
+            </p>
+          </div>
+          <button @click="cancelBulkPreview" class="text-gray-400 hover:text-gray-600">
+            <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <!-- Search filter for preview products -->
+        <div class="mt-4">
+          <div class="relative">
+            <input
+              v-model="previewSearchQuery"
+              type="text"
+              placeholder="Pretraži proizvode po nazivu..."
+              class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+            <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <button
+              v-if="previewSearchQuery"
+              @click="previewSearchQuery = ''"
+              class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Products Grid -->
+      <div class="bg-gray-50 rounded-b-xl shadow-lg p-6 pb-24">
+        <div v-if="previewProducts.length === 0" class="text-center py-12">
+          <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+          </svg>
+          <p class="text-gray-600 text-lg">Svi proizvodi su uklonjeni</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div
+            v-for="(product, index) in filteredPreviewProducts"
+            :key="product._originalIndex ?? index"
+            class="bg-white rounded-lg shadow-md overflow-hidden relative group hover:shadow-lg transition-shadow"
+          >
+            <!-- Remove button -->
+            <button
+              @click="removePreviewProduct(product._originalIndex ?? index)"
+              class="absolute top-2 right-2 z-10 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+              title="Ukloni proizvod"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+
+            <!-- Discount badge -->
+            <div
+              v-if="product.has_discount"
+              class="absolute top-2 left-2 bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-bold"
+            >
+              -{{ product.discount_percentage }}%
+            </div>
+
+            <!-- Product Image or Placeholder -->
+            <div class="w-full h-32 bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center">
+              <img
+                v-if="product.image_url"
+                :src="product.image_url"
+                :alt="product.title"
+                class="w-full h-32 object-contain"
+                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+              >
+              <svg v-else class="w-10 h-10 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+
+            <!-- Product info -->
+            <div class="p-3">
+              <h4 class="font-semibold text-sm text-gray-900 line-clamp-2 mb-2" :title="product.title">
+                {{ product.title }}
+              </h4>
+
+              <div class="flex items-baseline gap-2 mb-2">
+                <span
+                  v-if="product.discount_price"
+                  class="text-lg font-bold text-green-600"
+                >
+                  {{ formatPrice(product.discount_price) }} KM
+                </span>
+                <span
+                  :class="[
+                    'font-bold',
+                    product.discount_price ? 'text-sm line-through text-gray-400' : 'text-lg text-green-600'
+                  ]"
+                >
+                  {{ formatPrice(product.base_price) }} KM
+                </span>
+              </div>
+
+              <div v-if="product.category" class="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
+                {{ product.category }}
+              </div>
+
+              <div v-if="product.expires" class="text-xs text-gray-500 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                {{ product.expires }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -956,6 +1116,7 @@ const products = ref<any[]>([])
 const selectedProducts = ref<number[]>([])
 const notifications = ref<any[]>([])
 const searchQuery = ref('')
+const previewSearchQuery = ref('')
 const sortBy = ref('created_at_desc')
 const showAddProductForms = ref(false)
 const showBulkImport = ref(false)
@@ -972,6 +1133,18 @@ const uniqueCategories = computed(() => {
 const filteredProducts = computed(() => products.value)
 
 const filteredProductsCount = computed(() => totalProducts.value)
+
+// Computed property for filtered preview products (client-side search)
+const filteredPreviewProducts = computed(() => {
+  if (!previewSearchQuery.value.trim()) {
+    // Add original index to each product for proper removal
+    return previewProducts.value.map((p, i) => ({ ...p, _originalIndex: i }))
+  }
+  const query = previewSearchQuery.value.toLowerCase().trim()
+  return previewProducts.value
+    .map((p, i) => ({ ...p, _originalIndex: i }))
+    .filter(p => p.title?.toLowerCase().includes(query))
+})
 
 // Debounced search
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -1018,6 +1191,20 @@ const aiForm = ref({
 
 const bulkImportJson = ref('')
 const bulkImportStatus = ref<any>(null)
+
+// Bulk import preview state
+const showBulkPreview = ref(false)
+const previewProducts = ref<Array<{
+  title: string
+  base_price: number
+  discount_price?: number
+  category?: string
+  expires?: string
+  product_url?: string
+  image_url?: string
+  has_discount?: boolean
+  discount_percentage?: number
+}>>([])
 
 // Edit modal state
 const showEditModal = ref(false)
@@ -1163,6 +1350,104 @@ async function submitBulkImport() {
         fetchProducts()
         bulkImportJson.value = ''
       }, 2000)
+    } else {
+      bulkImportStatus.value = {
+        type: 'error',
+        message: '✗ Greška: ' + (data.error || 'Nepoznata greška')
+      }
+      showNotification(data.error || 'Greška pri importu', 'error')
+    }
+  } catch (error) {
+    bulkImportStatus.value = {
+      type: 'error',
+      message: '✗ Greška pri importu'
+    }
+    showNotification('Došlo je do greške prilikom importa', 'error')
+  } finally {
+    isSubmittingBulk.value = false
+  }
+}
+
+// Bulk import preview functions
+function openBulkPreview() {
+  bulkImportStatus.value = null
+
+  try {
+    const jsonData = JSON.parse(bulkImportJson.value)
+    if (!jsonData.products || !Array.isArray(jsonData.products)) {
+      throw new Error('JSON mora imati "products" array')
+    }
+
+    // Process products for preview
+    previewProducts.value = jsonData.products.map((product: any) => {
+      const hasDiscount = product.discount_price && product.discount_price < product.base_price
+      const discountPercentage = hasDiscount
+        ? Math.round((1 - product.discount_price / product.base_price) * 100)
+        : 0
+
+      return {
+        title: product.title || 'Bez naziva',
+        base_price: product.base_price || 0,
+        discount_price: product.discount_price || null,
+        category: product.category || null,
+        expires: product.expires || null,
+        product_url: product.product_url || null,
+        image_url: product.image_url || null,
+        has_discount: hasDiscount,
+        discount_percentage: discountPercentage
+      }
+    })
+
+    showBulkPreview.value = true
+  } catch (error: any) {
+    showNotification('Nevažeći JSON format: ' + error.message, 'error')
+  }
+}
+
+function removePreviewProduct(index: number) {
+  previewProducts.value.splice(index, 1)
+}
+
+function cancelBulkPreview() {
+  showBulkPreview.value = false
+  previewProducts.value = []
+  previewSearchQuery.value = ''
+}
+
+async function confirmBulkUpload() {
+  if (previewProducts.value.length === 0) {
+    showNotification('Nema proizvoda za upload', 'error')
+    return
+  }
+
+  isSubmittingBulk.value = true
+  bulkImportStatus.value = null
+
+  try {
+    // Build the products array from preview (without computed fields)
+    const productsToUpload = previewProducts.value.map(p => ({
+      title: p.title,
+      base_price: p.base_price,
+      discount_price: p.discount_price,
+      category: p.category,
+      expires: p.expires,
+      product_url: p.product_url
+    }))
+
+    const data = await post(`/biznisi/${businessId.value}/proizvodi/bulk-import`, {
+      products: productsToUpload
+    })
+
+    if (data.success) {
+      bulkImportStatus.value = {
+        type: 'success',
+        message: data.message || `✓ Uspješno importovano ${data.imported_count} proizvoda!`
+      }
+      showNotification(data.message || 'Proizvodi su uspješno importovani!', 'success')
+      showBulkPreview.value = false
+      previewProducts.value = []
+      bulkImportJson.value = ''
+      setTimeout(() => fetchProducts(), 2000)
     } else {
       bulkImportStatus.value = {
         type: 'error',

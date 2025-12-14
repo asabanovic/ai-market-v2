@@ -6129,8 +6129,10 @@ def api_submit_feedback():
         db.session.add(feedback)
 
         # Award +5 credits if logged in user provides at least 20 characters in any text field
+        # User can only claim one feedback bonus per 40 credits spent
         credits_awarded = False
         MIN_CHARS_FOR_CREDITS = 20
+        CREDITS_PER_FEEDBACK_CYCLE = 40
 
         if user_id:
             # Check if any field has at least 20 characters
@@ -6144,9 +6146,26 @@ def api_submit_feedback():
             if qualifies:
                 user = User.query.get(user_id)
                 if user:
-                    user.extra_credits += 5
-                    credits_awarded = True
-                    app.logger.info(f"Awarded +5 feedback credits to user {user_id}")
+                    # Use lifetime_credits_spent to track total credits ever spent
+                    total_credits_spent = user.lifetime_credits_spent or 0
+
+                    # How many feedback bonuses is the user entitled to?
+                    # First bonus at 0 credits spent (new user gets one), then every 40 credits
+                    # Bonus 1: 0+ credits spent
+                    # Bonus 2: 40+ credits spent
+                    # Bonus 3: 80+ credits spent
+                    max_bonuses_allowed = (total_credits_spent // CREDITS_PER_FEEDBACK_CYCLE) + 1
+
+                    # Check if user hasn't claimed their current entitlement
+                    bonuses_claimed = user.feedback_bonuses_claimed or 0
+
+                    if bonuses_claimed < max_bonuses_allowed:
+                        user.extra_credits += 5
+                        user.feedback_bonuses_claimed = bonuses_claimed + 1
+                        credits_awarded = True
+                        app.logger.info(f"Awarded +5 feedback credits to user {user_id} (bonus #{bonuses_claimed + 1}, lifetime_spent={total_credits_spent})")
+                    else:
+                        app.logger.info(f"User {user_id} not eligible for feedback bonus (claimed={bonuses_claimed}, max_allowed={max_bonuses_allowed}, lifetime_spent={total_credits_spent})")
 
         db.session.commit()
 

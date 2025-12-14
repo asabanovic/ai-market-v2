@@ -219,9 +219,12 @@ class WeeklyCreditsService:
         user.extra_credits = (user.extra_credits or 0) - extra_used
         user.weekly_credits_used += regular_used
 
+        # Track lifetime credits spent (for feedback bonus eligibility)
+        user.lifetime_credits_spent = (user.lifetime_credits_spent or 0) + amount
+
         db.session.commit()
 
-        logger.info(f"Deducted {amount} credits from user {user_id}: {extra_used} extra + {regular_used} regular")
+        logger.info(f"Deducted {amount} credits from user {user_id}: {extra_used} extra + {regular_used} regular (lifetime spent: {user.lifetime_credits_spent})")
 
         new_balance = WeeklyCreditsService.get_balance(user_id, auto_reset_weekly=False)
 
