@@ -2,8 +2,14 @@
   <div class="store-selector">
     <!-- Toggle Button -->
     <button
-      @click="isOpen = !isOpen"
-      class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+      @click="!disabled && (isOpen = !isOpen)"
+      :disabled="disabled"
+      :class="[
+        'flex items-center gap-2 px-3 py-2 text-sm font-medium bg-white border rounded-lg transition-colors',
+        disabled
+          ? 'text-gray-400 border-gray-200 cursor-not-allowed'
+          : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+      ]"
     >
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -111,6 +117,7 @@ interface Store {
 const props = defineProps<{
   modelValue: number[]
   stores: Store[]
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{

@@ -12,34 +12,44 @@
         <CategorySelector
           v-model="selectedCategory"
           :category-counts="categoryCounts"
+          :disabled="!canPaginate"
           @update:model-value="onCategoryChange"
         />
+        <!-- Credits warning for category selector -->
+        <div v-if="!canPaginate" class="mt-3 text-sm text-amber-700 flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>Filteri su onemogućeni jer nemate dovoljno kredita. <button @click="showCreditsPopup = true" class="text-purple-600 font-medium hover:underline">Zaradite kredite</button></span>
+        </div>
       </div>
 
       <!-- Filters Section -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Business Filter -->
-          <div>
+          <div :class="{ 'opacity-50 pointer-events-none': !canPaginate }">
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Prodavnica
             </label>
             <StoreSelector
               v-model="selectedStoreIds"
               :stores="businesses"
+              :disabled="!canPaginate"
               @update:model-value="onStoresChange"
             />
           </div>
 
           <!-- Sort Filter -->
-          <div>
+          <div :class="{ 'opacity-50': !canPaginate }">
             <label for="sort" class="block text-sm font-medium text-gray-700 mb-1">
               Sortiraj po
             </label>
             <select
               id="sort"
               v-model="filters.sort"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              :disabled="!canPaginate"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:cursor-not-allowed disabled:bg-gray-100"
               @change="onSortChange"
             >
               <option value="discount_desc">Najveći popust</option>
@@ -96,38 +106,51 @@
       </div>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1 && !isLoading" class="flex justify-center items-center space-x-2">
-        <button
-          :disabled="currentPage === 1"
-          @click="changePage(currentPage - 1)"
-          class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Prethodna
-        </button>
-
-        <div class="flex space-x-1">
-          <button
-            v-for="page in visiblePages"
-            :key="page"
-            @click="changePage(page)"
-            :class="[
-              'px-4 py-2 border rounded-md',
-              page === currentPage
-                ? 'bg-purple-600 text-white border-purple-600'
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            ]"
-          >
-            {{ page }}
-          </button>
+      <div v-if="totalPages > 1 && !isLoading" class="flex flex-col items-center space-y-3">
+        <!-- Low credits warning -->
+        <div v-if="!canPaginate && currentPage === 1" class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800 flex items-center gap-2">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>Nemate dovoljno kredita za pregled više stranica. <button @click="showCreditsPopup = true" class="text-purple-600 font-medium hover:underline">Zaradite kredite</button></span>
         </div>
 
-        <button
-          :disabled="currentPage === totalPages"
-          @click="changePage(currentPage + 1)"
-          class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Sledeća
-        </button>
+        <div class="flex justify-center items-center space-x-2">
+          <button
+            :disabled="currentPage === 1"
+            @click="changePage(currentPage - 1)"
+            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Prethodna
+          </button>
+
+          <div class="flex space-x-1">
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              @click="changePage(page)"
+              :disabled="page > 1 && !canPaginate"
+              :class="[
+                'px-4 py-2 border rounded-md',
+                page === currentPage
+                  ? 'bg-purple-600 text-white border-purple-600'
+                  : page > 1 && !canPaginate
+                    ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              ]"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button
+            :disabled="currentPage === totalPages || !canPaginate"
+            @click="changePage(currentPage + 1)"
+            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Sledeća
+          </button>
+        </div>
       </div>
     </div>
 
@@ -136,6 +159,15 @@
       v-if="showRegistrationPrompt"
       :product-count="totalActiveProducts"
       @close="showRegistrationPrompt = false"
+    />
+
+    <!-- Earn Credits Popup -->
+    <EarnCreditsPopup
+      :is-visible="showCreditsPopup"
+      :credits-needed="creditsNeeded"
+      :credits-remaining="creditsRemaining"
+      @close="showCreditsPopup = false"
+      @go-to-products="goToProductsToEngage"
     />
   </div>
 </template>
@@ -160,6 +192,12 @@ const perPage = 24
 const selectedStoreIds = ref<number[]>([])
 const selectedCategory = ref<string | null>(null)
 const categoryCounts = ref<Record<string, number>>({})
+
+// Credits popup state
+const showCreditsPopup = ref(false)
+const creditsNeeded = ref(3)
+const creditsRemaining = ref(0)
+const canPaginate = ref(true) // Whether user has enough credits for pagination
 
 // Filters
 const filters = ref({
@@ -296,11 +334,46 @@ async function loadProducts() {
     params.append('page', currentPage.value.toString())
     params.append('per_page', perPage.toString())
 
-    const data = await get(`/api/products?${params.toString()}`)
+    // Use fetch directly to handle 402 credit errors
+    const config = useRuntimeConfig()
+    const token = process.client ? localStorage.getItem('token') : null
+    const response = await fetch(`${config.public.apiBase}/api/products?${params.toString()}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+    })
+
+    const data = await response.json()
+
+    // Handle insufficient credits error (402)
+    if (response.status === 402 && data.error === 'insufficient_credits') {
+      creditsNeeded.value = data.credits_needed || 3
+      creditsRemaining.value = data.credits_remaining || 0
+      showCreditsPopup.value = true
+      // Reset to page 1 since they can't view this page
+      currentPage.value = 1
+      updateURL()
+      // Don't clear products - keep showing page 1 results
+      isLoading.value = false
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to load products')
+    }
 
     products.value = data.products || []
     totalPages.value = data.total_pages || 1
     totalProducts.value = data.total || 0
+
+    // Update credits info
+    if (data.credits_remaining !== undefined) {
+      creditsRemaining.value = data.credits_remaining
+    }
+    if (data.can_paginate !== undefined) {
+      canPaginate.value = data.can_paginate
+    }
 
     // Update category counts if provided
     if (data.category_counts) {
@@ -325,6 +398,18 @@ function resetFilters() {
   currentPage.value = 1
   updateURL()
   loadProducts()
+}
+
+// Navigate to first product to encourage engagement (commenting/voting)
+function goToProductsToEngage() {
+  showCreditsPopup.value = false
+  // If we have products, navigate to the first one so user can engage
+  if (products.value.length > 0) {
+    const firstProduct = products.value[0]
+    // Open product detail modal or navigate to product page
+    // For now, scroll to products grid so user can click on any product
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 }
 
 function changePage(page: number) {

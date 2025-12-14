@@ -486,10 +486,13 @@ const averageProductsPerBusiness = computed(() => {
 })
 
 onMounted(async () => {
-  await Promise.all([
-    loadProducts(),
-    loadEmbeddingStatus()
-  ])
+  try {
+    await loadProducts()
+    // Load embedding status in background (optional, don't block UI)
+    loadEmbeddingStatus().catch(e => console.log('Embedding stats not available'))
+  } finally {
+    isLoading.value = false
+  }
 })
 
 async function loadProducts() {
@@ -519,8 +522,6 @@ async function loadEmbeddingStatus() {
     }
   } catch (error) {
     console.error('Error loading embedding status:', error)
-  } finally {
-    isLoading.value = false
   }
 }
 

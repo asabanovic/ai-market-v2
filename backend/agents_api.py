@@ -28,6 +28,37 @@ def get_user_id_from_token():
     return None
 
 
+def parse_query_items(query):
+    """Parse query into individual product items.
+
+    Examples:
+        - "brasno" -> ["brasno"]
+        - "brasno, cokolada, mlijeko" -> ["brasno", "cokolada", "mlijeko"]
+        - "lista: hljeb, mlijeko, jaja" -> ["hljeb", "mlijeko", "jaja"]
+
+    Returns:
+        list: List of individual item strings
+    """
+    # Remove common prefixes like "lista:", "trebam:", etc.
+    query_clean = query
+    for prefix in ['lista:', 'lista za kupovinu:', 'trebam:', 'želim:', 'treba mi:']:
+        query_clean = query_clean.lower().replace(prefix, '')
+        query_clean = query.replace(prefix.capitalize(), '').replace(prefix.upper(), '')
+
+    # Parse by commas (most common separator)
+    if ',' in query_clean:
+        items = [item.strip() for item in query_clean.split(',') if item.strip()]
+        return items
+
+    # Parse by newlines
+    if '\n' in query_clean:
+        items = [item.strip() for item in query_clean.split('\n') if item.strip() and not item.strip().startswith('-')]
+        return items
+
+    # Single item
+    return [query_clean.strip()] if query_clean.strip() else []
+
+
 def count_products_in_query(query):
     """Count the number of products/items in a search query.
 
@@ -36,23 +67,8 @@ def count_products_in_query(query):
         - "brasno, cokolada, mlijeko" -> 3
         - "lista: hljeb, mlijeko, jaja" -> 3
     """
-    # Remove common prefixes like "lista:", "trebam:", etc.
-    query_clean = query.lower()
-    for prefix in ['lista:', 'lista za kupovinu:', 'trebam:', 'želim:', 'treba mi:']:
-        query_clean = query_clean.replace(prefix, '')
-
-    # Count by commas (most common separator)
-    if ',' in query_clean:
-        items = [item.strip() for item in query_clean.split(',') if item.strip()]
-        return len(items)
-
-    # Count by newlines
-    if '\n' in query_clean:
-        items = [item.strip() for item in query_clean.split('\n') if item.strip() and not item.strip().startswith('-')]
-        return max(len(items), 1)
-
-    # Single item query
-    return 1
+    items = parse_query_items(query)
+    return max(len(items), 1)
 
 
 def reset_daily_credits_if_needed(user):
@@ -108,6 +124,46 @@ def check_and_deduct_credits(user, credits_needed):
 
     current_app.logger.info(f"Deducted {credits_needed} credits from user {user.id}. Remaining: {new_total_remaining}")
     return True, "Success", new_total_remaining
+
+
+def get_available_credits(user):
+    """Get user's available credits without deducting.
+
+    Returns:
+        int: Total available credits (weekly + extra)
+    """
+    # Reset credits if it's a new week
+    reset_daily_credits_if_needed(user)
+
+    weekly_remaining = user.weekly_credits - user.weekly_credits_used
+    return weekly_remaining + user.extra_credits
+
+
+def deduct_credits(user, credits_to_deduct):
+    """Deduct a specific amount of credits from user.
+
+    Returns:
+        int: Credits remaining after deduction
+    """
+    weekly_remaining = user.weekly_credits - user.weekly_credits_used
+
+    # Deduct from extra credits first, then weekly credits
+    if user.extra_credits >= credits_to_deduct:
+        user.extra_credits -= credits_to_deduct
+    else:
+        # Use all extra credits first
+        remaining_needed = credits_to_deduct - user.extra_credits
+        user.extra_credits = 0
+        # Then use weekly credits
+        user.weekly_credits_used += remaining_needed
+
+    # Track lifetime spending
+    user.lifetime_credits_spent += credits_to_deduct
+
+    db.session.commit()
+
+    new_weekly_remaining = user.weekly_credits - user.weekly_credits_used
+    return new_weekly_remaining + user.extra_credits
 
 
 def parse_user_agent(user_agent_string):
@@ -297,6 +353,10 @@ def unified_search():
         # Track if first search bonus should be awarded
         first_search_bonus_awarded = False
 
+        # Track how many items were limited due to credits
+        items_limited = 0
+        original_query_count = 0
+
         # Check user credits if logged in
         if user_id:
             # Get user from database
@@ -308,18 +368,33 @@ def unified_search():
                 }), 404
 
             # Count products in the query
-            credits_needed = count_products_in_query(query)
+            original_query_count = count_products_in_query(query)
+            available_credits = get_available_credits(user)
 
-            # Check and deduct credits
-            success, message, credits_remaining = check_and_deduct_credits(user, credits_needed)
-            if not success:
+            # If user has 0 credits, return error
+            if available_credits <= 0:
                 return jsonify({
                     "success": False,
                     "error": "credits_exhausted",
-                    "message": message,
-                    "credits_remaining": credits_remaining,
-                    "credits_needed": credits_needed
+                    "message": "Nemate kredita. Krediti se obnavljaju sljedeće sedmice ili zaradite kredite komentarisanjem proizvoda!",
+                    "credits_remaining": 0,
+                    "credits_needed": original_query_count
                 }), 403
+
+            # Limit search to available credits if needed
+            if original_query_count > available_credits:
+                # Parse query items and take only what user can afford
+                query_items = parse_query_items(query)
+                limited_items = query_items[:available_credits]
+                query = ', '.join(limited_items)
+                items_limited = original_query_count - available_credits
+                credits_to_charge = available_credits
+                current_app.logger.info(f"Limited search from {original_query_count} to {available_credits} items for user {user_id}")
+            else:
+                credits_to_charge = original_query_count
+
+            # Deduct credits for what we're actually searching
+            credits_remaining = deduct_credits(user, credits_to_charge)
 
             # Check and award first search bonus (+3 extra credits)
             if not user.first_search_reward_claimed:
@@ -439,6 +514,12 @@ def unified_search():
         # Add first search bonus flag if awarded
         if first_search_bonus_awarded:
             response_data["first_search_bonus"] = True
+
+        # Add items_limited info if search was limited due to credits
+        if items_limited > 0:
+            response_data["items_limited"] = items_limited
+            response_data["original_query_count"] = original_query_count
+            response_data["limited_message"] = f"Prikazano {original_query_count - items_limited} od {original_query_count} proizvoda zbog ograničenih kredita. Zaradite kredite komentarisanjem proizvoda!"
 
         return jsonify(response_data), 200
 

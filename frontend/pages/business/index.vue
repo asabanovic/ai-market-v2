@@ -113,6 +113,14 @@
               >
                 Upravljaj PDF-ima
               </button>
+              <button
+                v-if="user?.is_admin"
+                @click="categorizeBusinessProducts(business.id)"
+                :disabled="isCategorizingBusiness.has(business.id)"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {{ isCategorizingBusiness.has(business.id) ? 'Kategoriziram...' : 'AI Kategoriziraj' }}
+              </button>
             </div>
           </div>
         </div>
@@ -606,6 +614,9 @@ const pdfForm = ref({
   pdf_url: '',
   last_sync: null as string | null
 })
+
+// AI Categorization
+const isCategorizingBusiness = ref<Set<number>>(new Set())
 const pdfFile = ref<File | null>(null)
 const isSavingPdfUrl = ref(false)
 const isSyncingPdf = ref(false)
@@ -864,6 +875,28 @@ function openPdfModal(business: any) {
 function closePdfModal() {
   showPdfModal.value = false
   pdfResults.value = null
+}
+
+// AI Categorization function - runs in background
+function categorizeBusinessProducts(businessId: number) {
+  if (isCategorizingBusiness.value.has(businessId)) return
+
+  isCategorizingBusiness.value.add(businessId)
+  isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+
+  alert('Kategorizacija pokrenuta u pozadini. Možete nastaviti sa radom.')
+
+  // Fire and forget - run in background
+  post('/api/admin/products/categorize', {
+    business_id: businessId
+  }).then(response => {
+    console.log(`Kategorized ${response.categorized_count} products for business ${businessId}`)
+  }).catch(error => {
+    console.error(`Error categorizing products for business ${businessId}:`, error)
+  }).finally(() => {
+    isCategorizingBusiness.value.delete(businessId)
+    isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+  })
 }
 
 async function savePdfUrl() {

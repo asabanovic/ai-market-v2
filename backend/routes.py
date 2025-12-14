@@ -832,7 +832,11 @@ CATEGORY_MAPPING = {
 
 @app.route('/api/products')
 def api_products():
-    """API endpoint for products listing with pagination"""
+    """API endpoint for products listing with pagination.
+
+    Credits: Page 1 is free, pages 2+ cost 3 credits.
+    If user doesn't have enough credits, returns credits_required error.
+    """
     try:
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 24))
@@ -841,6 +845,67 @@ def api_products():
         stores = request.args.get('stores')  # Comma-separated store IDs
         search = request.args.get('search')
         sort = request.args.get('sort', 'discount_desc')
+
+        # Credit check for pages beyond page 1
+        PRODUCTS_PAGE_COST = 3
+        credits_remaining = None
+        user = None
+        can_paginate = True  # Whether user has enough credits for next page
+
+        # Try to get authenticated user (for any page, to show credit status)
+        from auth_api import decode_jwt_token
+        auth_header = request.headers.get('Authorization')
+
+        if auth_header:
+            try:
+                token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+                payload = decode_jwt_token(token)
+                if payload:
+                    user = User.query.get(payload.get('user_id'))
+            except Exception:
+                pass
+
+        if page > 1:
+            if not auth_header:
+                return jsonify({
+                    'error': 'credits_required',
+                    'message': 'Morate biti prijavljeni da biste pregledali više proizvoda.',
+                    'credits_needed': PRODUCTS_PAGE_COST,
+                    'credits_remaining': 0
+                }), 401
+
+            if not user:
+                return jsonify({
+                    'error': 'credits_required',
+                    'message': 'Morate biti prijavljeni da biste pregledali više proizvoda.',
+                    'credits_needed': PRODUCTS_PAGE_COST,
+                    'credits_remaining': 0
+                }), 401
+
+            # Check and deduct credits
+            from agents_api import check_and_deduct_credits
+            success, message, credits_remaining = check_and_deduct_credits(user, PRODUCTS_PAGE_COST)
+
+            if not success:
+                # Calculate remaining credits for response
+                weekly_remaining = user.weekly_credits - user.weekly_credits_used
+                total_remaining = weekly_remaining + user.extra_credits
+
+                return jsonify({
+                    'error': 'insufficient_credits',
+                    'message': 'Nemate dovoljno kredita za pregled ove stranice.',
+                    'credits_needed': PRODUCTS_PAGE_COST,
+                    'credits_remaining': total_remaining,
+                    'earn_credits_message': 'Zaradite kredite tako što ćete ostaviti komentar (+5) ili glasati za proizvode (+2). Pomozite drugima da donesu bolju odluku pri kupovini!'
+                }), 402  # Payment Required
+        elif user:
+            # For page 1, just get user's credits for display (no deduction)
+            from agents_api import get_available_credits
+            credits_remaining = get_available_credits(user)
+
+        # Determine if user can paginate (has enough credits for page 2+)
+        if user and credits_remaining is not None:
+            can_paginate = credits_remaining >= PRODUCTS_PAGE_COST
 
         # Base query - show all products (expired discounts become regular products)
         query = Product.query.join(Business)
@@ -965,14 +1030,22 @@ def api_products():
         # Convert to dict
         category_counts = {cat: count for cat, count in category_counts_result if cat}
 
-        return jsonify({
+        response_data = {
             'products': products,
             'page': page,
             'per_page': per_page,
             'total': paginated.total,
             'total_pages': paginated.pages,
-            'category_counts': category_counts
-        })
+            'category_counts': category_counts,
+            'credits_cost': PRODUCTS_PAGE_COST if page > 1 else 0,
+            'can_paginate': can_paginate
+        }
+
+        # Include credits remaining if user is authenticated
+        if credits_remaining is not None:
+            response_data['credits_remaining'] = credits_remaining
+
+        return jsonify(response_data)
 
     except Exception as e:
         app.logger.error(f"Error in products API: {e}")
@@ -5593,7 +5666,7 @@ def api_admin_products():
             businesses_dict[business.id] = {
                 'id': business.id,
                 'name': business.name,
-                'logo': business.logo,
+                'logo': business.logo_path,
                 'products': []
             }
         businesses_dict[business.id]['products'].append({

@@ -1,5 +1,27 @@
 <template>
   <div class="category-selector">
+    <!-- Left arrow button (mobile) -->
+    <button
+      v-if="showLeftGradient"
+      @click="scrollLeft"
+      class="md:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white/90 shadow-md rounded-full p-1.5 text-gray-600 hover:bg-gray-100 active:bg-gray-200"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+
+    <!-- Right arrow button (mobile) -->
+    <button
+      v-if="showRightGradient"
+      @click="scrollRight"
+      class="md:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white/90 shadow-md rounded-full p-1.5 text-gray-600 hover:bg-gray-100 active:bg-gray-200"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+
     <!-- Scroll hint gradient on left -->
     <div
       v-if="showLeftGradient"
@@ -14,17 +36,23 @@
 
     <div
       ref="scrollContainer"
-      class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-1"
+      class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-6 md:px-1"
       @scroll="updateGradients"
     >
       <!-- All categories button -->
       <button
         @click="selectCategory(null)"
+        :disabled="disabled"
         :class="[
           'flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[72px]',
+          disabled
+            ? 'opacity-50 cursor-not-allowed'
+            : '',
           selectedCategory === null
             ? 'bg-purple-600 text-white shadow-md'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            : disabled
+              ? 'bg-gray-100 text-gray-400'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
         ]"
       >
         <span class="text-xl">🏪</span>
@@ -36,11 +64,17 @@
         v-for="category in categories"
         :key="category.id"
         @click="selectCategory(category.id)"
+        :disabled="disabled"
         :class="[
           'flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[72px]',
+          disabled
+            ? 'opacity-50 cursor-not-allowed'
+            : '',
           selectedCategory === category.id
             ? 'bg-purple-600 text-white shadow-md'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            : disabled
+              ? 'bg-gray-100 text-gray-400'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
         ]"
       >
         <span class="text-xl">{{ category.icon }}</span>
@@ -72,6 +106,7 @@ interface Category {
 const props = defineProps<{
   modelValue: string | null
   categoryCounts?: Record<string, number>
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -113,6 +148,7 @@ const selectedCategory = computed({
 })
 
 function selectCategory(categoryId: string | null) {
+  if (props.disabled) return
   selectedCategory.value = categoryId
 }
 
@@ -122,6 +158,16 @@ function updateGradients() {
   const { scrollLeft, scrollWidth, clientWidth } = scrollContainer.value
   showLeftGradient.value = scrollLeft > 10
   showRightGradient.value = scrollLeft < scrollWidth - clientWidth - 10
+}
+
+function scrollLeft() {
+  if (!scrollContainer.value) return
+  scrollContainer.value.scrollBy({ left: -150, behavior: 'smooth' })
+}
+
+function scrollRight() {
+  if (!scrollContainer.value) return
+  scrollContainer.value.scrollBy({ left: 150, behavior: 'smooth' })
 }
 
 onMounted(() => {
