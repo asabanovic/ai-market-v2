@@ -185,8 +185,12 @@ definePageMeta({
 })
 
 const { get } = useApi()
-const toast = useToast()
 const config = useRuntimeConfig()
+
+// Simple notification (just console log for this page since it's a minor error)
+function showNotification(message: string, type: string) {
+  console.log(`[${type}] ${message}`)
+}
 
 function getLogoUrl(path: string): string {
   if (!path) return ''
@@ -223,11 +227,7 @@ async function loadLists(page = 1) {
     pagination.value = data.pagination
   } catch (error) {
     console.error('Error loading shopping history:', error)
-    toast.add({
-      title: 'Greška',
-      description: 'Nije moguće učitati prethodne liste',
-      color: 'red'
-    })
+    showNotification('Nije moguće učitati prethodne liste', 'error')
   } finally {
     isLoading.value = false
   }

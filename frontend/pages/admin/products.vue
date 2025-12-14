@@ -1,5 +1,28 @@
 <template>
   <div class="min-h-screen bg-gray-50 py-6">
+    <!-- Notifications -->
+    <div class="fixed top-4 right-4 z-50 space-y-2">
+      <div
+        v-for="(notification, index) in notifications"
+        :key="index"
+        class="px-4 py-3 rounded-lg shadow-lg max-w-sm"
+        :class="{
+          'bg-green-100 text-green-800 border border-green-200': notification.type === 'success',
+          'bg-red-100 text-red-800 border border-red-200': notification.type === 'error',
+          'bg-blue-100 text-blue-800 border border-blue-200': notification.type === 'info'
+        }"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-sm">{{ notification.message }}</span>
+          <button @click="removeNotification(index)" class="ml-2 text-current opacity-70 hover:opacity-100">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="mb-8">
@@ -376,7 +399,24 @@ definePageMeta({
 })
 
 const { get, post } = useApi()
-const toast = useToast()
+
+// Notifications
+const notifications = ref<Array<{ message: string; type: 'success' | 'error' | 'info' }>>([])
+
+function showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
+  const notification = { message, type }
+  notifications.value.push(notification)
+  setTimeout(() => {
+    const index = notifications.value.indexOf(notification)
+    if (index > -1) {
+      notifications.value.splice(index, 1)
+    }
+  }, 5000)
+}
+
+function removeNotification(index: number) {
+  notifications.value.splice(index, 1)
+}
 
 const isLoading = ref(true)
 const stats = ref<any>({})
@@ -459,11 +499,7 @@ async function loadProducts() {
     businessesWithProducts.value = data.businesses_with_products || []
   } catch (error) {
     console.error('Error loading products:', error)
-    toast.add({
-      title: 'Greška',
-      description: 'Nije moguće učitati proizvode',
-      color: 'red'
-    })
+    showNotification('Nije moguće učitati proizvode', 'error')
   }
 }
 
@@ -539,11 +575,7 @@ function selectAllNeedsRefresh() {
   productsNeedingRefresh.forEach(id => selectedProductIds.value.add(id))
   selectedProductIds.value = new Set(selectedProductIds.value)
 
-  toast.add({
-    title: 'Odabrano',
-    description: `Odabrano ${productsNeedingRefresh.length} proizvoda sa potrebnim refresh-om`,
-    color: 'blue'
-  })
+  showNotification(`Odabrano ${productsNeedingRefresh.length} proizvoda sa potrebnim refresh-om`, 'info')
 }
 
 function selectAllNoEmbedding() {
@@ -558,11 +590,7 @@ function selectAllNoEmbedding() {
   productsNoEmbedding.forEach(id => selectedProductIds.value.add(id))
   selectedProductIds.value = new Set(selectedProductIds.value)
 
-  toast.add({
-    title: 'Odabrano',
-    description: `Odabrano ${productsNoEmbedding.length} proizvoda bez embeddings`,
-    color: 'blue'
-  })
+  showNotification(`Odabrano ${productsNoEmbedding.length} proizvoda bez embeddings`, 'info')
 }
 
 function clearSelection() {
@@ -572,11 +600,7 @@ function clearSelection() {
 
 async function regenerateSelectedEmbeddings() {
   if (selectedProductIds.value.size === 0) {
-    toast.add({
-      title: 'Greška',
-      description: 'Nije odabran nijedan proizvod',
-      color: 'red'
-    })
+    showNotification('Nije odabran nijedan proizvod', 'error')
     return
   }
 
@@ -587,11 +611,7 @@ async function regenerateSelectedEmbeddings() {
       product_ids: Array.from(selectedProductIds.value)
     })
 
-    toast.add({
-      title: 'Uspješno',
-      description: `Regeneracija pokrenuta za ${selectedProductIds.value.size} proizvoda`,
-      color: 'green'
-    })
+    showNotification(`Regeneracija pokrenuta za ${selectedProductIds.value.size} proizvoda`, 'success')
 
     // Clear selection and reload status after a delay
     clearSelection()
@@ -601,11 +621,7 @@ async function regenerateSelectedEmbeddings() {
 
   } catch (error: any) {
     console.error('Error regenerating embeddings:', error)
-    toast.add({
-      title: 'Greška',
-      description: error.message || 'Nije moguće regenerirati embeddings',
-      color: 'red'
-    })
+    showNotification(error.message || 'Nije moguće regenerirati embeddings', 'error')
   } finally {
     isRegenerating.value = false
   }
@@ -623,11 +639,7 @@ async function regenerateAllChanged() {
       changed_only: true
     })
 
-    toast.add({
-      title: 'Uspješno',
-      description: 'Regeneracija pokrenuta za sve promijenjene proizvode',
-      color: 'green'
-    })
+    showNotification('Regeneracija pokrenuta za sve promijenjene proizvode', 'success')
 
     // Reload status after a delay
     setTimeout(async () => {
@@ -636,11 +648,7 @@ async function regenerateAllChanged() {
 
   } catch (error: any) {
     console.error('Error regenerating embeddings:', error)
-    toast.add({
-      title: 'Greška',
-      description: error.message || 'Nije moguće regenerirati embeddings',
-      color: 'red'
-    })
+    showNotification(error.message || 'Nije moguće regenerirati embeddings', 'error')
   } finally {
     isRegenerating.value = false
   }
@@ -658,11 +666,7 @@ async function vectorizeAllProducts() {
       force: true
     })
 
-    toast.add({
-      title: 'Uspješno',
-      description: `Vectorizovano ${response.stats?.succeeded || 0}/${response.stats?.processed || 0} proizvoda`,
-      color: 'green'
-    })
+    showNotification(`Vectorizovano ${response.stats?.succeeded || 0}/${response.stats?.processed || 0} proizvoda`, 'success')
 
     // Reload status after a delay
     setTimeout(async () => {
@@ -672,11 +676,7 @@ async function vectorizeAllProducts() {
 
   } catch (error: any) {
     console.error('Error vectorizing all products:', error)
-    toast.add({
-      title: 'Greška',
-      description: error.message || 'Nije moguće vectorize sve proizvode',
-      color: 'red'
-    })
+    showNotification(error.message || 'Nije moguće vectorize sve proizvode', 'error')
   } finally {
     isRegenerating.value = false
   }
@@ -692,11 +692,7 @@ async function vectorizeSingleProduct(productId: number) {
       force: true
     })
 
-    toast.add({
-      title: 'Uspješno',
-      description: `Proizvod ${productId} je vectorizovan`,
-      color: 'green'
-    })
+    showNotification(`Proizvod ${productId} je vectorizovan`, 'success')
 
     // Reload status for this product
     setTimeout(async () => {
@@ -705,11 +701,7 @@ async function vectorizeSingleProduct(productId: number) {
 
   } catch (error: any) {
     console.error(`Error vectorizing product ${productId}:`, error)
-    toast.add({
-      title: 'Greška',
-      description: error.message || `Nije moguće vectorize proizvod ${productId}`,
-      color: 'red'
-    })
+    showNotification(error.message || `Nije moguće vectorize proizvod ${productId}`, 'error')
   } finally {
     isVectorizingProduct.value.delete(productId)
     isVectorizingProduct.value = new Set(isVectorizingProduct.value)
@@ -725,11 +717,7 @@ async function categorizeBusinessProducts(businessId: number) {
       business_id: businessId
     })
 
-    toast.add({
-      title: 'Uspješno',
-      description: response.message || `Kategorizirano ${response.categorized_count} proizvoda`,
-      color: 'green'
-    })
+    showNotification(response.message || `Kategorizirano ${response.categorized_count} proizvoda`, 'success')
 
     // If there are more products to categorize, ask if user wants to continue
     if (response.remaining_count > 0) {
@@ -747,11 +735,7 @@ async function categorizeBusinessProducts(businessId: number) {
 
   } catch (error: any) {
     console.error(`Error categorizing products for business ${businessId}:`, error)
-    toast.add({
-      title: 'Greška',
-      description: error.message || 'Nije moguće kategorizirati proizvode',
-      color: 'red'
-    })
+    showNotification(error.message || 'Nije moguće kategorizirati proizvode', 'error')
   } finally {
     isCategorizingBusiness.value.delete(businessId)
     isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
