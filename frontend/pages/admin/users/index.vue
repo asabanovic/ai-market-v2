@@ -78,6 +78,7 @@
                   <div>Aktivnost (7 dana)</div>
                   <div class="flex gap-2 mt-1 font-normal normal-case">
                     <span class="flex items-center gap-1"><span class="w-2 h-2 bg-blue-400 rounded"></span>pretrage</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-yellow-400 rounded"></span>proizvodi</span>
                     <span class="flex items-center gap-1"><span class="w-2 h-2 bg-purple-400 rounded"></span>interakcije</span>
                   </div>
                 </th>
@@ -140,13 +141,19 @@
                       <div class="flex gap-px">
                         <!-- Search bar (blue) -->
                         <div
-                          class="w-2 bg-blue-400 rounded-t transition-all"
+                          class="w-1.5 bg-blue-400 rounded-t transition-all"
                           :style="{ height: `${Math.min(day.searches * 4, 24)}px` }"
                           :title="`${day.day}: ${day.searches} pretraga`"
                         ></div>
+                        <!-- Proizvodi visits bar (yellow) -->
+                        <div
+                          class="w-1.5 bg-yellow-400 rounded-t transition-all"
+                          :style="{ height: `${Math.min((day.proizvodi || 0) * 4, 24)}px` }"
+                          :title="`${day.day}: ${day.proizvodi || 0} posjeta Proizvodi`"
+                        ></div>
                         <!-- Engagement bar (purple) -->
                         <div
-                          class="w-2 bg-purple-400 rounded-t transition-all"
+                          class="w-1.5 bg-purple-400 rounded-t transition-all"
                           :style="{ height: `${Math.min(day.engagements * 4, 24)}px` }"
                           :title="`${day.day}: ${day.engagements} interakcija`"
                         ></div>

@@ -783,6 +783,31 @@ class UserActivity(db.Model):
     )
 
 
+# UserDailyVisit - track unique daily visits per user (one record per user per day)
+class UserDailyVisit(db.Model):
+    __tablename__ = 'user_daily_visits'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    visit_date = db.Column(db.Date, nullable=False)  # The date of the visit
+
+    # Track first and last activity time on that day
+    first_seen = db.Column(db.DateTime, default=datetime.now)
+    last_seen = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Count of page views on that day (optional, for extra insight)
+    page_views = db.Column(db.Integer, default=1)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('daily_visits', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'visit_date', name='uq_user_daily_visit'),
+        db.Index('idx_user_daily_visits_user_id', 'user_id'),
+        db.Index('idx_user_daily_visits_date', 'visit_date'),
+        db.Index('idx_user_daily_visits_user_date', 'user_id', 'visit_date'),
+    )
+
+
 # UserLogin - dedicated table for login history
 class UserLogin(db.Model):
     __tablename__ = 'user_logins'

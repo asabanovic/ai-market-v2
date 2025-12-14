@@ -1,13 +1,49 @@
 # JWT-based authentication API for frontend
 import jwt
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from flask import Blueprint, request, jsonify
 from werkzeug.security import check_password_hash
 from functools import wraps
 from app import app, db
-from models import User
+from models import User, UserDailyVisit
 from constants import BOSNIAN_CITIES
+
+
+def track_daily_visit(user_id: str):
+    """
+    Track a daily visit for a user. Creates one record per user per day.
+    If a record already exists for today, updates last_seen and increments page_views.
+    """
+    try:
+        today = date.today()
+
+        # Try to find existing visit for today
+        visit = UserDailyVisit.query.filter_by(
+            user_id=user_id,
+            visit_date=today
+        ).first()
+
+        if visit:
+            # Update existing visit
+            visit.last_seen = datetime.now()
+            visit.page_views = (visit.page_views or 1) + 1
+        else:
+            # Create new visit for today
+            visit = UserDailyVisit(
+                user_id=user_id,
+                visit_date=today,
+                first_seen=datetime.now(),
+                last_seen=datetime.now(),
+                page_views=1
+            )
+            db.session.add(visit)
+
+        db.session.commit()
+    except Exception as e:
+        # Don't fail the main request if tracking fails
+        app.logger.error(f"Error tracking daily visit for user {user_id}: {e}")
+        db.session.rollback()
 
 # Create blueprint
 auth_api_bp = Blueprint('auth_api', __name__, url_prefix='/auth')
@@ -177,6 +213,9 @@ def api_verify():
 
         if not user:
             return jsonify({'error': 'User not found'}), 404
+
+        # Track daily visit (non-blocking)
+        track_daily_visit(user.id)
 
         user_data = {
             'id': user.id,

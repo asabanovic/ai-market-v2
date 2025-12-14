@@ -5076,9 +5076,9 @@ def api_admin_users():
 
 @app.route('/api/admin/users/<path:user_id>/activity')
 def api_admin_user_activity(user_id):
-    """API endpoint to get user's daily activity (searches and engagements) for the last 7 days"""
+    """API endpoint to get user's daily activity (searches, engagements, proizvodi visits) for the last 7 days"""
     from auth_api import decode_jwt_token
-    from models import UserSearch, UserEngagement
+    from models import UserSearch, UserEngagement, UserActivity
     from datetime import timedelta
     from sqlalchemy import func
 
@@ -5121,9 +5121,21 @@ def api_admin_user_activity(user_id):
             UserEngagement.created_at >= start_date
         ).group_by(func.date(UserEngagement.created_at)).all()
 
+        # Get daily proizvodi page visits
+        proizvodi_visits = db.session.query(
+            func.date(UserActivity.created_at).label('date'),
+            func.count(UserActivity.id).label('count')
+        ).filter(
+            UserActivity.user_id == user_id,
+            UserActivity.page == 'proizvodi',
+            UserActivity.activity_type == 'page_view',
+            UserActivity.created_at >= start_date
+        ).group_by(func.date(UserActivity.created_at)).all()
+
         # Convert to dict for easier lookup
         search_dict = {str(s.date): s.count for s in searches}
         engagement_dict = {str(e.date): e.count for e in engagements}
+        proizvodi_dict = {str(p.date): p.count for p in proizvodi_visits}
 
         # Build daily activity array for the last 7 days
         activity = []
@@ -5134,7 +5146,8 @@ def api_admin_user_activity(user_id):
                 'date': day_str,
                 'day': day.strftime('%a'),  # Short day name
                 'searches': search_dict.get(day_str, 0),
-                'engagements': engagement_dict.get(day_str, 0)
+                'engagements': engagement_dict.get(day_str, 0),
+                'proizvodi': proizvodi_dict.get(day_str, 0)
             })
 
         return jsonify({
