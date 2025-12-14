@@ -36,7 +36,7 @@
           <!-- Rating -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Kako vam se sviđa aplikacija?
+              Kako vam se sviđa aplikacija? <span class="text-red-500">*</span>
             </label>
             <div class="flex justify-center gap-2">
               <button
@@ -60,43 +60,64 @@
           <!-- Question 1 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Šta biste poboljšali u aplikaciji?
+              Šta biste poboljšali u aplikaciji? <span class="text-red-500">*</span>
+              <span class="text-xs text-gray-500 font-normal">(min. {{ MIN_CHARS_PER_FIELD }} znakova)</span>
             </label>
             <textarea
               v-model="whatToImprove"
               rows="2"
               maxlength="500"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
+              :class="[
+                'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
+                whatToImprove.trim().length > 0 && whatToImprove.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
+              ]"
               placeholder="npr. Dodajte više prodavnica, brža pretraga..."
             />
+            <div v-if="whatToImprove.trim().length > 0 && whatToImprove.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
+              Još {{ MIN_CHARS_PER_FIELD - whatToImprove.trim().length }} znakova
+            </div>
           </div>
 
           <!-- Question 2 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Kako vam možemo biti od veće pomoći?
+              Kako vam možemo biti od veće pomoći? <span class="text-red-500">*</span>
+              <span class="text-xs text-gray-500 font-normal">(min. {{ MIN_CHARS_PER_FIELD }} znakova)</span>
             </label>
             <textarea
               v-model="howToHelp"
               rows="2"
               maxlength="500"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
+              :class="[
+                'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
+                howToHelp.trim().length > 0 && howToHelp.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
+              ]"
               placeholder="npr. Obavještenja o popustima, praćenje cijena..."
             />
+            <div v-if="howToHelp.trim().length > 0 && howToHelp.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
+              Još {{ MIN_CHARS_PER_FIELD - howToHelp.trim().length }} znakova
+            </div>
           </div>
 
           <!-- Question 3 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Šta bi vas natjeralo da koristite ovu aplikaciju svaki put kad kupujete?
+              Šta bi vas natjeralo da koristite ovu aplikaciju svaki put kad kupujete? <span class="text-red-500">*</span>
+              <span class="text-xs text-gray-500 font-normal">(min. {{ MIN_CHARS_PER_FIELD }} znakova)</span>
             </label>
             <textarea
               v-model="whatWouldMakeYouUse"
               rows="2"
               maxlength="500"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
+              :class="[
+                'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
+                whatWouldMakeYouUse.trim().length > 0 && whatWouldMakeYouUse.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
+              ]"
               placeholder="npr. Lista za kupovinu, uporedba cijena..."
             />
+            <div v-if="whatWouldMakeYouUse.trim().length > 0 && whatWouldMakeYouUse.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
+              Još {{ MIN_CHARS_PER_FIELD - whatWouldMakeYouUse.trim().length }} znakova
+            </div>
           </div>
 
           <!-- Additional Comments -->
@@ -116,24 +137,24 @@
 
         <!-- Footer -->
         <div class="sticky bottom-0 bg-gray-50 p-4 border-t border-gray-200 rounded-b-2xl">
-          <!-- Progress indicator for credits -->
-          <div v-if="!qualifiesForCredits && totalCharsEntered > 0" class="mb-3 text-center">
+          <!-- Progress indicator -->
+          <div v-if="!canSubmit" class="mb-3 text-center">
             <div class="text-sm text-gray-600">
-              Još <span class="font-bold text-purple-600">{{ MIN_CHARS_FOR_CREDITS - totalCharsEntered }}</span> znakova za +5 kredita
+              Popunite sva obavezna polja <span class="font-bold text-purple-600">({{ completedFieldsCount }}/4)</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
               <div
                 class="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                :style="{ width: Math.min(100, (totalCharsEntered / MIN_CHARS_FOR_CREDITS) * 100) + '%' }"
+                :style="{ width: (completedFieldsCount / 4) * 100 + '%' }"
               />
             </div>
           </div>
-          <div v-else-if="qualifiesForCredits" class="mb-3 text-center">
+          <div v-else class="mb-3 text-center">
             <div class="text-sm text-green-600 font-medium flex items-center justify-center gap-1">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
-              Dobićete +5 kredita!
+              Spremno za slanje - dobićete +5 kredita!
             </div>
           </div>
 
@@ -146,10 +167,10 @@
             </button>
             <button
               @click="submit"
-              :disabled="isSubmitting || !hasAnyInput"
+              :disabled="isSubmitting || !canSubmit"
               class="flex-1 py-3 px-4 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {{ isSubmitting ? 'Šaljem...' : (qualifiesForCredits ? 'Pošalji (+5 kredita)' : 'Pošalji') }}
+              {{ isSubmitting ? 'Šaljem...' : 'Pošalji (+5 kredita)' }}
             </button>
           </div>
         </div>
@@ -175,32 +196,25 @@ const whatWouldMakeYouUse = ref('')
 const comments = ref('')
 const isSubmitting = ref(false)
 
-// Minimum 20 characters in any text field to qualify for credits
-const MIN_CHARS_FOR_CREDITS = 20
+// Minimum characters required per field
+const MIN_CHARS_PER_FIELD = 15
 
-const hasAnyInput = computed(() => {
-  return rating.value > 0 ||
-         whatToImprove.value.trim() ||
-         howToHelp.value.trim() ||
-         whatWouldMakeYouUse.value.trim() ||
-         comments.value.trim()
+// All 3 required fields must meet the minimum
+const canSubmit = computed(() => {
+  return rating.value > 0 &&
+         whatToImprove.value.trim().length >= MIN_CHARS_PER_FIELD &&
+         howToHelp.value.trim().length >= MIN_CHARS_PER_FIELD &&
+         whatWouldMakeYouUse.value.trim().length >= MIN_CHARS_PER_FIELD
 })
 
-const qualifiesForCredits = computed(() => {
-  return whatToImprove.value.trim().length >= MIN_CHARS_FOR_CREDITS ||
-         howToHelp.value.trim().length >= MIN_CHARS_FOR_CREDITS ||
-         whatWouldMakeYouUse.value.trim().length >= MIN_CHARS_FOR_CREDITS ||
-         comments.value.trim().length >= MIN_CHARS_FOR_CREDITS
-})
-
-const totalCharsEntered = computed(() => {
-  const lengths = [
-    whatToImprove.value.trim().length,
-    howToHelp.value.trim().length,
-    whatWouldMakeYouUse.value.trim().length,
-    comments.value.trim().length
-  ]
-  return Math.max(...lengths)
+// Count how many fields are complete
+const completedFieldsCount = computed(() => {
+  let count = 0
+  if (rating.value > 0) count++
+  if (whatToImprove.value.trim().length >= MIN_CHARS_PER_FIELD) count++
+  if (howToHelp.value.trim().length >= MIN_CHARS_PER_FIELD) count++
+  if (whatWouldMakeYouUse.value.trim().length >= MIN_CHARS_PER_FIELD) count++
+  return count
 })
 
 function close() {
@@ -208,7 +222,7 @@ function close() {
 }
 
 async function submit() {
-  if (!hasAnyInput.value || isSubmitting.value) return
+  if (!canSubmit.value || isSubmitting.value) return
 
   isSubmitting.value = true
   const { showSuccess } = useCreditsToast()
