@@ -845,6 +845,22 @@ def api_products():
         # Base query - show all products (expired discounts become regular products)
         query = Product.query.join(Business)
 
+        # Filter out products with base_price = 0 unless they have an active discount
+        today = date.today()
+        query = query.filter(
+            db.or_(
+                # Products with base_price > 0
+                Product.base_price > 0,
+                # OR products with base_price = 0 but have active discount
+                db.and_(
+                    Product.base_price == 0,
+                    Product.discount_price.isnot(None),
+                    Product.discount_price > 0,
+                    db.or_(Product.expires.is_(None), Product.expires >= today)
+                )
+            )
+        )
+
         # Apply filters
         if category:
             # First try to match by category_group (our new simplified categories)
@@ -861,7 +877,6 @@ def api_products():
             query = query.filter(Product.title.ilike(f'%{search}%'))
 
         # Apply sorting
-        today = date.today()
         if sort == 'discount_desc':
             # Sort by discount percentage (highest first)
             # Calculate discount as (base_price - discount_price) / base_price
@@ -921,10 +936,22 @@ def api_products():
             products.append(product_to_dict(product))
 
         # Calculate category counts (for the UI filter) - using category_group
+        # Also filter out zero-price products without active discounts
         category_counts_query = db.session.query(
             Product.category_group,
             func.count(Product.id)
-        ).join(Business).filter(Product.category_group.isnot(None))
+        ).join(Business).filter(
+            Product.category_group.isnot(None),
+            db.or_(
+                Product.base_price > 0,
+                db.and_(
+                    Product.base_price == 0,
+                    Product.discount_price.isnot(None),
+                    Product.discount_price > 0,
+                    db.or_(Product.expires.is_(None), Product.expires >= today)
+                )
+            )
+        )
 
         if stores:
             store_ids = [int(s) for s in stores.split(',') if s.strip().isdigit()]

@@ -276,6 +276,12 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
             formatted_product["discount_percent"] = 0
             formatted_product["savings"] = 0
 
+        # Skip products with base_price = 0 unless they have an active discount
+        if (formatted_product["base_price"] is None or formatted_product["base_price"] == 0):
+            # Only include if there's an active discount
+            if not (formatted_product["discount_price"] and formatted_product["discount_price"] > 0 and not is_expired):
+                continue
+
         formatted.append(formatted_product)
 
     return formatted
