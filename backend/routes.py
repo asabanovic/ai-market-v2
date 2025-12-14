@@ -6272,6 +6272,206 @@ def api_admin_get_feedback():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/admin/engagement', methods=['GET'])
+@csrf.exempt
+def api_admin_engagement_stats():
+    """Get engagement analytics for admin dashboard"""
+    from auth_api import decode_jwt_token
+    from models import ProductVote, ProductComment, Favorite, UserActivity
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get date ranges
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+
+        # === OVERALL STATS ===
+        total_votes = ProductVote.query.count()
+        total_upvotes = ProductVote.query.filter_by(vote_type='up').count()
+        total_downvotes = ProductVote.query.filter_by(vote_type='down').count()
+        total_comments = ProductComment.query.count()
+        total_favorites = Favorite.query.count()
+
+        # Today's stats
+        today_votes = ProductVote.query.filter(func.date(ProductVote.created_at) == today).count()
+        today_comments = ProductComment.query.filter(func.date(ProductComment.created_at) == today).count()
+        today_favorites = Favorite.query.filter(func.date(Favorite.created_at) == today).count()
+
+        # This week stats
+        week_votes = ProductVote.query.filter(func.date(ProductVote.created_at) >= week_ago).count()
+        week_comments = ProductComment.query.filter(func.date(ProductComment.created_at) >= week_ago).count()
+        week_favorites = Favorite.query.filter(func.date(Favorite.created_at) >= week_ago).count()
+
+        # === PROIZVODI PAGE VIEWS ===
+        proizvodi_views_total = UserActivity.query.filter_by(
+            activity_type='page_view',
+            page='proizvodi'
+        ).count()
+        proizvodi_views_today = UserActivity.query.filter(
+            UserActivity.activity_type == 'page_view',
+            UserActivity.page == 'proizvodi',
+            func.date(UserActivity.created_at) == today
+        ).count()
+        proizvodi_views_week = UserActivity.query.filter(
+            UserActivity.activity_type == 'page_view',
+            UserActivity.page == 'proizvodi',
+            func.date(UserActivity.created_at) >= week_ago
+        ).count()
+
+        # Unique users who viewed proizvodi
+        unique_proizvodi_users = db.session.query(func.count(func.distinct(UserActivity.user_id))).filter(
+            UserActivity.activity_type == 'page_view',
+            UserActivity.page == 'proizvodi'
+        ).scalar() or 0
+
+        # === RECENT ENGAGEMENT ACTIVITY ===
+        # Recent votes with user info
+        recent_votes = db.session.query(
+            ProductVote, User.id.label('uid'), User.email, User.first_name, User.last_name, Product.title
+        ).join(User, ProductVote.user_id == User.id).join(
+            Product, ProductVote.product_id == Product.id
+        ).order_by(ProductVote.created_at.desc()).limit(20).all()
+
+        recent_votes_list = [{
+            'id': v.ProductVote.id,
+            'user_id': v.uid,
+            'user_email': v.email,
+            'user_first_name': v.first_name,
+            'user_last_name': v.last_name,
+            'product_title': v.title[:50] + '...' if len(v.title) > 50 else v.title,
+            'vote_type': v.ProductVote.vote_type,
+            'created_at': v.ProductVote.created_at.isoformat() if v.ProductVote.created_at else None
+        } for v in recent_votes]
+
+        # Recent comments with user info
+        recent_comments = db.session.query(
+            ProductComment, User.id.label('uid'), User.email, User.first_name, User.last_name, Product.title
+        ).join(User, ProductComment.user_id == User.id).join(
+            Product, ProductComment.product_id == Product.id
+        ).order_by(ProductComment.created_at.desc()).limit(20).all()
+
+        recent_comments_list = [{
+            'id': c.ProductComment.id,
+            'user_id': c.uid,
+            'user_email': c.email,
+            'user_first_name': c.first_name,
+            'user_last_name': c.last_name,
+            'product_title': c.title[:50] + '...' if len(c.title) > 50 else c.title,
+            'comment_text': c.ProductComment.comment_text[:100] + '...' if len(c.ProductComment.comment_text) > 100 else c.ProductComment.comment_text,
+            'created_at': c.ProductComment.created_at.isoformat() if c.ProductComment.created_at else None
+        } for c in recent_comments]
+
+        # Recent favorites with user info
+        recent_favorites = db.session.query(
+            Favorite, User.id.label('uid'), User.email, User.first_name, User.last_name, Product.title
+        ).join(User, Favorite.user_id == User.id).join(
+            Product, Favorite.product_id == Product.id
+        ).order_by(Favorite.created_at.desc()).limit(20).all()
+
+        recent_favorites_list = [{
+            'id': f.Favorite.id,
+            'user_id': f.uid,
+            'user_email': f.email,
+            'user_first_name': f.first_name,
+            'user_last_name': f.last_name,
+            'product_title': f.title[:50] + '...' if len(f.title) > 50 else f.title,
+            'created_at': f.Favorite.created_at.isoformat() if f.Favorite.created_at else None
+        } for f in recent_favorites]
+
+        # Recent proizvodi page views
+        recent_proizvodi_views = db.session.query(
+            UserActivity, User.id.label('uid'), User.email, User.first_name, User.last_name
+        ).join(User, UserActivity.user_id == User.id).filter(
+            UserActivity.activity_type == 'page_view',
+            UserActivity.page == 'proizvodi'
+        ).order_by(UserActivity.created_at.desc()).limit(30).all()
+
+        recent_proizvodi_list = [{
+            'id': a.UserActivity.id,
+            'user_id': a.uid,
+            'user_email': a.email,
+            'user_first_name': a.first_name,
+            'user_last_name': a.last_name,
+            'activity_data': a.UserActivity.activity_data,
+            'created_at': a.UserActivity.created_at.isoformat() if a.UserActivity.created_at else None
+        } for a in recent_proizvodi_views]
+
+        # === USER ENGAGEMENT SUMMARY ===
+        # Users who have engaged (voted, commented, or favorited)
+        engaged_users_votes = db.session.query(func.count(func.distinct(ProductVote.user_id))).scalar() or 0
+        engaged_users_comments = db.session.query(func.count(func.distinct(ProductComment.user_id))).scalar() or 0
+        engaged_users_favorites = db.session.query(func.count(func.distinct(Favorite.user_id))).scalar() or 0
+
+        # Top engaged users
+        top_voters = db.session.query(
+            User.id,
+            User.email,
+            User.first_name,
+            User.last_name,
+            func.count(ProductVote.id).label('vote_count')
+        ).join(ProductVote, User.id == ProductVote.user_id).group_by(
+            User.id, User.email, User.first_name, User.last_name
+        ).order_by(func.count(ProductVote.id).desc()).limit(10).all()
+
+        top_commenters = db.session.query(
+            User.id,
+            User.email,
+            User.first_name,
+            User.last_name,
+            func.count(ProductComment.id).label('comment_count')
+        ).join(ProductComment, User.id == ProductComment.user_id).group_by(
+            User.id, User.email, User.first_name, User.last_name
+        ).order_by(func.count(ProductComment.id).desc()).limit(10).all()
+
+        return jsonify({
+            'stats': {
+                'total_votes': total_votes,
+                'total_upvotes': total_upvotes,
+                'total_downvotes': total_downvotes,
+                'total_comments': total_comments,
+                'total_favorites': total_favorites,
+                'today_votes': today_votes,
+                'today_comments': today_comments,
+                'today_favorites': today_favorites,
+                'week_votes': week_votes,
+                'week_comments': week_comments,
+                'week_favorites': week_favorites,
+                'proizvodi_views_total': proizvodi_views_total,
+                'proizvodi_views_today': proizvodi_views_today,
+                'proizvodi_views_week': proizvodi_views_week,
+                'unique_proizvodi_users': unique_proizvodi_users,
+                'engaged_users_votes': engaged_users_votes,
+                'engaged_users_comments': engaged_users_comments,
+                'engaged_users_favorites': engaged_users_favorites,
+            },
+            'recent_votes': recent_votes_list,
+            'recent_comments': recent_comments_list,
+            'recent_favorites': recent_favorites_list,
+            'recent_proizvodi_views': recent_proizvodi_list,
+            'top_voters': [{'user_id': t[0], 'email': t[1], 'first_name': t[2], 'last_name': t[3], 'count': t[4]} for t in top_voters],
+            'top_commenters': [{'user_id': t[0], 'email': t[1], 'first_name': t[2], 'last_name': t[3], 'count': t[4]} for t in top_commenters],
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting engagement stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
