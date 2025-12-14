@@ -1431,7 +1431,8 @@ async function confirmBulkUpload() {
       discount_price: p.discount_price,
       category: p.category,
       expires: p.expires,
-      product_url: p.product_url
+      product_url: p.product_url,
+      image_url: p.image_url
     }))
 
     const data = await post(`/biznisi/${businessId.value}/proizvodi/bulk-import`, {
