@@ -46,6 +46,41 @@ def get_image_url(path: str) -> str:
     return f"https://{bucket}.s3.{region}.amazonaws.com/{path}"
 
 
+def check_image_exists(path: str) -> bool:
+    """Check if an image exists in S3."""
+    import boto3
+    from botocore.exceptions import ClientError
+
+    if not path:
+        return False
+
+    # If it's a full URL, extract the S3 key
+    if path.startswith('http'):
+        # Extract path after bucket.s3.region.amazonaws.com/
+        import re
+        match = re.search(r'amazonaws\.com/(.+)$', path)
+        if match:
+            path = match.group(1)
+        else:
+            return False
+
+    try:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            region_name=os.environ.get('AWS_REGION', 'eu-central-1')
+        )
+        bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+        s3_client.head_object(Bucket=bucket, Key=path)
+        return True
+    except ClientError:
+        return False
+    except Exception as e:
+        print(f"Error checking image existence: {e}")
+        return False
+
+
 def match_product_images(
     product_title: str,
     original_image_path: str | None,

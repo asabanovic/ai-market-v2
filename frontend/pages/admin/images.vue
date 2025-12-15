@@ -253,7 +253,7 @@
                 <h4 class="text-sm font-medium text-gray-700 mb-2">Predlozene slike (klikni za odabir):</h4>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   <div
-                    v-for="(match, index) in modalMatchResult.matches"
+                    v-for="(match, index) in modalMatchResult.matches.filter((m: any) => m.image_path)"
                     :key="index"
                     :class="[
                       'relative rounded-lg overflow-hidden cursor-pointer border-3 transition-all',
@@ -415,7 +415,18 @@ function getImageUrl(path: string | null): string {
 
 function handleImageError(event: Event) {
   const img = event.target as HTMLImageElement
-  img.src = '/placeholder-image.png'
+  // Hide the image if it fails to load
+  img.style.display = 'none'
+  // Show a placeholder icon in parent
+  const parent = img.parentElement
+  if (parent && !parent.querySelector('.error-placeholder')) {
+    const placeholder = document.createElement('div')
+    placeholder.className = 'error-placeholder w-full h-full flex items-center justify-center text-gray-400'
+    placeholder.innerHTML = `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+    </svg>`
+    parent.appendChild(placeholder)
+  }
 }
 
 function isImageReplaced(product: any): boolean {

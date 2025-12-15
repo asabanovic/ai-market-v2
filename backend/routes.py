@@ -6126,7 +6126,19 @@ def api_admin_ai_match_images(product_id):
         # Check if we already have suggested images, if not fetch them
         suggested_images = product.suggested_images or []
 
-        if not suggested_images:
+        # Check if force refresh is requested
+        force_refresh = request.get_json().get('force_refresh', False) if request.is_json else False
+
+        # If we have suggestions, verify at least some exist in S3
+        if suggested_images and not force_refresh:
+            from image_matcher import check_image_exists
+            # Check first 3 images - if none exist, we need to refresh
+            existing = [p for p in suggested_images[:3] if check_image_exists(p)]
+            if not existing:
+                app.logger.info(f"Suggested images for product {product_id} no longer exist in S3, refreshing...")
+                suggested_images = []
+
+        if not suggested_images or force_refresh:
             # Delete old suggestions first
             delete_suggestions_from_s3(product_id)
 
