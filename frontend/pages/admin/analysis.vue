@@ -307,8 +307,9 @@
 
 <script setup lang="ts">
 import { Chart, registerables } from 'chart.js'
+import ChartDataLabels from 'chartjs-plugin-datalabels'
 
-Chart.register(...registerables)
+Chart.register(...registerables, ChartDataLabels)
 
 definePageMeta({
   middleware: ['auth', 'admin']
@@ -680,11 +681,24 @@ function updateChart() {
               ]
             }
           }
+        },
+        // Display values on top of bars
+        datalabels: {
+          display: true,
+          color: '#1f2937',
+          anchor: 'end',
+          align: 'top',
+          font: {
+            weight: 'bold',
+            size: 14
+          },
+          formatter: (value: number) => value.toFixed(2) + ' KM'
         }
       },
       scales: {
         y: {
-          beginAtZero: false,
+          beginAtZero: true,
+          suggestedMax: Math.max(...avgPrices) * 1.2, // Expand by 20% to fit labels
           title: {
             display: true,
             text: 'Cijena (KM)'
