@@ -1446,6 +1446,13 @@ def api_my_businesses():
             # Get product count
             product_count = Product.query.filter_by(business_id=business.id).count()
 
+            # Get count of products with AI category assigned
+            categorized_count = Product.query.filter(
+                Product.business_id == business.id,
+                Product.category_group.isnot(None),
+                Product.category_group != ''
+            ).count()
+
             # Get total views for all products
             total_views = db.session.query(db.func.sum(Product.views)).filter_by(
                 business_id=business.id
@@ -1473,6 +1480,7 @@ def api_my_businesses():
                 'pdf_url': business.pdf_url,
                 'last_sync': business.last_sync.isoformat() if business.last_sync else None,
                 'product_count': product_count,
+                'categorized_count': categorized_count,
                 'views': total_views,
                 'user_role': user_role,
                 'status': business.status
@@ -6193,107 +6201,129 @@ def api_admin_categorize_products():
         if not business_id:
             return jsonify({'error': 'business_id is required'}), 400
 
-        # Get products without category_group for this business
-        products = Product.query.filter(
-            Product.business_id == business_id,
-            (Product.category_group.is_(None) | (Product.category_group == ''))
-        ).limit(100).all()  # Process in batches of 100
+        # System prompt for categorization
+        system_prompt = """You are a product categorization expert for a Bosnian marketplace.
 
-        if not products:
-            return jsonify({
-                'success': True,
-                'message': 'No products need categorization',
-                'categorized_count': 0
-            })
-
-        # Prepare products for AI
-        products_for_ai = []
-        for p in products:
-            products_for_ai.append({
-                'id': p.id,
-                'title': p.title,
-                'category': p.category or ''
-            })
-
-        # Call OpenAI to categorize
-        system_prompt = f"""You are a product categorization expert for a Bosnian marketplace.
-
-Your task: Assign each product to ONE of these category groups based on its title:
+Your task: Assign each product to ONE of these category groups based on its title, category, and tags.
 
 CATEGORY GROUPS:
-- meso: Meat products (chicken, beef, pork, sausages, deli meats, salami)
-- mlijeko: Dairy products (milk, yogurt, cheese, kajmak, butter, cream)
-- pica: Beverages (water, juice, soda, beer, wine, energy drinks)
+- meso: Meat products (chicken, beef, pork, sausages, deli meats, salami, pašteta)
+- mlijeko: Dairy products (milk, yogurt, cheese, kajmak, butter, cream, pudding, vrhnje)
+- pica: Beverages (water, juice, soda, beer, wine, energy drinks, sokovi)
 - voce_povrce: Fresh fruits and vegetables
-- kuhinja: Kitchen staples (oil, flour, sugar, salt, spices, rice, pasta, canned goods)
-- ves: Laundry products (detergent, fabric softener, stain remover)
-- ciscenje: Cleaning products (floor cleaner, dish soap, disinfectant, wipes)
-- higijena: Personal hygiene (shampoo, soap, toothpaste, deodorant, toilet paper)
-- slatkisi: Sweets and snacks (chocolate, candy, chips, cookies, biscuits)
-- kafa: Coffee and tea products
-- smrznuto: Frozen products (frozen vegetables, pizza, ice cream, frozen meals)
-- pekara: Bakery products (bread, rolls, pastries)
-- ljubimci: Pet supplies (pet food, treats, accessories)
-- bebe: Baby products (diapers, baby food, wipes, formula)
+- kuhinja: Kitchen staples (oil, flour, sugar, salt, spices, rice, pasta, canned goods, začini, ulje)
+- ves: Laundry products (detergent, fabric softener, stain remover, deterdzent za veš, omekšivač)
+- ciscenje: Cleaning products (floor cleaner, dish soap, disinfectant, wipes, odmašćivač, sredstvo za čišćenje, osvježivač)
+- higijena: Personal hygiene (shampoo, soap, toothpaste, deodorant, toilet paper, šampon, gel za tuširanje, krema)
+- slatkisi: Sweets and snacks (chocolate, candy, chips, cookies, biscuits, čokolada, keks, grickalice)
+- kafa: Coffee and tea products (kafa, čaj, coffee, tea)
+- smrznuto: Frozen products (frozen vegetables, pizza, ice cream, frozen meals, smrznuto)
+- pekara: Bakery products (bread, rolls, pastries, hljeb, pecivo)
+- ljubimci: Pet supplies (pet food, treats, accessories, hrana za pse, hrana za mačke)
+- bebe: Baby products (diapers, baby food, wipes, formula, pelene, dječija hrana)
 
 RULES:
 1. Return ONLY valid category group IDs from the list above
-2. If unsure, make your best guess based on the product title
-3. "Kućne potrepštine" products could be: ves, ciscenje, or higijena - determine from title
-4. "Namirnice" could be: kuhinja, slatkisi, or kafa - determine from title
-5. Return JSON array matching input order
+2. Use title, category AND tags together to make the best decision
+3. "Kućne potrepštine" could be: ves (laundry), ciscenje (cleaning), or higijena (personal care) - use title keywords
+4. "Namirnice" could be: kuhinja, slatkisi, or other food categories - determine from specific product
+5. Products with "deterdžent za veš" or "omekšivač" = ves
+6. Products with "odmašćivač", "sredstvo za", "osvježivač" = ciscenje
+7. Products with "šampon", "gel", "krema", "sapun" for body = higijena
+8. ALWAYS return a category - make your best guess if unsure
 
 Return ONLY valid JSON:
 [
-  {{"id": 123, "category_group": "meso"}},
-  {{"id": 456, "category_group": "mlijeko"}}
+  {"id": 123, "category_group": "meso"},
+  {"id": 456, "category_group": "mlijeko"}
 ]"""
 
-        user_prompt = f"""Categorize these products:
+        # Loop until all products are categorized
+        total_updated = 0
+        batch_size = 50  # Process 50 at a time for better accuracy
+        max_iterations = 20  # Safety limit
+
+        for iteration in range(max_iterations):
+            # Get products without category_group for this business
+            products = Product.query.filter(
+                Product.business_id == business_id,
+                (Product.category_group.is_(None) | (Product.category_group == ''))
+            ).limit(batch_size).all()
+
+            if not products:
+                break  # No more products to categorize
+
+            # Prepare products for AI - include tags for better categorization
+            products_for_ai = []
+            for p in products:
+                # Get tags as string if available
+                tags_str = ''
+                if p.tags:
+                    if isinstance(p.tags, list):
+                        tags_str = ', '.join(p.tags[:5])  # Limit to 5 tags
+                    elif isinstance(p.tags, str):
+                        tags_str = p.tags
+
+                products_for_ai.append({
+                    'id': p.id,
+                    'title': p.title,
+                    'category': p.category or '',
+                    'tags': tags_str
+                })
+
+            user_prompt = f"""Categorize these products using title, category and tags:
 
 {json.dumps(products_for_ai, ensure_ascii=False, indent=2)}
 
-Return category_group for each product ID."""
+Return category_group for each product ID. Use ALL available info (title + category + tags) to determine the best category."""
 
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-            max_tokens=4000
-        )
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.2,
+                max_tokens=4000
+            )
 
-        result_text = response.choices[0].message.content.strip()
+            result_text = response.choices[0].message.content.strip()
 
-        # Parse response - handle both array and object with array
-        try:
-            result = json.loads(result_text)
-            if isinstance(result, dict) and 'products' in result:
-                categorizations = result['products']
-            elif isinstance(result, list):
-                categorizations = result
-            else:
-                # Try to find array in the response
-                categorizations = list(result.values())[0] if result else []
-        except:
-            return jsonify({'error': 'Failed to parse AI response'}), 500
+            # Parse response - handle both array and object with array
+            try:
+                result = json.loads(result_text)
+                if isinstance(result, dict) and 'products' in result:
+                    categorizations = result['products']
+                elif isinstance(result, list):
+                    categorizations = result
+                else:
+                    # Try to find array in the response
+                    categorizations = list(result.values())[0] if result else []
+            except:
+                app.logger.error(f"Failed to parse AI response: {result_text}")
+                continue  # Try next batch
 
-        # Update products in database
-        updated_count = 0
-        for cat_item in categorizations:
-            product_id = cat_item.get('id')
-            category_group = cat_item.get('category_group', '').lower()
+            # Update products in database
+            batch_updated = 0
+            for cat_item in categorizations:
+                product_id = cat_item.get('id')
+                category_group = cat_item.get('category_group', '').lower()
 
-            if product_id and category_group in VALID_CATEGORY_GROUPS:
-                product = Product.query.get(product_id)
-                if product:
-                    product.category_group = category_group
-                    updated_count += 1
+                if product_id and category_group in VALID_CATEGORY_GROUPS:
+                    product = Product.query.get(product_id)
+                    if product:
+                        product.category_group = category_group
+                        batch_updated += 1
 
-        db.session.commit()
+            db.session.commit()
+            total_updated += batch_updated
+            app.logger.info(f"Batch {iteration + 1}: categorized {batch_updated} products")
+
+            # If no products were updated in this batch, they might be uncategorizable
+            if batch_updated == 0:
+                app.logger.warning(f"Batch {iteration + 1}: no products categorized, stopping")
+                break
 
         # Check if there are more products to categorize
         remaining = Product.query.filter(
@@ -6303,9 +6333,9 @@ Return category_group for each product ID."""
 
         return jsonify({
             'success': True,
-            'categorized_count': updated_count,
+            'categorized_count': total_updated,
             'remaining_count': remaining,
-            'message': f'Categorized {updated_count} products. {remaining} remaining.'
+            'message': f'Categorized {total_updated} products. {remaining} remaining.'
         })
 
     except Exception as e:
@@ -6859,7 +6889,6 @@ def api_admin_engagement_stats():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 # Error handlers
 @app.errorhandler(404)

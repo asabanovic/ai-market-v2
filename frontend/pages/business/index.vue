@@ -65,8 +65,14 @@
               </div>
             </div>
             <div class="text-right">
-              <div class="text-sm text-gray-500">
+              <div class="text-sm text-gray-500 space-y-1">
                 <p>{{ business.product_count || 0 }} proizvoda</p>
+                <p class="flex items-center justify-end gap-1">
+                  <span :class="business.categorized_count === business.product_count ? 'text-green-600' : 'text-amber-600'">
+                    {{ business.categorized_count || 0 }}/{{ business.product_count || 0 }}
+                  </span>
+                  <span>kategoriz.</span>
+                </p>
                 <p>{{ business.views || 0 }} pregleda</p>
               </div>
             </div>
