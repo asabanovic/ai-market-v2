@@ -27,7 +27,7 @@
             <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
-            <span class="text-sm font-medium">Dobijte <strong>+5 kredita</strong> za vaš feedback!</span>
+            <span class="text-sm font-medium">Kao zahvalu za Vaše vrijeme, poklanjamo Vam <strong>+5 kredita</strong></span>
           </div>
         </div>
 
@@ -65,13 +65,13 @@
             </label>
             <textarea
               v-model="whatToImprove"
-              rows="2"
+              rows="3"
               maxlength="500"
               :class="[
                 'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
                 whatToImprove.trim().length > 0 && whatToImprove.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
               ]"
-              placeholder="npr. Dodajte više prodavnica, brža pretraga..."
+              placeholder="Primjer: 'Bilo bi sjajno da mogu uporediti cijene istog proizvoda u više prodavnica na jednom mjestu. Trenutno moram ručno pretraživati svaku prodavnicu posebno.'"
             />
             <div v-if="whatToImprove.trim().length > 0 && whatToImprove.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
               Još {{ MIN_CHARS_PER_FIELD - whatToImprove.trim().length }} znakova
@@ -86,13 +86,13 @@
             </label>
             <textarea
               v-model="howToHelp"
-              rows="2"
+              rows="3"
               maxlength="500"
               :class="[
                 'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
                 howToHelp.trim().length > 0 && howToHelp.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
               ]"
-              placeholder="npr. Obavještenja o popustima, praćenje cijena..."
+              placeholder="Primjer: 'Kada tražim određeni proizvod, želim vidjeti i slične proizvode drugih brendova. Također bi mi pomoglo da dobijem obavještenje kada cijena padne ispod određenog iznosa.'"
             />
             <div v-if="howToHelp.trim().length > 0 && howToHelp.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
               Još {{ MIN_CHARS_PER_FIELD - howToHelp.trim().length }} znakova
@@ -107,13 +107,13 @@
             </label>
             <textarea
               v-model="whatWouldMakeYouUse"
-              rows="2"
+              rows="3"
               maxlength="500"
               :class="[
                 'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
                 whatWouldMakeYouUse.trim().length > 0 && whatWouldMakeYouUse.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
               ]"
-              placeholder="npr. Lista za kupovinu, uporedba cijena..."
+              placeholder="Primjer: 'Koristio/la bih aplikaciju redovno ako bih mogao/la napraviti svoju listu za kupovinu i vidjeti gdje je najjeftinija. Bilo bi super da mogu pratiti cijene proizvoda koje često kupujem.'"
             />
             <div v-if="whatWouldMakeYouUse.trim().length > 0 && whatWouldMakeYouUse.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
               Još {{ MIN_CHARS_PER_FIELD - whatWouldMakeYouUse.trim().length }} znakova
@@ -127,10 +127,10 @@
             </label>
             <textarea
               v-model="comments"
-              rows="2"
+              rows="3"
               maxlength="1000"
               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
-              placeholder="Bilo šta drugo što želite podijeliti..."
+              placeholder="Primjer: 'Sviđa mi se ideja aplikacije, ali ponekad mi je teško pronaći proizvode. Bilo bi korisno dodati više kategorija ili omogućiti sortiranje po cijeni. Hvala što radite na ovome!'"
             />
           </div>
         </div>
