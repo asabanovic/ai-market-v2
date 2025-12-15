@@ -6507,6 +6507,76 @@ def api_admin_products_analysis():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/products/<int:product_id>', methods=['PUT'])
+@csrf.exempt
+def api_admin_update_product(product_id):
+    """Admin endpoint to update a product - title, image_path, etc."""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Find product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        # Get update data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Update fields
+        if 'title' in data:
+            product.title = data['title']
+        if 'image_path' in data:
+            product.image_path = data['image_path']
+        if 'base_price' in data:
+            product.base_price = float(data['base_price'])
+        if 'discount_price' in data:
+            product.discount_price = float(data['discount_price']) if data['discount_price'] else None
+        if 'category' in data:
+            product.category = data['category']
+        if 'category_group' in data:
+            product.category_group = data['category_group']
+
+        db.session.commit()
+
+        app.logger.info(f"Admin updated product {product_id}: {data.keys()}")
+
+        return jsonify({
+            'success': True,
+            'product': {
+                'id': product.id,
+                'title': product.title,
+                'image_path': product.image_path,
+                'base_price': product.base_price,
+                'discount_price': product.discount_price,
+                'category': product.category,
+                'category_group': product.category_group
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Admin update product error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/admin/search-test', methods=['POST'])
 @csrf.exempt
 def api_admin_search_test():

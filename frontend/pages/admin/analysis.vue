@@ -166,8 +166,35 @@
 
         <!-- Chart View -->
         <div v-if="viewMode === 'chart'" class="mb-6">
-          <div class="h-80 bg-white rounded-lg p-4 border border-gray-200">
-            <canvas ref="chartCanvas"></canvas>
+          <!-- Logo for screenshots -->
+          <div class="flex flex-col items-center justify-center mb-6">
+            <img src="/logo.png" alt="Popust.ba" class="h-16" />
+            <span class="text-2xl font-bold text-gray-800 mt-2">popust.ba</span>
+          </div>
+          <div class="flex gap-4 items-stretch">
+            <!-- Chart -->
+            <div class="flex-1 h-80 bg-white rounded-lg p-4 border border-gray-200">
+              <canvas ref="chartCanvas"></canvas>
+            </div>
+            <!-- Selected Product Image (right side) -->
+            <div v-if="selectedProductImage" class="w-64 flex-shrink-0 relative">
+              <button @click="selectedProductImage = null" class="absolute top-1 right-1 z-10 text-gray-400 hover:text-gray-600 bg-white rounded-full p-1 shadow">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img
+                v-if="selectedProductImage.image_path"
+                :src="selectedProductImage.image_path"
+                :alt="selectedProductImage.title"
+                class="w-full h-80 object-contain"
+              />
+              <div v-else class="w-full h-80 bg-gray-50 flex items-center justify-center">
+                <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -189,31 +216,58 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="product in filteredProducts" :key="product.id" class="hover:bg-gray-50">
                 <td class="px-2 py-3 text-center">
-                  <button
-                    @click="excludeProduct(product.id)"
-                    class="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
-                    title="Izuzmi iz analize"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  <div class="flex flex-col gap-1">
+                    <button
+                      @click="excludeProduct(product.id)"
+                      class="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                      title="Izuzmi iz analize"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <button
+                      @click="selectProductForChart(product)"
+                      class="p-1 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded"
+                      title="Prikaži pored grafikona"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center">
-                    <img
-                      v-if="product.image_path"
-                      :src="product.image_path"
-                      :alt="product.title"
-                      class="w-10 h-10 rounded object-cover mr-3"
-                    />
-                    <div class="w-10 h-10 rounded bg-gray-200 mr-3 flex items-center justify-center" v-else>
-                      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
+                    <!-- Image -->
+                    <div class="relative group mr-3 cursor-pointer" @click="openEditProduct(product)">
+                      <img
+                        v-if="product.image_path"
+                        :src="product.image_path"
+                        :alt="product.title"
+                        class="w-10 h-10 rounded object-cover"
+                      />
+                      <div v-else class="w-10 h-10 rounded bg-gray-200 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div class="absolute inset-0 bg-black bg-opacity-50 rounded opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </div>
                     </div>
-                    <div>
-                      <div class="text-sm font-medium text-gray-900">{{ product.title }}</div>
+                    <!-- Title -->
+                    <div class="flex-1">
+                      <div class="cursor-pointer group" @click="openEditProduct(product)">
+                        <div class="text-sm font-medium text-gray-900 group-hover:text-indigo-600">
+                          {{ product.title }}
+                          <svg class="w-3 h-3 inline-block ml-1 opacity-0 group-hover:opacity-100 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </div>
+                      </div>
                       <div class="text-xs text-gray-500">ID: {{ product.id }}</div>
                     </div>
                   </div>
@@ -302,6 +356,202 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit Product Modal -->
+    <div v-if="editingProduct" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click.self="closeEditProduct">
+      <div class="relative top-20 mx-auto p-8 border w-full max-w-5xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h3 class="text-2xl font-bold text-gray-900">Uredi proizvod</h3>
+            <p class="text-sm text-gray-500 mt-1">ID: {{ editingProduct.id }} | {{ editingProduct.business_name }}</p>
+          </div>
+          <button @click="closeEditProduct" class="text-gray-400 hover:text-gray-600">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <form @submit.prevent="saveProduct" class="space-y-4">
+          <!-- Image Preview and Upload -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-3">Slika proizvoda</label>
+
+            <!-- Current and Original Images Side by Side -->
+            <div class="flex items-start gap-8 mb-4">
+              <!-- Current Image -->
+              <div class="flex-shrink-0">
+                <div v-if="editImagePath" class="relative">
+                  <img :src="editImagePath" :alt="editTitle" class="w-96 h-96 object-contain rounded-lg border-2 border-green-400 shadow-md bg-gray-50">
+                  <span class="absolute -top-2 -right-2 px-3 py-1 text-xs font-bold bg-green-500 text-white rounded-full shadow">Trenutna</span>
+                </div>
+                <div v-else class="w-96 h-96 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                  <svg class="w-24 h-24 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Original Image (always show when available) -->
+              <div v-if="originalImagePath" class="flex-shrink-0">
+                <div class="relative">
+                  <img :src="getFullImageUrl(originalImagePath)" alt="Original" class="w-96 h-96 object-contain rounded-lg border-2 shadow-md bg-gray-50" :class="getFullImageUrl(originalImagePath) === editImagePath ? 'border-green-400' : 'border-gray-300 opacity-80'">
+                  <span class="absolute -top-2 -right-2 px-3 py-1 text-xs font-bold text-white rounded-full shadow" :class="getFullImageUrl(originalImagePath) === editImagePath ? 'bg-green-500' : 'bg-gray-500'">Original</span>
+                </div>
+                <button
+                  v-if="getFullImageUrl(originalImagePath) !== editImagePath"
+                  type="button"
+                  @click="revertToOriginal"
+                  :disabled="isRevertingImage"
+                  class="mt-3 w-full px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  {{ isRevertingImage ? 'Vraćam...' : 'Vrati original' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3 mb-4">
+              <input
+                type="file"
+                accept="image/*"
+                @change="handleImageUpload"
+                ref="imageInput"
+                class="hidden"
+              >
+              <button
+                type="button"
+                @click="($refs.imageInput as HTMLInputElement).click()"
+                :disabled="isUploadingImage"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {{ isUploadingImage ? 'Uploadujem...' : 'Upload slike' }}
+              </button>
+              <button
+                type="button"
+                @click="suggestImages"
+                :disabled="isSuggestingImages"
+                class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+              >
+                <svg v-if="isSuggestingImages" class="w-4 h-4 inline mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {{ isSuggestingImages ? 'Tražim...' : 'Predloži slike' }}
+              </button>
+              <span class="text-xs text-gray-500 self-center">JPG, PNG ili GIF (max 5MB)</span>
+            </div>
+
+            <!-- Custom Search Query Input - always visible for custom search -->
+            <div class="mb-4">
+              <div class="flex gap-3 items-end">
+                <div class="flex-1">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Pojam za pretragu slika (opcionalno):</label>
+                  <input
+                    v-model="imageSearchQuery"
+                    type="text"
+                    :placeholder="editTitle || 'Unesite pojam za pretragu...'"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm"
+                    @keyup.enter="suggestImages"
+                  >
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Ako ostavite prazno, koristit će se naziv proizvoda</p>
+            </div>
+
+            <!-- Suggested Images Collapsible Section -->
+            <div v-if="suggestedImages.length > 0" class="border border-gray-200 rounded-lg">
+              <button
+                type="button"
+                @click="showSuggestedImages = !showSuggestedImages"
+                class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <span class="text-sm font-medium text-gray-700">
+                  Predložene slike ({{ suggestedImages.length }})
+                </span>
+                <svg
+                  class="w-5 h-5 text-gray-500 transition-transform"
+                  :class="{ 'rotate-180': showSuggestedImages }"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              <div v-show="showSuggestedImages" class="p-4 border-t border-gray-200">
+                <p class="text-xs text-gray-500 mb-3">Klikni na sliku za odabir</p>
+                <div class="grid grid-cols-5 gap-4">
+                  <div
+                    v-for="(imgPath, idx) in suggestedImages"
+                    :key="idx"
+                    @click="selectSuggestedImage(imgPath)"
+                    class="relative cursor-pointer group"
+                  >
+                    <img
+                      :src="getFullImageUrl(imgPath)"
+                      :alt="`Suggestion ${idx + 1}`"
+                      class="w-full h-48 object-contain rounded border-2 transition-all bg-gray-50"
+                      :class="editImagePath === getFullImageUrl(imgPath) ? 'border-green-500 ring-2 ring-green-300' : 'border-gray-200 hover:border-purple-400'"
+                    >
+                    <div
+                      v-if="editImagePath === getFullImageUrl(imgPath)"
+                      class="absolute inset-0 bg-green-500 bg-opacity-20 rounded flex items-center justify-center"
+                    >
+                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <div
+                      v-else
+                      class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded transition-all flex items-center justify-center"
+                    >
+                      <span class="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black bg-opacity-50 px-2 py-1 rounded">Odaberi</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label for="edit_title" class="block text-sm font-medium text-gray-700 mb-1">Naziv proizvoda *</label>
+            <input
+              v-model="editTitle"
+              type="text"
+              id="edit_title"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+            >
+          </div>
+
+          <!-- Price Info (read-only) -->
+          <div class="text-sm text-gray-500 pt-2">
+            Cijena: <span class="font-medium text-gray-900">{{ formatPrice(editingProduct.effective_price) }} KM</span>
+            <span v-if="editingProduct.discount_price && editingProduct.discount_price < editingProduct.base_price" class="text-green-600 ml-2">
+              (popust od {{ formatPrice(editingProduct.base_price) }} KM)
+            </span>
+          </div>
+
+          <div class="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              @click="closeEditProduct"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Otkaži
+            </button>
+            <button
+              type="submit"
+              :disabled="isSaving"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {{ isSaving ? 'Čuvam...' : 'Sačuvaj' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -315,7 +565,7 @@ definePageMeta({
   middleware: ['auth', 'admin']
 })
 
-const { get } = useApi()
+const { get, put, post } = useApi()
 
 interface Product {
   id: number
@@ -359,6 +609,25 @@ let chartInstance: Chart | null = null
 // Excluded products (temporary, in-browser only)
 const excludedIds = ref<Set<number>>(new Set())
 
+// Editing state - full product edit
+const editingProduct = ref<Product | null>(null)
+const editTitle = ref('')
+const editImagePath = ref('')
+const isSaving = ref(false)
+
+// Image suggestion state
+const suggestedImages = ref<string[]>([])
+const originalImagePath = ref<string | null>(null)
+const isSuggestingImages = ref(false)
+const isRevertingImage = ref(false)
+const showSuggestedImages = ref(false)
+const imageSearchQuery = ref('')
+const isUploadingImage = ref(false)
+const imageInput = ref<HTMLInputElement | null>(null)
+
+// Selected product image for chart display
+const selectedProductImage = ref<Product | null>(null)
+
 // Filtered products (excluding temporarily removed ones)
 const filteredProducts = computed(() => {
   return products.value.filter(p => !excludedIds.value.has(p.id))
@@ -378,6 +647,200 @@ function resetExcluded() {
   if (viewMode.value === 'chart') {
     nextTick(() => updateChart())
   }
+}
+
+// Edit product popup functions
+function openEditProduct(product: Product) {
+  editingProduct.value = product
+  editTitle.value = product.title
+  editImagePath.value = product.image_path || ''
+  originalImagePath.value = product.image_path || null
+  suggestedImages.value = []
+  showSuggestedImages.value = false
+  imageSearchQuery.value = ''
+}
+
+function closeEditProduct() {
+  editingProduct.value = null
+  editTitle.value = ''
+  editImagePath.value = ''
+  originalImagePath.value = null
+  suggestedImages.value = []
+  showSuggestedImages.value = false
+  imageSearchQuery.value = ''
+}
+
+// Suggest images function
+async function suggestImages() {
+  if (!editingProduct.value) return
+
+  // Use custom query if provided, otherwise fall back to title
+  const query = imageSearchQuery.value.trim() || editTitle.value
+  if (!query) {
+    alert('Unesite pojam za pretragu ili naziv proizvoda')
+    return
+  }
+
+  isSuggestingImages.value = true
+  try {
+    const data = await post(`/api/admin/products/${editingProduct.value.id}/suggest-images`, { query })
+
+    if (data.success) {
+      suggestedImages.value = data.suggested_images || []
+      if (data.original_image_path) {
+        originalImagePath.value = data.original_image_path
+      }
+      if (suggestedImages.value.length > 0) {
+        // Auto-expand the section to show the images
+        showSuggestedImages.value = true
+      } else {
+        alert('Nisu pronađene slike za ovaj proizvod')
+      }
+    } else {
+      alert(data.error || 'Greška pri pretrazi slika')
+    }
+  } catch (error: any) {
+    console.error('Suggest images error:', error)
+    alert('Greška pri pretrazi slika')
+  } finally {
+    isSuggestingImages.value = false
+  }
+}
+
+async function selectSuggestedImage(imagePath: string) {
+  if (!editingProduct.value) return
+
+  try {
+    const data = await post(`/api/admin/products/${editingProduct.value.id}/select-image`, {
+      image_path: imagePath
+    })
+
+    if (data.success) {
+      editImagePath.value = getFullImageUrl(data.image_path)
+    } else {
+      alert(data.error || 'Greška pri odabiru slike')
+    }
+  } catch (error: any) {
+    console.error('Select image error:', error)
+    alert('Greška pri odabiru slike')
+  }
+}
+
+async function revertToOriginal() {
+  if (!editingProduct.value || !originalImagePath.value) return
+
+  isRevertingImage.value = true
+  try {
+    const data = await post(`/api/admin/products/${editingProduct.value.id}/revert-image`, {})
+
+    if (data.success) {
+      editImagePath.value = getFullImageUrl(data.image_path || originalImagePath.value)
+    } else {
+      alert(data.error || 'Greška pri vraćanju slike')
+    }
+  } catch (error: any) {
+    console.error('Revert image error:', error)
+    alert('Greška pri vraćanju slike')
+  } finally {
+    isRevertingImage.value = false
+  }
+}
+
+async function handleImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  // Validate file size (5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Slika je prevelika. Maksimalna veličina je 5MB.')
+    return
+  }
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    alert('Molimo odaberite sliku (JPG, PNG, GIF)')
+    return
+  }
+
+  if (!editingProduct.value) return
+
+  isUploadingImage.value = true
+  try {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    // Get auth token
+    const token = process.client ? localStorage.getItem('token') : null
+    const config = useRuntimeConfig()
+    const headers: HeadersInit = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(
+      `${config.public.apiBase}/api/admin/products/${editingProduct.value.id}/upload-cropped-image`,
+      {
+        method: 'POST',
+        headers,
+        body: formData
+      }
+    )
+
+    const data = await response.json()
+
+    if (data.success) {
+      editImagePath.value = getFullImageUrl(data.image_path)
+    } else {
+      alert(data.error || 'Greška pri uploadu slike')
+    }
+  } catch (error: any) {
+    console.error('Upload error:', error)
+    alert('Greška pri uploadu slike')
+  } finally {
+    isUploadingImage.value = false
+    // Reset input
+    if (input) input.value = ''
+  }
+}
+
+function getFullImageUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  const bucket = 'aipijaca'
+  const region = 'eu-central-1'
+  return `https://${bucket}.s3.${region}.amazonaws.com/${path}`
+}
+
+async function saveProduct() {
+  if (!editingProduct.value) return
+
+  isSaving.value = true
+  try {
+    await put(`/api/admin/products/${editingProduct.value.id}`, {
+      title: editTitle.value,
+      image_path: editImagePath.value
+    })
+
+    // Update local state
+    const idx = products.value.findIndex(p => p.id === editingProduct.value!.id)
+    if (idx !== -1) {
+      products.value[idx].title = editTitle.value
+      products.value[idx].image_path = editImagePath.value
+    }
+
+    closeEditProduct()
+  } catch (error) {
+    console.error('Save error:', error)
+    alert('Greška pri spremanju')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+// Select product image for chart display
+function selectProductForChart(product: Product) {
+  selectedProductImage.value = product
 }
 
 // Category group helpers
