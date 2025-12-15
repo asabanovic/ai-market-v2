@@ -101,7 +101,20 @@
       <!-- Results Summary & Chart Toggle -->
       <div v-if="products.length > 0" class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-medium text-gray-900">Rezultati pretrage</h2>
+          <div class="flex items-center gap-4">
+            <h2 class="text-lg font-medium text-gray-900">Rezultati pretrage</h2>
+            <span class="text-sm text-gray-500">({{ filteredProducts.length }} od {{ products.length }})</span>
+            <button
+              v-if="excludedIds.size > 0"
+              @click="resetExcluded"
+              class="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg flex items-center gap-1"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Vrati izuzete ({{ excludedIds.size }})
+            </button>
+          </div>
           <div class="flex items-center gap-4">
             <button
               @click="viewMode = 'table'"
@@ -153,7 +166,7 @@
 
         <!-- Chart View -->
         <div v-if="viewMode === 'chart'" class="mb-6">
-          <div class="h-80 bg-gray-50 rounded-lg p-4">
+          <div class="h-80 bg-white rounded-lg p-4 border border-gray-200">
             <canvas ref="chartCanvas"></canvas>
           </div>
         </div>
@@ -163,6 +176,7 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
+                <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trgovina</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategorija</th>
@@ -173,7 +187,18 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="product in products" :key="product.id" class="hover:bg-gray-50">
+              <tr v-for="product in filteredProducts" :key="product.id" class="hover:bg-gray-50">
+                <td class="px-2 py-3 text-center">
+                  <button
+                    @click="excludeProduct(product.id)"
+                    class="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                    title="Izuzmi iz analize"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center">
                     <img
@@ -303,6 +328,7 @@ interface Product {
   business_id: number
   business_name: string
   business_city: string
+  business_logo: string | null
   image_path: string
   tags: string[]
   created_at: string
@@ -328,6 +354,30 @@ const filters = ref<Filters>({ businesses: [], category_groups: [] })
 
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
+
+// Excluded products (temporary, in-browser only)
+const excludedIds = ref<Set<number>>(new Set())
+
+// Filtered products (excluding temporarily removed ones)
+const filteredProducts = computed(() => {
+  return products.value.filter(p => !excludedIds.value.has(p.id))
+})
+
+function excludeProduct(id: number) {
+  excludedIds.value = new Set([...excludedIds.value, id])
+  // Update chart if in chart view
+  if (viewMode.value === 'chart') {
+    nextTick(() => updateChart())
+  }
+}
+
+function resetExcluded() {
+  excludedIds.value = new Set()
+  // Update chart if in chart view
+  if (viewMode.value === 'chart') {
+    nextTick(() => updateChart())
+  }
+}
 
 // Category group helpers
 const categoryGroupLabels: Record<string, string> = {
@@ -372,21 +422,21 @@ function getCategoryGroupColor(group: string): string {
   return categoryGroupColors[group] || 'bg-gray-100 text-gray-800'
 }
 
-// Price statistics
+// Price statistics (based on filtered products)
 const priceStats = computed(() => {
-  if (products.value.length === 0) {
+  if (filteredProducts.value.length === 0) {
     return { min: 0, max: 0, avg: 0, minStore: '', maxStore: '', diffPercent: 0, storeCount: 0 }
   }
 
-  const prices = products.value.map(p => p.effective_price)
+  const prices = filteredProducts.value.map(p => p.effective_price)
   const min = Math.min(...prices)
   const max = Math.max(...prices)
   const avg = prices.reduce((a, b) => a + b, 0) / prices.length
 
-  const minProduct = products.value.find(p => p.effective_price === min)
-  const maxProduct = products.value.find(p => p.effective_price === max)
+  const minProduct = filteredProducts.value.find(p => p.effective_price === min)
+  const maxProduct = filteredProducts.value.find(p => p.effective_price === max)
 
-  const uniqueStores = new Set(products.value.map(p => p.business_id))
+  const uniqueStores = new Set(filteredProducts.value.map(p => p.business_id))
 
   return {
     min,
@@ -400,7 +450,7 @@ const priceStats = computed(() => {
 })
 
 function getPriceClass(price: number): string {
-  if (products.value.length === 0) return 'text-gray-900'
+  if (filteredProducts.value.length === 0) return 'text-gray-900'
 
   const { min, max } = priceStats.value
   if (price === min) return 'text-green-600'
@@ -441,8 +491,9 @@ async function search() {
     pages.value = data.pages || 0
     filters.value = data.filters || { businesses: [], category_groups: [] }
 
-    // Update chart if in chart view
-    if (viewMode.value === 'chart') {
+    // Load logos and update chart if in chart view
+    if (viewMode.value === 'chart' && products.value.length > 0) {
+      await loadLogoImages()
       nextTick(() => updateChart())
     }
   } catch (error) {
@@ -466,6 +517,7 @@ function clearSearch() {
   pages.value = 0
   currentPage.value = 1
   hasSearched.value = false
+  excludedIds.value = new Set()
 
   if (chartInstance) {
     chartInstance.destroy()
@@ -479,6 +531,44 @@ function goToPage(page: number) {
   search()
 }
 
+// Store logo images cache
+const logoImages = ref<Map<string, HTMLImageElement>>(new Map())
+
+async function loadLogoImages() {
+  const storeLogos = new Map<string, string | null>()
+
+  // Get unique logos for stores from filtered products
+  filteredProducts.value.forEach(p => {
+    if (!storeLogos.has(p.business_name)) {
+      storeLogos.set(p.business_name, p.business_logo)
+    }
+  })
+
+  // Load images - without crossOrigin to avoid CORS issues
+  // Images loaded without crossOrigin can still be displayed but may taint canvas
+  const loadPromises: Promise<void>[] = []
+  storeLogos.forEach((logo, storeName) => {
+    if (logo && !logoImages.value.has(storeName)) {
+      const promise = new Promise<void>((resolve) => {
+        const img = new Image()
+        // Don't set crossOrigin - just load the image
+        img.onload = () => {
+          logoImages.value.set(storeName, img)
+          resolve()
+        }
+        img.onerror = () => {
+          console.log(`Failed to load logo for ${storeName}`)
+          resolve()
+        }
+        img.src = logo
+      })
+      loadPromises.push(promise)
+    }
+  })
+
+  await Promise.all(loadPromises)
+}
+
 function updateChart() {
   if (!chartCanvas.value) return
 
@@ -486,17 +576,19 @@ function updateChart() {
     chartInstance.destroy()
   }
 
-  // Group by store and calculate average price
-  const storeData: Record<string, { prices: number[]; name: string }> = {}
+  // Group by store and calculate average price (using filtered products)
+  const storeData: Record<string, { prices: number[]; name: string; logo: string | null }> = {}
 
-  products.value.forEach(p => {
+  filteredProducts.value.forEach(p => {
     if (!storeData[p.business_name]) {
-      storeData[p.business_name] = { prices: [], name: p.business_name }
+      storeData[p.business_name] = { prices: [], name: p.business_name, logo: p.business_logo }
     }
     storeData[p.business_name].prices.push(p.effective_price)
   })
 
   const labels = Object.keys(storeData)
+  if (labels.length === 0) return // No data to show
+
   const avgPrices = labels.map(store => {
     const prices = storeData[store].prices
     return prices.reduce((a, b) => a + b, 0) / prices.length
@@ -507,11 +599,46 @@ function updateChart() {
 
   // Sort by average price
   const sortedIndices = avgPrices.map((_, i) => i).sort((a, b) => avgPrices[a] - avgPrices[b])
+  const sortedLabels = sortedIndices.map(i => labels[i])
+
+  // Custom plugin to draw logos and store names on x-axis
+  const logoPlugin = {
+    id: 'logoPlugin',
+    afterDraw: (chart: any) => {
+      const ctx = chart.ctx
+      const xAxis = chart.scales.x
+      const yAxis = chart.scales.y
+
+      sortedLabels.forEach((storeName, index) => {
+        const x = xAxis.getPixelForValue(index)
+        const y = yAxis.bottom + 10
+        const logoImg = logoImages.value.get(storeName)
+
+        if (logoImg) {
+          // Draw logo - larger size
+          const logoSize = 40
+          ctx.drawImage(logoImg, x - logoSize / 2, y, logoSize, logoSize)
+
+          // Draw store name below logo
+          ctx.fillStyle = '#374151'
+          ctx.font = '12px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(storeName, x, y + logoSize + 14)
+        } else {
+          // No logo - just draw store name
+          ctx.fillStyle = '#374151'
+          ctx.font = '13px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(storeName, x, y + 20)
+        }
+      })
+    }
+  }
 
   chartInstance = new Chart(chartCanvas.value, {
     type: 'bar',
     data: {
-      labels: sortedIndices.map(i => labels[i]),
+      labels: sortedLabels,
       datasets: [
         {
           label: 'Prosjecna cijena (KM)',
@@ -533,6 +660,11 @@ function updateChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: {
+          bottom: 75 // Extra space for larger logos and names
+        }
+      },
       plugins: {
         legend: {
           display: false
@@ -559,19 +691,23 @@ function updateChart() {
           }
         },
         x: {
+          ticks: {
+            display: false // Hide default labels, we draw custom ones with logos
+          },
           title: {
-            display: true,
-            text: 'Trgovina'
+            display: false
           }
         }
       }
-    }
+    },
+    plugins: [logoPlugin]
   })
 }
 
 // Watch for view mode changes to update chart
-watch(viewMode, (newMode) => {
-  if (newMode === 'chart' && products.value.length > 0) {
+watch(viewMode, async (newMode) => {
+  if (newMode === 'chart' && filteredProducts.value.length > 0) {
+    await loadLogoImages()
     nextTick(() => updateChart())
   }
 })

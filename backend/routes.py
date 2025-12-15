@@ -6478,6 +6478,7 @@ def api_admin_products_analysis():
                 'business_id': p.business_id,
                 'business_name': p.business.name,
                 'business_city': p.business.city,
+                'business_logo': p.business.logo_path,
                 'image_path': p.image_path,
                 'tags': p.tags or [],
                 'created_at': p.created_at.isoformat() if p.created_at else None
