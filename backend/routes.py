@@ -6404,6 +6404,108 @@ def api_admin_category_stats():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/products/analysis', methods=['GET'])
+@csrf.exempt
+def api_admin_products_analysis():
+    """Search products by title for price analysis across stores - no limit"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Query parameters
+        search = request.args.get('q', '').strip()
+        category_group = request.args.get('category_group')
+        business_id = request.args.get('business_id', type=int)
+        min_price = request.args.get('min_price', type=float)
+        max_price = request.args.get('max_price', type=float)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+        per_page = min(per_page, 500)  # Cap at 500
+
+        # Build query
+        query = Product.query.join(Business)
+
+        # Apply filters
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(Product.title.ilike(search_term))
+
+        if category_group:
+            query = query.filter(Product.category_group == category_group)
+
+        if business_id:
+            query = query.filter(Product.business_id == business_id)
+
+        if min_price is not None:
+            query = query.filter(Product.base_price >= min_price)
+
+        if max_price is not None:
+            query = query.filter(Product.base_price <= max_price)
+
+        # Order by title for easier comparison
+        query = query.order_by(Product.title, Product.base_price)
+
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        products = []
+        for p in pagination.items:
+            effective_price = p.discount_price if (p.discount_price and p.discount_price < p.base_price) else p.base_price
+            products.append({
+                'id': p.id,
+                'title': p.title,
+                'category': p.category,
+                'category_group': p.category_group,
+                'base_price': p.base_price,
+                'discount_price': p.discount_price,
+                'effective_price': effective_price,
+                'discount_percent': round((1 - p.discount_price / p.base_price) * 100) if (p.discount_price and p.base_price and p.discount_price < p.base_price) else 0,
+                'business_id': p.business_id,
+                'business_name': p.business.name,
+                'business_city': p.business.city,
+                'image_path': p.image_path,
+                'tags': p.tags or [],
+                'created_at': p.created_at.isoformat() if p.created_at else None
+            })
+
+        # Get filter options
+        businesses = db.session.query(Business.id, Business.name).filter(Business.status == 'active').order_by(Business.name).all()
+        category_groups = db.session.query(Product.category_group).filter(Product.category_group.isnot(None)).distinct().all()
+
+        return jsonify({
+            'products': products,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'current_page': page,
+            'per_page': per_page,
+            'filters': {
+                'businesses': [{'id': b.id, 'name': b.name} for b in businesses],
+                'category_groups': sorted([c[0] for c in category_groups if c[0]])
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Products analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @app.route('/api/admin/search-test', methods=['POST'])
 @csrf.exempt
 def api_admin_search_test():
