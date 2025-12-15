@@ -1040,60 +1040,118 @@ function updateChart() {
     chartInstance.destroy()
   }
 
-  // Group by store and calculate average price (using filtered products)
-  const storeData: Record<string, { prices: number[]; name: string; logo: string | null }> = {}
+  // Group products by store, keeping each product separate
+  const storeGroups: Record<string, { products: Product[]; logo: string | null }> = {}
 
   filteredProducts.value.forEach(p => {
-    if (!storeData[p.business_name]) {
-      storeData[p.business_name] = { prices: [], name: p.business_name, logo: p.business_logo }
+    if (!storeGroups[p.business_name]) {
+      storeGroups[p.business_name] = { products: [], logo: p.business_logo }
     }
-    storeData[p.business_name].prices.push(p.effective_price)
+    storeGroups[p.business_name].products.push(p)
   })
 
-  const labels = Object.keys(storeData)
-  if (labels.length === 0) return // No data to show
+  const storeNames = Object.keys(storeGroups)
+  if (storeNames.length === 0) return // No data to show
 
-  const avgPrices = labels.map(store => {
-    const prices = storeData[store].prices
+  // Calculate average price per store for sorting
+  const storeAvgPrices = storeNames.map(store => {
+    const prices = storeGroups[store].products.map(p => p.effective_price)
     return prices.reduce((a, b) => a + b, 0) / prices.length
   })
-  const minPrices = labels.map(store => Math.min(...storeData[store].prices))
-  const maxPrices = labels.map(store => Math.max(...storeData[store].prices))
-  const productCounts = labels.map(store => storeData[store].prices.length)
 
-  // Sort by average price
-  const sortedIndices = avgPrices.map((_, i) => i).sort((a, b) => avgPrices[a] - avgPrices[b])
-  const sortedLabels = sortedIndices.map(i => labels[i])
+  // Sort stores by average price (lowest first)
+  const sortedStoreIndices = storeAvgPrices.map((_, i) => i).sort((a, b) => storeAvgPrices[a] - storeAvgPrices[b])
+  const sortedStoreNames = sortedStoreIndices.map(i => storeNames[i])
 
-  // Custom plugin to draw logos and store names on x-axis
-  const logoPlugin = {
-    id: 'logoPlugin',
+  // Build flat arrays for each product bar, grouped by store
+  const allProducts: Product[] = []
+  const storeStartIndices: { storeName: string; startIdx: number; endIdx: number }[] = []
+
+  sortedStoreNames.forEach(storeName => {
+    const startIdx = allProducts.length
+    // Sort products within store by price
+    const storeProducts = [...storeGroups[storeName].products].sort((a, b) => a.effective_price - b.effective_price)
+    allProducts.push(...storeProducts)
+    storeStartIndices.push({ storeName, startIdx, endIdx: allProducts.length - 1 })
+  })
+
+  if (allProducts.length === 0) return
+
+  // Find global min/max for coloring
+  const allPrices = allProducts.map(p => p.effective_price)
+  const globalMin = Math.min(...allPrices)
+  const globalMax = Math.max(...allPrices)
+
+  // Create labels (product titles truncated)
+  const labels = allProducts.map(p => {
+    const title = p.title.length > 20 ? p.title.substring(0, 20) + '...' : p.title
+    return title
+  })
+
+  // Create colors based on price
+  const backgroundColors = allProducts.map(p => {
+    if (p.effective_price === globalMin) return 'rgba(34, 197, 94, 0.8)' // Green for lowest
+    if (p.effective_price === globalMax) return 'rgba(239, 68, 68, 0.8)' // Red for highest
+    return 'rgba(99, 102, 241, 0.8)' // Indigo for others
+  })
+
+  const borderColors = allProducts.map(p => {
+    if (p.effective_price === globalMin) return 'rgb(34, 197, 94)'
+    if (p.effective_price === globalMax) return 'rgb(239, 68, 68)'
+    return 'rgb(99, 102, 241)'
+  })
+
+  // Custom plugin to draw store logos and separators
+  const storeGroupPlugin = {
+    id: 'storeGroupPlugin',
     afterDraw: (chart: any) => {
       const ctx = chart.ctx
       const xAxis = chart.scales.x
       const yAxis = chart.scales.y
+      const chartArea = chart.chartArea
 
-      sortedLabels.forEach((storeName, index) => {
-        const x = xAxis.getPixelForValue(index)
+      storeStartIndices.forEach((group, groupIdx) => {
+        const { storeName, startIdx, endIdx } = group
+
+        // Calculate center position for this store group
+        const startX = xAxis.getPixelForValue(startIdx)
+        const endX = xAxis.getPixelForValue(endIdx)
+        const centerX = (startX + endX) / 2
         const y = yAxis.bottom + 10
+
+        // Draw vertical separator line before each store (except first)
+        if (groupIdx > 0) {
+          const prevEndX = xAxis.getPixelForValue(startIdx - 1)
+          const separatorX = (prevEndX + startX) / 2
+          ctx.save()
+          ctx.strokeStyle = '#d1d5db'
+          ctx.lineWidth = 2
+          ctx.setLineDash([5, 5])
+          ctx.beginPath()
+          ctx.moveTo(separatorX, chartArea.top)
+          ctx.lineTo(separatorX, chartArea.bottom + 70)
+          ctx.stroke()
+          ctx.restore()
+        }
+
         const logoImg = logoImages.value.get(storeName)
 
         if (logoImg) {
-          // Draw logo - larger size
-          const logoSize = 40
-          ctx.drawImage(logoImg, x - logoSize / 2, y, logoSize, logoSize)
+          // Draw logo
+          const logoSize = 36
+          ctx.drawImage(logoImg, centerX - logoSize / 2, y, logoSize, logoSize)
 
           // Draw store name below logo
           ctx.fillStyle = '#374151'
-          ctx.font = '12px sans-serif'
+          ctx.font = 'bold 11px sans-serif'
           ctx.textAlign = 'center'
-          ctx.fillText(storeName, x, y + logoSize + 14)
+          ctx.fillText(storeName, centerX, y + logoSize + 12)
         } else {
           // No logo - just draw store name
           ctx.fillStyle = '#374151'
-          ctx.font = '13px sans-serif'
+          ctx.font = 'bold 12px sans-serif'
           ctx.textAlign = 'center'
-          ctx.fillText(storeName, x, y + 20)
+          ctx.fillText(storeName, centerX, y + 20)
         }
       })
     }
@@ -1102,21 +1160,13 @@ function updateChart() {
   chartInstance = new Chart(chartCanvas.value, {
     type: 'bar',
     data: {
-      labels: sortedLabels,
+      labels: labels,
       datasets: [
         {
-          label: 'Prosjecna cijena (KM)',
-          data: sortedIndices.map(i => avgPrices[i]),
-          backgroundColor: sortedIndices.map((_, idx) =>
-            idx === 0 ? 'rgba(34, 197, 94, 0.8)' :
-            idx === sortedIndices.length - 1 ? 'rgba(239, 68, 68, 0.8)' :
-            'rgba(99, 102, 241, 0.8)'
-          ),
-          borderColor: sortedIndices.map((_, idx) =>
-            idx === 0 ? 'rgb(34, 197, 94)' :
-            idx === sortedIndices.length - 1 ? 'rgb(239, 68, 68)' :
-            'rgb(99, 102, 241)'
-          ),
+          label: 'Cijena (KM)',
+          data: allProducts.map(p => p.effective_price),
+          backgroundColor: backgroundColors,
+          borderColor: borderColors,
           borderWidth: 1
         }
       ]
@@ -1126,7 +1176,7 @@ function updateChart() {
       maintainAspectRatio: false,
       layout: {
         padding: {
-          bottom: 75 // Extra space for larger logos and names
+          bottom: 75 // Extra space for logos and names
         }
       },
       plugins: {
@@ -1135,13 +1185,24 @@ function updateChart() {
         },
         tooltip: {
           callbacks: {
+            title: (context) => {
+              const idx = context[0].dataIndex
+              return allProducts[idx].title
+            },
+            label: (context) => {
+              const idx = context.dataIndex
+              const product = allProducts[idx]
+              return `Cijena: ${product.effective_price.toFixed(2)} KM`
+            },
             afterLabel: (context) => {
-              const idx = sortedIndices[context.dataIndex]
-              return [
-                `Min: ${minPrices[idx].toFixed(2)} KM`,
-                `Max: ${maxPrices[idx].toFixed(2)} KM`,
-                `Proizvoda: ${productCounts[idx]}`
-              ]
+              const idx = context.dataIndex
+              const product = allProducts[idx]
+              const lines = [`Trgovina: ${product.business_name}`]
+              if (product.discount_price && product.discount_price < product.base_price) {
+                lines.push(`Redovna: ${product.base_price.toFixed(2)} KM`)
+                lines.push(`Popust: -${product.discount_percent}%`)
+              }
+              return lines
             }
           }
         },
@@ -1151,17 +1212,18 @@ function updateChart() {
           color: '#1f2937',
           anchor: 'end',
           align: 'top',
+          rotation: -45,
           font: {
             weight: 'bold',
-            size: 14
+            size: 11
           },
-          formatter: (value: number) => value.toFixed(2) + ' KM'
+          formatter: (value: number) => value.toFixed(2)
         }
       },
       scales: {
         y: {
           beginAtZero: true,
-          suggestedMax: Math.max(...avgPrices) * 1.2, // Expand by 20% to fit labels
+          suggestedMax: Math.max(...allPrices) * 1.25, // Expand by 25% to fit rotated labels
           title: {
             display: true,
             text: 'Cijena (KM)'
@@ -1169,7 +1231,7 @@ function updateChart() {
         },
         x: {
           ticks: {
-            display: false // Hide default labels, we draw custom ones with logos
+            display: false // Hide default labels, we use custom plugin
           },
           title: {
             display: false
@@ -1177,7 +1239,7 @@ function updateChart() {
         }
       }
     },
-    plugins: [logoPlugin]
+    plugins: [storeGroupPlugin]
   })
 }
 
