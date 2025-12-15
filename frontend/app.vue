@@ -32,6 +32,13 @@
       @submitted="handleFeedbackSubmitted"
     />
 
+    <!-- Welcome Guide Popup (shows after onboarding/interests) -->
+    <WelcomeGuidePopup
+      :show="showWelcomeGuide"
+      @close="showWelcomeGuide = false"
+      @started="handleWelcomeGuideStarted"
+    />
+
     <!-- Floating Feedback Button (for logged-in users) -->
     <FloatingFeedbackButton @open-feedback="openFeedbackManually" />
   </div>
@@ -53,6 +60,9 @@ const feedbackTriggerType = ref('manual')
 const hasGivenFeedback = ref(false)
 const feedbackChecked = ref(false)
 
+// Welcome Guide state
+const showWelcomeGuide = ref(false)
+
 // Check auth and onboarding status on mount
 onMounted(async () => {
   await checkAuth()
@@ -65,6 +75,16 @@ onMounted(async () => {
   } else if (user.value) {
     // Check if we should show interest popup after onboarding is complete
     checkInterestPopup()
+
+    // For existing users: show welcome guide if they haven't seen it
+    // Only if they have grocery interests (interest popup won't show)
+    const preferences = user.value.preferences as Record<string, any> | null
+    if (preferences?.grocery_interests && preferences.grocery_interests.length > 0) {
+      // User has interests, they won't see the interest popup, so check welcome guide
+      setTimeout(() => {
+        checkWelcomeGuide()
+      }, 2000)
+    }
   }
 
   // Listen for custom event to open interest popup from other pages
@@ -133,10 +153,40 @@ function handleInterestComplete() {
   showInterestPopup.value = false
   // Refresh user data
   checkAuth()
+  // Show welcome guide after interest selection (for new users)
+  if (isNewUserForInterest.value) {
+    setTimeout(() => {
+      checkWelcomeGuide()
+    }, 1000)
+  }
 }
 
 function handleInterestSkip() {
   showInterestPopup.value = false
+  // Even if skipped, show welcome guide for new users
+  if (isNewUserForInterest.value) {
+    setTimeout(() => {
+      checkWelcomeGuide()
+    }, 1000)
+  }
+}
+
+// Welcome Guide logic - show for users who haven't seen it
+function checkWelcomeGuide() {
+  if (!user.value) return
+
+  // Check if user has already seen the welcome guide
+  if (user.value.welcome_guide_seen) {
+    return
+  }
+
+  // Show the welcome guide
+  showWelcomeGuide.value = true
+}
+
+function handleWelcomeGuideStarted() {
+  // Refresh user data to update welcome_guide_seen flag
+  checkAuth()
 }
 
 // ==================== FEEDBACK LOGIC ====================

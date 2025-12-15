@@ -178,7 +178,8 @@ def api_login():
             'phone': user.phone,
             'city': user.city,
             'is_admin': user.is_admin,
-            'onboarding_completed': user.onboarding_completed or False
+            'onboarding_completed': user.onboarding_completed or False,
+            'welcome_guide_seen': user.welcome_guide_seen or False
         }
 
         app.logger.info(f"API login successful for: {email}")
@@ -227,6 +228,7 @@ def api_verify():
             'city': user.city,
             'is_admin': user.is_admin,
             'onboarding_completed': user.onboarding_completed or False,
+            'welcome_guide_seen': user.welcome_guide_seen or False,
             'preferences': user.preferences or {},
             'first_search_reward_claimed': user.first_search_reward_claimed or False
         }
@@ -445,6 +447,44 @@ def complete_onboarding():
         db.session.rollback()
         app.logger.error(f"Onboarding error: {e}")
         return jsonify({'error': 'Greška pri čuvanju podataka'}), 500
+
+
+@auth_api_bp.route('/user/welcome-guide-seen', methods=['POST', 'OPTIONS'])
+@require_jwt_auth
+def mark_welcome_guide_seen():
+    """Mark welcome guide as seen by the user"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        # Get user from JWT
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Missing authorization header'}), 401
+
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Mark welcome guide as seen
+        user.welcome_guide_seen = True
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Welcome guide marked as seen'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Welcome guide seen error: {e}")
+        return jsonify({'error': 'Error updating user'}), 500
 
 
 @auth_api_bp.route('/user/profile', methods=['GET', 'PUT', 'OPTIONS'])

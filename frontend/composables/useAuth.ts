@@ -8,6 +8,9 @@ interface User {
   phone?: string
   city?: string
   first_search_reward_claimed?: boolean
+  onboarding_completed?: boolean
+  welcome_guide_seen?: boolean
+  preferences?: Record<string, any>
 }
 
 interface LoginCredentials {

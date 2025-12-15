@@ -7075,6 +7075,157 @@ def api_admin_engagement_stats():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/admin/shopping-lists', methods=['GET'])
+@csrf.exempt
+def api_admin_shopping_lists():
+    """Get all shopping lists with items for admin dashboard"""
+    from auth_api import decode_jwt_token
+    from models import ShoppingList, ShoppingListItem
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get all shopping lists with user info
+        lists = db.session.query(
+            ShoppingList, User.id.label('uid'), User.email, User.first_name, User.last_name, User.phone
+        ).join(User, ShoppingList.user_id == User.id).order_by(
+            ShoppingList.created_at.desc()
+        ).all()
+
+        result = []
+        for sl, uid, email, first_name, last_name, phone in lists:
+            # Get items for this list
+            items = db.session.query(
+                ShoppingListItem, Product.title, Business.name
+            ).join(Product, ShoppingListItem.product_id == Product.id).join(
+                Business, ShoppingListItem.business_id == Business.id
+            ).filter(ShoppingListItem.list_id == sl.id).all()
+
+            items_list = [{
+                'id': item.ShoppingListItem.id,
+                'product_title': item.title[:40] + '...' if len(item.title) > 40 else item.title,
+                'business_name': item.name,
+                'qty': item.ShoppingListItem.qty,
+                'price': item.ShoppingListItem.price_snapshot,
+                'purchased': item.ShoppingListItem.purchased_at is not None
+            } for item in items]
+
+            result.append({
+                'id': sl.id,
+                'user_id': uid,
+                'user_email': email,
+                'user_first_name': first_name,
+                'user_last_name': last_name,
+                'user_phone': phone,
+                'status': sl.status,
+                'items_count': len(items_list),
+                'items': items_list,
+                'created_at': sl.created_at.isoformat() if sl.created_at else None,
+                'expires_at': sl.expires_at.isoformat() if sl.expires_at else None
+            })
+
+        return jsonify({
+            'total': len(result),
+            'lists': result
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting shopping lists: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user-preferences', methods=['GET'])
+@csrf.exempt
+def api_admin_user_preferences():
+    """Get all users with their preferences for admin dashboard"""
+    from auth_api import decode_jwt_token
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get all users with preferences set
+        users = User.query.filter(User.preferences.isnot(None)).order_by(
+            User.created_at.desc()
+        ).all()
+
+        # Get store mappings
+        stores = {b.id: b.name for b in Business.query.all()}
+
+        result = []
+        for user in users:
+            prefs = user.preferences or {}
+            preferred_store_ids = prefs.get('preferred_stores', [])
+            preferred_store_names = [stores.get(sid, f'ID:{sid}') for sid in preferred_store_ids]
+            grocery_interests = prefs.get('grocery_interests', [])
+
+            result.append({
+                'user_id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'phone': user.phone,
+                'city': user.city,
+                'preferred_stores': preferred_store_names,
+                'preferred_store_ids': preferred_store_ids,
+                'grocery_interests': grocery_interests,
+                'onboarding_completed': user.onboarding_completed,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            })
+
+        # Stats
+        total_with_prefs = len(result)
+        total_with_interests = len([u for u in result if u['grocery_interests']])
+        total_onboarded = len([u for u in result if u['onboarding_completed']])
+
+        # Count grocery interests
+        interest_counts = {}
+        for user in result:
+            for interest in user['grocery_interests']:
+                interest_lower = interest.lower().strip()
+                interest_counts[interest_lower] = interest_counts.get(interest_lower, 0) + 1
+
+        # Sort by count
+        top_interests = sorted(interest_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+
+        return jsonify({
+            'total': total_with_prefs,
+            'total_with_interests': total_with_interests,
+            'total_onboarded': total_onboarded,
+            'top_interests': [{'name': k, 'count': v} for k, v in top_interests],
+            'users': result
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting user preferences: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):

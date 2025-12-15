@@ -161,6 +161,28 @@
               >
                 🏆 Top korisnici
               </button>
+              <button
+                @click="activeTab = 'lists'; loadShoppingLists()"
+                :class="[
+                  activeTab === 'lists'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+                ]"
+              >
+                🛒 Liste ({{ shoppingListsTotal }})
+              </button>
+              <button
+                @click="activeTab = 'preferences'; loadUserPreferences()"
+                :class="[
+                  activeTab === 'preferences'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+                ]"
+              >
+                ⚙️ Preferencije ({{ userPreferencesTotal }})
+              </button>
             </nav>
           </div>
         </div>
@@ -293,6 +315,121 @@
               </div>
             </div>
           </div>
+
+          <!-- Shopping Lists Tab -->
+          <div v-if="activeTab === 'lists'" class="divide-y divide-gray-200">
+            <div v-if="isLoadingLists" class="p-8 text-center">
+              <div class="inline-flex items-center text-green-600">
+                <svg class="animate-spin h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Učitavanje lista...
+              </div>
+            </div>
+            <div v-else-if="shoppingLists.length === 0" class="p-8 text-center text-gray-500">
+              Nema kreiranih listi za kupovinu
+            </div>
+            <div v-else v-for="list in shoppingLists" :key="list.id" class="p-4 hover:bg-gray-50">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">🛒</span>
+                  <NuxtLink :to="`/admin/users/${list.user_id}`" class="font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                    {{ list.user_first_name || list.user_email || 'Nepoznat' }}
+                  </NuxtLink>
+                  <span v-if="list.user_phone" class="text-xs text-gray-500">({{ list.user_phone }})</span>
+                  <span
+                    :class="{
+                      'bg-green-100 text-green-800': list.status === 'ACTIVE',
+                      'bg-gray-100 text-gray-800': list.status === 'EXPIRED',
+                      'bg-blue-100 text-blue-800': list.status === 'SENT',
+                      'bg-purple-100 text-purple-800': list.status === 'COMPLETED'
+                    }"
+                    class="px-2 py-0.5 rounded text-xs font-medium"
+                  >
+                    {{ list.status }}
+                  </span>
+                </div>
+                <span class="text-sm text-gray-500">{{ formatDateTime(list.created_at) }}</span>
+              </div>
+              <div class="ml-8 space-y-1">
+                <div v-for="item in list.items" :key="item.id" class="text-sm flex items-center gap-2">
+                  <span :class="item.purchased ? 'text-green-600' : 'text-gray-400'">
+                    {{ item.purchased ? '✓' : '○' }}
+                  </span>
+                  <span class="text-gray-700">{{ item.product_title }}</span>
+                  <span class="text-gray-400">@</span>
+                  <span class="text-gray-600">{{ item.business_name }}</span>
+                  <span class="text-gray-500">x{{ item.qty }}</span>
+                  <span class="text-green-600 font-medium">{{ item.price?.toFixed(2) }} KM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- User Preferences Tab -->
+          <div v-if="activeTab === 'preferences'" class="divide-y divide-gray-200">
+            <div v-if="isLoadingPreferences" class="p-8 text-center">
+              <div class="inline-flex items-center text-purple-600">
+                <svg class="animate-spin h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Učitavanje preferencija...
+              </div>
+            </div>
+            <template v-else>
+              <!-- Top Interests Summary -->
+              <div v-if="topInterests.length > 0" class="p-4 bg-purple-50">
+                <h4 class="text-sm font-medium text-purple-800 mb-2">Najpopularnije namirnice:</h4>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="interest in topInterests"
+                    :key="interest.name"
+                    class="px-2 py-1 bg-white border border-purple-200 rounded text-xs text-purple-700"
+                  >
+                    {{ interest.name }} ({{ interest.count }})
+                  </span>
+                </div>
+              </div>
+              <div v-if="userPreferences.length === 0" class="p-8 text-center text-gray-500">
+                Nema korisnika s preferencijama
+              </div>
+              <div v-else v-for="user in userPreferences" :key="user.user_id" class="p-4 hover:bg-gray-50">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xl">⚙️</span>
+                    <NuxtLink :to="`/admin/users/${user.user_id}`" class="font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                      {{ user.first_name || user.email || 'Nepoznat' }}
+                    </NuxtLink>
+                    <span v-if="user.phone" class="text-xs text-gray-500">({{ user.phone }})</span>
+                    <span v-if="user.onboarding_completed" class="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      Onboarding
+                    </span>
+                  </div>
+                  <span class="text-sm text-gray-500">{{ formatDateTime(user.created_at) }}</span>
+                </div>
+                <div class="ml-8 space-y-1">
+                  <div v-if="user.preferred_stores?.length" class="text-sm">
+                    <span class="text-gray-500">Trgovine:</span>
+                    <span class="ml-1 text-gray-700">{{ user.preferred_stores.join(', ') }}</span>
+                  </div>
+                  <div v-if="user.grocery_interests?.length" class="text-sm">
+                    <span class="text-gray-500">Namirnice:</span>
+                    <span class="flex flex-wrap gap-1 mt-1">
+                      <span
+                        v-for="interest in user.grocery_interests"
+                        :key="interest"
+                        class="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700"
+                      >
+                        {{ interest }}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
         </div>
       </template>
     </div>
@@ -316,6 +453,19 @@ const recentProizvodiViews = ref<any[]>([])
 const topVoters = ref<any[]>([])
 const topCommenters = ref<any[]>([])
 
+// Shopping Lists
+const shoppingLists = ref<any[]>([])
+const shoppingListsTotal = ref(0)
+const isLoadingLists = ref(false)
+const listsLoaded = ref(false)
+
+// User Preferences
+const userPreferences = ref<any[]>([])
+const userPreferencesTotal = ref(0)
+const topInterests = ref<any[]>([])
+const isLoadingPreferences = ref(false)
+const preferencesLoaded = ref(false)
+
 onMounted(async () => {
   await loadEngagementData()
 })
@@ -335,6 +485,37 @@ async function loadEngagementData() {
     console.error('Error loading engagement data:', error)
   } finally {
     isLoading.value = false
+  }
+}
+
+async function loadShoppingLists() {
+  if (listsLoaded.value) return
+  isLoadingLists.value = true
+  try {
+    const data = await get('/api/admin/shopping-lists')
+    shoppingLists.value = data.lists || []
+    shoppingListsTotal.value = data.total || 0
+    listsLoaded.value = true
+  } catch (error) {
+    console.error('Error loading shopping lists:', error)
+  } finally {
+    isLoadingLists.value = false
+  }
+}
+
+async function loadUserPreferences() {
+  if (preferencesLoaded.value) return
+  isLoadingPreferences.value = true
+  try {
+    const data = await get('/api/admin/user-preferences')
+    userPreferences.value = data.users || []
+    userPreferencesTotal.value = data.total || 0
+    topInterests.value = data.top_interests || []
+    preferencesLoaded.value = true
+  } catch (error) {
+    console.error('Error loading user preferences:', error)
+  } finally {
+    isLoadingPreferences.value = false
   }
 }
 

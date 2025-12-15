@@ -54,6 +54,9 @@ class User(UserMixin, db.Model):
     # Onboarding flag - True if user completed initial setup
     onboarding_completed = db.Column(db.Boolean, default=False)
 
+    # Welcome guide flag - True if user has seen the welcome guide popup
+    welcome_guide_seen = db.Column(db.Boolean, default=False)
+
     # Weekly credits system - Two buckets:
     # 1. Regular credits: 40 credits per week (reset every Monday, never exceed 40)
     weekly_credits = db.Column(db.Integer, default=40)  # Regular credits (reset weekly)
