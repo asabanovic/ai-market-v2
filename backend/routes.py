@@ -486,7 +486,243 @@ def product_to_dict(product, include_price_history=True):
     }
 
 
-# Async product enrichment (tags + descriptions)
+# ==================== UNIFIED AI PRODUCT PROCESSING ====================
+# Combines enrichment (tags, description) + categorization (brand, type, size, variant) in ONE API call
+
+def schedule_unified_ai_processing(product_ids: list[int], business_id: int = None) -> None:
+    """
+    Unified AI processing that extracts ALL product data in a single OpenAI call:
+    - tags (for search)
+    - enriched_description (for display)
+    - category_group (for filtering)
+    - brand, product_type, size_value, size_unit, variant (for matching)
+
+    This replaces both schedule_async_product_enrichment AND run_background_categorization.
+    """
+    import threading
+    from flask import current_app
+    from openai_utils import openai_client
+
+    VALID_CATEGORY_GROUPS = [
+        'meso', 'mlijeko', 'kruh', 'voće', 'povrće', 'piće', 'slatkiši',
+        'smrznuto', 'konzerve', 'začini', 'ulje', 'tjestenina', 'riža',
+        'snacks', 'kava', 'čaj', 'alkohol', 'higijena', 'čišćenje',
+        'bebe', 'kućni_ljubimci', 'ostalo'
+    ]
+
+    def run_unified_processing(app, product_ids, business_id):
+        with app.app_context():
+            try:
+                app.logger.info(f"Starting unified AI processing for {len(product_ids)} products")
+
+                # Fetch products
+                products = Product.query.filter(Product.id.in_(product_ids)).all()
+                if not products:
+                    app.logger.warning("No products found for unified processing")
+                    return
+
+                # Process in batches of 10 to avoid token limits
+                batch_size = 10
+                total_processed = 0
+
+                for batch_start in range(0, len(products), batch_size):
+                    batch = products[batch_start:batch_start + batch_size]
+
+                    # Prepare products for AI
+                    products_for_ai = []
+                    product_images = {}
+
+                    for p in batch:
+                        product_info = {
+                            'id': p.id,
+                            'title': p.title,
+                            'category': p.category or ''
+                        }
+                        products_for_ai.append(product_info)
+
+                        # Track images
+                        if p.image_path and p.image_path.startswith('http'):
+                            product_images[p.id] = p.image_path
+
+                    # System prompt for unified extraction
+                    system_prompt = """You are a product data extraction expert for a Bosnian marketplace.
+
+For each product, extract ALL of the following:
+
+1. category_group - ONE of: meso, mlijeko, kruh, voće, povrće, piće, slatkiši, smrznuto, konzerve, začini, ulje, tjestenina, riža, snacks, kava, čaj, alkohol, higijena, čišćenje, bebe, kućni_ljubimci, ostalo
+
+2. brand - The brand/manufacturer (e.g., "Milka", "Coca-Cola", "Ariel"). Use null if unknown.
+
+3. product_type - Normalized product type in lowercase Bosnian (e.g., "mlijeko", "čokolada", "deterdžent")
+
+4. size_value - Numeric size value (e.g., 100, 1.5, 500). Use null if not determinable.
+
+5. size_unit - Size unit in lowercase (g, kg, ml, l, kom, pak). Use null if not determinable.
+
+6. variant - Product variant/flavor (e.g., "lješnjak", "jagoda", "original"). Use null if none.
+
+7. tags - Array of 3-5 search keywords in lowercase Bosnian for finding this product.
+
+8. description - Short 1-sentence marketing description in Bosnian (max 100 chars).
+
+Return ONLY valid JSON:
+{
+  "products": [
+    {
+      "id": 123,
+      "category_group": "slatkiši",
+      "brand": "Milka",
+      "product_type": "čokolada",
+      "size_value": 100,
+      "size_unit": "g",
+      "variant": "lješnjak",
+      "tags": ["čokolada", "milka", "slatkiš", "lješnjak"],
+      "description": "Kremasta Milka čokolada s lješnjacima."
+    }
+  ]
+}"""
+
+                    user_prompt = f"""Extract ALL data for these products:
+
+{json.dumps(products_for_ai, ensure_ascii=False, indent=2)}
+
+Return: id, category_group, brand, product_type, size_value, size_unit, variant, tags, description."""
+
+                    try:
+                        # Build messages with optional images
+                        messages = [{"role": "system", "content": system_prompt}]
+
+                        if product_images:
+                            content = [{"type": "text", "text": user_prompt}]
+                            for pid, img_url in list(product_images.items())[:5]:
+                                content.append({
+                                    "type": "image_url",
+                                    "image_url": {"url": img_url, "detail": "low"}
+                                })
+                            content.append({
+                                "type": "text",
+                                "text": f"\nImages above are for products: {list(product_images.keys())[:5]}"
+                            })
+                            messages.append({"role": "user", "content": content})
+                        else:
+                            messages.append({"role": "user", "content": user_prompt})
+
+                        response = openai_client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=messages,
+                            response_format={"type": "json_object"},
+                            temperature=0.2,
+                            max_tokens=4000
+                        )
+
+                        result_text = response.choices[0].message.content.strip()
+                        result = json.loads(result_text)
+
+                        if isinstance(result, dict) and 'products' in result:
+                            extractions = result['products']
+                        elif isinstance(result, list):
+                            extractions = result
+                        else:
+                            extractions = []
+
+                        # Update products with extracted data
+                        for item in extractions:
+                            product_id = item.get('id')
+                            if not product_id:
+                                continue
+
+                            product = Product.query.get(product_id)
+                            if not product:
+                                continue
+
+                            # Update category_group
+                            cat_group = (item.get('category_group') or '').lower()
+                            if cat_group in VALID_CATEGORY_GROUPS:
+                                product.category_group = cat_group
+
+                            # Update brand
+                            brand = item.get('brand')
+                            if brand and brand.lower() not in ['null', 'none', '']:
+                                product.brand = brand
+
+                            # Update product_type
+                            ptype = item.get('product_type')
+                            if ptype and ptype.lower() not in ['null', 'none', '']:
+                                product.product_type = ptype.lower()
+
+                            # Update size_value
+                            size_val = item.get('size_value')
+                            if size_val is not None and str(size_val).lower() != 'null':
+                                try:
+                                    product.size_value = float(size_val)
+                                except (ValueError, TypeError):
+                                    pass
+
+                            # Update size_unit
+                            size_unit = item.get('size_unit')
+                            if size_unit and size_unit.lower() not in ['null', 'none', '']:
+                                product.size_unit = size_unit.lower()
+
+                            # Update variant
+                            variant = item.get('variant')
+                            if variant and str(variant).lower() not in ['null', 'none', '']:
+                                product.variant = variant
+
+                            # Update tags
+                            tags = item.get('tags')
+                            if tags and isinstance(tags, list):
+                                product.tags = tags
+
+                            # Update enriched_description
+                            desc = item.get('description')
+                            if desc and desc.lower() not in ['null', 'none', '']:
+                                product.enriched_description = desc
+
+                            # Update match_key
+                            product.update_match_key()
+
+                            total_processed += 1
+
+                        db.session.commit()
+                        app.logger.info(f"Unified AI: Processed batch {batch_start//batch_size + 1}, {len(extractions)} products")
+
+                    except Exception as e:
+                        app.logger.error(f"Unified AI batch error: {e}")
+                        continue
+
+                    # Small delay between batches
+                    import time as time_module
+                    time_module.sleep(1)
+
+                app.logger.info(f"Unified AI processing complete: {total_processed} products")
+
+                # After AI processing, run clone detection for new products
+                try:
+                    clones_found = find_and_create_clone_matches(product_ids)
+                    app.logger.info(f"Unified AI: Found {clones_found} clone matches")
+                except Exception as e:
+                    app.logger.error(f"Clone detection after unified AI failed: {e}")
+
+                # Trigger lazy sibling matching
+                try:
+                    schedule_lazy_sibling_matching()
+                except Exception as e:
+                    app.logger.error(f"Lazy sibling matching trigger failed: {e}")
+
+            except Exception as e:
+                app.logger.error(f"Unified AI processing failed: {e}", exc_info=True)
+
+    app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=run_unified_processing,
+        args=(app, product_ids, business_id),
+        daemon=True
+    )
+    thread.start()
+    app.logger.info(f"Scheduled unified AI processing for {len(product_ids)} products")
+
+
+# Legacy: Async product enrichment (tags + descriptions) - DEPRECATED, use schedule_unified_ai_processing
 def schedule_async_product_enrichment(product_ids: list[int]) -> None:
     """
     Schedule AI enrichment (tags + descriptions) to run in the background
@@ -3588,6 +3824,14 @@ def bulk_import_products(business_id):
                     title=product_data['title']
                 ).first()
 
+                # Extract matching fields from top-level OR from product_metadata
+                metadata = product_data.get('product_metadata', {})
+                brand = product_data.get('brand') or metadata.get('brand')
+                product_type = product_data.get('product_type') or metadata.get('product_type')
+                size_value = product_data.get('size_value') if product_data.get('size_value') is not None else metadata.get('size_value')
+                size_unit = product_data.get('size_unit') or metadata.get('size_unit')
+                variant = product_data.get('variant') or metadata.get('variant')
+
                 if existing_product:
                     # Track price changes before updating
                     new_base = float(product_data['base_price'])
@@ -3608,20 +3852,20 @@ def bulk_import_products(business_id):
                     existing_product.expires = expires
                     existing_product.category = product_data.get('category')
                     existing_product.tags = tags
-                    existing_product.product_metadata = product_data.get('product_metadata', {})
+                    existing_product.product_metadata = metadata
                     existing_product.image_path = product_data.get('image_url') or product_data.get('image_path')
                     existing_product.city = business.city
-                    # Product matching fields (optional)
-                    if product_data.get('brand'):
-                        existing_product.brand = product_data['brand']
-                    if product_data.get('product_type'):
-                        existing_product.product_type = product_data['product_type']
-                    if product_data.get('size_value') is not None:
-                        existing_product.size_value = float(product_data['size_value'])
-                    if product_data.get('size_unit'):
-                        existing_product.size_unit = product_data['size_unit']
-                    if product_data.get('variant'):
-                        existing_product.variant = product_data['variant']
+                    # Product matching fields (from top-level or product_metadata)
+                    if brand:
+                        existing_product.brand = brand
+                    if product_type:
+                        existing_product.product_type = product_type
+                    if size_value is not None:
+                        existing_product.size_value = float(size_value)
+                    if size_unit:
+                        existing_product.size_unit = size_unit
+                    if variant:
+                        existing_product.variant = variant
                     # Update match_key if matching fields are set
                     existing_product.update_match_key()
                     products_to_vectorize.append(existing_product)
@@ -3636,15 +3880,15 @@ def bulk_import_products(business_id):
                         expires=expires,
                         category=product_data.get('category'),
                         tags=tags,
-                        product_metadata=product_data.get('product_metadata', {}),
+                        product_metadata=metadata,
                         image_path=product_data.get('image_url') or product_data.get('image_path'),
                         city=business.city,
-                        # Product matching fields (optional)
-                        brand=product_data.get('brand'),
-                        product_type=product_data.get('product_type'),
-                        size_value=float(product_data['size_value']) if product_data.get('size_value') is not None else None,
-                        size_unit=product_data.get('size_unit'),
-                        variant=product_data.get('variant')
+                        # Product matching fields (from top-level or product_metadata)
+                        brand=brand,
+                        product_type=product_type,
+                        size_value=float(size_value) if size_value is not None else None,
+                        size_unit=size_unit,
+                        variant=variant
                     )
                     # Generate match_key if matching fields are set
                     product.update_match_key()
@@ -3660,18 +3904,20 @@ def bulk_import_products(business_id):
         # Commit all products first
         db.session.commit()
 
-        # Schedule async enrichment (tags + descriptions) and vectorization
+        # Schedule unified AI processing and vectorization
         if products_to_vectorize:
             product_ids = [p.id for p in products_to_vectorize]
 
-            # Schedule background task for AI enrichment (tags + descriptions)
+            # Schedule unified AI processing (tags + description + categorization + matching fields)
+            # This combines enrichment AND categorization in ONE OpenAI call
+            # Also handles clone detection and triggers lazy sibling matching after completion
             try:
-                app.logger.info(f"Scheduling async AI enrichment for {len(product_ids)} products")
-                schedule_async_product_enrichment(product_ids)
+                app.logger.info(f"Scheduling unified AI processing for {len(product_ids)} products")
+                schedule_unified_ai_processing(product_ids, business_id)
             except Exception as e:
-                app.logger.error(f"Failed to schedule async enrichment: {e}")
+                app.logger.error(f"Failed to schedule unified AI processing: {e}")
 
-            # Schedule vectorization (will run after enrichment)
+            # Schedule vectorization
             try:
                 from auto_vectorize import schedule_async_vectorization
                 app.logger.info(f"Scheduling async vectorization for {len(product_ids)} products")
@@ -7792,6 +8038,245 @@ def api_admin_user_preferences():
 product_matching_jobs = {}  # job_id -> job_status dict
 
 
+# Lazy sibling matching state
+lazy_sibling_job = {
+    'running': False,
+    'last_processed_id': 0,
+    'matches_created': 0,
+    'started_at': None
+}
+
+
+def schedule_lazy_sibling_matching():
+    """
+    Schedule a slow-drip sibling/brand_variant matching job.
+    Processes products slowly throughout the day to avoid overloading the system.
+    Only one job runs at a time - if already running, does nothing.
+    """
+    import threading
+
+    if lazy_sibling_job['running']:
+        app.logger.info("Lazy sibling matching already running, skipping")
+        return
+
+    def run_lazy_matching():
+        with app.app_context():
+            try:
+                lazy_sibling_job['running'] = True
+                lazy_sibling_job['started_at'] = datetime.now().isoformat()
+                lazy_sibling_job['matches_created'] = 0
+
+                from models import ProductMatch
+                import time as time_module
+
+                # Get all products with match_key, process them slowly
+                products_with_match_key = Product.query.filter(
+                    Product.match_key.isnot(None),
+                    Product.match_key != '',
+                    Product.id > lazy_sibling_job['last_processed_id']
+                ).order_by(Product.id).limit(500).all()  # Process up to 500 per job
+
+                app.logger.info(f"Lazy sibling matching: Processing {len(products_with_match_key)} products")
+
+                for product in products_with_match_key:
+                    lazy_sibling_job['last_processed_id'] = product.id
+
+                    # Find siblings (same brand + product_type, different size or variant)
+                    if product.brand and product.product_type:
+                        siblings = Product.query.filter(
+                            Product.brand.ilike(product.brand),
+                            Product.product_type.ilike(product.product_type),
+                            Product.id != product.id,
+                            Product.match_key.isnot(None),
+                            Product.match_key != product.match_key  # Different match_key = different size/variant
+                        ).limit(10).all()  # Limit to avoid too many matches
+
+                        for sibling in siblings:
+                            # Calculate confidence based on variant/size similarity
+                            v1 = (product.variant or '').lower().strip()
+                            v2 = (sibling.variant or '').lower().strip()
+                            size1 = f"{product.size_value}{product.size_unit}" if product.size_value else ''
+                            size2 = f"{sibling.size_value}{sibling.size_unit}" if sibling.size_value else ''
+
+                            if v1 == v2 and size1 != size2:
+                                confidence = 80  # Same variant, different size
+                            elif v1 != v2 and size1 == size2:
+                                confidence = 65  # Same size, different variant
+                            else:
+                                confidence = 60  # Different size and variant
+
+                            _, created = ProductMatch.get_or_create_match(
+                                product.id, sibling.id, 'sibling', confidence=confidence, created_by='auto'
+                            )
+                            if created:
+                                lazy_sibling_job['matches_created'] += 1
+
+                    # Find brand variants (same product_type + size, different brand)
+                    if product.product_type and product.size_value and product.size_unit:
+                        brand_variants = Product.query.filter(
+                            Product.product_type.ilike(product.product_type),
+                            Product.size_value == product.size_value,
+                            Product.size_unit.ilike(product.size_unit),
+                            ~Product.brand.ilike(product.brand) if product.brand else True,
+                            Product.id != product.id,
+                            Product.match_key.isnot(None)
+                        ).limit(5).all()
+
+                        for bv in brand_variants:
+                            v1 = (product.variant or '').lower().strip()
+                            v2 = (bv.variant or '').lower().strip()
+                            if v1 and v2 and v1 == v2:
+                                confidence = 90
+                            elif not v1 and not v2:
+                                confidence = 85
+                            else:
+                                confidence = 75
+
+                            _, created = ProductMatch.get_or_create_match(
+                                product.id, bv.id, 'brand_variant', confidence=confidence, created_by='auto'
+                            )
+                            if created:
+                                lazy_sibling_job['matches_created'] += 1
+
+                    # Commit every 10 products
+                    if lazy_sibling_job['last_processed_id'] % 10 == 0:
+                        db.session.commit()
+
+                    # Slow drip: wait 2 seconds between products to spread load
+                    time_module.sleep(2)
+
+                db.session.commit()
+                app.logger.info(f"Lazy sibling matching completed: {lazy_sibling_job['matches_created']} matches created")
+
+                # Reset last_processed_id if we processed all products (for next cycle)
+                if len(products_with_match_key) < 500:
+                    lazy_sibling_job['last_processed_id'] = 0
+
+            except Exception as e:
+                app.logger.error(f"Lazy sibling matching error: {e}")
+            finally:
+                lazy_sibling_job['running'] = False
+
+    thread = threading.Thread(target=run_lazy_matching, daemon=True)
+    thread.start()
+    return thread
+
+
+def find_and_create_clone_matches(product_ids):
+    """
+    Quick clone detection for specific products.
+    Finds products with same match_key in OTHER stores and creates clone matches.
+    This is fast - just DB queries, no AI.
+    Returns count of new matches created.
+    """
+    from models import ProductMatch
+
+    if not product_ids:
+        return 0
+
+    clones_created = 0
+
+    # Get products with their match_keys
+    products = Product.query.filter(
+        Product.id.in_(product_ids),
+        Product.match_key.isnot(None),
+        Product.match_key != ''
+    ).all()
+
+    for product in products:
+        # Find other products with same match_key but different business
+        matching_products = Product.query.filter(
+            Product.match_key == product.match_key,
+            Product.business_id != product.business_id,
+            Product.id != product.id
+        ).all()
+
+        for match in matching_products:
+            # Create clone match (100% confidence - same match_key)
+            _, created = ProductMatch.get_or_create_match(
+                product.id, match.id, 'clone', confidence=100, created_by='auto'
+            )
+            if created:
+                clones_created += 1
+
+    if clones_created > 0:
+        db.session.commit()
+
+    return clones_created
+
+
+def schedule_product_processing_pipeline(product_ids, business_id, trigger_sibling_matching=True):
+    """
+    Hybrid processing pipeline for new/updated products:
+    1. AI Categorization (for products missing fields) - async
+    2. Quick Clone Detection (immediate after categorization)
+    3. Sibling/Brand Variant Matching (lazy, scheduled) - optional
+
+    This runs in a background thread.
+    """
+    import threading
+
+    def run_pipeline():
+        with app.app_context():
+            try:
+                app.logger.info(f"Starting product processing pipeline for {len(product_ids)} products")
+
+                # Step 1: Check which products need AI categorization
+                from sqlalchemy import or_
+                products_needing_categorization = Product.query.filter(
+                    Product.id.in_(product_ids),
+                    or_(
+                        Product.category_group.is_(None),
+                        Product.category_group == '',
+                        Product.brand.is_(None),
+                        Product.size_value.is_(None),
+                        Product.size_unit.is_(None)
+                    )
+                ).count()
+
+                if products_needing_categorization > 0:
+                    app.logger.info(f"Pipeline: {products_needing_categorization} products need AI categorization")
+
+                    # Start categorization job and wait for it
+                    job_id = str(uuid.uuid4())[:8]
+                    categorization_jobs[job_id] = {
+                        'business_id': business_id,
+                        'status': 'starting',
+                        'created_at': datetime.now().isoformat(),
+                        'remaining': products_needing_categorization,
+                        'processed': 0
+                    }
+
+                    # Run categorization synchronously in this thread
+                    run_background_categorization(job_id, business_id, app.app_context())
+
+                    app.logger.info(f"Pipeline: AI categorization completed for business {business_id}")
+                else:
+                    app.logger.info(f"Pipeline: All products already have categorization fields")
+
+                # Step 2: Quick Clone Detection (fast - just DB queries)
+                # Re-fetch products to get updated match_keys after categorization
+                clones_found = find_and_create_clone_matches(product_ids)
+                app.logger.info(f"Pipeline: Found {clones_found} new clone matches")
+
+                # Step 3: Schedule lazy sibling/brand_variant matching (if requested)
+                # Uses slow-drip approach instead of processing all products at once
+                if trigger_sibling_matching:
+                    app.logger.info(f"Pipeline: Scheduling lazy sibling/brand_variant matching")
+                    schedule_lazy_sibling_matching()
+
+                app.logger.info(f"Pipeline: Completed for {len(product_ids)} products")
+
+            except Exception as e:
+                app.logger.error(f"Pipeline error: {e}")
+
+    # Start pipeline in background thread
+    thread = threading.Thread(target=run_pipeline, daemon=True)
+    thread.start()
+
+    return thread
+
+
 def run_product_matching_job(job_id, app_context):
     """Background worker for finding product matches across stores"""
     with app_context:
@@ -7881,8 +8366,18 @@ def run_product_matching_job(job_id, app_context):
                                 # Match one product from each brand
                                 p1 = by_brand[brands[i]][0]  # First product of brand i
                                 p2 = by_brand[brands[j]][0]  # First product of brand j
+                                # Calculate confidence based on variant similarity
+                                # Same variant = 90%, different variant = 75%
+                                v1 = (p1.variant or '').lower().strip()
+                                v2 = (p2.variant or '').lower().strip()
+                                if v1 and v2 and v1 == v2:
+                                    confidence = 90  # Same variant, different brand
+                                elif not v1 and not v2:
+                                    confidence = 85  # No variants specified
+                                else:
+                                    confidence = 75  # Different variants
                                 _, created = ProductMatch.get_or_create_match(
-                                    p1.id, p2.id, 'brand_variant', confidence=85, created_by='auto'
+                                    p1.id, p2.id, 'brand_variant', confidence=confidence, created_by='auto'
                                 )
                                 if created:
                                     brand_variants_found += 1
@@ -7890,50 +8385,51 @@ def run_product_matching_job(job_id, app_context):
             db.session.commit()
             product_matching_jobs[job_id]['brand_variants_found'] = brand_variants_found
 
-            # Step 3: Find SIBLINGS (same product_type, different sizes)
-            # Group by product_type only
-            type_groups = {}
+            # Step 3: Find SIBLINGS (same brand + product_type, different sizes or variants)
+            # Group by brand + product_type
+            brand_type_groups = {}
             for p in products_with_match_key:
-                if p.product_type:
-                    if p.product_type not in type_groups:
-                        type_groups[p.product_type] = []
-                    type_groups[p.product_type].append(p)
+                if p.product_type and p.brand:
+                    key = f"{p.brand.lower().strip()}:{p.product_type.lower().strip()}"
+                    if key not in brand_type_groups:
+                        brand_type_groups[key] = []
+                    brand_type_groups[key].append(p)
 
             # Create sibling matches (limit to avoid too many matches)
-            for product_type, products in type_groups.items():
+            for brand_type_key, products in brand_type_groups.items():
                 if len(products) > 1:
-                    # Only create a few sibling relationships per type (for recommendations)
-                    # Group by brand first to find siblings within same brand
-                    by_brand = {}
+                    # Group by size+variant to find unique products
+                    unique_products = {}
                     for p in products:
-                        brand = (p.brand or 'unknown').lower()
-                        if brand not in by_brand:
-                            by_brand[brand] = []
-                        by_brand[brand].append(p)
+                        size_key = f"{p.size_value}{p.size_unit}" if p.size_value and p.size_unit else 'unknown'
+                        variant_key = (p.variant or '').lower().strip()
+                        product_key = f"{size_key}:{variant_key}"
+                        if product_key not in unique_products:
+                            unique_products[product_key] = p
 
-                    # Create siblings within same brand (different sizes)
-                    for brand, brand_products in by_brand.items():
-                        if len(brand_products) > 1:
-                            # Get unique sizes
-                            sizes = set()
-                            products_by_size = {}
-                            for p in brand_products:
-                                size_key = f"{p.size_value}{p.size_unit}" if p.size_value and p.size_unit else 'unknown'
-                                if size_key not in products_by_size:
-                                    products_by_size[size_key] = p
-                                    sizes.add(size_key)
+                    # Create sibling matches between different sizes/variants
+                    product_list = list(unique_products.values())
+                    for i in range(min(5, len(product_list))):  # Limit siblings
+                        for j in range(i + 1, min(6, len(product_list))):
+                            p1, p2 = product_list[i], product_list[j]
+                            # Calculate confidence based on variant similarity
+                            v1 = (p1.variant or '').lower().strip()
+                            v2 = (p2.variant or '').lower().strip()
+                            size1 = f"{p1.size_value}{p1.size_unit}" if p1.size_value else ''
+                            size2 = f"{p2.size_value}{p2.size_unit}" if p2.size_value else ''
 
-                            # Create sibling matches between different sizes
-                            size_list = list(products_by_size.keys())
-                            for i in range(min(3, len(size_list))):  # Limit siblings
-                                for j in range(i + 1, min(4, len(size_list))):
-                                    p1 = products_by_size[size_list[i]]
-                                    p2 = products_by_size[size_list[j]]
-                                    _, created = ProductMatch.get_or_create_match(
-                                        p1.id, p2.id, 'sibling', confidence=70, created_by='auto'
-                                    )
-                                    if created:
-                                        siblings_found += 1
+                            if v1 == v2 and size1 != size2:
+                                confidence = 80  # Same variant, different size
+                            elif v1 != v2 and size1 == size2:
+                                confidence = 65  # Same size, different variant
+                            else:
+                                confidence = 60  # Different size and variant
+
+                            _, created = ProductMatch.get_or_create_match(
+                                p1.id, p2.id, 'sibling', confidence=confidence, created_by='auto'
+                            )
+                            if created:
+                                siblings_found += 1
 
             db.session.commit()
             product_matching_jobs[job_id]['siblings_found'] = siblings_found
@@ -8213,6 +8709,227 @@ def api_admin_product_match_stats():
 
     except Exception as e:
         app.logger.error(f"Get match stats error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/match-groups', methods=['GET'])
+@csrf.exempt
+def api_admin_get_match_groups():
+    """Get products grouped by match_key for cross-store comparison"""
+    from auth_api import decode_jwt_token
+    from sqlalchemy import func
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        only_cross_store = request.args.get('only_cross_store', 'false').lower() == 'true'
+
+        # Find match_keys that have multiple products (potential matches)
+        # Subquery to get match_keys with counts
+        subq = db.session.query(
+            Product.match_key,
+            func.count(Product.id).label('product_count'),
+            func.count(func.distinct(Product.business_id)).label('store_count')
+        ).filter(
+            Product.match_key.isnot(None),
+            Product.match_key != ''
+        ).group_by(Product.match_key)
+
+        if only_cross_store:
+            # Only groups with products from multiple stores
+            subq = subq.having(func.count(func.distinct(Product.business_id)) > 1)
+        else:
+            # Groups with at least 2 products
+            subq = subq.having(func.count(Product.id) > 1)
+
+        subq = subq.subquery()
+
+        # Get all match_keys with counts
+        query = db.session.query(subq)
+
+        if search:
+            # Search in match_key
+            query = query.filter(subq.c.match_key.ilike(f'%{search}%'))
+
+        # Get total count
+        total = query.count()
+
+        # Get paginated match_keys
+        match_keys_data = query.order_by(subq.c.store_count.desc(), subq.c.product_count.desc())\
+            .offset((page - 1) * per_page).limit(per_page).all()
+
+        # Get products for each match_key
+        groups = []
+        for mk_data in match_keys_data:
+            match_key = mk_data[0]
+            products = Product.query.filter(
+                Product.match_key == match_key
+            ).order_by(Product.business_id).all()
+
+            # Get business names
+            business_ids = list(set(p.business_id for p in products))
+            businesses = {b.id: b for b in Business.query.filter(Business.id.in_(business_ids)).all()}
+
+            products_data = []
+            for p in products:
+                biz = businesses.get(p.business_id)
+                products_data.append({
+                    'id': p.id,
+                    'title': p.title,
+                    'brand': p.brand,
+                    'product_type': p.product_type,
+                    'size_value': p.size_value,
+                    'size_unit': p.size_unit,
+                    'variant': p.variant,
+                    'base_price': float(p.base_price) if p.base_price else None,
+                    'discount_price': float(p.discount_price) if p.discount_price else None,
+                    'image_url': p.image_url,
+                    'business_id': p.business_id,
+                    'business_name': biz.name if biz else 'Unknown'
+                })
+
+            # Find lowest and highest price
+            prices = [p['discount_price'] or p['base_price'] for p in products_data if (p['discount_price'] or p['base_price'])]
+
+            groups.append({
+                'match_key': match_key,
+                'product_count': mk_data[1],
+                'store_count': mk_data[2],
+                'products': products_data,
+                'lowest_price': min(prices) if prices else None,
+                'highest_price': max(prices) if prices else None,
+                'price_spread': max(prices) - min(prices) if len(prices) > 1 else 0
+            })
+
+        return jsonify({
+            'groups': groups,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total + per_page - 1) // per_page
+        })
+
+    except Exception as e:
+        app.logger.error(f"Get match groups error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/products/<int:product_id>/related', methods=['GET'])
+@csrf.exempt
+def api_get_product_related(product_id):
+    """Get related products for a specific product (clones, brand variants, siblings)
+
+    This is a public API endpoint for use on product detail pages to show:
+    - clones: Same product in other stores (price comparison)
+    - brand_variants: Same type/size but different brand
+    - siblings: Same brand but different sizes
+    """
+    from models import ProductMatch
+
+    try:
+        product = Product.query.get_or_404(product_id)
+
+        # Get all matches involving this product
+        matches = ProductMatch.query.filter(
+            (ProductMatch.product_a_id == product_id) |
+            (ProductMatch.product_b_id == product_id)
+        ).all()
+
+        # Organize by match type
+        clones = []
+        brand_variants = []
+        siblings = []
+
+        for m in matches:
+            # Get the OTHER product in the match
+            other_product = m.product_b if m.product_a_id == product_id else m.product_a
+
+            if not other_product:
+                continue
+
+            # Get business name
+            business = Business.query.get(other_product.business_id)
+
+            product_data = {
+                'id': other_product.id,
+                'title': other_product.title,
+                'brand': other_product.brand,
+                'product_type': other_product.product_type,
+                'size_value': other_product.size_value,
+                'size_unit': other_product.size_unit,
+                'variant': other_product.variant,
+                'base_price': float(other_product.base_price) if other_product.base_price else None,
+                'discount_price': float(other_product.discount_price) if other_product.discount_price else None,
+                'image_url': other_product.image_url,
+                'business_id': other_product.business_id,
+                'business_name': business.name if business else 'Unknown',
+                'confidence': m.confidence
+            }
+
+            if m.match_type == 'clone':
+                clones.append(product_data)
+            elif m.match_type == 'brand_variant':
+                brand_variants.append(product_data)
+            elif m.match_type == 'sibling':
+                siblings.append(product_data)
+
+        # Also find clones by match_key (same product in other stores, even without explicit match)
+        if product.match_key:
+            same_key_products = Product.query.filter(
+                Product.match_key == product.match_key,
+                Product.id != product_id,
+                Product.business_id != product.business_id
+            ).all()
+
+            existing_clone_ids = {p['id'] for p in clones}
+            for p in same_key_products:
+                if p.id not in existing_clone_ids:
+                    business = Business.query.get(p.business_id)
+                    clones.append({
+                        'id': p.id,
+                        'title': p.title,
+                        'brand': p.brand,
+                        'product_type': p.product_type,
+                        'size_value': p.size_value,
+                        'size_unit': p.size_unit,
+                        'variant': p.variant,
+                        'base_price': float(p.base_price) if p.base_price else None,
+                        'discount_price': float(p.discount_price) if p.discount_price else None,
+                        'image_url': p.image_url,
+                        'business_id': p.business_id,
+                        'business_name': business.name if business else 'Unknown',
+                        'confidence': 100  # Same match_key = 100% confidence
+                    })
+
+        # Sort clones by price (lowest first)
+        clones.sort(key=lambda x: x['discount_price'] or x['base_price'] or 999999)
+
+        return jsonify({
+            'product_id': product_id,
+            'clones': clones,  # Same product in other stores
+            'brand_variants': brand_variants,  # Same type, different brand
+            'siblings': siblings,  # Same brand, different size
+            'total_related': len(clones) + len(brand_variants) + len(siblings)
+        })
+
+    except Exception as e:
+        app.logger.error(f"Get product related error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
 
