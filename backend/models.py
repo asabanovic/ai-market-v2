@@ -217,6 +217,14 @@ class Product(db.Model):
     enriched_description = db.Column(db.Text, nullable=True)  # AI-generated rich description
     created_at = db.Column(db.DateTime, default=datetime.now)
 
+    # Product matching fields for clone/sibling detection
+    brand = db.Column(db.String, nullable=True, index=True)  # e.g., "Ariel", "Meggle", "Milka"
+    product_type = db.Column(db.String, nullable=True, index=True)  # Normalized type: "mlijeko", "deterdžent", "čokolada"
+    size_value = db.Column(db.Float, nullable=True)  # Numeric size: 1, 0.5, 500, 200
+    size_unit = db.Column(db.String, nullable=True)  # Unit: "kg", "l", "ml", "g", "kom"
+    variant = db.Column(db.String, nullable=True)  # Meta field for differentiators: "light", "bez laktoze", "gorka"
+    match_key = db.Column(db.String, nullable=True, index=True)  # Auto-generated: "brand:type:size" for clone detection
+
     @property
     def has_discount(self):
         """Check if product has an active (non-expired) discount"""
@@ -238,6 +246,32 @@ class Product(db.Model):
         if self.expires:
             return date.today() > self.expires
         return False
+
+    def generate_match_key(self):
+        """Generate a match key from brand, product_type, size_value, size_unit for clone detection"""
+        if not self.brand or not self.product_type or self.size_value is None or not self.size_unit:
+            return None
+        # Normalize: lowercase, strip whitespace
+        brand = self.brand.lower().strip()
+        product_type = self.product_type.lower().strip()
+        # Format size: normalize units (e.g., 1000ml -> 1l, 1000g -> 1kg)
+        size_value = self.size_value
+        size_unit = self.size_unit.lower().strip()
+        # Normalize large units
+        if size_unit == 'ml' and size_value >= 1000:
+            size_value = size_value / 1000
+            size_unit = 'l'
+        elif size_unit == 'g' and size_value >= 1000:
+            size_value = size_value / 1000
+            size_unit = 'kg'
+        # Format: remove trailing zeros from float
+        size_str = f"{size_value:g}" if size_value == int(size_value) else f"{size_value:.2f}".rstrip('0').rstrip('.')
+        return f"{brand}:{product_type}:{size_str}{size_unit}"
+
+    def update_match_key(self):
+        """Update the match_key field based on current values"""
+        self.match_key = self.generate_match_key()
+
 
 # Product embeddings table for semantic search
 class ProductEmbedding(db.Model):
@@ -269,6 +303,69 @@ class ProductPriceHistory(db.Model):
         db.Index('idx_price_history_product_id', 'product_id'),
         db.Index('idx_price_history_recorded_at', 'recorded_at'),
     )
+
+
+# Product matches table for tracking relationships between products across stores
+class ProductMatch(db.Model):
+    __tablename__ = 'product_matches'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # The two products being matched
+    product_a_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    product_b_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+
+    # Match type:
+    # - 'clone': Same brand + type + size in different stores (exact product)
+    # - 'brand_variant': Same type + size, different brand (competitor products)
+    # - 'sibling': Same type, different size/brand (related products)
+    match_type = db.Column(db.String, nullable=False)
+
+    # Confidence score (0-100) for automated matches
+    confidence = db.Column(db.Integer, nullable=True)
+
+    # How the match was created: 'auto' (cron job) or 'manual' (admin)
+    created_by = db.Column(db.String, default='auto')
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    product_a = db.relationship('Product', foreign_keys=[product_a_id], backref=db.backref('matches_as_a', passive_deletes=True))
+    product_b = db.relationship('Product', foreign_keys=[product_b_id], backref=db.backref('matches_as_b', passive_deletes=True))
+
+    __table_args__ = (
+        # Ensure we don't have duplicate matches (A-B is same as B-A)
+        db.UniqueConstraint('product_a_id', 'product_b_id', 'match_type', name='uq_product_match'),
+        db.Index('idx_product_matches_product_a', 'product_a_id'),
+        db.Index('idx_product_matches_product_b', 'product_b_id'),
+        db.Index('idx_product_matches_type', 'match_type'),
+    )
+
+    @staticmethod
+    def get_or_create_match(product_a_id, product_b_id, match_type, confidence=None, created_by='auto'):
+        """Create a match if it doesn't exist, ensuring consistent ordering"""
+        # Always store with smaller ID first to prevent duplicates
+        if product_a_id > product_b_id:
+            product_a_id, product_b_id = product_b_id, product_a_id
+
+        existing = ProductMatch.query.filter_by(
+            product_a_id=product_a_id,
+            product_b_id=product_b_id,
+            match_type=match_type
+        ).first()
+
+        if existing:
+            return existing, False
+
+        match = ProductMatch(
+            product_a_id=product_a_id,
+            product_b_id=product_b_id,
+            match_type=match_type,
+            confidence=confidence,
+            created_by=created_by
+        )
+        db.session.add(match)
+        return match, True
+
 
 # User searches table for tracking
 class UserSearch(db.Model):

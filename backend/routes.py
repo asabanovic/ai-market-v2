@@ -1399,7 +1399,15 @@ def api_business_products(business_id):
                 'is_expired': product.is_expired if hasattr(product, 'is_expired') else False,
                 'enriched_description': product.enriched_description,
                 'embedding_text': embedding.embedding_text if embedding else None,
-                'has_embedding': embedding is not None
+                'has_embedding': embedding is not None,
+                'product_url': product.product_url,
+                # Product matching fields
+                'brand': product.brand,
+                'product_type': product.product_type,
+                'size_value': product.size_value,
+                'size_unit': product.size_unit,
+                'variant': product.variant,
+                'match_key': product.match_key
             })
 
         return jsonify({
@@ -3603,6 +3611,19 @@ def bulk_import_products(business_id):
                     existing_product.product_metadata = product_data.get('product_metadata', {})
                     existing_product.image_path = product_data.get('image_url') or product_data.get('image_path')
                     existing_product.city = business.city
+                    # Product matching fields (optional)
+                    if product_data.get('brand'):
+                        existing_product.brand = product_data['brand']
+                    if product_data.get('product_type'):
+                        existing_product.product_type = product_data['product_type']
+                    if product_data.get('size_value') is not None:
+                        existing_product.size_value = float(product_data['size_value'])
+                    if product_data.get('size_unit'):
+                        existing_product.size_unit = product_data['size_unit']
+                    if product_data.get('variant'):
+                        existing_product.variant = product_data['variant']
+                    # Update match_key if matching fields are set
+                    existing_product.update_match_key()
                     products_to_vectorize.append(existing_product)
                     updated_count += 1
                 else:
@@ -3617,8 +3638,16 @@ def bulk_import_products(business_id):
                         tags=tags,
                         product_metadata=product_data.get('product_metadata', {}),
                         image_path=product_data.get('image_url') or product_data.get('image_path'),
-                        city=business.city
+                        city=business.city,
+                        # Product matching fields (optional)
+                        brand=product_data.get('brand'),
+                        product_type=product_data.get('product_type'),
+                        size_value=float(product_data['size_value']) if product_data.get('size_value') is not None else None,
+                        size_unit=product_data.get('size_unit'),
+                        variant=product_data.get('variant')
                     )
+                    # Generate match_key if matching fields are set
+                    product.update_match_key()
                     db.session.add(product)
                     products_to_vectorize.append(product)
 
@@ -3744,6 +3773,22 @@ def update_single_product(business_id, product_id):
             product.image_path = data['image_path']
         if 'tags' in data:
             product.tags = data['tags']
+
+        # Product matching fields
+        if 'brand' in data:
+            product.brand = data['brand']
+        if 'product_type' in data:
+            product.product_type = data['product_type']
+        if 'size_value' in data:
+            product.size_value = float(data['size_value']) if data['size_value'] else None
+        if 'size_unit' in data:
+            product.size_unit = data['size_unit']
+        if 'variant' in data:
+            product.variant = data['variant']
+
+        # Regenerate match_key if matching fields changed
+        if any(key in data for key in ['brand', 'product_type', 'size_value', 'size_unit']):
+            product.match_key = product.generate_match_key()
 
         db.session.commit()
 
@@ -4036,6 +4081,149 @@ def regenerate_product_description(business_id, product_id):
         return jsonify({
             'success': False,
             'error': f'Greška pri regeneraciji opisa: {str(e)}'
+        }), 500
+
+
+# Extract matching fields for single product using AI
+@app.route('/biznisi/<int:business_id>/proizvodi/<int:product_id>/extract-matching', methods=['POST'])
+@require_jwt_auth
+def extract_product_matching_fields(business_id, product_id):
+    """Extract brand, product_type, size, variant for a single product using AI"""
+    try:
+        business = Business.query.get_or_404(business_id)
+
+        product = Product.query.filter_by(
+            id=product_id,
+            business_id=business_id
+        ).first()
+
+        if not product:
+            return jsonify({
+                'success': False,
+                'error': 'Proizvod nije pronađen'
+            }), 404
+
+        # Prepare product info for AI
+        tags_str = ''
+        if product.tags:
+            if isinstance(product.tags, list):
+                tags_str = ', '.join(product.tags[:5])
+            elif isinstance(product.tags, str):
+                tags_str = product.tags
+
+        product_info = {
+            'id': product.id,
+            'title': product.title,
+            'category': product.category or '',
+            'tags': tags_str
+        }
+
+        # System prompt for extraction
+        system_prompt = """You are a product data extraction specialist. Extract product matching fields from product information.
+
+SIZE EXTRACTION RULES:
+- "1kg" or "1 kg" → size_value: 1, size_unit: "kg"
+- "200g" → size_value: 200, size_unit: "g"
+- "500ml" → size_value: 500, size_unit: "ml"
+- "1l" or "1L" → size_value: 1, size_unit: "l"
+- "6x0.5l" → size_value: 3, size_unit: "l" (total volume)
+- "10 kom" or "10 komada" → size_value: 10, size_unit: "kom"
+
+BRAND EXTRACTION RULES:
+- Extract brand even if it's at the end of title (e.g., "Mlijeko 2.8% 1l Meggle" → brand: "Meggle")
+- Common brands: Ariel, Persil, Meggle, Vindija, Dukat, Coca-Cola, Pepsi, Milka, Orbit, Gavrilović, etc.
+- If no brand identifiable, return null
+
+PRODUCT TYPE RULES:
+- Extract the generic product type (e.g., "mlijeko", "jogurt", "cola", "salama", "deterdžent")
+- Normalize to lowercase
+- If not determinable, return null
+
+VARIANT RULES:
+- Extract flavor, fat percentage, or other variants (e.g., "zero", "light", "2.8%", "original")
+- If not determinable, return null
+
+Return ONLY valid JSON object with these fields:
+{"brand": "...", "product_type": "...", "size_value": number, "size_unit": "...", "variant": "..."}
+
+All fields can be null if not determinable."""
+
+        user_prompt = f"""Extract matching fields for this product:
+
+Title: {product_info['title']}
+Category: {product_info['category']}
+Tags: {product_info['tags']}
+
+Return JSON with: brand, product_type, size_value, size_unit, variant"""
+
+        # Import OpenAI client
+        from openai_utils import openai_client
+
+        # Build messages - include image if available
+        messages = [{"role": "system", "content": system_prompt}]
+
+        if product.image_path and (product.image_path.startswith('http://') or product.image_path.startswith('https://')):
+            # Include image in the request for better extraction
+            content = [
+                {"type": "text", "text": user_prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": product.image_path, "detail": "low"}
+                },
+                {"type": "text", "text": "\nUse the product image above to enhance extraction accuracy."}
+            ]
+            messages.append({"role": "user", "content": content})
+        else:
+            messages.append({"role": "user", "content": user_prompt})
+
+        # Call OpenAI API
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            max_tokens=500
+        )
+
+        result_text = response.choices[0].message.content.strip()
+        result = json.loads(result_text)
+
+        # Update product with extracted fields
+        if result.get('brand'):
+            product.brand = result['brand']
+        if result.get('product_type'):
+            product.product_type = result['product_type']
+        if result.get('size_value') is not None:
+            product.size_value = float(result['size_value'])
+        if result.get('size_unit'):
+            product.size_unit = result['size_unit']
+        if result.get('variant'):
+            product.variant = result['variant']
+
+        # Generate match_key
+        product.match_key = product.generate_match_key()
+
+        db.session.commit()
+
+        app.logger.info(f"Matching fields extracted for product {product_id}: {result}")
+
+        return jsonify({
+            'success': True,
+            'brand': product.brand,
+            'product_type': product.product_type,
+            'size_value': product.size_value,
+            'size_unit': product.size_unit,
+            'variant': product.variant,
+            'match_key': product.match_key,
+            'message': 'Polja za uparivanje su uspješno ekstraktovana'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Extract matching fields error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Greška pri ekstrakciji: {str(e)}'
         }), 500
 
 
@@ -5701,7 +5889,14 @@ def api_admin_products():
             'category': product.category,
             'category_group': product.category_group,
             'tags': product.tags,
-            'enriched_description': product.enriched_description
+            'enriched_description': product.enriched_description,
+            # Product matching fields
+            'brand': product.brand,
+            'product_type': product.product_type,
+            'size_value': product.size_value,
+            'size_unit': product.size_unit,
+            'variant': product.variant,
+            'match_key': product.match_key
         })
 
     # Convert to list and sort by business name
@@ -6205,18 +6400,26 @@ import uuid
 categorization_jobs = {}  # job_id -> job_status dict
 
 def run_background_categorization(job_id, business_id, app_context):
-    """Background worker for slow drip categorization"""
+    """Background worker for slow drip categorization and product matching field extraction"""
     from openai_utils import openai_client
+    import base64
+    import requests
 
     with app_context:
         try:
             categorization_jobs[job_id]['status'] = 'running'
             categorization_jobs[job_id]['started_at'] = datetime.now().isoformat()
 
-            # System prompt for categorization
-            system_prompt = """You are a product categorization expert for a Bosnian marketplace.
+            # System prompt for categorization and product matching field extraction
+            system_prompt = """You are a product categorization and data extraction expert for a Bosnian marketplace.
 
-Your task: Assign each product to ONE of these category groups based on its title, category, and tags.
+Your task: For each product, extract:
+1. category_group - ONE of the valid categories
+2. brand - The brand/manufacturer name (e.g., "Ariel", "Meggle", "Coca-Cola", "Milka")
+3. product_type - Normalized product type in lowercase (e.g., "mlijeko", "deterdžent", "čokolada", "sok")
+4. size_value - Numeric size (e.g., 1, 0.5, 500, 200, 1.5)
+5. size_unit - Unit of measurement (e.g., "kg", "g", "l", "ml", "kom")
+6. variant - Any variant/flavor info (e.g., "light", "bez laktoze", "gorka", "jagoda")
 
 CATEGORY GROUPS:
 - meso: Meat products (chicken, beef, pork, sausages, deli meats, salami, pašteta)
@@ -6234,26 +6437,47 @@ CATEGORY GROUPS:
 - ljubimci: Pet supplies (pet food, treats, accessories, hrana za pse, hrana za mačke)
 - bebe: Baby products (diapers, baby food, wipes, formula, pelene, dječija hrana)
 
+SIZE EXTRACTION RULES:
+- "1l" or "1 l" → size_value: 1, size_unit: "l"
+- "500ml" → size_value: 500, size_unit: "ml"
+- "1kg" or "1 kg" → size_value: 1, size_unit: "kg"
+- "200g" → size_value: 200, size_unit: "g"
+- "6x0.5l" → size_value: 3, size_unit: "l" (total volume)
+- "10 kom" or "10 komada" → size_value: 10, size_unit: "kom"
+
+BRAND EXTRACTION RULES:
+- Extract brand even if it's at the end of title (e.g., "Mlijeko 2.8% 1l Meggle" → brand: "Meggle")
+- Common brands: Ariel, Persil, Meggle, Vindija, Dukat, Coca-Cola, Pepsi, Milka, Orbit, etc.
+- If no brand identifiable, return null
+
 RULES:
 1. Return ONLY valid category group IDs from the list above
 2. Use title, category AND tags together to make the best decision
-3. "Kućne potrepštine" could be: ves (laundry), ciscenje (cleaning), or higijena (personal care) - use title keywords
-4. "Namirnice" could be: kuhinja, slatkisi, or other food categories - determine from specific product
-5. Products with "deterdžent za veš" or "omekšivač" = ves
-6. Products with "odmašćivač", "sredstvo za", "osvježivač" = ciscenje
-7. Products with "šampon", "gel", "krema", "sapun" for body = higijena
-8. ALWAYS return a category - make your best guess if unsure
+3. If product has an image, use visual info to confirm/enhance extraction
+4. ALWAYS return category_group - make your best guess if unsure
+5. Other fields (brand, size, etc.) can be null if not determinable
 
-Return ONLY valid JSON:
+Return ONLY valid JSON array:
 [
-  {"id": 123, "category_group": "meso"},
-  {"id": 456, "category_group": "mlijeko"}
+  {"id": 123, "category_group": "meso", "brand": "Gavrilović", "product_type": "salama", "size_value": 200, "size_unit": "g", "variant": null},
+  {"id": 456, "category_group": "mlijeko", "brand": "Meggle", "product_type": "mlijeko", "size_value": 1, "size_unit": "l", "variant": "2.8%"}
 ]"""
 
             total_updated = 0
-            batch_size = 15  # Smaller batch for slow drip
+            batch_size = 10  # Smaller batch for vision API (more expensive)
             delay_seconds = 5  # Wait 5 seconds between batches
             max_iterations = 1000  # Allow many more iterations for slow processing
+
+            # Helper to check if product needs processing
+            def needs_processing(p):
+                """Product needs processing if missing category_group OR missing brand/size fields"""
+                return (
+                    not p.category_group or
+                    not p.brand or
+                    p.size_value is None or
+                    not p.size_unit or
+                    not p.product_type
+                )
 
             for iteration in range(max_iterations):
                 # Check if job was cancelled
@@ -6261,27 +6485,44 @@ Return ONLY valid JSON:
                     categorization_jobs[job_id]['status'] = 'cancelled'
                     break
 
-                # Get products without category_group for this business
+                # Get products needing processing for this business
+                # Products without category_group OR without brand/size/product_type
+                from sqlalchemy import or_
                 products = Product.query.filter(
                     Product.business_id == business_id,
-                    (Product.category_group.is_(None) | (Product.category_group == ''))
+                    or_(
+                        Product.category_group.is_(None),
+                        Product.category_group == '',
+                        Product.brand.is_(None),
+                        Product.size_value.is_(None),
+                        Product.size_unit.is_(None),
+                        Product.product_type.is_(None)
+                    )
                 ).limit(batch_size).all()
 
                 if not products:
-                    break  # No more products to categorize
+                    break  # No more products to process
 
                 # Update job progress
                 remaining = Product.query.filter(
                     Product.business_id == business_id,
-                    (Product.category_group.is_(None) | (Product.category_group == ''))
+                    or_(
+                        Product.category_group.is_(None),
+                        Product.category_group == '',
+                        Product.brand.is_(None),
+                        Product.size_value.is_(None),
+                        Product.size_unit.is_(None),
+                        Product.product_type.is_(None)
+                    )
                 ).count()
 
                 categorization_jobs[job_id]['remaining'] = remaining
                 categorization_jobs[job_id]['processed'] = total_updated
                 categorization_jobs[job_id]['current_batch'] = iteration + 1
 
-                # Prepare products for AI
+                # Prepare products for AI with image URLs
                 products_for_ai = []
+                product_images = {}  # Store image URLs for vision API
                 for p in products:
                     tags_str = ''
                     if p.tags:
@@ -6290,26 +6531,49 @@ Return ONLY valid JSON:
                         elif isinstance(p.tags, str):
                             tags_str = p.tags
 
-                    products_for_ai.append({
+                    product_info = {
                         'id': p.id,
                         'title': p.title,
                         'category': p.category or '',
                         'tags': tags_str
-                    })
+                    }
+                    products_for_ai.append(product_info)
 
-                user_prompt = f"""Categorize these products using title, category and tags:
+                    # Track image URLs for products with images
+                    if p.image_path and (p.image_path.startswith('http://') or p.image_path.startswith('https://')):
+                        product_images[p.id] = p.image_path
+
+                # Build user message with or without images
+                user_prompt = f"""Extract category and product matching fields for these products:
 
 {json.dumps(products_for_ai, ensure_ascii=False, indent=2)}
 
-Return category_group for each product ID. Use ALL available info (title + category + tags) to determine the best category."""
+For each product, return: id, category_group, brand, product_type, size_value, size_unit, variant.
+Use ALL available info (title + category + tags) to determine the fields."""
 
                 try:
+                    # Build messages - use vision model if we have images
+                    messages = [{"role": "system", "content": system_prompt}]
+
+                    if product_images:
+                        # Include images in the request
+                        content = [{"type": "text", "text": user_prompt}]
+                        for pid, img_url in list(product_images.items())[:5]:  # Limit to 5 images per batch
+                            content.append({
+                                "type": "image_url",
+                                "image_url": {"url": img_url, "detail": "low"}
+                            })
+                        content.append({
+                            "type": "text",
+                            "text": f"\nImages shown above are for products: {list(product_images.keys())[:5]}. Use visual info to enhance extraction."
+                        })
+                        messages.append({"role": "user", "content": content})
+                    else:
+                        messages.append({"role": "user", "content": user_prompt})
+
                     response = openai_client.chat.completions.create(
                         model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
+                        messages=messages,
                         response_format={"type": "json_object"},
                         temperature=0.2,
                         max_tokens=4000
@@ -6330,23 +6594,56 @@ Return category_group for each product ID. Use ALL available info (title + categ
                         app.logger.error(f"Background job {job_id}: Failed to parse AI response")
                         continue
 
-                    # Update products in database
+                    # Update products in database with all extracted fields
                     batch_updated = 0
                     for cat_item in categorizations:
                         product_id = cat_item.get('id')
-                        category_group = cat_item.get('category_group', '').lower()
+                        category_group = cat_item.get('category_group', '').lower() if cat_item.get('category_group') else ''
 
-                        if product_id and category_group in VALID_CATEGORY_GROUPS:
+                        if product_id:
                             product = Product.query.get(product_id)
                             if product:
-                                product.category_group = category_group
+                                # Update category_group if valid
+                                if category_group in VALID_CATEGORY_GROUPS:
+                                    product.category_group = category_group
+
+                                # Update brand
+                                brand = cat_item.get('brand')
+                                if brand and brand.lower() not in ['null', 'none', '']:
+                                    product.brand = brand
+
+                                # Update product_type
+                                product_type = cat_item.get('product_type')
+                                if product_type and product_type.lower() not in ['null', 'none', '']:
+                                    product.product_type = product_type.lower()
+
+                                # Update size_value
+                                size_value = cat_item.get('size_value')
+                                if size_value is not None and size_value != 'null':
+                                    try:
+                                        product.size_value = float(size_value)
+                                    except (ValueError, TypeError):
+                                        pass
+
+                                # Update size_unit
+                                size_unit = cat_item.get('size_unit')
+                                if size_unit and size_unit.lower() not in ['null', 'none', '']:
+                                    product.size_unit = size_unit.lower()
+
+                                # Update variant
+                                variant = cat_item.get('variant')
+                                if variant and variant not in ['null', 'none', '', None]:
+                                    product.variant = variant
+
+                                # Update match_key
+                                product.update_match_key()
                                 batch_updated += 1
 
                     db.session.commit()
                     total_updated += batch_updated
                     categorization_jobs[job_id]['processed'] = total_updated
 
-                    app.logger.info(f"Background job {job_id}: Batch {iteration + 1} - categorized {batch_updated} products")
+                    app.logger.info(f"Background job {job_id}: Batch {iteration + 1} - processed {batch_updated} products")
 
                 except Exception as e:
                     app.logger.error(f"Background job {job_id}: Error in batch {iteration + 1}: {e}")
@@ -6360,14 +6657,22 @@ Return category_group for each product ID. Use ALL available info (title + categ
             categorization_jobs[job_id]['completed_at'] = datetime.now().isoformat()
             categorization_jobs[job_id]['processed'] = total_updated
 
-            # Final count of remaining
+            # Final count of remaining (products still missing any matching field)
+            from sqlalchemy import or_
             final_remaining = Product.query.filter(
                 Product.business_id == business_id,
-                (Product.category_group.is_(None) | (Product.category_group == ''))
+                or_(
+                    Product.category_group.is_(None),
+                    Product.category_group == '',
+                    Product.brand.is_(None),
+                    Product.size_value.is_(None),
+                    Product.size_unit.is_(None),
+                    Product.product_type.is_(None)
+                )
             ).count()
             categorization_jobs[job_id]['remaining'] = final_remaining
 
-            app.logger.info(f"Background job {job_id}: Completed! Total categorized: {total_updated}")
+            app.logger.info(f"Background job {job_id}: Completed! Total processed: {total_updated}")
 
         except Exception as e:
             categorization_jobs[job_id]['status'] = 'error'
@@ -6414,17 +6719,25 @@ def api_admin_categorize_products():
                     'message': 'A categorization job is already running for this business'
                 })
 
-        # Count products to categorize
+        # Count products needing processing (missing category OR matching fields)
+        from sqlalchemy import or_
         remaining = Product.query.filter(
             Product.business_id == business_id,
-            (Product.category_group.is_(None) | (Product.category_group == ''))
+            or_(
+                Product.category_group.is_(None),
+                Product.category_group == '',
+                Product.brand.is_(None),
+                Product.size_value.is_(None),
+                Product.size_unit.is_(None),
+                Product.product_type.is_(None)
+            )
         ).count()
 
         if remaining == 0:
             return jsonify({
                 'success': True,
                 'status': 'no_products',
-                'message': 'No products to categorize'
+                'message': 'All products are fully categorized with matching fields'
             })
 
         # Create new job
@@ -6791,6 +7104,21 @@ def api_admin_update_product(product_id):
             product.category = data['category']
         if 'category_group' in data:
             product.category_group = data['category_group']
+        # Product matching fields
+        if 'brand' in data:
+            product.brand = data['brand'] if data['brand'] else None
+        if 'product_type' in data:
+            product.product_type = data['product_type'].lower() if data['product_type'] else None
+        if 'size_value' in data:
+            product.size_value = float(data['size_value']) if data['size_value'] else None
+        if 'size_unit' in data:
+            product.size_unit = data['size_unit'].lower() if data['size_unit'] else None
+        if 'variant' in data:
+            product.variant = data['variant'] if data['variant'] else None
+
+        # Update match_key if any matching field changed
+        if any(k in data for k in ['brand', 'product_type', 'size_value', 'size_unit']):
+            product.update_match_key()
 
         db.session.commit()
 
@@ -6805,7 +7133,13 @@ def api_admin_update_product(product_id):
                 'base_price': product.base_price,
                 'discount_price': product.discount_price,
                 'category': product.category,
-                'category_group': product.category_group
+                'category_group': product.category_group,
+                'brand': product.brand,
+                'product_type': product.product_type,
+                'size_value': product.size_value,
+                'size_unit': product.size_unit,
+                'variant': product.variant,
+                'match_key': product.match_key
             }
         })
 
@@ -7450,6 +7784,436 @@ def api_admin_user_preferences():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== PRODUCT MATCHING ====================
+
+# Background product matching job tracking
+product_matching_jobs = {}  # job_id -> job_status dict
+
+
+def run_product_matching_job(job_id, app_context):
+    """Background worker for finding product matches across stores"""
+    with app_context:
+        try:
+            product_matching_jobs[job_id]['status'] = 'running'
+            product_matching_jobs[job_id]['started_at'] = datetime.now().isoformat()
+
+            from models import ProductMatch
+
+            # Stats tracking
+            clones_found = 0
+            brand_variants_found = 0
+            siblings_found = 0
+
+            # Get all products with complete matching fields
+            products_with_match_key = Product.query.filter(
+                Product.match_key.isnot(None),
+                Product.match_key != ''
+            ).all()
+
+            product_matching_jobs[job_id]['total_products'] = len(products_with_match_key)
+
+            # Step 1: Find CLONES (same match_key, different stores)
+            # Group products by match_key
+            match_key_groups = {}
+            for p in products_with_match_key:
+                if p.match_key not in match_key_groups:
+                    match_key_groups[p.match_key] = []
+                match_key_groups[p.match_key].append(p)
+
+            product_matching_jobs[job_id]['match_key_groups'] = len(match_key_groups)
+
+            # Create clone matches for products with same match_key but different stores
+            for match_key, products in match_key_groups.items():
+                if len(products) > 1:
+                    # Group by business_id
+                    by_store = {}
+                    for p in products:
+                        if p.business_id not in by_store:
+                            by_store[p.business_id] = []
+                        by_store[p.business_id].append(p)
+
+                    # If products exist in multiple stores, create clone matches
+                    if len(by_store) > 1:
+                        all_products = list(products)
+                        for i in range(len(all_products)):
+                            for j in range(i + 1, len(all_products)):
+                                p1, p2 = all_products[i], all_products[j]
+                                # Only match products from DIFFERENT stores
+                                if p1.business_id != p2.business_id:
+                                    _, created = ProductMatch.get_or_create_match(
+                                        p1.id, p2.id, 'clone', confidence=100, created_by='auto'
+                                    )
+                                    if created:
+                                        clones_found += 1
+
+            db.session.commit()
+            product_matching_jobs[job_id]['clones_found'] = clones_found
+
+            # Step 2: Find BRAND VARIANTS (same product_type + size, different brand)
+            # Group by product_type + size
+            type_size_groups = {}
+            for p in products_with_match_key:
+                if p.product_type and p.size_value and p.size_unit:
+                    # Normalize size for grouping
+                    size_key = f"{p.product_type}:{p.size_value}{p.size_unit}"
+                    if size_key not in type_size_groups:
+                        type_size_groups[size_key] = []
+                    type_size_groups[size_key].append(p)
+
+            # Create brand variant matches
+            for type_size_key, products in type_size_groups.items():
+                if len(products) > 1:
+                    # Group by brand
+                    by_brand = {}
+                    for p in products:
+                        brand = (p.brand or 'unknown').lower()
+                        if brand not in by_brand:
+                            by_brand[brand] = []
+                        by_brand[brand].append(p)
+
+                    # If products have different brands, create brand variant matches
+                    if len(by_brand) > 1:
+                        brands = list(by_brand.keys())
+                        for i in range(len(brands)):
+                            for j in range(i + 1, len(brands)):
+                                # Match one product from each brand
+                                p1 = by_brand[brands[i]][0]  # First product of brand i
+                                p2 = by_brand[brands[j]][0]  # First product of brand j
+                                _, created = ProductMatch.get_or_create_match(
+                                    p1.id, p2.id, 'brand_variant', confidence=85, created_by='auto'
+                                )
+                                if created:
+                                    brand_variants_found += 1
+
+            db.session.commit()
+            product_matching_jobs[job_id]['brand_variants_found'] = brand_variants_found
+
+            # Step 3: Find SIBLINGS (same product_type, different sizes)
+            # Group by product_type only
+            type_groups = {}
+            for p in products_with_match_key:
+                if p.product_type:
+                    if p.product_type not in type_groups:
+                        type_groups[p.product_type] = []
+                    type_groups[p.product_type].append(p)
+
+            # Create sibling matches (limit to avoid too many matches)
+            for product_type, products in type_groups.items():
+                if len(products) > 1:
+                    # Only create a few sibling relationships per type (for recommendations)
+                    # Group by brand first to find siblings within same brand
+                    by_brand = {}
+                    for p in products:
+                        brand = (p.brand or 'unknown').lower()
+                        if brand not in by_brand:
+                            by_brand[brand] = []
+                        by_brand[brand].append(p)
+
+                    # Create siblings within same brand (different sizes)
+                    for brand, brand_products in by_brand.items():
+                        if len(brand_products) > 1:
+                            # Get unique sizes
+                            sizes = set()
+                            products_by_size = {}
+                            for p in brand_products:
+                                size_key = f"{p.size_value}{p.size_unit}" if p.size_value and p.size_unit else 'unknown'
+                                if size_key not in products_by_size:
+                                    products_by_size[size_key] = p
+                                    sizes.add(size_key)
+
+                            # Create sibling matches between different sizes
+                            size_list = list(products_by_size.keys())
+                            for i in range(min(3, len(size_list))):  # Limit siblings
+                                for j in range(i + 1, min(4, len(size_list))):
+                                    p1 = products_by_size[size_list[i]]
+                                    p2 = products_by_size[size_list[j]]
+                                    _, created = ProductMatch.get_or_create_match(
+                                        p1.id, p2.id, 'sibling', confidence=70, created_by='auto'
+                                    )
+                                    if created:
+                                        siblings_found += 1
+
+            db.session.commit()
+            product_matching_jobs[job_id]['siblings_found'] = siblings_found
+
+            # Mark job as completed
+            product_matching_jobs[job_id]['status'] = 'completed'
+            product_matching_jobs[job_id]['completed_at'] = datetime.now().isoformat()
+
+            total_matches = clones_found + brand_variants_found + siblings_found
+            product_matching_jobs[job_id]['total_matches_created'] = total_matches
+
+            app.logger.info(f"Product matching job {job_id}: Completed! Created {total_matches} matches "
+                          f"(clones: {clones_found}, brand_variants: {brand_variants_found}, siblings: {siblings_found})")
+
+        except Exception as e:
+            product_matching_jobs[job_id]['status'] = 'error'
+            product_matching_jobs[job_id]['error'] = str(e)
+            app.logger.error(f"Product matching job {job_id}: Fatal error: {e}")
+
+
+@app.route('/api/admin/products/match', methods=['POST'])
+@csrf.exempt
+def api_admin_run_product_matching():
+    """Start background product matching job"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Check if there's already a running job
+        for job_id, job in product_matching_jobs.items():
+            if job.get('status') == 'running':
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'status': 'already_running',
+                    'message': 'A product matching job is already running'
+                })
+
+        # Count products with match_key
+        products_count = Product.query.filter(
+            Product.match_key.isnot(None),
+            Product.match_key != ''
+        ).count()
+
+        if products_count == 0:
+            return jsonify({
+                'success': True,
+                'status': 'no_products',
+                'message': 'No products with match keys to process. Run AI categorization first.'
+            })
+
+        # Create new job
+        job_id = str(uuid.uuid4())[:8]
+        product_matching_jobs[job_id] = {
+            'status': 'starting',
+            'created_at': datetime.now().isoformat(),
+            'total_products': products_count,
+            'clones_found': 0,
+            'brand_variants_found': 0,
+            'siblings_found': 0
+        }
+
+        # Start background thread
+        thread = threading.Thread(
+            target=run_product_matching_job,
+            args=(job_id, app.app_context()),
+            daemon=True
+        )
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'status': 'started',
+            'message': f'Product matching job started for {products_count} products'
+        })
+
+    except Exception as e:
+        app.logger.error(f"Start product matching error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/match/status/<job_id>', methods=['GET'])
+@csrf.exempt
+def api_admin_product_matching_status(job_id):
+    """Get status of a product matching job"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        if job_id not in product_matching_jobs:
+            return jsonify({'error': 'Job not found'}), 404
+
+        job = product_matching_jobs[job_id]
+        return jsonify({
+            'job_id': job_id,
+            **job
+        })
+
+    except Exception as e:
+        app.logger.error(f"Get matching job status error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/matches', methods=['GET'])
+@csrf.exempt
+def api_admin_get_product_matches():
+    """Get product matches for a specific product or browse all matches"""
+    from auth_api import decode_jwt_token
+    from models import ProductMatch
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        product_id = request.args.get('product_id', type=int)
+        match_type = request.args.get('match_type')  # 'clone', 'brand_variant', 'sibling'
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        query = ProductMatch.query
+
+        if product_id:
+            query = query.filter(
+                (ProductMatch.product_a_id == product_id) |
+                (ProductMatch.product_b_id == product_id)
+            )
+
+        if match_type:
+            query = query.filter(ProductMatch.match_type == match_type)
+
+        # Paginate
+        total = query.count()
+        matches = query.order_by(ProductMatch.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+        result = []
+        for m in matches:
+            result.append({
+                'id': m.id,
+                'match_type': m.match_type,
+                'confidence': m.confidence,
+                'created_by': m.created_by,
+                'created_at': m.created_at.isoformat() if m.created_at else None,
+                'product_a': {
+                    'id': m.product_a.id,
+                    'title': m.product_a.title,
+                    'brand': m.product_a.brand,
+                    'product_type': m.product_a.product_type,
+                    'size': f"{m.product_a.size_value}{m.product_a.size_unit}" if m.product_a.size_value else None,
+                    'business_id': m.product_a.business_id,
+                    'business_name': m.product_a.business.name if m.product_a.business else None,
+                    'discount_price': m.product_a.discount_price,
+                    'base_price': m.product_a.base_price,
+                    'image_path': m.product_a.image_path
+                },
+                'product_b': {
+                    'id': m.product_b.id,
+                    'title': m.product_b.title,
+                    'brand': m.product_b.brand,
+                    'product_type': m.product_b.product_type,
+                    'size': f"{m.product_b.size_value}{m.product_b.size_unit}" if m.product_b.size_value else None,
+                    'business_id': m.product_b.business_id,
+                    'business_name': m.product_b.business.name if m.product_b.business else None,
+                    'discount_price': m.product_b.discount_price,
+                    'base_price': m.product_b.base_price,
+                    'image_path': m.product_b.image_path
+                }
+            })
+
+        return jsonify({
+            'matches': result,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page
+        })
+
+    except Exception as e:
+        app.logger.error(f"Get product matches error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/match-stats', methods=['GET'])
+@csrf.exempt
+def api_admin_product_match_stats():
+    """Get statistics about product matches"""
+    from auth_api import decode_jwt_token
+    from models import ProductMatch
+    from sqlalchemy import func
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Count matches by type
+        type_counts = db.session.query(
+            ProductMatch.match_type,
+            func.count(ProductMatch.id).label('count')
+        ).group_by(ProductMatch.match_type).all()
+
+        # Count products with match_key
+        products_with_key = Product.query.filter(
+            Product.match_key.isnot(None),
+            Product.match_key != ''
+        ).count()
+
+        # Count unique match_keys
+        unique_keys = db.session.query(func.count(func.distinct(Product.match_key))).filter(
+            Product.match_key.isnot(None),
+            Product.match_key != ''
+        ).scalar()
+
+        # Products missing matching fields
+        from sqlalchemy import or_
+        products_missing_fields = Product.query.filter(
+            or_(
+                Product.brand.is_(None),
+                Product.size_value.is_(None),
+                Product.size_unit.is_(None),
+                Product.product_type.is_(None)
+            )
+        ).count()
+
+        return jsonify({
+            'matches_by_type': {t: c for t, c in type_counts},
+            'total_matches': sum(c for _, c in type_counts),
+            'products_with_match_key': products_with_key,
+            'unique_match_keys': unique_keys,
+            'products_missing_fields': products_missing_fields
+        })
+
+    except Exception as e:
+        app.logger.error(f"Get match stats error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # Error handlers

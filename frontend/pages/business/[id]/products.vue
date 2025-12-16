@@ -334,6 +334,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opis za pretragu</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Embedding Text</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategorija</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tagovi</th>
@@ -394,6 +395,21 @@
                   <div v-else>
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
                       ✗ No Embedding
+                    </span>
+                  </div>
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap">
+                  <div v-if="product.brand || product.product_type || product.size_value" class="space-y-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      ✓ AI
+                    </span>
+                    <div class="text-xs text-gray-500" :title="`${product.brand || ''} ${product.product_type || ''} ${product.size_value || ''}${product.size_unit || ''}`">
+                      {{ product.brand || '-' }}
+                    </div>
+                  </div>
+                  <div v-else>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                      -
                     </span>
                   </div>
                 </td>
@@ -849,6 +865,99 @@
             <p class="mt-1 text-xs text-gray-500">Ovaj opis se koristi za AI-powered pretragu proizvoda.</p>
           </div>
 
+          <!-- Product Matching Fields -->
+          <div class="border-t border-gray-200 pt-4 mt-4">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="text-sm font-semibold text-gray-700">Polja za uparivanje proizvoda</h4>
+              <button
+                type="button"
+                @click="extractMatchingFields"
+                :disabled="isExtractingMatching"
+                class="px-3 py-1 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                {{ isExtractingMatching ? 'Ekstrahujem...' : 'Ekstrahuj (AI)' }}
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Brand -->
+              <div>
+                <label for="edit_brand" class="block text-sm font-medium text-gray-700 mb-1">Brend</label>
+                <input
+                  v-model="editForm.brand"
+                  type="text"
+                  id="edit_brand"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900"
+                  placeholder="npr. Coca-Cola, Nestle..."
+                >
+              </div>
+
+              <!-- Product Type -->
+              <div>
+                <label for="edit_product_type" class="block text-sm font-medium text-gray-700 mb-1">Tip proizvoda</label>
+                <input
+                  v-model="editForm.product_type"
+                  type="text"
+                  id="edit_product_type"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900"
+                  placeholder="npr. cola, jogurt, mlijeko..."
+                >
+              </div>
+
+              <!-- Size Value -->
+              <div>
+                <label for="edit_size_value" class="block text-sm font-medium text-gray-700 mb-1">Veličina (broj)</label>
+                <input
+                  v-model.number="editForm.size_value"
+                  type="number"
+                  step="0.01"
+                  id="edit_size_value"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900"
+                  placeholder="npr. 500, 1, 250..."
+                >
+              </div>
+
+              <!-- Size Unit -->
+              <div>
+                <label for="edit_size_unit" class="block text-sm font-medium text-gray-700 mb-1">Jedinica mjere</label>
+                <select
+                  v-model="editForm.size_unit"
+                  id="edit_size_unit"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900"
+                >
+                  <option value="">Odaberi...</option>
+                  <option value="ml">ml (mililitar)</option>
+                  <option value="l">l (litar)</option>
+                  <option value="g">g (gram)</option>
+                  <option value="kg">kg (kilogram)</option>
+                  <option value="kom">kom (komad)</option>
+                  <option value="pak">pak (pakovanje)</option>
+                </select>
+              </div>
+
+              <!-- Variant -->
+              <div class="col-span-2">
+                <label for="edit_variant" class="block text-sm font-medium text-gray-700 mb-1">Varijanta</label>
+                <input
+                  v-model="editForm.variant"
+                  type="text"
+                  id="edit_variant"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900"
+                  placeholder="npr. zero, light, original..."
+                >
+              </div>
+
+              <!-- Match Key (read-only) -->
+              <div class="col-span-2" v-if="editForm.match_key">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Ključ za uparivanje</label>
+                <div class="px-3 py-2 bg-gray-100 border border-gray-200 rounded-md text-sm text-gray-600 font-mono">
+                  {{ editForm.match_key }}
+                </div>
+                <p class="mt-1 text-xs text-gray-500">Automatski generisan ključ za pronalaženje identičnih proizvoda u različitim radnjama.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Price History -->
           <div v-if="priceHistory.length > 0">
             <label class="block text-sm font-medium text-gray-700 mb-2">Historija cijena</label>
@@ -1211,6 +1320,7 @@ const showEditModal = ref(false)
 const isSavingProduct = ref(false)
 const isUploadingImage = ref(false)
 const isRegeneratingDescription = ref(false)
+const isExtractingMatching = ref(false)
 const isRegeneratingTagsSingle = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
 const customCategory = ref('')
@@ -1242,7 +1352,14 @@ const editForm = ref({
   product_url: '',
   enriched_description: '',
   image_path: '',
-  tags: [] as string[]
+  tags: [] as string[],
+  // Product matching fields
+  brand: '',
+  product_type: '',
+  size_value: null as number | null,
+  size_unit: '',
+  variant: '',
+  match_key: ''
 })
 
 // Fetch business and products
@@ -1553,7 +1670,14 @@ async function editProduct(productId: number) {
     product_url: product.product_url || '',
     enriched_description: product.enriched_description || '',
     image_path: product.image_path || '',
-    tags: product.tags || []
+    tags: product.tags || [],
+    // Product matching fields
+    brand: product.brand || '',
+    product_type: product.product_type || '',
+    size_value: product.size_value || null,
+    size_unit: product.size_unit || '',
+    variant: product.variant || '',
+    match_key: product.match_key || ''
   }
 
   // Reset custom category if the product's category is not in the list
@@ -1713,6 +1837,33 @@ async function regenerateDescription() {
   }
 }
 
+async function extractMatchingFields() {
+  if (!editForm.value.id) return
+
+  isExtractingMatching.value = true
+  try {
+    const data = await post(`/biznisi/${businessId.value}/proizvodi/${editForm.value.id}/extract-matching`, {})
+
+    if (data.success) {
+      // Update form with extracted values
+      editForm.value.brand = data.brand || ''
+      editForm.value.product_type = data.product_type || ''
+      editForm.value.size_value = data.size_value || null
+      editForm.value.size_unit = data.size_unit || ''
+      editForm.value.variant = data.variant || ''
+      editForm.value.match_key = data.match_key || ''
+      showNotification('Polja za uparivanje su uspješno ekstraktovana (AI)', 'success')
+    } else {
+      showNotification(data.error || 'Greška pri ekstrakciji', 'error')
+    }
+  } catch (error: any) {
+    console.error('Extract matching fields error:', error)
+    showNotification('Greška pri ekstrakciji polja', 'error')
+  } finally {
+    isExtractingMatching.value = false
+  }
+}
+
 async function saveProduct() {
   if (!editForm.value.id) return
 
@@ -1727,7 +1878,13 @@ async function saveProduct() {
       product_url: editForm.value.product_url,
       enriched_description: editForm.value.enriched_description,
       image_path: editForm.value.image_path,
-      tags: editForm.value.tags
+      tags: editForm.value.tags,
+      // Product matching fields
+      brand: editForm.value.brand || null,
+      product_type: editForm.value.product_type || null,
+      size_value: editForm.value.size_value || null,
+      size_unit: editForm.value.size_unit || null,
+      variant: editForm.value.variant || null
     }
 
     const { put } = useApi()
