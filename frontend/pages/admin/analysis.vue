@@ -6,7 +6,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-semibold text-gray-900">Analiza cijena</h1>
-            <p class="mt-1 text-sm text-gray-600">Pretrazite proizvode i uporedite cijene izmedju trgovina</p>
+            <p class="mt-1 text-sm text-gray-600">Pretražite proizvode i uporedite cijene između trgovina</p>
           </div>
           <NuxtLink
             to="/admin"
@@ -83,17 +83,17 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {{ isLoading ? 'Trazim...' : 'Pretrazi' }}
+            {{ isLoading ? 'Tražim...' : 'Pretraži' }}
           </button>
           <button
             v-if="products.length > 0"
             @click="clearSearch"
             class="px-4 py-2 text-gray-600 hover:text-gray-800"
           >
-            Ocisti
+            Očisti
           </button>
           <span v-if="total > 0" class="text-sm text-gray-500">
-            Pronadeno {{ total }} proizvoda
+            Pronađeno {{ total }} proizvoda
           </span>
         </div>
       </div>
@@ -140,17 +140,17 @@
         <!-- Price Stats -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-sm text-gray-500">Najniza cijena</div>
+            <div class="text-sm text-gray-500">Najniža cijena</div>
             <div class="text-xl font-semibold text-green-600">{{ formatPrice(priceStats.min) }} KM</div>
             <div class="text-xs text-gray-400">{{ priceStats.minStore }}</div>
           </div>
           <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-sm text-gray-500">Najvisa cijena</div>
+            <div class="text-sm text-gray-500">Najviša cijena</div>
             <div class="text-xl font-semibold text-red-600">{{ formatPrice(priceStats.max) }} KM</div>
             <div class="text-xs text-gray-400">{{ priceStats.maxStore }}</div>
           </div>
           <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-sm text-gray-500">Prosjecna cijena</div>
+            <div class="text-sm text-gray-500">Prosječna cijena</div>
             <div class="text-xl font-semibold text-gray-900">{{ formatPrice(priceStats.avg) }} KM</div>
           </div>
           <div class="bg-gray-50 rounded-lg p-4">
@@ -345,8 +345,8 @@
         <svg class="mx-auto h-12 w-12 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        <h3 class="mt-4 text-lg font-medium text-gray-900">Pretrazite proizvode</h3>
-        <p class="mt-2 text-sm text-gray-500">Unesite naziv proizvoda da vidite cijene u razlicitim trgovinama</p>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">Pretražite proizvode</h3>
+        <p class="mt-2 text-sm text-gray-500">Unesite naziv proizvoda da vidite cijene u različitim trgovinama</p>
         <div class="mt-4 flex flex-wrap justify-center gap-2">
           <button @click="quickSearch('mlijeko')" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">mlijeko</button>
           <button @click="quickSearch('alpsko')" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">alpsko</button>
@@ -1266,6 +1266,6 @@ onMounted(async () => {
 
 useSeoMeta({
   title: 'Analiza cijena - Admin - Popust.ba',
-  description: 'Analiza i poredjenje cijena proizvoda izmedju trgovina',
+  description: 'Analiza i poređenje cijena proizvoda između trgovina',
 })
 </script>
