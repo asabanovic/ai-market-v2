@@ -284,7 +284,8 @@ if google_bp:
                         last_name=google_info.get("family_name", ""),
                         profile_image_url=google_info.get("picture"),
                         is_verified=True,  # Google accounts are pre-verified
-                        package_id=1  # Default free package
+                        package_id=1,  # Default free package
+                        registration_method='google'  # Mark as Google OAuth registration
                     )
                     db.session.add(user)
 
@@ -5205,6 +5206,12 @@ def api_admin_users():
                 'preferred_stores': preferred_stores
             })
 
+        # Get registration method stats for ALL users (not just current page)
+        email_count = User.query.filter(User.registration_method == 'email').count()
+        google_count = User.query.filter(User.registration_method == 'google').count()
+        phone_count = User.query.filter(User.registration_method == 'phone').count()
+        verified_count = User.query.filter(User.is_verified == True).count()
+
         return jsonify({
             'users': user_data,
             'pagination': {
@@ -5212,6 +5219,13 @@ def api_admin_users():
                 'per_page': pagination.per_page,
                 'total': pagination.total,
                 'pages': pagination.pages
+            },
+            'stats': {
+                'total': pagination.total,
+                'email': email_count,
+                'google': google_count,
+                'phone': phone_count,
+                'verified': verified_count
             }
         }), 200
 
@@ -6183,38 +6197,24 @@ VALID_CATEGORY_GROUPS = [
     'higijena', 'slatkisi', 'kafa', 'smrznuto', 'pekara', 'ljubimci', 'bebe'
 ]
 
-@app.route('/api/admin/products/categorize', methods=['POST'])
-@csrf.exempt
-def api_admin_categorize_products():
-    """Categorize products for a business using AI (OpenAI)"""
-    from auth_api import decode_jwt_token
+# Background categorization job tracking
+import threading
+import time as time_module
+import uuid
+
+categorization_jobs = {}  # job_id -> job_status dict
+
+def run_background_categorization(job_id, business_id, app_context):
+    """Background worker for slow drip categorization"""
     from openai_utils import openai_client
 
-    # Check JWT authentication
-    auth_header = request.headers.get('Authorization')
-    if not auth_header:
-        return jsonify({'error': 'Unauthorized'}), 401
+    with app_context:
+        try:
+            categorization_jobs[job_id]['status'] = 'running'
+            categorization_jobs[job_id]['started_at'] = datetime.now().isoformat()
 
-    try:
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        payload = decode_jwt_token(token)
-
-        if not payload:
-            return jsonify({'error': 'Invalid or expired token'}), 401
-
-        # Get user and check if admin
-        admin_user = User.query.filter_by(id=payload['user_id']).first()
-        if not admin_user or not admin_user.is_admin:
-            return jsonify({'error': 'Access denied'}), 403
-
-        data = request.get_json()
-        business_id = data.get('business_id')
-
-        if not business_id:
-            return jsonify({'error': 'business_id is required'}), 400
-
-        # System prompt for categorization
-        system_prompt = """You are a product categorization expert for a Bosnian marketplace.
+            # System prompt for categorization
+            system_prompt = """You are a product categorization expert for a Bosnian marketplace.
 
 Your task: Assign each product to ONE of these category groups based on its title, category, and tags.
 
@@ -6250,110 +6250,336 @@ Return ONLY valid JSON:
   {"id": 456, "category_group": "mlijeko"}
 ]"""
 
-        # Loop until all products are categorized
-        total_updated = 0
-        batch_size = 50  # Process 50 at a time for better accuracy
-        max_iterations = 20  # Safety limit
+            total_updated = 0
+            batch_size = 15  # Smaller batch for slow drip
+            delay_seconds = 5  # Wait 5 seconds between batches
+            max_iterations = 1000  # Allow many more iterations for slow processing
 
-        for iteration in range(max_iterations):
-            # Get products without category_group for this business
-            products = Product.query.filter(
-                Product.business_id == business_id,
-                (Product.category_group.is_(None) | (Product.category_group == ''))
-            ).limit(batch_size).all()
+            for iteration in range(max_iterations):
+                # Check if job was cancelled
+                if categorization_jobs[job_id].get('cancelled'):
+                    categorization_jobs[job_id]['status'] = 'cancelled'
+                    break
 
-            if not products:
-                break  # No more products to categorize
+                # Get products without category_group for this business
+                products = Product.query.filter(
+                    Product.business_id == business_id,
+                    (Product.category_group.is_(None) | (Product.category_group == ''))
+                ).limit(batch_size).all()
 
-            # Prepare products for AI - include tags for better categorization
-            products_for_ai = []
-            for p in products:
-                # Get tags as string if available
-                tags_str = ''
-                if p.tags:
-                    if isinstance(p.tags, list):
-                        tags_str = ', '.join(p.tags[:5])  # Limit to 5 tags
-                    elif isinstance(p.tags, str):
-                        tags_str = p.tags
+                if not products:
+                    break  # No more products to categorize
 
-                products_for_ai.append({
-                    'id': p.id,
-                    'title': p.title,
-                    'category': p.category or '',
-                    'tags': tags_str
-                })
+                # Update job progress
+                remaining = Product.query.filter(
+                    Product.business_id == business_id,
+                    (Product.category_group.is_(None) | (Product.category_group == ''))
+                ).count()
 
-            user_prompt = f"""Categorize these products using title, category and tags:
+                categorization_jobs[job_id]['remaining'] = remaining
+                categorization_jobs[job_id]['processed'] = total_updated
+                categorization_jobs[job_id]['current_batch'] = iteration + 1
+
+                # Prepare products for AI
+                products_for_ai = []
+                for p in products:
+                    tags_str = ''
+                    if p.tags:
+                        if isinstance(p.tags, list):
+                            tags_str = ', '.join(p.tags[:5])
+                        elif isinstance(p.tags, str):
+                            tags_str = p.tags
+
+                    products_for_ai.append({
+                        'id': p.id,
+                        'title': p.title,
+                        'category': p.category or '',
+                        'tags': tags_str
+                    })
+
+                user_prompt = f"""Categorize these products using title, category and tags:
 
 {json.dumps(products_for_ai, ensure_ascii=False, indent=2)}
 
 Return category_group for each product ID. Use ALL available info (title + category + tags) to determine the best category."""
 
-            response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.2,
-                max_tokens=4000
-            )
+                try:
+                    response = openai_client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.2,
+                        max_tokens=4000
+                    )
 
-            result_text = response.choices[0].message.content.strip()
+                    result_text = response.choices[0].message.content.strip()
 
-            # Parse response - handle both array and object with array
-            try:
-                result = json.loads(result_text)
-                if isinstance(result, dict) and 'products' in result:
-                    categorizations = result['products']
-                elif isinstance(result, list):
-                    categorizations = result
-                else:
-                    # Try to find array in the response
-                    categorizations = list(result.values())[0] if result else []
-            except:
-                app.logger.error(f"Failed to parse AI response: {result_text}")
-                continue  # Try next batch
+                    # Parse response
+                    try:
+                        result = json.loads(result_text)
+                        if isinstance(result, dict) and 'products' in result:
+                            categorizations = result['products']
+                        elif isinstance(result, list):
+                            categorizations = result
+                        else:
+                            categorizations = list(result.values())[0] if result else []
+                    except:
+                        app.logger.error(f"Background job {job_id}: Failed to parse AI response")
+                        continue
 
-            # Update products in database
-            batch_updated = 0
-            for cat_item in categorizations:
-                product_id = cat_item.get('id')
-                category_group = cat_item.get('category_group', '').lower()
+                    # Update products in database
+                    batch_updated = 0
+                    for cat_item in categorizations:
+                        product_id = cat_item.get('id')
+                        category_group = cat_item.get('category_group', '').lower()
 
-                if product_id and category_group in VALID_CATEGORY_GROUPS:
-                    product = Product.query.get(product_id)
-                    if product:
-                        product.category_group = category_group
-                        batch_updated += 1
+                        if product_id and category_group in VALID_CATEGORY_GROUPS:
+                            product = Product.query.get(product_id)
+                            if product:
+                                product.category_group = category_group
+                                batch_updated += 1
 
-            db.session.commit()
-            total_updated += batch_updated
-            app.logger.info(f"Batch {iteration + 1}: categorized {batch_updated} products")
+                    db.session.commit()
+                    total_updated += batch_updated
+                    categorization_jobs[job_id]['processed'] = total_updated
 
-            # If no products were updated in this batch, they might be uncategorizable
-            if batch_updated == 0:
-                app.logger.warning(f"Batch {iteration + 1}: no products categorized, stopping")
-                break
+                    app.logger.info(f"Background job {job_id}: Batch {iteration + 1} - categorized {batch_updated} products")
 
-        # Check if there are more products to categorize
+                except Exception as e:
+                    app.logger.error(f"Background job {job_id}: Error in batch {iteration + 1}: {e}")
+                    categorization_jobs[job_id]['last_error'] = str(e)
+
+                # Wait before next batch (slow drip)
+                time_module.sleep(delay_seconds)
+
+            # Mark job as completed
+            categorization_jobs[job_id]['status'] = 'completed'
+            categorization_jobs[job_id]['completed_at'] = datetime.now().isoformat()
+            categorization_jobs[job_id]['processed'] = total_updated
+
+            # Final count of remaining
+            final_remaining = Product.query.filter(
+                Product.business_id == business_id,
+                (Product.category_group.is_(None) | (Product.category_group == ''))
+            ).count()
+            categorization_jobs[job_id]['remaining'] = final_remaining
+
+            app.logger.info(f"Background job {job_id}: Completed! Total categorized: {total_updated}")
+
+        except Exception as e:
+            categorization_jobs[job_id]['status'] = 'error'
+            categorization_jobs[job_id]['error'] = str(e)
+            app.logger.error(f"Background job {job_id}: Fatal error: {e}")
+
+
+@app.route('/api/admin/products/categorize', methods=['POST'])
+@csrf.exempt
+def api_admin_categorize_products():
+    """Start background categorization job for a business using AI (OpenAI)"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        data = request.get_json()
+        business_id = data.get('business_id')
+
+        if not business_id:
+            return jsonify({'error': 'business_id is required'}), 400
+
+        # Check if there's already a running job for this business
+        for job_id, job in categorization_jobs.items():
+            if job.get('business_id') == business_id and job.get('status') == 'running':
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'status': 'already_running',
+                    'message': 'A categorization job is already running for this business'
+                })
+
+        # Count products to categorize
         remaining = Product.query.filter(
             Product.business_id == business_id,
             (Product.category_group.is_(None) | (Product.category_group == ''))
         ).count()
 
+        if remaining == 0:
+            return jsonify({
+                'success': True,
+                'status': 'no_products',
+                'message': 'No products to categorize'
+            })
+
+        # Create new job
+        job_id = str(uuid.uuid4())[:8]
+        categorization_jobs[job_id] = {
+            'business_id': business_id,
+            'status': 'starting',
+            'created_at': datetime.now().isoformat(),
+            'processed': 0,
+            'remaining': remaining,
+            'total_initial': remaining
+        }
+
+        # Start background thread
+        thread = threading.Thread(
+            target=run_background_categorization,
+            args=(job_id, business_id, app.app_context()),
+            daemon=True
+        )
+        thread.start()
+
         return jsonify({
             'success': True,
-            'categorized_count': total_updated,
-            'remaining_count': remaining,
-            'message': f'Categorized {total_updated} products. {remaining} remaining.'
+            'job_id': job_id,
+            'status': 'started',
+            'remaining': remaining,
+            'message': f'Background categorization started for {remaining} products. Check status with job_id.'
         })
 
     except Exception as e:
         app.logger.error(f"Categorization error: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/categorize/status/<job_id>', methods=['GET'])
+@csrf.exempt
+def api_admin_categorize_status(job_id):
+    """Get status of a background categorization job"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        job = categorization_jobs.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        return jsonify({
+            'job_id': job_id,
+            **job
+        })
+
+    except Exception as e:
+        app.logger.error(f"Status check error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/categorize/cancel/<job_id>', methods=['POST'])
+@csrf.exempt
+def api_admin_categorize_cancel(job_id):
+    """Cancel a running categorization job"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        job = categorization_jobs.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        if job['status'] != 'running':
+            return jsonify({'error': 'Job is not running'}), 400
+
+        categorization_jobs[job_id]['cancelled'] = True
+
+        return jsonify({
+            'success': True,
+            'message': 'Job cancellation requested'
+        })
+
+    except Exception as e:
+        app.logger.error(f"Cancel job error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/categorize/jobs', methods=['GET'])
+@csrf.exempt
+def api_admin_categorize_jobs():
+    """List all categorization jobs"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Return all jobs with their status
+        jobs_list = []
+        for job_id, job in categorization_jobs.items():
+            jobs_list.append({
+                'job_id': job_id,
+                **job
+            })
+
+        # Sort by created_at descending
+        jobs_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        return jsonify({
+            'jobs': jobs_list
+        })
+
+    except Exception as e:
+        app.logger.error(f"List jobs error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 

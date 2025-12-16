@@ -27,7 +27,7 @@
       </div>
 
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-center justify-between">
             <div>
@@ -44,6 +44,15 @@
               <p class="text-2xl font-bold text-gray-900">{{ emailUsers }}</p>
             </div>
             <Icon name="mdi:email" class="w-12 h-12 text-blue-600" />
+          </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">Google registracije</p>
+              <p class="text-2xl font-bold text-gray-900">{{ googleUsers }}</p>
+            </div>
+            <Icon name="mdi:google" class="w-12 h-12 text-red-500" />
           </div>
         </div>
         <div class="bg-white rounded-lg shadow p-6">
@@ -379,11 +388,21 @@ const userActivity = ref<Record<string, any[]>>({})
 const loadingActivity = ref<Record<string, boolean>>({})
 const storesModalUser = ref<any>(null)
 
-// Computed stats
-const totalUsers = computed(() => pagination.value.total)
-const emailUsers = computed(() => users.value.filter(u => u.registration_method === 'email').length)
-const phoneUsers = computed(() => users.value.filter(u => u.registration_method === 'phone').length)
-const verifiedUsers = computed(() => users.value.filter(u => u.is_verified).length)
+// Stats from server (not computed from current page)
+const stats = ref({
+  total: 0,
+  email: 0,
+  google: 0,
+  phone: 0,
+  verified: 0
+})
+
+// Computed stats from server data
+const totalUsers = computed(() => stats.value.total)
+const emailUsers = computed(() => stats.value.email)
+const googleUsers = computed(() => stats.value.google)
+const phoneUsers = computed(() => stats.value.phone)
+const verifiedUsers = computed(() => stats.value.verified)
 
 onMounted(() => {
   loadUsers()
@@ -401,6 +420,11 @@ async function loadUsers(page = 1) {
     const data = await get(`/api/admin/users?${params.toString()}`)
     users.value = data.users
     pagination.value = data.pagination
+
+    // Update stats from server response
+    if (data.stats) {
+      stats.value = data.stats
+    }
 
     // Load activity for all users after loading
     nextTick(() => {

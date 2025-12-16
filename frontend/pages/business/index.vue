@@ -883,26 +883,76 @@ function closePdfModal() {
   pdfResults.value = null
 }
 
-// AI Categorization function - runs in background
-function categorizeBusinessProducts(businessId: number) {
+// Track categorization job IDs per business
+const categorizationJobs = ref<Map<number, string>>(new Map())
+
+// AI Categorization function - runs in background with status polling
+async function categorizeBusinessProducts(businessId: number) {
   if (isCategorizingBusiness.value.has(businessId)) return
 
   isCategorizingBusiness.value.add(businessId)
   isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
 
-  alert('Kategorizacija pokrenuta u pozadini. Možete nastaviti sa radom.')
+  try {
+    const response = await post('/api/admin/products/categorize', {
+      business_id: businessId
+    })
 
-  // Fire and forget - run in background
-  post('/api/admin/products/categorize', {
-    business_id: businessId
-  }).then(response => {
-    console.log(`Kategorized ${response.categorized_count} products for business ${businessId}`)
-  }).catch(error => {
-    console.error(`Error categorizing products for business ${businessId}:`, error)
-  }).finally(() => {
+    if (response.status === 'no_products') {
+      alert('Nema proizvoda za kategorizaciju')
+      isCategorizingBusiness.value.delete(businessId)
+      isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+      return
+    }
+
+    if (response.status === 'already_running') {
+      alert('Kategorizacija je već u toku za ovaj biznis')
+      categorizationJobs.value.set(businessId, response.job_id)
+      return
+    }
+
+    if (response.job_id) {
+      alert(`Kategorizacija pokrenuta u pozadini za ${response.remaining} proizvoda. Ne blokira server - možete nastaviti sa radom.`)
+      categorizationJobs.value.set(businessId, response.job_id)
+      // Start polling for status
+      pollCategorizationStatus(businessId, response.job_id)
+    }
+
+  } catch (error: any) {
+    console.error(`Error starting categorization for business ${businessId}:`, error)
+    alert('Greška pri pokretanju kategorizacije')
     isCategorizingBusiness.value.delete(businessId)
     isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
-  })
+  }
+}
+
+async function pollCategorizationStatus(businessId: number, jobId: string) {
+  try {
+    const response = await get(`/api/admin/products/categorize/status/${jobId}`)
+
+    if (response.status === 'running') {
+      const processed = response.processed || 0
+      const remaining = response.remaining || 0
+      console.log(`Kategorization progress: ${processed} processed, ${remaining} remaining`)
+
+      // Continue polling every 10 seconds
+      setTimeout(() => pollCategorizationStatus(businessId, jobId), 10000)
+    } else if (response.status === 'completed') {
+      alert(`Kategorizacija završena! Obrađeno ${response.processed} proizvoda.`)
+      isCategorizingBusiness.value.delete(businessId)
+      isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+      categorizationJobs.value.delete(businessId)
+    } else if (response.status === 'error' || response.status === 'cancelled') {
+      console.log(`Kategorization ${response.status} for business ${businessId}`)
+      isCategorizingBusiness.value.delete(businessId)
+      isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+      categorizationJobs.value.delete(businessId)
+    }
+  } catch (error) {
+    console.error('Error polling categorization status:', error)
+    // Continue polling even on error
+    setTimeout(() => pollCategorizationStatus(businessId, jobId), 10000)
+  }
 }
 
 async function savePdfUrl() {

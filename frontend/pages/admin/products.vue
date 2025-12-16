@@ -709,6 +709,9 @@ async function vectorizeSingleProduct(productId: number) {
   }
 }
 
+// Track categorization job IDs per business
+const categorizationJobs = ref<Map<number, string>>(new Map())
+
 async function categorizeBusinessProducts(businessId: number) {
   isCategorizingBusiness.value.add(businessId)
   isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
@@ -718,28 +721,64 @@ async function categorizeBusinessProducts(businessId: number) {
       business_id: businessId
     })
 
-    showNotification(response.message || `Kategorizirano ${response.categorized_count} proizvoda`, 'success')
-
-    // If there are more products to categorize, ask if user wants to continue
-    if (response.remaining_count > 0) {
-      const continueCateg = confirm(`Još ${response.remaining_count} proizvoda čeka kategorizaciju. Nastaviti?`)
-      if (continueCateg) {
-        // Reload data first then continue
-        await loadProducts()
-        await categorizeBusinessProducts(businessId)
-        return
-      }
+    if (response.status === 'no_products') {
+      showNotification('Nema proizvoda za kategorizaciju', 'info')
+      isCategorizingBusiness.value.delete(businessId)
+      isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+      return
     }
 
-    // Reload products to show updated categories
-    await loadProducts()
+    if (response.status === 'already_running') {
+      showNotification('Kategorizacija je već u toku za ovaj biznis', 'info')
+      categorizationJobs.value.set(businessId, response.job_id)
+      // Start polling for this job
+      pollCategorizationStatus(businessId, response.job_id)
+      return
+    }
+
+    if (response.job_id) {
+      showNotification(`Kategorizacija pokrenuta u pozadini za ${response.remaining} proizvoda. Ne blokira server.`, 'success')
+      categorizationJobs.value.set(businessId, response.job_id)
+      // Start polling for status
+      pollCategorizationStatus(businessId, response.job_id)
+    }
 
   } catch (error: any) {
-    console.error(`Error categorizing products for business ${businessId}:`, error)
-    showNotification(error.message || 'Nije moguće kategorizirati proizvode', 'error')
-  } finally {
+    console.error(`Error starting categorization for business ${businessId}:`, error)
+    showNotification(error.message || 'Nije moguće pokrenuti kategorizaciju', 'error')
     isCategorizingBusiness.value.delete(businessId)
     isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+  }
+}
+
+async function pollCategorizationStatus(businessId: number, jobId: string) {
+  try {
+    const response = await get(`/api/admin/products/categorize/status/${jobId}`)
+
+    if (response.status === 'running') {
+      // Show progress notification every 30 seconds
+      const processed = response.processed || 0
+      const remaining = response.remaining || 0
+      console.log(`Kategorization progress: ${processed} processed, ${remaining} remaining`)
+
+      // Continue polling every 10 seconds
+      setTimeout(() => pollCategorizationStatus(businessId, jobId), 10000)
+    } else if (response.status === 'completed') {
+      showNotification(`Kategorizacija završena! Obrađeno ${response.processed} proizvoda.`, 'success')
+      isCategorizingBusiness.value.delete(businessId)
+      isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+      categorizationJobs.value.delete(businessId)
+      await loadProducts()
+    } else if (response.status === 'error' || response.status === 'cancelled') {
+      showNotification(`Kategorizacija ${response.status === 'cancelled' ? 'otkazana' : 'prekinuta'}`, 'error')
+      isCategorizingBusiness.value.delete(businessId)
+      isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
+      categorizationJobs.value.delete(businessId)
+    }
+  } catch (error) {
+    console.error('Error polling categorization status:', error)
+    // Continue polling even on error
+    setTimeout(() => pollCategorizationStatus(businessId, jobId), 10000)
   }
 }
 
