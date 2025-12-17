@@ -6925,10 +6925,13 @@ Use ALL available info (title + category + tags) to determine the fields."""
                                 if brand and brand.lower() not in ['null', 'none', '']:
                                     product.brand = brand
 
-                                # Update product_type
+                                # Update product_type - ALWAYS set a value to mark as processed
                                 product_type = cat_item.get('product_type')
                                 if product_type and product_type.lower() not in ['null', 'none', '']:
                                     product.product_type = product_type.lower()
+                                else:
+                                    # Set default to mark product as processed (prevents infinite loop)
+                                    product.product_type = 'unknown'
 
                                 # Update size_value
                                 size_value = cat_item.get('size_value')
@@ -8869,7 +8872,7 @@ def api_admin_get_match_groups():
                     'variant': p.variant,
                     'base_price': float(p.base_price) if p.base_price else None,
                     'discount_price': float(p.discount_price) if p.discount_price else None,
-                    'image_url': p.image_url,
+                    'image_url': p.image_path,
                     'business_id': p.business_id,
                     'business_name': biz.name if biz else 'Unknown'
                 })
