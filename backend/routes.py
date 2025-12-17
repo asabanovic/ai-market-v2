@@ -585,9 +585,8 @@ def schedule_unified_ai_processing(product_ids: list[int], business_id: int = No
                 for batch_start in range(0, len(products), batch_size):
                     batch = products[batch_start:batch_start + batch_size]
 
-                    # Prepare products for AI
+                    # Prepare products for AI (text only - no images to save tokens)
                     products_for_ai = []
-                    product_images = {}
 
                     for p in batch:
                         product_info = {
@@ -596,10 +595,8 @@ def schedule_unified_ai_processing(product_ids: list[int], business_id: int = No
                             'category': p.category or ''
                         }
                         products_for_ai.append(product_info)
-
-                        # Track images
-                        if p.image_path and p.image_path.startswith('http'):
-                            product_images[p.id] = p.image_path
+                        # NOTE: Removed image collection - images burned too many tokens
+                        # Product titles are sufficient for categorization
 
                     # System prompt for unified extraction
                     system_prompt = """You are a product data extraction expert for a Bosnian marketplace.
@@ -664,23 +661,11 @@ Return ONLY valid JSON:
 Return: id, category_group, brand, product_type, size_value, size_unit, variant, tags, description."""
 
                     try:
-                        # Build messages with optional images
-                        messages = [{"role": "system", "content": system_prompt}]
-
-                        if product_images:
-                            content = [{"type": "text", "text": user_prompt}]
-                            for pid, img_url in list(product_images.items())[:5]:
-                                content.append({
-                                    "type": "image_url",
-                                    "image_url": {"url": img_url, "detail": "low"}
-                                })
-                            content.append({
-                                "type": "text",
-                                "text": f"\nImages above are for products: {list(product_images.keys())[:5]}"
-                            })
-                            messages.append({"role": "user", "content": content})
-                        else:
-                            messages.append({"role": "user", "content": user_prompt})
+                        # Build messages (text only - images removed to save tokens)
+                        messages = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ]
 
                         response = openai_client.chat.completions.create(
                             model="gpt-4o-mini",
