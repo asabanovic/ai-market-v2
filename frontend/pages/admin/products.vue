@@ -353,7 +353,7 @@
             <label class="text-sm font-medium text-gray-700">Biznis:</label>
             <select
               v-model="selectedBusinessFilter"
-              @change="loadProducts"
+              @change="loadProducts(true)"
               class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             >
               <option :value="null">Svi biznisi</option>
@@ -366,7 +366,7 @@
             <label class="text-sm font-medium text-gray-700">Status:</label>
             <select
               v-model="categorizationFilter"
-              @change="loadProducts"
+              @change="loadProducts(true)"
               class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             >
               <option value="all">Svi proizvodi</option>
@@ -582,20 +582,34 @@
                   </div>
                 </div>
                 <div class="flex items-center space-x-3">
-                  <button
-                    @click="categorizeBusinessProducts(businessData.business.id)"
-                    :disabled="isCategorizingBusiness.has(businessData.business.id)"
-                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    <svg v-if="isCategorizingBusiness.has(businessData.business.id)" class="animate-spin -ml-1 mr-1.5 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <svg v-else class="-ml-1 mr-1.5 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                    {{ isCategorizingBusiness.has(businessData.business.id) ? 'Kategoriziram...' : 'AI Kategoriziraj' }}
-                  </button>
+                  <!-- Categorization buttons group -->
+                  <div class="inline-flex rounded-md shadow-sm">
+                    <button
+                      @click="categorizeBusinessProducts(businessData.business.id, false)"
+                      :disabled="isCategorizingBusiness.has(businessData.business.id)"
+                      class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-l-md text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      title="Kategoriziraj samo proizvode kojima nedostaju podaci"
+                    >
+                      <svg v-if="isCategorizingBusiness.has(businessData.business.id)" class="animate-spin -ml-1 mr-1.5 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <svg v-else class="-ml-1 mr-1.5 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      {{ isCategorizingBusiness.has(businessData.business.id) ? 'Kategoriziram...' : 'AI Kategoriziraj' }}
+                    </button>
+                    <button
+                      @click="categorizeBusinessProducts(businessData.business.id, true)"
+                      :disabled="isCategorizingBusiness.has(businessData.business.id)"
+                      class="inline-flex items-center px-2 py-1.5 border-l border-purple-400 text-xs font-medium rounded-r-md text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      title="Forsiraj re-kategorizaciju SVIH proizvoda (prepisuje postojece)"
+                    >
+                      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     ID: {{ businessData.business.id }}
                   </span>
@@ -826,6 +840,74 @@
             <h3 class="mt-2 text-sm font-medium text-gray-900">Nema proizvoda</h3>
             <p class="mt-1 text-sm text-gray-500">Trenutno nema proizvoda u sistemu.</p>
           </div>
+
+          <!-- Pagination Controls -->
+          <div v-if="totalPages > 1" class="mt-6 flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
+            <div class="text-sm text-gray-700">
+              Prikazano {{ (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalProducts) }} od {{ totalProducts }} proizvoda
+            </div>
+            <div class="flex items-center space-x-2">
+              <!-- First page -->
+              <button
+                @click="goToPage(1)"
+                :disabled="currentPage === 1"
+                class="px-3 py-1 text-sm font-medium border rounded-md transition-colors"
+                :class="currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'"
+              >
+                &laquo;
+              </button>
+              <!-- Previous page -->
+              <button
+                @click="goToPage(currentPage - 1)"
+                :disabled="currentPage === 1"
+                class="px-3 py-1 text-sm font-medium border rounded-md transition-colors"
+                :class="currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'"
+              >
+                &lsaquo;
+              </button>
+              <!-- Page numbers -->
+              <template v-for="page in paginationPages" :key="page">
+                <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+                <button
+                  v-else
+                  @click="goToPage(page as number)"
+                  class="px-3 py-1 text-sm font-medium border rounded-md transition-colors"
+                  :class="currentPage === page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'"
+                >
+                  {{ page }}
+                </button>
+              </template>
+              <!-- Next page -->
+              <button
+                @click="goToPage(currentPage + 1)"
+                :disabled="currentPage === totalPages"
+                class="px-3 py-1 text-sm font-medium border rounded-md transition-colors"
+                :class="currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'"
+              >
+                &rsaquo;
+              </button>
+              <!-- Last page -->
+              <button
+                @click="goToPage(totalPages)"
+                :disabled="currentPage === totalPages"
+                class="px-3 py-1 text-sm font-medium border rounded-md transition-colors"
+                :class="currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'"
+              >
+                &raquo;
+              </button>
+              <!-- Per page selector -->
+              <select
+                v-model="perPage"
+                @change="loadProducts(true)"
+                class="ml-4 text-sm border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                <option :value="25">25 po stranici</option>
+                <option :value="50">50 po stranici</option>
+                <option :value="100">100 po stranici</option>
+                <option :value="200">200 po stranici</option>
+              </select>
+            </div>
+          </div>
         </div>
       </template>
     </div>
@@ -865,6 +947,12 @@ const selectedBusinessFilter = ref<number | null>(null)
 const categorizationFilter = ref<string>('all')
 const searchQuery = ref<string>('')
 const embeddingStats = ref<any>({})
+
+// Pagination state
+const currentPage = ref(1)
+const perPage = ref(50)
+const totalProducts = ref(0)
+const totalPages = ref(0)
 const productEmbeddingStatus = ref<Map<number, string>>(new Map())
 const selectedProductIds = ref<Set<number>>(new Set())
 const isRegenerating = ref(false)
@@ -950,6 +1038,44 @@ const averageProductsPerBusiness = computed(() => {
   return (stats.value.total_products / stats.value.total_businesses).toFixed(1)
 })
 
+// Compute visible page numbers with ellipsis
+const paginationPages = computed(() => {
+  const pages: (number | string)[] = []
+  const total = totalPages.value
+  const current = currentPage.value
+
+  if (total <= 7) {
+    // Show all pages if 7 or less
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    // Always show first page
+    pages.push(1)
+
+    if (current > 3) {
+      pages.push('...')
+    }
+
+    // Show pages around current
+    const start = Math.max(2, current - 1)
+    const end = Math.min(total - 1, current + 1)
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i)
+    }
+
+    if (current < total - 2) {
+      pages.push('...')
+    }
+
+    // Always show last page
+    pages.push(total)
+  }
+
+  return pages
+})
+
 onMounted(async () => {
   try {
     await loadProducts()
@@ -965,14 +1091,20 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null
 function debouncedSearch() {
   if (searchTimeout) clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
-    loadProducts()
+    loadProducts(true) // Reset to page 1 on new search
   }, 300)
 }
 
-async function loadProducts() {
+async function loadProducts(resetPage: boolean = false) {
   try {
-    // Build URL with filters
+    if (resetPage) {
+      currentPage.value = 1
+    }
+
+    // Build URL with filters and pagination
     const params = new URLSearchParams()
+    params.append('page', String(currentPage.value))
+    params.append('per_page', String(perPage.value))
     if (selectedBusinessFilter.value) {
       params.append('business_id', String(selectedBusinessFilter.value))
     }
@@ -982,13 +1114,38 @@ async function loadProducts() {
     if (searchQuery.value && searchQuery.value.trim()) {
       params.append('search', searchQuery.value.trim())
     }
-    const url = '/api/admin/products' + (params.toString() ? '?' + params.toString() : '')
+    const url = '/api/admin/products?' + params.toString()
     const data = await get(url)
+
+    // Update pagination info
+    if (data.pagination) {
+      totalProducts.value = data.pagination.total
+      totalPages.value = data.pagination.total_pages
+    }
+
     stats.value = data.stats || {}
-    businessesWithProducts.value = (data.businesses_with_products || []).map((b: any) => ({
-      business: { id: b.id, name: b.name, logo: b.logo },
-      products: b.products
-    }))
+
+    // Group flat products by business for display
+    const productsFlat = data.products || []
+    const groupedByBusiness = new Map<number, { business: any; products: any[] }>()
+
+    for (const product of productsFlat) {
+      const businessId = product.business_id
+      if (!groupedByBusiness.has(businessId)) {
+        groupedByBusiness.set(businessId, {
+          business: {
+            id: businessId,
+            name: product.business_name,
+            logo: product.business_logo
+          },
+          products: []
+        })
+      }
+      groupedByBusiness.get(businessId)!.products.push(product)
+    }
+
+    businessesWithProducts.value = Array.from(groupedByBusiness.values())
+
     // Only update allBusinesses on first load (when not filtered)
     if (data.all_businesses && (!allBusinesses.value.length || !selectedBusinessFilter.value)) {
       allBusinesses.value = data.all_businesses
@@ -996,6 +1153,13 @@ async function loadProducts() {
   } catch (error) {
     console.error('Error loading products:', error)
     showNotification('Nije moguće učitati proizvode', 'error')
+  }
+}
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    loadProducts()
   }
 }
 
@@ -1322,13 +1486,18 @@ async function vectorizeSingleProduct(productId: number) {
 // Track categorization job IDs per business
 const categorizationJobs = ref<Map<number, string>>(new Map())
 
-async function categorizeBusinessProducts(businessId: number) {
+async function categorizeBusinessProducts(businessId: number, force: boolean = false) {
+  if (force && !confirm('Da li ste sigurni da zelite RE-kategorizirati SVE proizvode? Ovo ce prepisati postojece vrijednosti.')) {
+    return
+  }
+
   isCategorizingBusiness.value.add(businessId)
   isCategorizingBusiness.value = new Set(isCategorizingBusiness.value)
 
   try {
     const response = await post('/api/admin/products/categorize', {
-      business_id: businessId
+      business_id: businessId,
+      force: force
     })
 
     if (response.status === 'no_products') {

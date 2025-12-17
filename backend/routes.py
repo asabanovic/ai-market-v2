@@ -5742,6 +5742,205 @@ def api_admin_users():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/users/analytics')
+def api_admin_users_analytics():
+    """API endpoint for time-series analytics: user registrations and searches by hour/day/month"""
+    from auth_api import decode_jwt_token
+    from models import UserSearch
+    from sqlalchemy import func, extract
+    from datetime import timedelta
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get interval parameter: hour, day, or month
+        interval = request.args.get('interval', 'day')  # default to day
+
+        now = datetime.now()
+
+        if interval == 'hour':
+            # Last 24 hours, grouped by hour
+            start_time = now - timedelta(hours=24)
+
+            # User registrations by hour
+            users_query = db.session.query(
+                extract('hour', User.created_at).label('hour'),
+                func.date(User.created_at).label('date'),
+                func.count(User.id).label('count')
+            ).filter(
+                User.created_at >= start_time
+            ).group_by(
+                func.date(User.created_at),
+                extract('hour', User.created_at)
+            ).order_by(
+                func.date(User.created_at),
+                extract('hour', User.created_at)
+            ).all()
+
+            # Searches by hour
+            searches_query = db.session.query(
+                extract('hour', UserSearch.created_at).label('hour'),
+                func.date(UserSearch.created_at).label('date'),
+                func.count(UserSearch.id).label('count')
+            ).filter(
+                UserSearch.created_at >= start_time
+            ).group_by(
+                func.date(UserSearch.created_at),
+                extract('hour', UserSearch.created_at)
+            ).order_by(
+                func.date(UserSearch.created_at),
+                extract('hour', UserSearch.created_at)
+            ).all()
+
+            # Build time series data for last 24 hours
+            users_data = []
+            searches_data = []
+            labels = []
+
+            users_dict = {(str(r.date), int(r.hour)): r.count for r in users_query}
+            searches_dict = {(str(r.date), int(r.hour)): r.count for r in searches_query}
+
+            for i in range(24):
+                time_point = now - timedelta(hours=23-i)
+                date_str = time_point.strftime('%Y-%m-%d')
+                hour = time_point.hour
+                labels.append(time_point.strftime('%H:00'))
+                users_data.append(users_dict.get((date_str, hour), 0))
+                searches_data.append(searches_dict.get((date_str, hour), 0))
+
+        elif interval == 'day':
+            # Last 30 days, grouped by day
+            start_time = now - timedelta(days=30)
+
+            # User registrations by day
+            users_query = db.session.query(
+                func.date(User.created_at).label('date'),
+                func.count(User.id).label('count')
+            ).filter(
+                User.created_at >= start_time
+            ).group_by(
+                func.date(User.created_at)
+            ).order_by(
+                func.date(User.created_at)
+            ).all()
+
+            # Searches by day
+            searches_query = db.session.query(
+                func.date(UserSearch.created_at).label('date'),
+                func.count(UserSearch.id).label('count')
+            ).filter(
+                UserSearch.created_at >= start_time
+            ).group_by(
+                func.date(UserSearch.created_at)
+            ).order_by(
+                func.date(UserSearch.created_at)
+            ).all()
+
+            # Build time series data for last 30 days
+            users_data = []
+            searches_data = []
+            labels = []
+
+            users_dict = {str(r.date): r.count for r in users_query}
+            searches_dict = {str(r.date): r.count for r in searches_query}
+
+            for i in range(30):
+                time_point = now - timedelta(days=29-i)
+                date_str = time_point.strftime('%Y-%m-%d')
+                labels.append(time_point.strftime('%d.%m'))
+                users_data.append(users_dict.get(date_str, 0))
+                searches_data.append(searches_dict.get(date_str, 0))
+
+        else:  # month
+            # Last 12 months, grouped by month
+            start_time = now - timedelta(days=365)
+
+            # User registrations by month
+            users_query = db.session.query(
+                extract('year', User.created_at).label('year'),
+                extract('month', User.created_at).label('month'),
+                func.count(User.id).label('count')
+            ).filter(
+                User.created_at >= start_time
+            ).group_by(
+                extract('year', User.created_at),
+                extract('month', User.created_at)
+            ).order_by(
+                extract('year', User.created_at),
+                extract('month', User.created_at)
+            ).all()
+
+            # Searches by month
+            searches_query = db.session.query(
+                extract('year', UserSearch.created_at).label('year'),
+                extract('month', UserSearch.created_at).label('month'),
+                func.count(UserSearch.id).label('count')
+            ).filter(
+                UserSearch.created_at >= start_time
+            ).group_by(
+                extract('year', UserSearch.created_at),
+                extract('month', UserSearch.created_at)
+            ).order_by(
+                extract('year', UserSearch.created_at),
+                extract('month', UserSearch.created_at)
+            ).all()
+
+            # Build time series data for last 12 months
+            users_data = []
+            searches_data = []
+            labels = []
+
+            users_dict = {(int(r.year), int(r.month)): r.count for r in users_query}
+            searches_dict = {(int(r.year), int(r.month)): r.count for r in searches_query}
+
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec']
+
+            for i in range(12):
+                time_point = now - timedelta(days=(11-i)*30)  # Approximate
+                year = time_point.year
+                month = time_point.month
+                labels.append(f"{month_names[month-1]} {year}")
+                users_data.append(users_dict.get((year, month), 0))
+                searches_data.append(searches_dict.get((year, month), 0))
+
+        return jsonify({
+            'interval': interval,
+            'labels': labels,
+            'datasets': {
+                'users': {
+                    'label': 'Novi korisnici',
+                    'data': users_data,
+                    'total': sum(users_data)
+                },
+                'searches': {
+                    'label': 'Pretrage',
+                    'data': searches_data,
+                    'total': sum(searches_data)
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin users analytics error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @app.route('/api/admin/users/<path:user_id>/activity')
 def api_admin_user_activity(user_id):
     """API endpoint to get user's daily activity (searches, engagements, proizvodi visits) for the last 7 days"""
@@ -6164,7 +6363,7 @@ def api_admin_user_profile(user_id):
 
 @app.route('/api/admin/products')
 def api_admin_products():
-    """API endpoint to get all products grouped by business for admin panel"""
+    """API endpoint to get products with server-side pagination for admin panel"""
     from auth_api import decode_jwt_token
     from sqlalchemy import func
 
@@ -6186,12 +6385,17 @@ def api_admin_products():
     except Exception as e:
         return jsonify({'error': 'Authentication failed'}), 401
 
+    # Pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    per_page = min(per_page, 200)  # Cap at 200 max
+
     # Optional filters
     business_id_filter = request.args.get('business_id', type=int)
     categorization_filter = request.args.get('categorization_filter', type=str)  # all, uncategorized, no_matches, has_matches
     search_query = request.args.get('search', type=str)
 
-    # Build query
+    # Build base query
     query = db.session.query(Product, Business).join(Business)
     if business_id_filter:
         query = query.filter(Product.business_id == business_id_filter)
@@ -6224,8 +6428,19 @@ def api_admin_products():
             )
         )
 
+    # Get total count before pagination (for filters that can be applied at DB level)
+    total_count = query.count()
+
     query = query.order_by(Business.name, Product.title)
-    products = query.all()
+
+    # Apply pagination at DB level for non-match filters
+    # Note: no_matches/has_matches filters need to be applied after match_count is computed
+    if categorization_filter not in ('no_matches', 'has_matches'):
+        offset = (page - 1) * per_page
+        products = query.offset(offset).limit(per_page).all()
+    else:
+        # For match-based filters, we need all products to compute match_count first
+        products = query.all()
 
     # Pre-compute match counts for all products with a match_key
     # Count how many OTHER products have the same match_key (excluding self)
@@ -6290,8 +6505,8 @@ def api_admin_products():
         for alt_key, count in alternative_count_query:
             alternative_key_counts[alt_key] = count
 
-    # Group products by business
-    businesses_dict = {}
+    # Build flat products list with computed fields
+    products_list = []
     for product, business in products:
         # Calculate match_count (other products with same match_key, excluding self)
         match_count = 0
@@ -6320,15 +6535,7 @@ def api_admin_products():
         if categorization_filter == 'has_matches' and match_count == 0:
             continue  # Skip products that don't have matches
 
-        if business.id not in businesses_dict:
-            businesses_dict[business.id] = {
-                'id': business.id,
-                'name': business.name,
-                'logo': business.logo_path,
-                'products': []
-            }
-
-        businesses_dict[business.id]['products'].append({
+        products_list.append({
             'id': product.id,
             'title': product.title,
             'base_price': float(product.base_price) if product.base_price else 0,
@@ -6339,6 +6546,10 @@ def api_admin_products():
             'category_group': product.category_group,
             'tags': product.tags,
             'enriched_description': product.enriched_description,
+            # Business info (flat structure for easier frontend handling)
+            'business_id': business.id,
+            'business_name': business.name,
+            'business_logo': business.logo_path,
             # Product matching fields
             'brand': product.brand,
             'product_type': product.product_type,
@@ -6353,27 +6564,27 @@ def api_admin_products():
             'alternative_count': alternative_count  # Number of OTHER products with same type+size but different brand
         })
 
-    # Convert to list and sort by business name
-    businesses_with_products = sorted(businesses_dict.values(), key=lambda x: x['name'])
+    # For match-based filters, we loaded all products - now paginate in memory
+    if categorization_filter in ('no_matches', 'has_matches'):
+        total_count = len(products_list)  # Update total after filtering
+        offset = (page - 1) * per_page
+        products_list = products_list[offset:offset + per_page]
 
     # Get all businesses for dropdown filter (even when filtering)
     all_businesses = Business.query.order_by(Business.name).all()
     businesses_list = [{'id': b.id, 'name': b.name} for b in all_businesses]
 
-    # Get summary stats
-    total_products = len(products)
-    total_businesses = len(businesses_with_products)
-    products_with_images = sum(1 for p, _ in products if p.image_path)
-    products_with_discounts = sum(1 for p, _ in products if p.discount_price and p.discount_price < (p.base_price or 0))
+    # Calculate pagination info
+    total_pages = (total_count + per_page - 1) // per_page
 
     return jsonify({
-        'stats': {
-            'total_products': total_products,
-            'total_businesses': total_businesses,
-            'products_with_images': products_with_images,
-            'products_with_discounts': products_with_discounts
+        'products': products_list,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total_count,
+            'total_pages': total_pages
         },
-        'businesses_with_products': businesses_with_products,
         'all_businesses': businesses_list  # For dropdown filter
     })
 
@@ -7518,6 +7729,7 @@ def api_admin_categorize_products():
 
         data = request.get_json()
         business_id = data.get('business_id')
+        force = data.get('force', False)  # Force re-categorize all products
 
         if not business_id:
             return jsonify({'error': 'business_id is required'}), 400
@@ -7532,19 +7744,29 @@ def api_admin_categorize_products():
                     'message': 'A categorization job is already running for this business'
                 })
 
-        # Count products needing processing (missing category OR matching fields)
+        # Count products needing processing
         from sqlalchemy import or_
-        remaining = Product.query.filter(
-            Product.business_id == business_id,
-            or_(
-                Product.category_group.is_(None),
-                Product.category_group == '',
-                Product.brand.is_(None),
-                Product.size_value.is_(None),
-                Product.size_unit.is_(None),
-                Product.product_type.is_(None)
-            )
-        ).count()
+        if force:
+            # Force mode: process ALL products for this business
+            remaining = Product.query.filter(
+                Product.business_id == business_id
+            ).count()
+        else:
+            # Normal mode: only missing category OR matching fields
+            remaining = Product.query.filter(
+                Product.business_id == business_id,
+                or_(
+                    Product.category_group.is_(None),
+                    Product.category_group == '',
+                    Product.brand.is_(None),
+                    Product.brand == '',
+                    Product.size_value.is_(None),
+                    Product.size_unit.is_(None),
+                    Product.size_unit == '',
+                    Product.product_type.is_(None),
+                    Product.product_type == ''
+                )
+            ).count()
 
         if remaining == 0:
             return jsonify({
