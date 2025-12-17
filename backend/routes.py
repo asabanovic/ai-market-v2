@@ -668,7 +668,7 @@ Return: id, category_group, brand, product_type, size_value, size_unit, variant,
                         ]
 
                         response = openai_client.chat.completions.create(
-                            model="gpt-4o-mini",
+                            model="gpt-3.5-turbo",  # Fallback from gpt-4o-mini due to rate limits
                             messages=messages,
                             response_format={"type": "json_object"},
                             temperature=0.2,
@@ -4509,7 +4509,7 @@ Return JSON with: brand, product_type, size_value, size_unit, variant"""
 
         # Call OpenAI API
         response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-3.5-turbo",  # Fallback from gpt-4o-mini due to rate limits
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0.2,
@@ -6885,7 +6885,7 @@ Use ALL available info (title + category + tags) to determine the fields."""
                     for retry in range(max_retries):
                         try:
                             response = openai_client.chat.completions.create(
-                                model="gpt-4o-mini",
+                                model="gpt-3.5-turbo",  # Fallback from gpt-4o-mini due to rate limits
                                 messages=messages,
                                 response_format={"type": "json_object"},
                                 temperature=0.2,
