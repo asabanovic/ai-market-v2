@@ -668,7 +668,7 @@ Return: id, category_group, brand, product_type, size_value, size_unit, variant,
                         ]
 
                         response = openai_client.chat.completions.create(
-                            model="gpt-3.5-turbo",  # Fallback from gpt-4o-mini due to rate limits
+                            model="gpt-4o-mini",
                             messages=messages,
                             response_format={"type": "json_object"},
                             temperature=0.2,
@@ -4498,7 +4498,7 @@ Return JSON with: brand, product_type, size_value, size_unit, variant"""
 
         # Call OpenAI API
         response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Fallback from gpt-4o-mini due to rate limits
+            model="gpt-4o-mini",
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0.2,
@@ -6166,6 +6166,7 @@ def api_admin_user_profile(user_id):
 def api_admin_products():
     """API endpoint to get all products grouped by business for admin panel"""
     from auth_api import decode_jwt_token
+    from sqlalchemy import func
 
     # Check JWT authentication
     auth_header = request.headers.get('Authorization')
@@ -6185,13 +6186,140 @@ def api_admin_products():
     except Exception as e:
         return jsonify({'error': 'Authentication failed'}), 401
 
-    # Get all products with their business information
-    products = db.session.query(Product, Business).join(Business).order_by(
-        Business.name, Product.title).all()
+    # Optional filters
+    business_id_filter = request.args.get('business_id', type=int)
+    categorization_filter = request.args.get('categorization_filter', type=str)  # all, uncategorized, no_matches, has_matches
+    search_query = request.args.get('search', type=str)
+
+    # Build query
+    query = db.session.query(Product, Business).join(Business)
+    if business_id_filter:
+        query = query.filter(Product.business_id == business_id_filter)
+
+    # Search filter - search in title, brand, product_type
+    if search_query and search_query.strip():
+        search_term = f'%{search_query.strip()}%'
+        query = query.filter(
+            db.or_(
+                Product.title.ilike(search_term),
+                Product.brand.ilike(search_term),
+                Product.product_type.ilike(search_term)
+            )
+        )
+
+    # Categorization filter - uncategorized means missing brand/product_type/size_value/size_unit
+    if categorization_filter == 'uncategorized':
+        query = query.filter(
+            db.or_(
+                Product.brand.is_(None),
+                Product.brand == '',
+                Product.brand == 'unknown',
+                Product.product_type.is_(None),
+                Product.product_type == '',
+                Product.product_type == 'unknown',
+                Product.size_value.is_(None),
+                Product.size_unit.is_(None),
+                Product.size_unit == '',
+                Product.size_unit == 'unknown'
+            )
+        )
+
+    query = query.order_by(Business.name, Product.title)
+    products = query.all()
+
+    # Pre-compute match counts for all products with a match_key
+    # Count how many OTHER products have the same match_key (excluding self)
+    match_key_counts = {}
+    all_match_keys = [p.match_key for p, _ in products if p.match_key]
+    if all_match_keys:
+        # Get count of products per match_key
+        count_query = db.session.query(
+            Product.match_key,
+            func.count(Product.id).label('count')
+        ).filter(
+            Product.match_key.in_(all_match_keys)
+        ).group_by(Product.match_key).all()
+
+        for match_key, count in count_query:
+            match_key_counts[match_key] = count
+
+    # Pre-compute sibling counts (same brand + product_type, any size)
+    # sibling_key = brand:product_type
+    sibling_key_counts = {}
+    all_sibling_keys = []
+    for p, _ in products:
+        if p.brand and p.product_type:
+            sibling_key = f"{p.brand}:{p.product_type}"
+            all_sibling_keys.append(sibling_key)
+
+    if all_sibling_keys:
+        # Get count of products per sibling_key (brand + product_type combo)
+        sibling_count_query = db.session.query(
+            func.concat(Product.brand, ':', Product.product_type).label('sibling_key'),
+            func.count(Product.id).label('count')
+        ).filter(
+            Product.brand.isnot(None),
+            Product.product_type.isnot(None),
+            func.concat(Product.brand, ':', Product.product_type).in_(list(set(all_sibling_keys)))
+        ).group_by(func.concat(Product.brand, ':', Product.product_type)).all()
+
+        for sibling_key, count in sibling_count_query:
+            sibling_key_counts[sibling_key] = count
+
+    # Pre-compute alternative counts (same product_type + size, different brand)
+    # alternative_key = product_type:size_value:size_unit
+    alternative_key_counts = {}
+    all_alternative_keys = []
+    for p, _ in products:
+        if p.product_type and p.size_value is not None and p.size_unit:
+            alt_key = f"{p.product_type}:{p.size_value}:{p.size_unit}"
+            all_alternative_keys.append(alt_key)
+
+    if all_alternative_keys:
+        # Get count of products per alternative_key (product_type + size combo)
+        alternative_count_query = db.session.query(
+            func.concat(Product.product_type, ':', Product.size_value, ':', Product.size_unit).label('alt_key'),
+            func.count(Product.id).label('count')
+        ).filter(
+            Product.product_type.isnot(None),
+            Product.size_value.isnot(None),
+            Product.size_unit.isnot(None),
+            func.concat(Product.product_type, ':', Product.size_value, ':', Product.size_unit).in_(list(set(all_alternative_keys)))
+        ).group_by(func.concat(Product.product_type, ':', Product.size_value, ':', Product.size_unit)).all()
+
+        for alt_key, count in alternative_count_query:
+            alternative_key_counts[alt_key] = count
 
     # Group products by business
     businesses_dict = {}
     for product, business in products:
+        # Calculate match_count (other products with same match_key, excluding self)
+        match_count = 0
+        if product.match_key and product.match_key in match_key_counts:
+            match_count = match_key_counts[product.match_key] - 1  # Exclude self
+
+        # Calculate sibling_count (same brand + product_type, any size, excluding self)
+        sibling_count = 0
+        sibling_key = None
+        if product.brand and product.product_type:
+            sibling_key = f"{product.brand}:{product.product_type}"
+            if sibling_key in sibling_key_counts:
+                sibling_count = sibling_key_counts[sibling_key] - 1  # Exclude self
+
+        # Calculate alternative_count (same product_type + size, different brand, excluding self)
+        alternative_count = 0
+        alternative_key = None
+        if product.product_type and product.size_value is not None and product.size_unit:
+            alternative_key = f"{product.product_type}:{product.size_value}:{product.size_unit}"
+            if alternative_key in alternative_key_counts:
+                alternative_count = alternative_key_counts[alternative_key] - 1  # Exclude self
+
+        # Apply no_matches / has_matches filters (must be done after match_count is computed)
+        if categorization_filter == 'no_matches' and match_count > 0:
+            continue  # Skip products that have matches
+        if categorization_filter == 'has_matches' and match_count == 0:
+            continue  # Skip products that don't have matches
+
         if business.id not in businesses_dict:
             businesses_dict[business.id] = {
                 'id': business.id,
@@ -6199,6 +6327,7 @@ def api_admin_products():
                 'logo': business.logo_path,
                 'products': []
             }
+
         businesses_dict[business.id]['products'].append({
             'id': product.id,
             'title': product.title,
@@ -6213,14 +6342,23 @@ def api_admin_products():
             # Product matching fields
             'brand': product.brand,
             'product_type': product.product_type,
-            'size_value': product.size_value,
+            'size_value': float(product.size_value) if product.size_value is not None else None,
             'size_unit': product.size_unit,
             'variant': product.variant,
-            'match_key': product.match_key
+            'match_key': product.match_key,
+            'sibling_key': sibling_key,  # brand:product_type for sibling lookup
+            'alternative_key': alternative_key,  # product_type:size_value:size_unit for alternative lookup
+            'match_count': match_count,  # Number of OTHER products with same match_key (exact clones)
+            'sibling_count': sibling_count,  # Number of OTHER products with same brand:product_type (any size)
+            'alternative_count': alternative_count  # Number of OTHER products with same type+size but different brand
         })
 
     # Convert to list and sort by business name
     businesses_with_products = sorted(businesses_dict.values(), key=lambda x: x['name'])
+
+    # Get all businesses for dropdown filter (even when filtering)
+    all_businesses = Business.query.order_by(Business.name).all()
+    businesses_list = [{'id': b.id, 'name': b.name} for b in all_businesses]
 
     # Get summary stats
     total_products = len(products)
@@ -6235,7 +6373,323 @@ def api_admin_products():
             'products_with_images': products_with_images,
             'products_with_discounts': products_with_discounts
         },
-        'businesses_with_products': businesses_with_products
+        'businesses_with_products': businesses_with_products,
+        'all_businesses': businesses_list  # For dropdown filter
+    })
+
+
+@app.route('/api/admin/products/<int:product_id>/related')
+def api_admin_product_related(product_id):
+    """Get products related to a specific product (matches and siblings)"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    # Get the source product
+    source_product = Product.query.get(product_id)
+    if not source_product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    # Get match_type from query params: 'matches' (exact clones) or 'siblings' (same brand+type, any size)
+    match_type = request.args.get('type', 'matches')
+
+    related_products = []
+
+    if match_type == 'matches' and source_product.match_key:
+        # Find products with exact same match_key (brand:product_type:size_value:size_unit)
+        products = db.session.query(Product, Business).join(Business).filter(
+            Product.match_key == source_product.match_key,
+            Product.id != product_id  # Exclude self
+        ).order_by(Business.name, Product.title).all()
+
+        for product, business in products:
+            related_products.append({
+                'id': product.id,
+                'title': product.title,
+                'brand': product.brand,
+                'product_type': product.product_type,
+                'size_value': float(product.size_value) if product.size_value is not None else None,
+                'size_unit': product.size_unit,
+                'base_price': float(product.base_price) if product.base_price else 0,
+                'discount_price': float(product.discount_price) if product.discount_price else None,
+                'image_path': product.image_path,
+                'business_name': business.name,
+                'business_id': business.id,
+                'match_key': product.match_key
+            })
+
+    elif match_type == 'siblings' and source_product.brand and source_product.product_type:
+        # Find products with same brand + product_type (any size)
+        products = db.session.query(Product, Business).join(Business).filter(
+            Product.brand == source_product.brand,
+            Product.product_type == source_product.product_type,
+            Product.id != product_id  # Exclude self
+        ).order_by(Business.name, Product.title).all()
+
+        for product, business in products:
+            related_products.append({
+                'id': product.id,
+                'title': product.title,
+                'brand': product.brand,
+                'product_type': product.product_type,
+                'size_value': float(product.size_value) if product.size_value is not None else None,
+                'size_unit': product.size_unit,
+                'base_price': float(product.base_price) if product.base_price else 0,
+                'discount_price': float(product.discount_price) if product.discount_price else None,
+                'image_path': product.image_path,
+                'business_name': business.name,
+                'business_id': business.id,
+                'match_key': product.match_key
+            })
+
+    elif match_type == 'alternatives' and source_product.product_type and source_product.size_value is not None and source_product.size_unit:
+        # Find products with same product_type + size but different brand
+        products = db.session.query(Product, Business).join(Business).filter(
+            Product.product_type == source_product.product_type,
+            Product.size_value == source_product.size_value,
+            Product.size_unit == source_product.size_unit,
+            Product.brand != source_product.brand,  # Different brand
+            Product.id != product_id  # Exclude self
+        ).order_by(Business.name, Product.title).all()
+
+        for product, business in products:
+            related_products.append({
+                'id': product.id,
+                'title': product.title,
+                'brand': product.brand,
+                'product_type': product.product_type,
+                'size_value': float(product.size_value) if product.size_value is not None else None,
+                'size_unit': product.size_unit,
+                'base_price': float(product.base_price) if product.base_price else 0,
+                'discount_price': float(product.discount_price) if product.discount_price else None,
+                'image_path': product.image_path,
+                'business_name': business.name,
+                'business_id': business.id,
+                'match_key': product.match_key
+            })
+
+    return jsonify({
+        'source_product': {
+            'id': source_product.id,
+            'title': source_product.title,
+            'brand': source_product.brand,
+            'product_type': source_product.product_type,
+            'size_value': float(source_product.size_value) if source_product.size_value is not None else None,
+            'size_unit': source_product.size_unit,
+            'match_key': source_product.match_key
+        },
+        'match_type': match_type,
+        'related_products': related_products,
+        'count': len(related_products)
+    })
+
+
+@app.route('/api/admin/products/<int:product_id>/categorization', methods=['PATCH'])
+def api_admin_update_product_categorization(product_id):
+    """Update product categorization fields (brand, product_type, size_value, size_unit, category_group)"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    data = request.get_json()
+
+    # Update allowed fields
+    allowed_fields = ['brand', 'product_type', 'size_value', 'size_unit', 'category_group', 'variant']
+    updated_fields = []
+
+    for field in allowed_fields:
+        if field in data:
+            old_value = getattr(product, field)
+            new_value = data[field]
+
+            # Handle size_value as float
+            if field == 'size_value':
+                try:
+                    new_value = float(new_value) if new_value is not None and new_value != '' else None
+                except (ValueError, TypeError):
+                    continue
+
+            setattr(product, field, new_value)
+            updated_fields.append(field)
+
+    if updated_fields:
+        # Update match_key if any matching field changed
+        product.update_match_key()
+        db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'updated_fields': updated_fields,
+        'product': {
+            'id': product.id,
+            'brand': product.brand,
+            'product_type': product.product_type,
+            'size_value': product.size_value,
+            'size_unit': product.size_unit,
+            'category_group': product.category_group,
+            'variant': product.variant,
+            'match_key': product.match_key
+        }
+    })
+
+
+# ==================== ADMIN EMBEDDINGS API ====================
+
+@app.route('/api/admin/embeddings/stats')
+def api_admin_embeddings_stats():
+    """Get embedding statistics for admin dashboard"""
+    from auth_api import decode_jwt_token
+    from sqlalchemy import func
+    import hashlib
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    # Get total product count
+    total_products = Product.query.count()
+
+    # Get count of products with embeddings
+    products_with_embeddings = db.session.query(func.count(ProductEmbedding.product_id)).scalar() or 0
+
+    # Products without embeddings
+    no_embedding = total_products - products_with_embeddings
+
+    # Check how many embeddings need refresh (content changed since embedding was created)
+    # We compare content_hash stored in ProductEmbedding with current product content
+    needs_refresh = 0
+
+    # Get all products that have embeddings
+    embeddings_with_products = db.session.query(
+        ProductEmbedding.product_id,
+        ProductEmbedding.content_hash,
+        Product.title,
+        Product.enriched_description,
+        Product.category
+    ).join(Product).all()
+
+    for emb in embeddings_with_products:
+        # Generate current content hash
+        content = f"{emb.title or ''} {emb.enriched_description or ''} {emb.category or ''}"
+        current_hash = hashlib.md5(content.encode()).hexdigest()
+
+        if emb.content_hash and emb.content_hash != current_hash:
+            needs_refresh += 1
+
+    # Up to date = has embedding and doesn't need refresh
+    up_to_date = products_with_embeddings - needs_refresh
+
+    return jsonify({
+        'total_products': total_products,
+        'up_to_date': up_to_date,
+        'needs_refresh': needs_refresh,
+        'no_embedding': no_embedding
+    })
+
+
+@app.route('/api/admin/embeddings/products/status')
+def api_admin_embeddings_products_status():
+    """Get embedding status for all products"""
+    from auth_api import decode_jwt_token
+    from sqlalchemy import func
+    import hashlib
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    per_page = request.args.get('per_page', 100, type=int)
+
+    # Get all products with their embedding info
+    products_query = db.session.query(
+        Product.id,
+        Product.title,
+        Product.enriched_description,
+        Product.category,
+        ProductEmbedding.content_hash,
+        ProductEmbedding.updated_at.label('embedding_updated_at')
+    ).outerjoin(ProductEmbedding).limit(per_page).all()
+
+    product_statuses = {}
+    for p in products_query:
+        if p.content_hash is None:
+            status = 'no_embedding'
+        else:
+            # Check if needs refresh
+            content = f"{p.title or ''} {p.enriched_description or ''} {p.category or ''}"
+            current_hash = hashlib.md5(content.encode()).hexdigest()
+            if p.content_hash != current_hash:
+                status = 'needs_refresh'
+            else:
+                status = 'up_to_date'
+        product_statuses[p.id] = status
+
+    return jsonify({
+        'product_statuses': product_statuses
     })
 
 
@@ -6799,19 +7253,34 @@ Return ONLY valid JSON array:
                     categorization_jobs[job_id]['status'] = 'cancelled'
                     break
 
-                # Get products needing processing - those without product_type
+                # Get products needing processing - those missing ANY categorization field
+                from sqlalchemy import or_
                 products = Product.query.filter(
                     Product.business_id == business_id,
-                    Product.product_type.is_(None)
+                    or_(
+                        Product.category_group.is_(None),
+                        Product.category_group == '',
+                        Product.brand.is_(None),
+                        Product.size_value.is_(None),
+                        Product.size_unit.is_(None),
+                        Product.product_type.is_(None)
+                    )
                 ).limit(batch_size).all()
 
                 if not products:
                     break  # No more products to process
 
-                # Update job progress - count products without product_type
+                # Update job progress - count products missing ANY field
                 remaining = Product.query.filter(
                     Product.business_id == business_id,
-                    Product.product_type.is_(None)
+                    or_(
+                        Product.category_group.is_(None),
+                        Product.category_group == '',
+                        Product.brand.is_(None),
+                        Product.size_value.is_(None),
+                        Product.size_unit.is_(None),
+                        Product.product_type.is_(None)
+                    )
                 ).count()
 
                 categorization_jobs[job_id]['remaining'] = remaining
@@ -6858,7 +7327,7 @@ Use ALL available info (title + category + tags) to determine the fields."""
                     for retry in range(max_retries):
                         try:
                             response = openai_client.chat.completions.create(
-                                model="gpt-3.5-turbo",  # Fallback from gpt-4o-mini due to rate limits
+                                model="gpt-4o-mini",
                                 messages=messages,
                                 response_format={"type": "json_object"},
                                 temperature=0.2,
@@ -6907,16 +7376,26 @@ Use ALL available info (title + category + tags) to determine the fields."""
                         app.logger.error(f"Background job {job_id}: Failed to parse AI response: {parse_err}")
                         categorizations = []
 
-                    # If AI returned empty result, mark all products in batch as 'unknown' to prevent infinite loop
+                    # If AI returned empty result, mark all products with defaults to prevent infinite loop
                     if not categorizations:
-                        app.logger.warning(f"Background job {job_id}: Empty AI result, marking {len(products)} products as 'unknown'")
+                        app.logger.warning(f"Background job {job_id}: Empty AI result, marking {len(products)} products with defaults")
                         for p in products:
-                            p.product_type = 'unknown'
+                            # Set defaults for ALL fields that are in the OR filter
+                            if not p.product_type:
+                                p.product_type = 'unknown'
+                            if not p.brand:
+                                p.brand = 'unknown'
+                            if p.size_value is None:
+                                p.size_value = 0
+                            if not p.size_unit:
+                                p.size_unit = 'unknown'
+                            if not p.category_group:
+                                p.category_group = 'ostalo'
                             p.update_match_key()
                         db.session.commit()
                         total_updated += len(products)
                         categorization_jobs[job_id]['processed'] = total_updated
-                        app.logger.info(f"Background job {job_id}: Batch {iteration + 1} - marked {len(products)} products as unknown")
+                        app.logger.info(f"Background job {job_id}: Batch {iteration + 1} - marked {len(products)} products with defaults")
                         time_module.sleep(delay_seconds)
                         continue
 
@@ -6946,18 +7425,31 @@ Use ALL available info (title + category + tags) to determine the fields."""
                                     # Set default to mark product as processed (prevents infinite loop)
                                     product.product_type = 'unknown'
 
-                                # Update size_value
+                                # Update size_value - set default if AI doesn't provide
                                 size_value = cat_item.get('size_value')
                                 if size_value is not None and size_value != 'null':
                                     try:
                                         product.size_value = float(size_value)
                                     except (ValueError, TypeError):
-                                        pass
+                                        if product.size_value is None:
+                                            product.size_value = 0
+                                elif product.size_value is None:
+                                    product.size_value = 0
 
-                                # Update size_unit
+                                # Update size_unit - set default if AI doesn't provide
                                 size_unit = cat_item.get('size_unit')
                                 if size_unit and size_unit.lower() not in ['null', 'none', '']:
                                     product.size_unit = size_unit.lower()
+                                elif not product.size_unit:
+                                    product.size_unit = 'unknown'
+
+                                # Update brand - set default if AI doesn't provide
+                                if not product.brand:
+                                    product.brand = 'unknown'
+
+                                # Update category_group - set default if not set
+                                if not product.category_group:
+                                    product.category_group = 'ostalo'
 
                                 # Update variant
                                 variant = cat_item.get('variant')

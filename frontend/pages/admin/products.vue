@@ -23,6 +23,276 @@
       </div>
     </div>
 
+    <!-- Edit Product Modal -->
+    <div v-if="showEditModal && editingProduct" class="fixed inset-0 z-50 overflow-y-auto">
+      <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="closeEditModal"></div>
+
+        <!-- Modal Panel -->
+        <div class="relative z-10 w-full max-w-2xl overflow-hidden text-left bg-white rounded-lg shadow-xl transform transition-all">
+          <!-- Header -->
+          <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-medium text-gray-900">Uredi proizvod #{{ editingProduct.id }}</h3>
+              <button @click="closeEditModal" class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="px-6 py-4">
+            <!-- Product Image and Title -->
+            <div class="flex gap-6 mb-6">
+              <!-- Image -->
+              <div class="flex-shrink-0">
+                <div class="w-40 h-40 bg-gray-100 rounded-lg overflow-hidden">
+                  <img
+                    v-if="editingProduct.image_path"
+                    :src="getProductImageUrl(editingProduct.image_path)"
+                    :alt="editingProduct.title"
+                    class="w-full h-full object-contain"
+                  />
+                  <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
+                    <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <!-- Title and Price -->
+              <div class="flex-grow">
+                <h4 class="text-lg font-medium text-gray-900 mb-2">{{ editingProduct.title }}</h4>
+                <div class="text-sm text-gray-500 mb-2">
+                  <span class="font-medium">Cijena:</span> {{ formatPrice(editingProduct.base_price) }} KM
+                  <span v-if="hasDiscount(editingProduct)" class="ml-2 text-green-600 font-medium">
+                    ({{ formatPrice(editingProduct.discount_price) }} KM)
+                  </span>
+                </div>
+                <div class="text-sm text-gray-500">
+                  <span class="font-medium">Match key:</span>
+                  <code class="ml-1 px-2 py-0.5 bg-gray-100 rounded text-xs">{{ editingProduct.match_key || 'N/A' }}</code>
+                </div>
+              </div>
+            </div>
+
+            <!-- Edit Fields -->
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Brand -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <input
+                  v-model="editingProduct.brand"
+                  type="text"
+                  class="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="npr. Menprom"
+                />
+              </div>
+
+              <!-- Product Type -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tip proizvoda</label>
+                <input
+                  v-model="editingProduct.product_type"
+                  type="text"
+                  class="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="npr. sudzuk"
+                />
+              </div>
+
+              <!-- Size Value -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Velicina (broj)</label>
+                <input
+                  v-model="editingProduct.size_value"
+                  type="number"
+                  step="0.01"
+                  class="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="npr. 300"
+                />
+              </div>
+
+              <!-- Size Unit -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Jedinica</label>
+                <input
+                  v-model="editingProduct.size_unit"
+                  type="text"
+                  class="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="npr. g, ml, kom"
+                />
+              </div>
+
+              <!-- Category Group -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Kategorija</label>
+                <select
+                  v-model="editingProduct.category_group"
+                  class="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  <option value="">-</option>
+                  <option value="meso">meso</option>
+                  <option value="mlijeko">mlijeko</option>
+                  <option value="pica">pica</option>
+                  <option value="voce_povrce">voce_povrce</option>
+                  <option value="kuhinja">kuhinja</option>
+                  <option value="ves">ves</option>
+                  <option value="ciscenje">ciscenje</option>
+                  <option value="higijena">higijena</option>
+                  <option value="slatkisi">slatkisi</option>
+                  <option value="kafa">kafa</option>
+                  <option value="smrznuto">smrznuto</option>
+                  <option value="pekara">pekara</option>
+                  <option value="ljubimci">ljubimci</option>
+                  <option value="bebe">bebe</option>
+                  <option value="ostalo">ostalo</option>
+                </select>
+              </div>
+
+              <!-- Variant -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Varijanta</label>
+                <input
+                  v-model="editingProduct.variant"
+                  type="text"
+                  class="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="npr. crveni, xxl"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+            <button
+              @click="closeEditModal"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+            >
+              Odustani
+            </button>
+            <button
+              @click="saveEditedProduct"
+              :disabled="isUpdatingProduct.has(editingProduct.id)"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <span v-if="isUpdatingProduct.has(editingProduct.id)">Spremam...</span>
+              <span v-else>Spremi</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related Products Modal -->
+    <div v-if="showRelatedModal" class="fixed inset-0 z-50 overflow-y-auto">
+      <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="closeRelatedModal"></div>
+
+        <!-- Modal Panel -->
+        <div class="relative z-10 w-full max-w-4xl overflow-hidden text-left bg-white rounded-lg shadow-xl transform transition-all">
+          <!-- Header -->
+          <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-medium text-gray-900">{{ relatedModalTitle }}</h3>
+              <button @click="closeRelatedModal" class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <!-- Source product info -->
+            <div v-if="relatedSourceProduct" class="mt-2 text-sm text-gray-600">
+              <span class="font-medium">Source:</span> {{ relatedSourceProduct.brand }} - {{ relatedSourceProduct.product_type }}
+              <span v-if="relatedSourceProduct.size_value"> | {{ relatedSourceProduct.size_value }}{{ relatedSourceProduct.size_unit }}</span>
+              <span class="ml-2 text-xs text-gray-400">match_key: {{ relatedSourceProduct.match_key }}</span>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="px-6 py-4 max-h-96 overflow-y-auto">
+            <!-- Loading -->
+            <div v-if="isLoadingRelated" class="flex items-center justify-center py-8">
+              <svg class="animate-spin h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span class="ml-3 text-gray-600">Ucitavanje...</span>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="relatedProducts.length === 0" class="text-center py-8 text-gray-500">
+              Nema povezanih proizvoda.
+            </div>
+
+            <!-- Products table -->
+            <table v-else class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Slika</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Proizvod</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Biznis</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Velicina</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cijena</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="product in relatedProducts" :key="product.id" class="hover:bg-gray-50">
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <div class="w-12 h-12 bg-gray-100 rounded overflow-hidden">
+                      <img
+                        v-if="product.image_path"
+                        :src="getProductImageUrl(product.image_path)"
+                        :alt="product.title"
+                        class="w-full h-full object-contain"
+                      />
+                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-2">
+                    <div class="text-sm font-medium text-gray-900 max-w-xs truncate" :title="product.title">{{ product.title }}</div>
+                    <div class="text-xs text-gray-500">ID: {{ product.id }} | {{ product.brand }} - {{ product.product_type }}</div>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <span class="text-sm text-gray-900">{{ product.business_name }}</span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <span class="text-sm text-gray-900">
+                      {{ product.size_value }}{{ product.size_unit }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">{{ formatPrice(product.base_price) }} KM</div>
+                    <div v-if="product.discount_price && product.discount_price < product.base_price" class="text-xs text-green-600 font-medium">
+                      {{ formatPrice(product.discount_price) }} KM
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+            <span class="text-sm text-gray-500">{{ relatedProducts.length }} proizvoda</span>
+            <button
+              @click="closeRelatedModal"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+            >
+              Zatvori
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="mb-8">
@@ -40,6 +310,51 @@
             </svg>
             Nazad na Admin Dashboard
           </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="mb-6 bg-white rounded-lg border border-gray-200 p-4">
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700">Biznis:</label>
+            <select
+              v-model="selectedBusinessFilter"
+              @change="loadProducts"
+              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            >
+              <option :value="null">Svi biznisi</option>
+              <option v-for="business in allBusinesses" :key="business.id" :value="business.id">
+                {{ business.name }}
+              </option>
+            </select>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700">Status:</label>
+            <select
+              v-model="categorizationFilter"
+              @change="loadProducts"
+              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            >
+              <option value="all">Svi proizvodi</option>
+              <option value="uncategorized">Nekategorizirani</option>
+              <option value="no_matches">Bez matcheva (0)</option>
+              <option value="has_matches">Sa matchevima (1+)</option>
+            </select>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700">Pretraga:</label>
+            <input
+              v-model="searchQuery"
+              @input="debouncedSearch"
+              type="text"
+              placeholder="Brand, tip, naziv..."
+              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+          </div>
+          <span class="text-sm text-gray-500">
+            ({{ stats.total_products }} proizvoda)
+          </span>
         </div>
       </div>
 
@@ -260,7 +575,7 @@
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-6 py-3 text-left">
+                    <th class="px-4 py-3 text-left">
                       <input
                         type="checkbox"
                         :checked="isBusinessFullySelected(businessData.business.id)"
@@ -268,19 +583,20 @@
                         class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Embedding Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategorija</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Osnovna cijena</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena sa popustom</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tagovi</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupa</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matches</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tip</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Velicina</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupa</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-for="product in businessData.products" :key="product.id" class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <!-- Checkbox -->
+                    <td class="px-4 py-3 whitespace-nowrap">
                       <input
                         type="checkbox"
                         :checked="selectedProductIds.has(product.id)"
@@ -288,89 +604,164 @@
                         class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span
-                        v-if="getEmbeddingStatus(product.id) === 'no_embedding'"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"
-                      >
-                        Bez embeddings
-                      </span>
-                      <span
-                        v-else-if="getEmbeddingStatus(product.id) === 'needs_refresh'"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
-                      >
-                        Potreban refresh
-                      </span>
-                      <span
-                        v-else-if="getEmbeddingStatus(product.id) === 'up_to_date'"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                      >
-                        Ažurirano
-                      </span>
-                      <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        Nepoznato
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="text-sm font-medium text-gray-900">{{ product.title }}</div>
+                    <!-- Product Name -->
+                    <td class="px-4 py-3">
+                      <div class="text-sm font-medium text-gray-900 max-w-xs truncate" :title="product.title">{{ product.title }}</div>
                       <div class="text-xs text-gray-500">ID: {{ product.id }}</div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {{ product.category || 'Ostalo' }}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {{ formatPrice(product.base_price) }} KM
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                      <span v-if="hasDiscount(product)" class="text-green-600 font-medium">
-                        {{ formatPrice(product.discount_price) }} KM
-                      </span>
-                      <span v-else class="text-gray-500">-</span>
-                    </td>
-                    <td class="px-6 py-4">
-                      <div class="flex flex-wrap gap-1">
-                        <span
-                          v-for="(tag, index) in product.tags?.slice(0, 3)"
-                          :key="index"
-                          class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700"
+                    <!-- Match & Sibling Counts -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="flex flex-col gap-1">
+                        <!-- Match count (exact clones) -->
+                        <button
+                          v-if="product.match_count > 0"
+                          @click="showRelatedProducts(product, 'matches')"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer transition-colors"
+                          :title="'Exact matches: ' + product.match_key"
                         >
-                          {{ tag }}
-                        </span>
+                          {{ product.match_count }} clone{{ product.match_count > 1 ? 's' : '' }}
+                        </button>
                         <span
-                          v-if="product.tags && product.tags.length > 3"
-                          class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700"
+                          v-else-if="product.match_key"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"
+                          :title="product.match_key"
                         >
-                          +{{ product.tags.length - 3 }}
+                          0 clones
                         </span>
+                        <!-- Sibling count (same brand+type, any size) -->
+                        <button
+                          v-if="product.sibling_count > 0"
+                          @click="showRelatedProducts(product, 'siblings')"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer transition-colors"
+                          :title="'Siblings (any size): ' + product.brand + ':' + product.product_type"
+                        >
+                          {{ product.sibling_count }} sibling{{ product.sibling_count > 1 ? 's' : '' }}
+                        </button>
+                        <span
+                          v-else-if="product.brand && product.product_type"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"
+                        >
+                          0 siblings
+                        </span>
+                        <!-- Alternative count (same product_type + size, different brand) -->
+                        <button
+                          v-if="product.alternative_count > 0"
+                          @click="showRelatedProducts(product, 'alternatives')"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 cursor-pointer transition-colors"
+                          :title="'Alternative brands for ' + product.product_type + ' ' + product.size_value + product.size_unit"
+                        >
+                          {{ product.alternative_count }} alt
+                        </button>
+                        <span v-if="!product.match_key && !product.brand && !product.product_type" class="text-gray-400 text-xs" title="Nedostaju podaci za matching">-</span>
                       </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span
-                        v-if="product.category_group"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                        :class="getCategoryGroupColor(product.category_group)"
-                      >
-                        {{ getCategoryGroupIcon(product.category_group) }} {{ product.category_group }}
-                      </span>
-                      <span v-else class="text-gray-400 text-xs">-</span>
+                    <!-- Brand (editable) -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <input
+                        type="text"
+                        :value="product.brand || ''"
+                        @blur="updateProductField(product.id, 'brand', ($event.target as HTMLInputElement).value)"
+                        @keyup.enter="($event.target as HTMLInputElement).blur()"
+                        class="w-24 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        :class="{ 'bg-red-50 border-red-300': !product.brand || product.brand === 'unknown' }"
+                        placeholder="brand"
+                      />
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <!-- Product Type (editable) -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <input
+                        type="text"
+                        :value="product.product_type || ''"
+                        @blur="updateProductField(product.id, 'product_type', ($event.target as HTMLInputElement).value)"
+                        @keyup.enter="($event.target as HTMLInputElement).blur()"
+                        class="w-24 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        :class="{ 'bg-red-50 border-red-300': !product.product_type || product.product_type === 'unknown' }"
+                        placeholder="tip"
+                      />
+                    </td>
+                    <!-- Size (editable) -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="flex items-center space-x-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          :value="product.size_value || ''"
+                          @blur="updateProductField(product.id, 'size_value', ($event.target as HTMLInputElement).value)"
+                          @keyup.enter="($event.target as HTMLInputElement).blur()"
+                          class="w-16 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          :class="{ 'bg-red-50 border-red-300': !product.size_value || product.size_value === 0 }"
+                          placeholder="0"
+                        />
+                        <input
+                          type="text"
+                          :value="product.size_unit || ''"
+                          @blur="updateProductField(product.id, 'size_unit', ($event.target as HTMLInputElement).value)"
+                          @keyup.enter="($event.target as HTMLInputElement).blur()"
+                          class="w-12 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          :class="{ 'bg-red-50 border-red-300': !product.size_unit || product.size_unit === 'unknown' }"
+                          placeholder="g/ml"
+                        />
+                      </div>
+                    </td>
+                    <!-- Category Group (editable dropdown) -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <select
+                        :value="product.category_group || ''"
+                        @change="updateProductField(product.id, 'category_group', ($event.target as HTMLSelectElement).value)"
+                        class="text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        :class="{ 'bg-red-50 border-red-300': !product.category_group }"
+                      >
+                        <option value="">-</option>
+                        <option value="meso">meso</option>
+                        <option value="mlijeko">mlijeko</option>
+                        <option value="pica">pica</option>
+                        <option value="voce_povrce">voce_povrce</option>
+                        <option value="kuhinja">kuhinja</option>
+                        <option value="ves">ves</option>
+                        <option value="ciscenje">ciscenje</option>
+                        <option value="higijena">higijena</option>
+                        <option value="slatkisi">slatkisi</option>
+                        <option value="kafa">kafa</option>
+                        <option value="smrznuto">smrznuto</option>
+                        <option value="pekara">pekara</option>
+                        <option value="ljubimci">ljubimci</option>
+                        <option value="bebe">bebe</option>
+                        <option value="ostalo">ostalo</option>
+                      </select>
+                    </td>
+                    <!-- Price -->
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                      <div class="text-gray-900">{{ formatPrice(product.base_price) }} KM</div>
+                      <div v-if="hasDiscount(product)" class="text-green-600 font-medium">
+                        {{ formatPrice(product.discount_price) }} KM
+                      </div>
+                    </td>
+                    <!-- Actions -->
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-1">
+                      <!-- Edit button -->
+                      <button
+                        @click="openEditModal(product)"
+                        class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                        title="Uredi proizvod"
+                      >
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <!-- Vectorize button -->
                       <button
                         @click="vectorizeSingleProduct(product.id)"
                         :disabled="isVectorizingProduct.has(product.id)"
-                        class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         :title="`Vectorize product ${product.id}`"
                       >
-                        <svg v-if="isVectorizingProduct.has(product.id)" class="animate-spin -ml-1 mr-1 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                        <svg v-if="isVectorizingProduct.has(product.id)" class="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
                           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        <svg v-else class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg v-else class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        {{ isVectorizingProduct.has(product.id) ? 'Vectorizing...' : 'Vectorize' }}
                       </button>
                     </td>
                   </tr>
@@ -398,7 +789,7 @@ definePageMeta({
   middleware: ['auth', 'admin']
 })
 
-const { get, post } = useApi()
+const { get, post, patch } = useApi()
 
 // Notifications
 const notifications = ref<Array<{ message: string; type: 'success' | 'error' | 'info' }>>([])
@@ -421,12 +812,24 @@ function removeNotification(index: number) {
 const isLoading = ref(true)
 const stats = ref<any>({})
 const businessesWithProducts = ref<any[]>([])
+const allBusinesses = ref<Array<{ id: number; name: string }>>([])
+const selectedBusinessFilter = ref<number | null>(null)
+const categorizationFilter = ref<string>('all')
+const searchQuery = ref<string>('')
 const embeddingStats = ref<any>({})
 const productEmbeddingStatus = ref<Map<number, string>>(new Map())
 const selectedProductIds = ref<Set<number>>(new Set())
 const isRegenerating = ref(false)
 const isVectorizingProduct = ref<Set<number>>(new Set())
 const isCategorizingBusiness = ref<Set<number>>(new Set())
+const isUpdatingProduct = ref<Set<number>>(new Set())
+const editingProduct = ref<any>(null)
+const showEditModal = ref(false)
+const showRelatedModal = ref(false)
+const relatedProducts = ref<any[]>([])
+const relatedModalTitle = ref('')
+const relatedSourceProduct = ref<any>(null)
+const isLoadingRelated = ref(false)
 
 // Category group helpers
 const categoryGroupIcons: Record<string, string> = {
@@ -488,21 +891,81 @@ const averageProductsPerBusiness = computed(() => {
 onMounted(async () => {
   try {
     await loadProducts()
-    // Load embedding status in background (optional, don't block UI)
-    loadEmbeddingStatus().catch(e => console.log('Embedding stats not available'))
+    // Note: loadEmbeddingStatus requires /api/admin/embeddings/stats endpoint which may not exist
+    // Silently skip if not available
   } finally {
     isLoading.value = false
   }
 })
 
+// Debounced search
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+function debouncedSearch() {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    loadProducts()
+  }, 300)
+}
+
 async function loadProducts() {
   try {
-    const data = await get('/api/admin/products')
+    // Build URL with filters
+    const params = new URLSearchParams()
+    if (selectedBusinessFilter.value) {
+      params.append('business_id', String(selectedBusinessFilter.value))
+    }
+    if (categorizationFilter.value && categorizationFilter.value !== 'all') {
+      params.append('categorization_filter', categorizationFilter.value)
+    }
+    if (searchQuery.value && searchQuery.value.trim()) {
+      params.append('search', searchQuery.value.trim())
+    }
+    const url = '/api/admin/products' + (params.toString() ? '?' + params.toString() : '')
+    const data = await get(url)
     stats.value = data.stats || {}
-    businessesWithProducts.value = data.businesses_with_products || []
+    businessesWithProducts.value = (data.businesses_with_products || []).map((b: any) => ({
+      business: { id: b.id, name: b.name, logo: b.logo },
+      products: b.products
+    }))
+    // Only update allBusinesses on first load (when not filtered)
+    if (data.all_businesses && (!allBusinesses.value.length || !selectedBusinessFilter.value)) {
+      allBusinesses.value = data.all_businesses
+    }
   } catch (error) {
     console.error('Error loading products:', error)
     showNotification('Nije moguće učitati proizvode', 'error')
+  }
+}
+
+async function updateProductField(productId: number, field: string, value: string) {
+  if (isUpdatingProduct.value.has(productId)) return
+
+  isUpdatingProduct.value.add(productId)
+  isUpdatingProduct.value = new Set(isUpdatingProduct.value)
+
+  try {
+    const response = await patch(`/api/admin/products/${productId}/categorization`, {
+      [field]: value
+    })
+
+    if (response.success) {
+      // Update the local product data
+      for (const business of businessesWithProducts.value) {
+        const product = business.products.find((p: any) => p.id === productId)
+        if (product) {
+          product[field] = response.product[field]
+          product.match_key = response.product.match_key
+          break
+        }
+      }
+      showNotification(`Proizvod ${productId} ažuriran`, 'success')
+    }
+  } catch (error: any) {
+    console.error(`Error updating product ${productId}:`, error)
+    showNotification(error.message || 'Nije moguće ažurirati proizvod', 'error')
+  } finally {
+    isUpdatingProduct.value.delete(productId)
+    isUpdatingProduct.value = new Set(isUpdatingProduct.value)
   }
 }
 
@@ -786,8 +1249,99 @@ function formatPrice(price: number): string {
   return price.toFixed(2)
 }
 
+function openEditModal(product: any) {
+  editingProduct.value = { ...product }
+  showEditModal.value = true
+}
+
+function closeEditModal() {
+  showEditModal.value = false
+  editingProduct.value = null
+}
+
+async function saveEditedProduct() {
+  if (!editingProduct.value) return
+
+  const productId = editingProduct.value.id
+  isUpdatingProduct.value.add(productId)
+  isUpdatingProduct.value = new Set(isUpdatingProduct.value)
+
+  try {
+    const response = await patch(`/api/admin/products/${productId}/categorization`, {
+      brand: editingProduct.value.brand,
+      product_type: editingProduct.value.product_type,
+      size_value: editingProduct.value.size_value,
+      size_unit: editingProduct.value.size_unit,
+      category_group: editingProduct.value.category_group,
+      variant: editingProduct.value.variant
+    })
+
+    if (response.success) {
+      // Update the local product data in the list
+      for (const business of businessesWithProducts.value) {
+        const product = business.products.find((p: any) => p.id === productId)
+        if (product) {
+          product.brand = response.product.brand
+          product.product_type = response.product.product_type
+          product.size_value = response.product.size_value
+          product.size_unit = response.product.size_unit
+          product.category_group = response.product.category_group
+          product.variant = response.product.variant
+          product.match_key = response.product.match_key
+          break
+        }
+      }
+      showNotification('Proizvod uspjesno azuriran', 'success')
+      closeEditModal()
+    }
+  } catch (error: any) {
+    console.error(`Error updating product ${productId}:`, error)
+    showNotification(error.message || 'Nije moguce azurirati proizvod', 'error')
+  } finally {
+    isUpdatingProduct.value.delete(productId)
+    isUpdatingProduct.value = new Set(isUpdatingProduct.value)
+  }
+}
+
+function getProductImageUrl(imagePath: string | null): string {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http')) return imagePath
+  // For S3 images, construct the full URL
+  return `https://popust-ba.s3.eu-central-1.amazonaws.com/${imagePath}`
+}
+
 function hasDiscount(product: any): boolean {
   return product.discount_price && product.discount_price < product.base_price
+}
+
+async function showRelatedProducts(product: any, type: 'matches' | 'siblings' | 'alternatives') {
+  isLoadingRelated.value = true
+  relatedSourceProduct.value = product
+  if (type === 'matches') {
+    relatedModalTitle.value = `Clones of "${product.title}" (exact match_key)`
+  } else if (type === 'siblings') {
+    relatedModalTitle.value = `Siblings of "${product.title}" (same brand+type, any size)`
+  } else {
+    relatedModalTitle.value = `Alternatives to "${product.title}" (same type+size, different brand)`
+  }
+  showRelatedModal.value = true
+  relatedProducts.value = []
+
+  try {
+    const data = await get(`/api/admin/products/${product.id}/related?type=${type}`)
+    relatedProducts.value = data.related_products || []
+  } catch (error: any) {
+    console.error('Error loading related products:', error)
+    showNotification(error.message || 'Nije moguce ucitati povezane proizvode', 'error')
+  } finally {
+    isLoadingRelated.value = false
+  }
+}
+
+function closeRelatedModal() {
+  showRelatedModal.value = false
+  relatedProducts.value = []
+  relatedSourceProduct.value = null
 }
 
 function calculateDiscountPercent(product: any): number {
