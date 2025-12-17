@@ -1,8 +1,8 @@
 """
 Admin API routes for managing product embeddings
+Uses JWT authentication (not flask_login session)
 """
 from flask import Blueprint, jsonify, request
-from flask_login import login_required, current_user
 from functools import wraps
 import logging
 import threading
@@ -19,19 +19,42 @@ logger = logging.getLogger(__name__)
 embedding_jobs: Dict[str, Dict] = {}
 
 
-def admin_required(f):
-    """Decorator to require admin privileges"""
+def jwt_admin_required(f):
+    """Decorator to require admin privileges via JWT token"""
     @wraps(f)
-    @login_required
     def decorated_function(*args, **kwargs):
-        if not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
+        from auth_api import decode_jwt_token
+        from models import User
+
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        try:
+            token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+            payload = decode_jwt_token(token)
+            if not payload:
+                return jsonify({'error': 'Invalid token'}), 401
+
+            user_id = payload.get('user_id')
+            user = User.query.get(user_id)
+            if not user or not user.is_admin:
+                return jsonify({'error': 'Admin access required'}), 403
+
+            # Store user info on request for use in route
+            request.jwt_user = user
+            request.jwt_user_id = user_id
+
+        except Exception as e:
+            logger.error(f"JWT auth error: {e}", exc_info=True)
+            return jsonify({'error': 'Authentication failed'}), 401
+
         return f(*args, **kwargs)
     return decorated_function
 
 
 @admin_embedding_bp.route('/products/status', methods=['GET'])
-@admin_required
+@jwt_admin_required
 def get_products_embedding_status():
     """
     Get embedding status for all products
@@ -116,7 +139,7 @@ def get_products_embedding_status():
 
 
 @admin_embedding_bp.route('/regenerate', methods=['POST'])
-@admin_required
+@jwt_admin_required
 def regenerate_embeddings():
     """
     Trigger embedding regeneration for products
@@ -133,13 +156,16 @@ def regenerate_embeddings():
     regenerate_all = data.get('all', False)
     changed_only = data.get('changed_only', False)
 
+    # Get user email from JWT
+    user_email = request.jwt_user.email if hasattr(request, 'jwt_user') else 'unknown'
+
     # Create job
     job_id = str(uuid.uuid4())
     embedding_jobs[job_id] = {
         'id': job_id,
         'status': 'pending',
         'created_at': datetime.now().isoformat(),
-        'created_by': current_user.email,
+        'created_by': user_email,
         'product_ids': product_ids if product_ids else None,
         'mode': 'full' if regenerate_all else ('smart' if changed_only else 'selected'),
         'progress': {
@@ -158,7 +184,7 @@ def regenerate_embeddings():
     thread.daemon = True
     thread.start()
 
-    logger.info(f"Started embedding job {job_id} by {current_user.email}")
+    logger.info(f"Started embedding job {job_id} by {user_email}")
 
     return jsonify({
         'job_id': job_id,
@@ -168,7 +194,7 @@ def regenerate_embeddings():
 
 
 @admin_embedding_bp.route('/job/<job_id>', methods=['GET'])
-@admin_required
+@jwt_admin_required
 def get_job_status(job_id):
     """Get status of an embedding generation job"""
     job = embedding_jobs.get(job_id)
@@ -180,7 +206,7 @@ def get_job_status(job_id):
 
 
 @admin_embedding_bp.route('/jobs', methods=['GET'])
-@admin_required
+@jwt_admin_required
 def list_jobs():
     """List all embedding jobs (recent first)"""
     jobs_list = sorted(
@@ -236,7 +262,7 @@ def run_embedding_job(job_id: str, product_ids: List[int], regenerate_all: bool,
 
 # Stats endpoint
 @admin_embedding_bp.route('/stats', methods=['GET'])
-@admin_required
+@jwt_admin_required
 def get_embedding_stats():
     """Get overall embedding statistics"""
     from app import db
@@ -268,7 +294,7 @@ def get_embedding_stats():
 
 
 @admin_embedding_bp.route('/vectorize-batch', methods=['POST'])
-@admin_required
+@jwt_admin_required
 def vectorize_batch():
     """
     Manually trigger batch vectorization for specific products or all products

@@ -23,6 +23,39 @@
       </div>
     </div>
 
+    <!-- Floating Save/Cancel Bar for pending changes -->
+    <Transition
+      enter-active-class="transition ease-out duration-200"
+      enter-from-class="transform opacity-0 translate-y-4"
+      enter-to-class="transform opacity-100 translate-y-0"
+      leave-active-class="transition ease-in duration-150"
+      leave-from-class="transform opacity-100 translate-y-0"
+      leave-to-class="transform opacity-0 translate-y-4"
+    >
+      <div
+        v-if="hasPendingChanges"
+        class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-3 bg-white rounded-lg shadow-xl border border-gray-200"
+      >
+        <span class="text-sm text-gray-700">
+          {{ pendingChangesCount }} promjena
+        </span>
+        <button
+          @click="cancelAllChanges"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+        >
+          Odustani
+        </button>
+        <button
+          @click="saveAllChanges"
+          :disabled="isSavingChanges"
+          class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          <span v-if="isSavingChanges">Spremam...</span>
+          <span v-else>Spremi sve</span>
+        </button>
+      </div>
+    </Transition>
+
     <!-- Edit Product Modal -->
     <div v-if="showEditModal && editingProduct" class="fixed inset-0 z-50 overflow-y-auto">
       <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
@@ -659,11 +692,14 @@
                     <td class="px-4 py-3 whitespace-nowrap">
                       <input
                         type="text"
-                        :value="product.brand || ''"
-                        @blur="updateProductField(product.id, 'brand', ($event.target as HTMLInputElement).value)"
+                        :value="pendingChanges[product.id]?.brand ?? product.brand ?? ''"
+                        @input="trackChange(product.id, 'brand', ($event.target as HTMLInputElement).value, product.brand)"
                         @keyup.enter="($event.target as HTMLInputElement).blur()"
                         class="w-24 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        :class="{ 'bg-red-50 border-red-300': !product.brand || product.brand === 'unknown' }"
+                        :class="{
+                          'bg-red-50 border-red-300': !product.brand || product.brand === 'unknown',
+                          'bg-yellow-50 border-yellow-400': pendingChanges[product.id]?.brand !== undefined
+                        }"
                         placeholder="brand"
                       />
                     </td>
@@ -671,11 +707,14 @@
                     <td class="px-4 py-3 whitespace-nowrap">
                       <input
                         type="text"
-                        :value="product.product_type || ''"
-                        @blur="updateProductField(product.id, 'product_type', ($event.target as HTMLInputElement).value)"
+                        :value="pendingChanges[product.id]?.product_type ?? product.product_type ?? ''"
+                        @input="trackChange(product.id, 'product_type', ($event.target as HTMLInputElement).value, product.product_type)"
                         @keyup.enter="($event.target as HTMLInputElement).blur()"
                         class="w-24 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        :class="{ 'bg-red-50 border-red-300': !product.product_type || product.product_type === 'unknown' }"
+                        :class="{
+                          'bg-red-50 border-red-300': !product.product_type || product.product_type === 'unknown',
+                          'bg-yellow-50 border-yellow-400': pendingChanges[product.id]?.product_type !== undefined
+                        }"
                         placeholder="tip"
                       />
                     </td>
@@ -685,20 +724,26 @@
                         <input
                           type="number"
                           step="0.01"
-                          :value="product.size_value || ''"
-                          @blur="updateProductField(product.id, 'size_value', ($event.target as HTMLInputElement).value)"
+                          :value="pendingChanges[product.id]?.size_value ?? product.size_value ?? ''"
+                          @input="trackChange(product.id, 'size_value', ($event.target as HTMLInputElement).value, product.size_value)"
                           @keyup.enter="($event.target as HTMLInputElement).blur()"
                           class="w-16 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                          :class="{ 'bg-red-50 border-red-300': !product.size_value || product.size_value === 0 }"
+                          :class="{
+                            'bg-red-50 border-red-300': !product.size_value || product.size_value === 0,
+                            'bg-yellow-50 border-yellow-400': pendingChanges[product.id]?.size_value !== undefined
+                          }"
                           placeholder="0"
                         />
                         <input
                           type="text"
-                          :value="product.size_unit || ''"
-                          @blur="updateProductField(product.id, 'size_unit', ($event.target as HTMLInputElement).value)"
+                          :value="pendingChanges[product.id]?.size_unit ?? product.size_unit ?? ''"
+                          @input="trackChange(product.id, 'size_unit', ($event.target as HTMLInputElement).value, product.size_unit)"
                           @keyup.enter="($event.target as HTMLInputElement).blur()"
                           class="w-12 text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                          :class="{ 'bg-red-50 border-red-300': !product.size_unit || product.size_unit === 'unknown' }"
+                          :class="{
+                            'bg-red-50 border-red-300': !product.size_unit || product.size_unit === 'unknown',
+                            'bg-yellow-50 border-yellow-400': pendingChanges[product.id]?.size_unit !== undefined
+                          }"
                           placeholder="g/ml"
                         />
                       </div>
@@ -706,10 +751,13 @@
                     <!-- Category Group (editable dropdown) -->
                     <td class="px-4 py-3 whitespace-nowrap">
                       <select
-                        :value="product.category_group || ''"
-                        @change="updateProductField(product.id, 'category_group', ($event.target as HTMLSelectElement).value)"
+                        :value="pendingChanges[product.id]?.category_group ?? product.category_group ?? ''"
+                        @change="trackChange(product.id, 'category_group', ($event.target as HTMLSelectElement).value, product.category_group)"
                         class="text-xs text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        :class="{ 'bg-red-50 border-red-300': !product.category_group }"
+                        :class="{
+                          'bg-red-50 border-red-300': !product.category_group,
+                          'bg-yellow-50 border-yellow-400': pendingChanges[product.id]?.category_group !== undefined
+                        }"
                       >
                         <option value="">-</option>
                         <option value="meso">meso</option>
@@ -830,6 +878,20 @@ const relatedProducts = ref<any[]>([])
 const relatedModalTitle = ref('')
 const relatedSourceProduct = ref<any>(null)
 const isLoadingRelated = ref(false)
+
+// Pending changes state for inline editing
+const pendingChanges = ref<Record<number, Record<string, any>>>({})
+const isSavingChanges = ref(false)
+
+// Computed for pending changes
+const hasPendingChanges = computed(() => Object.keys(pendingChanges.value).length > 0)
+const pendingChangesCount = computed(() => {
+  let count = 0
+  for (const productId in pendingChanges.value) {
+    count += Object.keys(pendingChanges.value[productId]).length
+  }
+  return count
+})
 
 // Category group helpers
 const categoryGroupIcons: Record<string, string> = {
@@ -966,6 +1028,91 @@ async function updateProductField(productId: number, field: string, value: strin
   } finally {
     isUpdatingProduct.value.delete(productId)
     isUpdatingProduct.value = new Set(isUpdatingProduct.value)
+  }
+}
+
+// Track changes for inline editing (floating save bar)
+function trackChange(productId: number, field: string, newValue: string, originalValue: any) {
+  const normalizedNew = newValue?.toString().trim() || ''
+  const normalizedOriginal = originalValue?.toString().trim() || ''
+
+  if (normalizedNew === normalizedOriginal) {
+    // Value reverted to original, remove from pending changes
+    if (pendingChanges.value[productId]) {
+      delete pendingChanges.value[productId][field]
+      if (Object.keys(pendingChanges.value[productId]).length === 0) {
+        delete pendingChanges.value[productId]
+      }
+      pendingChanges.value = { ...pendingChanges.value }
+    }
+  } else {
+    // Track the change
+    if (!pendingChanges.value[productId]) {
+      pendingChanges.value[productId] = {}
+    }
+    pendingChanges.value[productId][field] = newValue
+    pendingChanges.value = { ...pendingChanges.value }
+  }
+}
+
+function cancelAllChanges() {
+  pendingChanges.value = {}
+  // Force re-render by reloading products (since we need to reset input values)
+  loadProducts()
+}
+
+async function saveAllChanges() {
+  if (!hasPendingChanges.value) return
+
+  isSavingChanges.value = true
+  let successCount = 0
+  let errorCount = 0
+
+  try {
+    const productIds = Object.keys(pendingChanges.value).map(Number)
+
+    for (const productId of productIds) {
+      const changes = pendingChanges.value[productId]
+      if (!changes || Object.keys(changes).length === 0) continue
+
+      try {
+        const response = await patch(`/api/admin/products/${productId}/categorization`, changes)
+
+        if (response.success) {
+          // Update the local product data
+          for (const business of businessesWithProducts.value) {
+            const product = business.products.find((p: any) => p.id === productId)
+            if (product) {
+              for (const [field, value] of Object.entries(changes)) {
+                product[field] = response.product[field]
+              }
+              product.match_key = response.product.match_key
+              break
+            }
+          }
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch (error) {
+        console.error(`Error updating product ${productId}:`, error)
+        errorCount++
+      }
+    }
+
+    // Clear pending changes
+    pendingChanges.value = {}
+
+    if (errorCount === 0) {
+      showNotification(`Spremljeno ${successCount} proizvoda`, 'success')
+    } else {
+      showNotification(`Spremljeno ${successCount}, neuspješno ${errorCount}`, 'error')
+    }
+  } catch (error: any) {
+    console.error('Error saving changes:', error)
+    showNotification(error.message || 'Greška pri spremanju', 'error')
+  } finally {
+    isSavingChanges.value = false
   }
 }
 
