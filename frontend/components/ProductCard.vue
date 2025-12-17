@@ -131,7 +131,7 @@
     </div>
 
     <!-- Product Image -->
-    <div class="h-48 bg-white flex items-center justify-center cursor-pointer pt-6" @click="showDetails">
+    <div class="h-48 bg-white flex items-center justify-center cursor-pointer pt-6 relative" @click="showDetails">
       <img
         v-if="product.image_path || product.product_image_url"
         :src="getImageUrl(product.image_path || product.product_image_url)"
@@ -141,6 +141,42 @@
       />
       <span v-else-if="!imageError" class="text-gray-400 text-sm">Nema Slike</span>
       <span v-else class="text-gray-400 text-sm">Nema Slike</span>
+    </div>
+
+    <!-- Match Type Indicators Row - Always visible, 3 columns -->
+    <div class="grid grid-cols-3 border-t border-gray-100">
+      <!-- Clones (same product, other stores) -->
+      <div
+        class="flex flex-col items-center justify-center py-2 cursor-pointer transition-colors"
+        :class="cloneCount > 0 ? 'bg-blue-50/70 hover:bg-blue-100/70' : 'bg-gray-50/50'"
+        :title="cloneCount > 0 ? `Dostupno u ${cloneCount} drugih prodavnica` : 'Nema u drugim prodavnicama'"
+        @click="cloneCount > 0 && showDetails()"
+      >
+        <Icon name="mdi:store-outline" class="w-4 h-4" :class="cloneCount > 0 ? 'text-blue-600' : 'text-gray-300'" />
+        <span class="text-xs font-medium mt-0.5" :class="cloneCount > 0 ? 'text-blue-700' : 'text-gray-300'">{{ cloneCount }}</span>
+      </div>
+
+      <!-- Siblings (other sizes) -->
+      <div
+        class="flex flex-col items-center justify-center py-2 border-x border-gray-100 cursor-pointer transition-colors"
+        :class="siblingCount > 0 ? 'bg-purple-50/70 hover:bg-purple-100/70' : 'bg-gray-50/50'"
+        :title="siblingCount > 0 ? `${siblingCount} drugih veličina` : 'Nema drugih veličina'"
+        @click="siblingCount > 0 && showDetails()"
+      >
+        <Icon name="mdi:arrow-expand-horizontal" class="w-4 h-4" :class="siblingCount > 0 ? 'text-purple-600' : 'text-gray-300'" />
+        <span class="text-xs font-medium mt-0.5" :class="siblingCount > 0 ? 'text-purple-700' : 'text-gray-300'">{{ siblingCount }}</span>
+      </div>
+
+      <!-- Brand variants (other brands) -->
+      <div
+        class="flex flex-col items-center justify-center py-2 cursor-pointer transition-colors"
+        :class="brandVariantCount > 0 ? 'bg-amber-50/70 hover:bg-amber-100/70' : 'bg-gray-50/50'"
+        :title="brandVariantCount > 0 ? `${brandVariantCount} alternativnih brendova` : 'Nema alternativnih brendova'"
+        @click="brandVariantCount > 0 && showDetails()"
+      >
+        <Icon name="mdi:swap-horizontal" class="w-4 h-4" :class="brandVariantCount > 0 ? 'text-amber-600' : 'text-gray-300'" />
+        <span class="text-xs font-medium mt-0.5" :class="brandVariantCount > 0 ? 'text-amber-700' : 'text-gray-300'">{{ brandVariantCount }}</span>
+      </div>
     </div>
 
     <!-- Product Details -->
@@ -232,21 +268,17 @@
         </span>
       </div>
 
-      <!-- Action Buttons - Stacked Vertically -->
-      <div class="flex flex-col gap-2">
-        <!-- Shopping List Button (only for logged-in users) -->
-        <button
-          v-if="isLoggedIn"
-          @click.stop="addToShoppingList"
-          :disabled="isAddingToList"
-          :title="'Dodaj u listu za kupovinu'"
-          class="w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-        >
-          <Icon name="mdi:playlist-plus" class="w-5 h-5 flex-shrink-0" />
-          <span class="leading-none">Dodaj u listu</span>
-        </button>
-
-      </div>
+      <!-- Action Button -->
+      <button
+        v-if="isLoggedIn"
+        @click.stop="addToShoppingList"
+        :disabled="isAddingToList"
+        :title="'Dodaj u listu za kupovinu'"
+        class="w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+      >
+        <Icon name="mdi:playlist-plus" class="w-5 h-5 flex-shrink-0" />
+        <span class="leading-none">Dodaj u listu</span>
+      </button>
     </div>
 
     <!-- Product Details Modal -->
@@ -356,6 +388,25 @@ const showSavingsCTA = computed(() => {
 const priceHistoryCount = computed(() => {
   return props.product.price_history?.history_count || 0
 })
+
+// Check if product has any matches (clones, siblings, or brand variants)
+const hasAnyMatches = computed(() => {
+  const counts = props.product.match_counts
+  if (!counts) return false
+  return (counts.clones || 0) + (counts.siblings || 0) + (counts.brand_variants || 0) > 0
+})
+
+// Total count of all matches
+const totalMatchCount = computed(() => {
+  const counts = props.product.match_counts
+  if (!counts) return 0
+  return (counts.clones || 0) + (counts.siblings || 0) + (counts.brand_variants || 0)
+})
+
+// Individual match counts for display
+const cloneCount = computed(() => props.product.match_counts?.clones || 0)
+const siblingCount = computed(() => props.product.match_counts?.siblings || 0)
+const brandVariantCount = computed(() => props.product.match_counts?.brand_variants || 0)
 
 const discountPercentage = computed(() => {
   if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
@@ -495,8 +546,11 @@ async function toggleFavorite() {
 
   try {
     if (isFavorited.value) {
-      await favoritesStore.removeFavorite(props.product.id)
-      showSuccess('Uklonjeno iz favorita')
+      const favoriteId = favoritesStore.getFavoriteId(props.product.id)
+      if (favoriteId) {
+        await favoritesStore.removeFavorite(favoriteId)
+        showSuccess('Uklonjeno iz favorita')
+      }
     } else {
       await favoritesStore.addFavorite(props.product.id)
       showSuccess('Dodano u favorite!')
