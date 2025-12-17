@@ -1,10 +1,87 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Header -->
+      <!-- Header with Back Button -->
       <div class="mb-8">
+        <NuxtLink
+          to="/admin"
+          class="inline-flex items-center text-sm text-gray-500 hover:text-purple-600 mb-4 transition-colors"
+        >
+          <Icon name="mdi:arrow-left" class="w-4 h-4 mr-1" />
+          Nazad na Dashboard
+        </NuxtLink>
         <h1 class="text-3xl font-bold text-gray-900 mb-2">Korisnici</h1>
         <p class="text-gray-600">Pregled svih registrovanih korisnika i njihovih OTP kodova</p>
+      </div>
+
+      <!-- Analytics Chart Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-semibold text-gray-900">Aktivnost korisnika</h3>
+          <!-- Interval Selector -->
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-500">Prikaz po:</span>
+            <div class="inline-flex rounded-md shadow-sm">
+              <button
+                @click="changeInterval('hour')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-l-md border',
+                  selectedInterval === 'hour'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ]"
+              >
+                Sat
+              </button>
+              <button
+                @click="changeInterval('day')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium border-t border-b',
+                  selectedInterval === 'day'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ]"
+              >
+                Dan
+              </button>
+              <button
+                @click="changeInterval('month')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-r-md border',
+                  selectedInterval === 'month'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ]"
+              >
+                Mjesec
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart Loading State -->
+        <div v-if="chartLoading" class="flex items-center justify-center h-64">
+          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+        </div>
+
+        <!-- Chart -->
+        <div v-else class="h-64">
+          <ClientOnly>
+            <Line v-if="chartData" :data="chartData" :options="chartOptions" />
+          </ClientOnly>
+        </div>
+
+        <!-- Summary Stats -->
+        <div v-if="analyticsData" class="mt-6 grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+          <div class="text-center">
+            <p class="text-2xl font-semibold text-blue-600">{{ analyticsData.datasets.users.total }}</p>
+            <p class="text-sm text-gray-500">{{ getIntervalLabel() }} - Novi korisnici</p>
+          </div>
+          <div class="text-center">
+            <p class="text-2xl font-semibold text-green-600">{{ analyticsData.datasets.searches.total }}</p>
+            <p class="text-sm text-gray-500">{{ getIntervalLabel() }} - Pretrage</p>
+          </div>
+        </div>
       </div>
 
       <!-- Search -->
@@ -363,6 +440,29 @@
 </template>
 
 <script setup lang="ts">
+import { Line } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js'
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+)
+
 definePageMeta({
   middleware: 'auth',
   layout: 'default'
@@ -388,6 +488,34 @@ const userActivity = ref<Record<string, any[]>>({})
 const loadingActivity = ref<Record<string, boolean>>({})
 const storesModalUser = ref<any>(null)
 
+// Analytics chart state
+const selectedInterval = ref('day')
+const analyticsData = ref<any>(null)
+const chartData = ref<any>(null)
+const chartLoading = ref(true)
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'top' as const
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: {
+        precision: 0
+      }
+    }
+  },
+  interaction: {
+    intersect: false,
+    mode: 'index' as const
+  }
+}
+
 // Stats from server (not computed from current page)
 const stats = ref({
   total: 0,
@@ -406,6 +534,7 @@ const verifiedUsers = computed(() => stats.value.verified)
 
 onMounted(() => {
   loadUsers()
+  loadAnalytics()
 })
 
 async function loadUsers(page = 1) {
@@ -506,6 +635,66 @@ async function loadAllUserActivities() {
 
 function openUserProfile(userId: string) {
   navigateTo(`/admin/users/${userId}`)
+}
+
+// Analytics functions
+function toCumulative(arr: number[]): number[] {
+  let sum = 0
+  return arr.map(val => {
+    sum += val
+    return sum
+  })
+}
+
+async function loadAnalytics() {
+  chartLoading.value = true
+
+  try {
+    const data = await get(`/api/admin/users/analytics?interval=${selectedInterval.value}`)
+    analyticsData.value = data
+
+    // Convert to cumulative values for slope chart
+    const cumulativeUsers = toCumulative(data.datasets.users.data)
+    const cumulativeSearches = toCumulative(data.datasets.searches.data)
+
+    // Build chart data with cumulative values
+    chartData.value = {
+      labels: data.labels,
+      datasets: [
+        {
+          label: data.datasets.users.label,
+          data: cumulativeUsers,
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: data.datasets.searches.label,
+          data: cumulativeSearches,
+          borderColor: 'rgb(34, 197, 94)',
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          tension: 0.3,
+          fill: true
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('Error loading analytics:', error)
+  } finally {
+    chartLoading.value = false
+  }
+}
+
+function changeInterval(interval: string) {
+  selectedInterval.value = interval
+  loadAnalytics()
+}
+
+function getIntervalLabel() {
+  if (selectedInterval.value === 'hour') return 'Zadnja 24 sata'
+  if (selectedInterval.value === 'day') return 'Zadnjih 30 dana'
+  return 'Zadnjih 12 mjeseci'
 }
 
 useSeoMeta({
