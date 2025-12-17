@@ -6876,18 +6876,35 @@ Use ALL available info (title + category + tags) to determine the fields."""
                                 raise
 
                     result_text = response.choices[0].message.content.strip()
+                    app.logger.info(f"Background job {job_id}: AI response: {result_text[:500]}")
 
                     # Parse response
                     try:
                         result = json.loads(result_text)
+                        app.logger.info(f"Background job {job_id}: Parsed result type: {type(result)}, keys: {result.keys() if isinstance(result, dict) else 'N/A'}")
+
                         if isinstance(result, dict) and 'products' in result:
                             categorizations = result['products']
+                        elif isinstance(result, dict) and 'results' in result:
+                            categorizations = result['results']
                         elif isinstance(result, list):
                             categorizations = result
+                        elif isinstance(result, dict):
+                            # Try to find a list in the result values
+                            for key, val in result.items():
+                                if isinstance(val, list):
+                                    app.logger.info(f"Background job {job_id}: Found list in key '{key}' with {len(val)} items")
+                                    categorizations = val
+                                    break
+                            else:
+                                app.logger.warning(f"Background job {job_id}: No list found in result, using empty")
+                                categorizations = []
                         else:
-                            categorizations = list(result.values())[0] if result else []
-                    except:
-                        app.logger.error(f"Background job {job_id}: Failed to parse AI response")
+                            categorizations = []
+
+                        app.logger.info(f"Background job {job_id}: Found {len(categorizations)} categorizations")
+                    except Exception as parse_err:
+                        app.logger.error(f"Background job {job_id}: Failed to parse AI response: {parse_err}")
                         continue
 
                     # Update products in database with all extracted fields
