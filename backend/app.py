@@ -11,6 +11,8 @@ import logging
 
 # Load environment variables from .env file
 load_dotenv()
+# Load .env.local to override with local development values (not committed to git)
+load_dotenv('.env.local', override=True)
 
 # ---- LangSmith Tracing Config ----
 # LangSmith will automatically enable tracing if these env vars are set

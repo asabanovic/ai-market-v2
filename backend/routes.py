@@ -561,11 +561,10 @@ def schedule_unified_ai_processing(product_ids: list[int], business_id: int = No
     from flask import current_app
     from openai_utils import openai_client
 
+    # ASCII category groups matching frontend CategorySelector.vue
     VALID_CATEGORY_GROUPS = [
-        'meso', 'mlijeko', 'kruh', 'voće', 'povrće', 'piće', 'slatkiši',
-        'smrznuto', 'konzerve', 'začini', 'ulje', 'tjestenina', 'riža',
-        'snacks', 'kava', 'čaj', 'alkohol', 'higijena', 'čišćenje',
-        'bebe', 'kućni_ljubimci', 'ostalo'
+        'meso', 'mlijeko', 'pica', 'voce_povrce', 'kuhinja', 'ves', 'ciscenje',
+        'higijena', 'slatkisi', 'kafa', 'smrznuto', 'pekara', 'ljubimci', 'bebe'
     ]
 
     def run_unified_processing(app, product_ids, business_id):
@@ -605,30 +604,48 @@ def schedule_unified_ai_processing(product_ids: list[int], business_id: int = No
                     # System prompt for unified extraction
                     system_prompt = """You are a product data extraction expert for a Bosnian marketplace.
 
+MOST IMPORTANT: Extract brand, product_type, size_value, size_unit for EVERY product - these are critical for product matching!
+
 For each product, extract ALL of the following:
 
-1. category_group - ONE of: meso, mlijeko, kruh, voće, povrće, piće, slatkiši, smrznuto, konzerve, začini, ulje, tjestenina, riža, snacks, kava, čaj, alkohol, higijena, čišćenje, bebe, kućni_ljubimci, ostalo
+1. category_group - Pick the BEST match from: meso, mlijeko, pica, voce_povrce, kuhinja, ves, ciscenje, higijena, slatkisi, kafa, smrznuto, pekara, ljubimci, bebe
+   - meso: meat, sausages, deli meats, fish, seafood
+   - mlijeko: milk, dairy, cheese, yogurt, butter, cream
+   - pica: drinks, juices, sodas, water, beer, wine, alcohol
+   - voce_povrce: fruits and vegetables, fresh produce
+   - kuhinja: cooking ingredients, oil, spices, pasta, rice, canned goods, flour, sugar, salt, sauces, condiments
+   - ves: laundry detergents, fabric softeners, stain removers
+   - ciscenje: cleaning products, household cleaners, dishwashing, air fresheners
+   - higijena: personal hygiene, soap, shampoo, toothpaste, deodorant, toilet paper, tissues
+   - slatkisi: sweets, chocolate, candy, chips, snacks, cookies, biscuits
+   - kafa: coffee, tea
+   - smrznuto: frozen foods, frozen vegetables, ice cream
+   - pekara: bread, bakery products, pastries
+   - ljubimci: pet food and supplies
+   - bebe: baby products, diapers, baby food
 
-2. brand - The brand/manufacturer (e.g., "Milka", "Coca-Cola", "Ariel"). Use null if unknown.
+   If product doesn't fit any category well, use the closest match (e.g., vitamins -> higijena, office supplies -> kuhinja)
 
-3. product_type - Normalized product type in lowercase Bosnian (e.g., "mlijeko", "čokolada", "deterdžent")
+2. brand - The brand/manufacturer. ALWAYS try to extract this! Look for brand names in title. Use null ONLY if truly unknown.
 
-4. size_value - Numeric size value (e.g., 100, 1.5, 500). Use null if not determinable.
+3. product_type - Normalized product type in lowercase (e.g., "mlijeko", "čokolada", "deterdžent", "vitamin"). ALWAYS extract this!
 
-5. size_unit - Size unit in lowercase (g, kg, ml, l, kom, pak). Use null if not determinable.
+4. size_value - Numeric size value (e.g., 100, 1.5, 500). Extract from title patterns like "500ml", "1kg", "200g".
 
-6. variant - Product variant/flavor (e.g., "lješnjak", "jagoda", "original"). Use null if none.
+5. size_unit - Size unit in lowercase (g, kg, ml, l, kom, pak).
 
-7. tags - Array of 3-5 search keywords in lowercase Bosnian for finding this product.
+6. variant - Product variant/flavor (e.g., "lješnjak", "jagoda", "original", "light"). Use null if none.
 
-8. description - Short 1-sentence marketing description in Bosnian (max 100 chars).
+7. tags - Array of 3-5 search keywords in lowercase for finding this product.
+
+8. description - Short 1-sentence marketing description (max 100 chars).
 
 Return ONLY valid JSON:
 {
   "products": [
     {
       "id": 123,
-      "category_group": "slatkiši",
+      "category_group": "slatkisi",
       "brand": "Milka",
       "product_type": "čokolada",
       "size_value": 100,
@@ -6794,19 +6811,13 @@ Return ONLY valid JSON array:
 
             total_updated = 0
             batch_size = 10  # Smaller batch for vision API (more expensive)
-            delay_seconds = 5  # Wait 5 seconds between batches
+            delay_seconds = 10  # Wait 10 seconds between batches to avoid rate limits
             max_iterations = 1000  # Allow many more iterations for slow processing
 
             # Helper to check if product needs processing
             def needs_processing(p):
-                """Product needs processing if missing category_group OR missing brand/size fields"""
-                return (
-                    not p.category_group or
-                    not p.brand or
-                    p.size_value is None or
-                    not p.size_unit or
-                    not p.product_type
-                )
+                """Product needs processing if missing product_type (required for match_key)"""
+                return not p.product_type
 
             for iteration in range(max_iterations):
                 # Check if job was cancelled
@@ -6814,35 +6825,19 @@ Return ONLY valid JSON array:
                     categorization_jobs[job_id]['status'] = 'cancelled'
                     break
 
-                # Get products needing processing for this business
-                # Products without category_group OR without brand/size/product_type
-                from sqlalchemy import or_
+                # Get products needing processing - those without product_type
                 products = Product.query.filter(
                     Product.business_id == business_id,
-                    or_(
-                        Product.category_group.is_(None),
-                        Product.category_group == '',
-                        Product.brand.is_(None),
-                        Product.size_value.is_(None),
-                        Product.size_unit.is_(None),
-                        Product.product_type.is_(None)
-                    )
+                    Product.product_type.is_(None)
                 ).limit(batch_size).all()
 
                 if not products:
                     break  # No more products to process
 
-                # Update job progress
+                # Update job progress - count products without product_type
                 remaining = Product.query.filter(
                     Product.business_id == business_id,
-                    or_(
-                        Product.category_group.is_(None),
-                        Product.category_group == '',
-                        Product.brand.is_(None),
-                        Product.size_value.is_(None),
-                        Product.size_unit.is_(None),
-                        Product.product_type.is_(None)
-                    )
+                    Product.product_type.is_(None)
                 ).count()
 
                 categorization_jobs[job_id]['remaining'] = remaining
@@ -6900,13 +6895,27 @@ Use ALL available info (title + category + tags) to determine the fields."""
                     else:
                         messages.append({"role": "user", "content": user_prompt})
 
-                    response = openai_client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=messages,
-                        response_format={"type": "json_object"},
-                        temperature=0.2,
-                        max_tokens=4000
-                    )
+                    # Retry with exponential backoff for rate limits
+                    max_retries = 3
+                    for retry in range(max_retries):
+                        try:
+                            response = openai_client.chat.completions.create(
+                                model="gpt-4o-mini",
+                                messages=messages,
+                                response_format={"type": "json_object"},
+                                temperature=0.2,
+                                max_tokens=4000
+                            )
+                            break
+                        except Exception as api_error:
+                            if 'rate_limit' in str(api_error).lower() or '429' in str(api_error):
+                                wait_time = (2 ** retry) * 5  # 5s, 10s, 20s
+                                app.logger.warning(f"Rate limit hit, waiting {wait_time}s before retry {retry + 1}/{max_retries}")
+                                time_module.sleep(wait_time)
+                                if retry == max_retries - 1:
+                                    raise
+                            else:
+                                raise
 
                     result_text = response.choices[0].message.content.strip()
 
@@ -6986,18 +6995,10 @@ Use ALL available info (title + category + tags) to determine the fields."""
             categorization_jobs[job_id]['completed_at'] = datetime.now().isoformat()
             categorization_jobs[job_id]['processed'] = total_updated
 
-            # Final count of remaining (products still missing any matching field)
-            from sqlalchemy import or_
+            # Final count of remaining (products without product_type)
             final_remaining = Product.query.filter(
                 Product.business_id == business_id,
-                or_(
-                    Product.category_group.is_(None),
-                    Product.category_group == '',
-                    Product.brand.is_(None),
-                    Product.size_value.is_(None),
-                    Product.size_unit.is_(None),
-                    Product.product_type.is_(None)
-                )
+                Product.product_type.is_(None)
             ).count()
             categorization_jobs[job_id]['remaining'] = final_remaining
 
