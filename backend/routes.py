@@ -4490,22 +4490,11 @@ Return JSON with: brand, product_type, size_value, size_unit, variant"""
         # Import OpenAI client
         from openai_utils import openai_client
 
-        # Build messages - include image if available
-        messages = [{"role": "system", "content": system_prompt}]
-
-        if product.image_path and (product.image_path.startswith('http://') or product.image_path.startswith('https://')):
-            # Include image in the request for better extraction
-            content = [
-                {"type": "text", "text": user_prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": product.image_path, "detail": "low"}
-                },
-                {"type": "text", "text": "\nUse the product image above to enhance extraction accuracy."}
-            ]
-            messages.append({"role": "user", "content": content})
-        else:
-            messages.append({"role": "user", "content": user_prompt})
+        # Build messages (text only - images removed to save tokens)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
 
         # Call OpenAI API
         response = openai_client.chat.completions.create(
@@ -6829,9 +6818,8 @@ Return ONLY valid JSON array:
                 categorization_jobs[job_id]['processed'] = total_updated
                 categorization_jobs[job_id]['current_batch'] = iteration + 1
 
-                # Prepare products for AI with image URLs
+                # Prepare products for AI (text only - images removed to save tokens)
                 products_for_ai = []
-                product_images = {}  # Store image URLs for vision API
                 for p in products:
                     tags_str = ''
                     if p.tags:
@@ -6848,11 +6836,9 @@ Return ONLY valid JSON array:
                     }
                     products_for_ai.append(product_info)
 
-                    # Track image URLs for products with images
-                    if p.image_path and (p.image_path.startswith('http://') or p.image_path.startswith('https://')):
-                        product_images[p.id] = p.image_path
+                    # NOTE: Removed image tracking - images burned too many tokens
 
-                # Build user message with or without images
+                # Build user message (text only)
                 user_prompt = f"""Extract category and product matching fields for these products:
 
 {json.dumps(products_for_ai, ensure_ascii=False, indent=2)}
@@ -6861,24 +6847,11 @@ For each product, return: id, category_group, brand, product_type, size_value, s
 Use ALL available info (title + category + tags) to determine the fields."""
 
                 try:
-                    # Build messages - use vision model if we have images
-                    messages = [{"role": "system", "content": system_prompt}]
-
-                    if product_images:
-                        # Include images in the request
-                        content = [{"type": "text", "text": user_prompt}]
-                        for pid, img_url in list(product_images.items())[:5]:  # Limit to 5 images per batch
-                            content.append({
-                                "type": "image_url",
-                                "image_url": {"url": img_url, "detail": "low"}
-                            })
-                        content.append({
-                            "type": "text",
-                            "text": f"\nImages shown above are for products: {list(product_images.keys())[:5]}. Use visual info to enhance extraction."
-                        })
-                        messages.append({"role": "user", "content": content})
-                    else:
-                        messages.append({"role": "user", "content": user_prompt})
+                    # Build messages (text only - images removed to save tokens)
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ]
 
                     # Retry with exponential backoff for rate limits
                     max_retries = 3
