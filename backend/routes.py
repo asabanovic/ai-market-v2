@@ -6905,6 +6905,19 @@ Use ALL available info (title + category + tags) to determine the fields."""
                         app.logger.info(f"Background job {job_id}: Found {len(categorizations)} categorizations")
                     except Exception as parse_err:
                         app.logger.error(f"Background job {job_id}: Failed to parse AI response: {parse_err}")
+                        categorizations = []
+
+                    # If AI returned empty result, mark all products in batch as 'unknown' to prevent infinite loop
+                    if not categorizations:
+                        app.logger.warning(f"Background job {job_id}: Empty AI result, marking {len(products)} products as 'unknown'")
+                        for p in products:
+                            p.product_type = 'unknown'
+                            p.update_match_key()
+                        db.session.commit()
+                        total_updated += len(products)
+                        categorization_jobs[job_id]['processed'] = total_updated
+                        app.logger.info(f"Background job {job_id}: Batch {iteration + 1} - marked {len(products)} products as unknown")
+                        time_module.sleep(delay_seconds)
                         continue
 
                     # Update products in database with all extracted fields
