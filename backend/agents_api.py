@@ -8,10 +8,111 @@ from agents.graph import graph
 from agents.context import AgentContext
 from agents.state import InputState, OutputState
 from auth_api import require_jwt_auth, decode_jwt_token
-from models import UserSearch, User, AnonymousSearch, SearchLog
+from models import UserSearch, User, AnonymousSearch, SearchLog, ProductMatch
 
 # Create blueprint
 agents_api_bp = Blueprint('agents_api', __name__, url_prefix='/api')
+
+
+def get_bulk_match_counts(product_ids: list) -> dict:
+    """
+    Get match counts (clones, siblings, brand_variants) for multiple products.
+
+    Args:
+        product_ids: List of product IDs to get match counts for
+
+    Returns:
+        Dict mapping product_id -> {'clones': N, 'siblings': N, 'brand_variants': N}
+    """
+    if not product_ids:
+        return {}
+
+    from sqlalchemy import case, func
+
+    results = db.session.query(
+        case(
+            (ProductMatch.product_a_id.in_(product_ids), ProductMatch.product_a_id),
+            else_=ProductMatch.product_b_id
+        ).label('product_id'),
+        ProductMatch.match_type,
+        func.count(ProductMatch.id).label('count')
+    ).filter(
+        db.or_(
+            ProductMatch.product_a_id.in_(product_ids),
+            ProductMatch.product_b_id.in_(product_ids)
+        )
+    ).group_by(
+        case(
+            (ProductMatch.product_a_id.in_(product_ids), ProductMatch.product_a_id),
+            else_=ProductMatch.product_b_id
+        ),
+        ProductMatch.match_type
+    ).all()
+
+    match_counts = {pid: {'clones': 0, 'siblings': 0, 'brand_variants': 0} for pid in product_ids}
+
+    for row in results:
+        product_id = row.product_id
+        match_type = row.match_type
+        count = row.count
+
+        if product_id in match_counts:
+            if match_type == 'clone':
+                match_counts[product_id]['clones'] = count
+            elif match_type == 'sibling':
+                match_counts[product_id]['siblings'] = count
+            elif match_type == 'brand_variant':
+                match_counts[product_id]['brand_variants'] = count
+
+    return match_counts
+
+
+def add_match_counts_to_results(results):
+    """
+    Add match_counts to search results.
+    Handles both grouped (dict) and flat (list) result formats.
+
+    Args:
+        results: Either a list of products or a dict of group_name -> list of products
+    """
+    if not results:
+        return
+
+    # Collect all product IDs from all products
+    all_product_ids = []
+
+    if isinstance(results, dict):
+        # Grouped results: {group_name: [products]}
+        for group_products in results.values():
+            if isinstance(group_products, list):
+                for product in group_products:
+                    if isinstance(product, dict) and product.get('id'):
+                        all_product_ids.append(product['id'])
+    elif isinstance(results, list):
+        # Flat list of products
+        for product in results:
+            if isinstance(product, dict) and product.get('id'):
+                all_product_ids.append(product['id'])
+
+    if not all_product_ids:
+        return
+
+    # Get match counts for all products in one query
+    match_counts_map = get_bulk_match_counts(all_product_ids)
+
+    # Add match_counts to each product
+    default_counts = {'clones': 0, 'siblings': 0, 'brand_variants': 0}
+
+    if isinstance(results, dict):
+        for group_products in results.values():
+            if isinstance(group_products, list):
+                for product in group_products:
+                    if isinstance(product, dict) and product.get('id'):
+                        product['match_counts'] = match_counts_map.get(product['id'], default_counts)
+    elif isinstance(results, list):
+        for product in results:
+            if isinstance(product, dict) and product.get('id'):
+                product['match_counts'] = match_counts_map.get(product['id'], default_counts)
 
 
 def get_user_id_from_token():
@@ -458,6 +559,9 @@ def unified_search():
             metadata=result.get("metadata", {}),
             error=result.get("error")
         )
+
+        # Add match counts to results (handles both grouped and flat formats)
+        add_match_counts_to_results(output.results)
 
         # Log search for tracking (both successful and failed)
         log_search(user_id, query, output.results, user_ip=user_ip, only_discounted=only_discounted)

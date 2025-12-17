@@ -486,6 +486,64 @@ def product_to_dict(product, include_price_history=True):
     }
 
 
+def get_bulk_match_counts(product_ids: list) -> dict:
+    """
+    Get match counts (clones, siblings, brand_variants) for multiple products in a single query.
+
+    Args:
+        product_ids: List of product IDs to get match counts for
+
+    Returns:
+        Dict mapping product_id -> {'clones': N, 'siblings': N, 'brand_variants': N}
+    """
+    if not product_ids:
+        return {}
+
+    from models import ProductMatch
+    from sqlalchemy import case, func
+
+    # Query to count matches by type for each product
+    # A product can appear as either product_a or product_b in a match
+    results = db.session.query(
+        case(
+            (ProductMatch.product_a_id.in_(product_ids), ProductMatch.product_a_id),
+            else_=ProductMatch.product_b_id
+        ).label('product_id'),
+        ProductMatch.match_type,
+        func.count(ProductMatch.id).label('count')
+    ).filter(
+        db.or_(
+            ProductMatch.product_a_id.in_(product_ids),
+            ProductMatch.product_b_id.in_(product_ids)
+        )
+    ).group_by(
+        case(
+            (ProductMatch.product_a_id.in_(product_ids), ProductMatch.product_a_id),
+            else_=ProductMatch.product_b_id
+        ),
+        ProductMatch.match_type
+    ).all()
+
+    # Build result dict
+    match_counts = {pid: {'clones': 0, 'siblings': 0, 'brand_variants': 0} for pid in product_ids}
+
+    for row in results:
+        product_id = row.product_id
+        match_type = row.match_type
+        count = row.count
+
+        if product_id in match_counts:
+            # Map match_type to key
+            if match_type == 'clone':
+                match_counts[product_id]['clones'] = count
+            elif match_type == 'sibling':
+                match_counts[product_id]['siblings'] = count
+            elif match_type == 'brand_variant':
+                match_counts[product_id]['brand_variants'] = count
+
+    return match_counts
+
+
 # ==================== UNIFIED AI PRODUCT PROCESSING ====================
 # Combines enrichment (tags, description) + categorization (brand, type, size, variant) in ONE API call
 
@@ -1020,6 +1078,7 @@ def api_savings_stats():
 
 # API endpoint for single product
 @app.route('/api/products/<int:product_id>')
+@require_jwt_auth
 def api_product_detail(product_id):
     """Get single product details"""
     product = Product.query.get(product_id)
@@ -1032,6 +1091,7 @@ def api_product_detail(product_id):
 
 # API endpoint for product price history
 @app.route('/api/products/<int:product_id>/price-history')
+@require_jwt_auth
 def api_product_price_history(product_id):
     """Get price history for a product"""
     from models import ProductPriceHistory
@@ -1068,12 +1128,9 @@ CATEGORY_MAPPING = {
 }
 
 @app.route('/api/products')
+@require_jwt_auth
 def api_products():
-    """API endpoint for products listing with pagination.
-
-    Credits: Page 1 is free, pages 2+ cost 3 credits.
-    If user doesn't have enough credits, returns credits_required error.
-    """
+    """API endpoint for products listing with pagination (requires authentication)."""
     try:
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 24))
@@ -1233,9 +1290,16 @@ def api_products():
         # Paginate
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
+        # Get product IDs for bulk match counts query
+        product_ids = [p.id for p in paginated.items]
+        match_counts_map = get_bulk_match_counts(product_ids) if product_ids else {}
+
         products = []
         for product in paginated.items:
-            products.append(product_to_dict(product))
+            product_dict = product_to_dict(product)
+            # Add match counts for each product
+            product_dict['match_counts'] = match_counts_map.get(product.id, {'clones': 0, 'siblings': 0, 'brand_variants': 0})
+            products.append(product_dict)
 
         # Calculate category counts (for the UI filter) - using category_group
         # Also filter out zero-price products without active discounts
@@ -1421,10 +1485,11 @@ def api_create_business():
         return jsonify({'success': False, 'error': 'Greška prilikom kreiranja radnje'}), 500
 
 
-# Public API endpoint for business page (no auth required)
+# API endpoint for business page (requires authentication)
 @app.route('/api/radnja/<int:business_id>')
+@require_jwt_auth
 def api_public_business_page(business_id):
-    """Public API endpoint for business page with products"""
+    """API endpoint for business page with products (requires authentication)"""
     try:
         business = Business.query.filter_by(id=business_id, status='active').first()
 
@@ -1468,8 +1533,9 @@ def api_public_business_page(business_id):
 
 
 @app.route('/api/radnja/<int:business_id>/products')
+@require_jwt_auth
 def api_public_business_products(business_id):
-    """Public API endpoint for paginated business products"""
+    """API endpoint for paginated business products (requires authentication)"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = 20
@@ -1487,8 +1553,13 @@ def api_public_business_products(business_id):
             page=page, per_page=per_page, error_out=False
         )
 
-        return jsonify({
-            'products': [{
+        # Get match counts for all products on this page
+        product_ids = [p.id for p in pagination.items]
+        match_counts_map = get_bulk_match_counts(product_ids) if product_ids else {}
+
+        products = []
+        for p in pagination.items:
+            products.append({
                 'id': p.id,
                 'title': p.title,
                 'base_price': p.base_price,
@@ -1496,8 +1567,12 @@ def api_public_business_products(business_id):
                 'discount_percentage': p.discount_percentage,
                 'image_path': p.image_path,
                 'category': p.category,
-                'expires': p.expires.isoformat() if p.expires else None
-            } for p in pagination.items],
+                'expires': p.expires.isoformat() if p.expires else None,
+                'match_counts': match_counts_map.get(p.id, {'clones': 0, 'siblings': 0, 'brand_variants': 0})
+            })
+
+        return jsonify({
+            'products': products,
             'has_more': pagination.has_next,
             'page': page,
             'total': pagination.total
@@ -2239,6 +2314,14 @@ def search():
             # Format and flatten products for API response
             raw_products = agent_result.get("products", [])
             products = format_agent_products(raw_products)
+
+            # Add match counts for each product
+            product_ids = [p['id'] for p in products if p.get('id')]
+            match_counts_map = get_bulk_match_counts(product_ids) if product_ids else {}
+            for product in products:
+                pid = product.get('id')
+                if pid:
+                    product['match_counts'] = match_counts_map.get(pid, {'clones': 0, 'siblings': 0, 'brand_variants': 0})
 
             # Store explanation for later use
             agent_explanation = agent_result.get("explanation")
@@ -8081,32 +8164,47 @@ def schedule_lazy_sibling_matching():
                 for product in products_with_match_key:
                     lazy_sibling_job['last_processed_id'] = product.id
 
-                    # Find siblings (same brand + product_type, different size or variant)
+                    # Find related products (same brand + product_type)
+                    # Categorize as clone (same size) or sibling (different size)
                     if product.brand and product.product_type:
-                        siblings = Product.query.filter(
+                        related = Product.query.filter(
                             Product.brand.ilike(product.brand),
                             Product.product_type.ilike(product.product_type),
                             Product.id != product.id,
                             Product.match_key.isnot(None),
-                            Product.match_key != product.match_key  # Different match_key = different size/variant
-                        ).limit(10).all()  # Limit to avoid too many matches
+                            Product.business_id != product.business_id  # Different store
+                        ).limit(10).all()
 
-                        for sibling in siblings:
-                            # Calculate confidence based on variant/size similarity
-                            v1 = (product.variant or '').lower().strip()
-                            v2 = (sibling.variant or '').lower().strip()
-                            size1 = f"{product.size_value}{product.size_unit}" if product.size_value else ''
-                            size2 = f"{sibling.size_value}{sibling.size_unit}" if sibling.size_value else ''
+                        for other in related:
+                            # Compare sizes
+                            size1 = product.size_value or 0
+                            size2 = other.size_value or 0
+                            same_size = (size1 == size2) or (size1 == 0 and size2 == 0)
 
-                            if v1 == v2 and size1 != size2:
-                                confidence = 80  # Same variant, different size
-                            elif v1 != v2 and size1 == size2:
-                                confidence = 65  # Same size, different variant
+                            # Compare variants (normalize for comparison)
+                            v1 = (product.variant or '').lower().replace(' ', '').replace('.', '')
+                            v2 = (other.variant or '').lower().replace(' ', '').replace('.', '')
+                            same_variant = (v1 == v2) or (not v1 and not v2)
+
+                            if same_size and same_variant:
+                                # Same brand + same size + same variant + different store = CLONE
+                                confidence = 95
+                                match_type = 'clone'
+                            elif same_size and not same_variant:
+                                # Same size but different variant (e.g., 3.2% vs 2.8%) = same brand, different type
+                                confidence = 75
+                                match_type = 'sibling'  # Still sibling but different variant
+                            elif not same_size and same_variant:
+                                # Different size but SAME variant = SIBLING (e.g., 500ml 3.2% and 1L 3.2%)
+                                confidence = 70
+                                match_type = 'sibling'
                             else:
-                                confidence = 60  # Different size and variant
+                                # Different size AND different variant = still related (same brand family)
+                                confidence = 60
+                                match_type = 'sibling'
 
                             _, created = ProductMatch.get_or_create_match(
-                                product.id, sibling.id, 'sibling', confidence=confidence, created_by='auto'
+                                product.id, other.id, match_type, confidence=confidence, created_by='auto'
                             )
                             if created:
                                 lazy_sibling_job['matches_created'] += 1
@@ -8829,7 +8927,7 @@ def api_admin_get_match_groups():
 
 
 @app.route('/api/products/<int:product_id>/related', methods=['GET'])
-@csrf.exempt
+@require_jwt_auth
 def api_get_product_related(product_id):
     """Get related products for a specific product (clones, brand variants, siblings)
 
@@ -8837,11 +8935,35 @@ def api_get_product_related(product_id):
     - clones: Same product in other stores (price comparison)
     - brand_variants: Same type/size but different brand
     - siblings: Same brand but different sizes
+
+    If user is logged in, results are filtered to only show stores in their preferences.
     """
     from models import ProductMatch
+    from auth_api import decode_jwt_token
 
     try:
         product = Product.query.get_or_404(product_id)
+        source_business = Business.query.get(product.business_id)
+
+        # Get user's preferred stores (if logged in)
+        preferred_store_ids = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            try:
+                token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+                payload = decode_jwt_token(token)
+                if payload:
+                    user = User.query.filter_by(id=payload['user_id']).first()
+                    if user and user.preferences:
+                        preferred_store_ids = user.preferences.get('preferred_stores', [])
+                        # If user has no stores selected, show all (don't filter)
+                        if not preferred_store_ids:
+                            preferred_store_ids = None
+            except Exception:
+                pass  # If token parsing fails, show all stores
+
+        # Source product data for comparison
+        source_price = float(product.discount_price or product.base_price or 0)
 
         # Get all matches involving this product
         matches = ProductMatch.query.filter(
@@ -8854,6 +8976,36 @@ def api_get_product_related(product_id):
         brand_variants = []
         siblings = []
 
+        def build_product_data(p, business, confidence=None):
+            """Helper to build product data dict with price comparison"""
+            effective_price = float(p.discount_price or p.base_price or 0)
+            price_diff = effective_price - source_price if source_price else 0
+            price_diff_pct = round((price_diff / source_price) * 100, 1) if source_price else 0
+
+            return {
+                'id': p.id,
+                'title': p.title,
+                'brand': p.brand,
+                'product_type': p.product_type,
+                'size_value': p.size_value,
+                'size_unit': p.size_unit,
+                'variant': p.variant,
+                'base_price': float(p.base_price) if p.base_price else None,
+                'discount_price': float(p.discount_price) if p.discount_price else None,
+                'effective_price': effective_price,
+                'image_path': p.image_path,
+                'business_id': p.business_id,
+                'business_name': business.name if business else 'Unknown',
+                'city': p.city or (business.city if business else None),
+                'confidence': confidence,
+                # Price comparison fields
+                'price_diff': round(price_diff, 2),
+                'price_diff_pct': price_diff_pct,
+                'is_cheaper': price_diff < -0.01,
+                'is_more_expensive': price_diff > 0.01,
+                'expires': p.expires.isoformat() if p.expires else None
+            }
+
         for m in matches:
             # Get the OTHER product in the match
             other_product = m.product_b if m.product_a_id == product_id else m.product_a
@@ -8861,24 +9013,13 @@ def api_get_product_related(product_id):
             if not other_product:
                 continue
 
+            # Filter by user's preferred stores (if set)
+            if preferred_store_ids is not None and other_product.business_id not in preferred_store_ids:
+                continue
+
             # Get business name
             business = Business.query.get(other_product.business_id)
-
-            product_data = {
-                'id': other_product.id,
-                'title': other_product.title,
-                'brand': other_product.brand,
-                'product_type': other_product.product_type,
-                'size_value': other_product.size_value,
-                'size_unit': other_product.size_unit,
-                'variant': other_product.variant,
-                'base_price': float(other_product.base_price) if other_product.base_price else None,
-                'discount_price': float(other_product.discount_price) if other_product.discount_price else None,
-                'image_url': other_product.image_url,
-                'business_id': other_product.business_id,
-                'business_name': business.name if business else 'Unknown',
-                'confidence': m.confidence
-            }
+            product_data = build_product_data(other_product, business, m.confidence)
 
             if m.match_type == 'clone':
                 clones.append(product_data)
@@ -8889,41 +9030,59 @@ def api_get_product_related(product_id):
 
         # Also find clones by match_key (same product in other stores, even without explicit match)
         if product.match_key:
-            same_key_products = Product.query.filter(
+            same_key_query = Product.query.filter(
                 Product.match_key == product.match_key,
                 Product.id != product_id,
                 Product.business_id != product.business_id
-            ).all()
+            )
+            # Filter by preferred stores if set
+            if preferred_store_ids is not None:
+                same_key_query = same_key_query.filter(Product.business_id.in_(preferred_store_ids))
+
+            same_key_products = same_key_query.all()
 
             existing_clone_ids = {p['id'] for p in clones}
             for p in same_key_products:
                 if p.id not in existing_clone_ids:
                     business = Business.query.get(p.business_id)
-                    clones.append({
-                        'id': p.id,
-                        'title': p.title,
-                        'brand': p.brand,
-                        'product_type': p.product_type,
-                        'size_value': p.size_value,
-                        'size_unit': p.size_unit,
-                        'variant': p.variant,
-                        'base_price': float(p.base_price) if p.base_price else None,
-                        'discount_price': float(p.discount_price) if p.discount_price else None,
-                        'image_url': p.image_url,
-                        'business_id': p.business_id,
-                        'business_name': business.name if business else 'Unknown',
-                        'confidence': 100  # Same match_key = 100% confidence
-                    })
+                    clones.append(build_product_data(p, business, 100))
 
         # Sort clones by price (lowest first)
-        clones.sort(key=lambda x: x['discount_price'] or x['base_price'] or 999999)
+        clones.sort(key=lambda x: x['effective_price'] or 999999)
+
+        # Sort siblings by size (smallest first)
+        siblings.sort(key=lambda x: x['size_value'] or 999999)
+
+        # Sort brand_variants by price (lowest first)
+        brand_variants.sort(key=lambda x: x['effective_price'] or 999999)
+
+        # Find cheapest clone
+        cheapest_clone = clones[0] if clones else None
+        has_cheaper_option = cheapest_clone and cheapest_clone['is_cheaper'] if cheapest_clone else False
 
         return jsonify({
+            'success': True,
             'product_id': product_id,
+            'source_product': {
+                'id': product.id,
+                'title': product.title,
+                'brand': product.brand,
+                'product_type': product.product_type,
+                'size_value': product.size_value,
+                'size_unit': product.size_unit,
+                'variant': product.variant,
+                'base_price': float(product.base_price) if product.base_price else None,
+                'discount_price': float(product.discount_price) if product.discount_price else None,
+                'effective_price': source_price,
+                'business_name': source_business.name if source_business else 'Unknown',
+                'city': product.city or (source_business.city if source_business else None)
+            },
             'clones': clones,  # Same product in other stores
             'brand_variants': brand_variants,  # Same type, different brand
             'siblings': siblings,  # Same brand, different size
-            'total_related': len(clones) + len(brand_variants) + len(siblings)
+            'total_related': len(clones) + len(brand_variants) + len(siblings),
+            'has_cheaper_option': has_cheaper_option,
+            'cheapest_clone': cheapest_clone
         })
 
     except Exception as e:

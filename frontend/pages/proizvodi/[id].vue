@@ -73,7 +73,17 @@
         <!-- Image and Chart Side by Side -->
         <div class="grid md:grid-cols-2 gap-6 mb-8">
           <!-- Product image -->
-          <div class="bg-gray-50 rounded-2xl p-4 flex items-center justify-center">
+          <div class="bg-gray-50 rounded-2xl p-4 flex items-center justify-center relative">
+            <!-- Best Price Stamp - shows when this product is cheapest among clones -->
+            <div
+              v-if="hasBestPrice"
+              class="absolute top-4 left-4 z-10 bg-red-600 text-white px-3 py-1.5 rounded-lg shadow-lg transform -rotate-12"
+            >
+              <div class="flex items-center gap-1.5">
+                <Icon name="mdi:trophy" class="w-5 h-5" />
+                <span class="font-bold text-sm uppercase tracking-wide">Najbolja cijena</span>
+              </div>
+            </div>
             <img
               v-if="product.image_path"
               :src="product.image_path"
@@ -210,6 +220,340 @@
           </div>
         </div>
 
+        <!-- Related Products Section -->
+        <div v-if="!loadingRelated && (relatedProducts.clones.length > 0 || relatedProducts.siblings.length > 0 || relatedProducts.brand_variants.length > 0)" class="mt-8 space-y-6">
+
+          <!-- Price Alert Card (if cheaper clone exists) -->
+          <div
+            v-if="relatedProducts.clones.length > 0 && relatedProducts.clones.some((c: any) => c.is_cheaper)"
+            class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4"
+          >
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <Icon name="mdi:piggy-bank" class="w-6 h-6 text-white" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <h4 class="text-lg font-semibold text-green-800">Uštedi novac!</h4>
+                <p class="text-sm text-green-700 mt-1">
+                  Pronašli smo ovaj proizvod jeftinije u drugoj prodavnici.
+                  <span v-if="cheapestClone" class="font-medium">
+                    Uštedi {{ Math.abs(cheapestClone.price_diff).toFixed(2) }} KM u {{ cheapestClone.business_name }}!
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clones Section (Same product, different stores) -->
+          <div v-if="relatedProducts.clones.length > 0" class="bg-gray-50 rounded-2xl p-6">
+            <div class="flex items-center gap-2 mb-2">
+              <Icon name="mdi:store-search" class="w-5 h-5 text-blue-500" />
+              <h3 class="text-lg font-bold text-gray-900">Uporedi cijene</h3>
+              <span class="text-sm text-gray-400">({{ relatedProducts.clones.length }} {{ formatProdavnica(relatedProducts.clones.length) }})</span>
+            </div>
+            <!-- Clone Summary Text -->
+            <p class="text-sm text-gray-600 mb-4">
+              <template v-if="hasBestPrice">
+                <Icon name="mdi:check-circle" class="w-4 h-4 text-green-600 inline mr-1" />
+                <span class="text-green-700 font-medium">Ovo je trenutno najbolja cijena!</span>
+                Isti proizvod se prodaje u još {{ relatedProducts.clones.length }} {{ formatProdavnici(relatedProducts.clones.length) }},
+                ali po višim cijenama (do {{ Math.max(...relatedProducts.clones.map((c: any) => c.price_diff_pct || 0)) }}% skuplje).
+              </template>
+              <template v-else-if="cheapestClone">
+                <Icon name="mdi:alert-circle" class="w-4 h-4 text-orange-500 inline mr-1" />
+                Pronašli smo ovaj proizvod <span class="text-green-700 font-medium">{{ Math.abs(cheapestClone.price_diff_pct) }}% jeftinije</span>
+                u prodavnici <span class="font-medium">{{ cheapestClone.business_name }}</span>.
+                Možete uštedjeti <span class="font-medium text-green-700">{{ Math.abs(cheapestClone.price_diff).toFixed(2) }} KM</span>!
+              </template>
+              <template v-else>
+                Ovaj proizvod je dostupan u još {{ relatedProducts.clones.length }} {{ formatProdavnici(relatedProducts.clones.length) }} po sličnim cijenama.
+              </template>
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div
+                v-for="clone in relatedProducts.clones.slice(0, 6)"
+                :key="clone.id"
+                class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer"
+                @click="navigateTo(`/proizvodi/${clone.id}`)"
+              >
+                <!-- Product Image -->
+                <div class="relative h-36 bg-gray-50">
+                  <img
+                    v-if="clone.image_path"
+                    :src="getImageUrl(clone.image_path)"
+                    :alt="clone.title"
+                    class="w-full h-full object-contain p-2"
+                  />
+                  <div v-else class="flex items-center justify-center h-full text-gray-300">
+                    <Icon name="mdi:image-off" class="w-10 h-10" />
+                  </div>
+
+                  <!-- Price diff badge -->
+                  <div
+                    v-if="clone.is_cheaper"
+                    class="absolute top-2 left-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
+                  >
+                    {{ Math.abs(clone.price_diff_pct) }}% jeftinije
+                  </div>
+                  <div
+                    v-else-if="clone.is_more_expensive"
+                    class="absolute top-2 left-2 bg-red-400 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
+                  >
+                    {{ clone.price_diff_pct }}% skuplje
+                  </div>
+
+                  <!-- Store badge -->
+                  <div class="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-0.5 rounded text-xs font-medium">
+                    {{ clone.business_name }}
+                  </div>
+                </div>
+
+                <!-- Product Info -->
+                <div class="p-3">
+                  <h4 class="text-sm font-medium text-gray-900 line-clamp-2 min-h-[2.5rem] mb-2">
+                    {{ clone.title }}
+                  </h4>
+
+                  <!-- Price Row -->
+                  <div class="flex items-baseline gap-2 mb-3">
+                    <span :class="[
+                      'text-lg font-bold',
+                      clone.is_cheaper ? 'text-green-600' : clone.is_more_expensive ? 'text-red-500' : 'text-gray-900'
+                    ]">
+                      {{ clone.effective_price?.toFixed(2) }} KM
+                    </span>
+                    <span
+                      v-if="clone.discount_price && clone.base_price > clone.discount_price"
+                      class="text-xs text-gray-400 line-through"
+                    >
+                      {{ clone.base_price?.toFixed(2) }} KM
+                    </span>
+                  </div>
+
+                  <!-- Action Buttons -->
+                  <div class="flex items-center justify-between">
+                    <div class="flex gap-1">
+                      <button
+                        @click.stop="handleRelatedFavorite(clone.id)"
+                        class="p-1.5 rounded-lg hover:bg-pink-50 transition-colors"
+                        title="Dodaj u favorite"
+                      >
+                        <Icon
+                          :name="isRelatedFavorited(clone.id) ? 'mdi:heart' : 'mdi:heart-outline'"
+                          class="w-4 h-4"
+                          :class="isRelatedFavorited(clone.id) ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'"
+                        />
+                      </button>
+                      <button
+                        @click.stop="handleRelatedVote(clone.id, 'up')"
+                        class="p-1.5 rounded-lg hover:bg-green-50 transition-colors text-gray-400 hover:text-green-600"
+                        title="Preporuči"
+                      >
+                        <Icon name="mdi:thumb-up-outline" class="w-4 h-4" />
+                      </button>
+                    </div>
+                    <button
+                      @click.stop="handleRelatedAddToList(clone)"
+                      class="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors"
+                      title="Dodaj na listu"
+                    >
+                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
+                      <span>Lista</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Siblings Section (Same brand, different variants/sizes) -->
+          <div v-if="relatedProducts.siblings.length > 0" class="bg-gray-50 rounded-2xl p-6">
+            <div class="flex items-center gap-2 mb-2">
+              <Icon name="mdi:resize" class="w-5 h-5 text-purple-500" />
+              <h3 class="text-lg font-bold text-gray-900">Isti brend, druge varijante</h3>
+              <span class="text-sm text-gray-400">({{ relatedProducts.siblings.length }})</span>
+            </div>
+            <!-- Siblings Summary Text -->
+            <p class="text-sm text-gray-600 mb-4">
+              <Icon name="mdi:information-outline" class="w-4 h-4 text-purple-500 inline mr-1" />
+              Ovaj brend nudi i druge varijante ovog proizvoda (različite veličine ili tipove).
+            </p>
+            <div class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+              <div
+                v-for="sibling in relatedProducts.siblings"
+                :key="sibling.id"
+                class="flex-shrink-0 w-[200px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer snap-start"
+                @click="navigateTo(`/proizvodi/${sibling.id}`)"
+              >
+                <!-- Product Image -->
+                <div class="relative h-32 bg-gray-50">
+                  <img
+                    v-if="sibling.image_path"
+                    :src="getImageUrl(sibling.image_path)"
+                    :alt="sibling.title"
+                    class="w-full h-full object-contain p-2"
+                  />
+                  <div v-else class="flex items-center justify-center h-full text-gray-300">
+                    <Icon name="mdi:image-off" class="w-8 h-8" />
+                  </div>
+
+                  <!-- Size badge -->
+                  <div class="absolute top-2 left-2 bg-purple-500 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm">
+                    {{ sibling.size_value }}{{ sibling.size_unit || 'g' }}
+                  </div>
+
+                  <!-- Store badge -->
+                  <div class="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-0.5 rounded text-xs">
+                    {{ sibling.business_name }}
+                  </div>
+                </div>
+
+                <!-- Product Info -->
+                <div class="p-3">
+                  <h4 class="text-xs font-medium text-gray-900 line-clamp-2 min-h-[2rem] mb-2">
+                    {{ sibling.title }}
+                  </h4>
+
+                  <!-- Price -->
+                  <div class="flex items-baseline gap-1 mb-2">
+                    <span class="text-base font-bold text-gray-900">
+                      {{ sibling.effective_price?.toFixed(2) }} KM
+                    </span>
+                  </div>
+
+                  <!-- Action Buttons -->
+                  <div class="flex items-center justify-between">
+                    <button
+                      @click.stop="handleRelatedFavorite(sibling.id)"
+                      class="p-1 rounded hover:bg-pink-50 transition-colors"
+                    >
+                      <Icon
+                        :name="isRelatedFavorited(sibling.id) ? 'mdi:heart' : 'mdi:heart-outline'"
+                        class="w-4 h-4"
+                        :class="isRelatedFavorited(sibling.id) ? 'text-pink-600' : 'text-gray-400'"
+                      />
+                    </button>
+                    <button
+                      @click.stop="handleRelatedAddToList(sibling)"
+                      class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                    >
+                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Brand Variants Section (Same product type, different brands) -->
+          <div v-if="relatedProducts.brand_variants.length > 0" class="bg-gray-50 rounded-2xl p-6">
+            <div class="flex items-center gap-2 mb-2">
+              <Icon name="mdi:tag-multiple" class="w-5 h-5 text-orange-500" />
+              <h3 class="text-lg font-bold text-gray-900">Alternativni brendovi</h3>
+              <span class="text-sm text-gray-400">({{ relatedProducts.brand_variants.length }})</span>
+            </div>
+            <!-- Brand Variants Summary Text -->
+            <p class="text-sm text-gray-600 mb-4">
+              <Icon name="mdi:lightbulb-outline" class="w-4 h-4 text-orange-500 inline mr-1" />
+              <template v-if="brandVariantSummary.hasCheaper">
+                Ako niste vezani za brend, postoje <span class="text-green-700 font-medium">jeftinije alternative</span>!
+                Pronašli smo {{ brandVariantSummary.cheaperCount }} {{ brandVariantSummary.cheaperCount === 1 ? 'proizvod' : 'proizvoda' }}
+                sličnog tipa po nižim cijenama (do {{ brandVariantSummary.maxSavingPct }}% jeftinije).
+              </template>
+              <template v-else-if="brandVariantSummary.hasMoreExpensive">
+                Ovaj brend nudi dobru vrijednost! Slični proizvodi drugih brendova su skuplji
+                (do {{ brandVariantSummary.maxExpensivePct }}% više).
+              </template>
+              <template v-else>
+                Pronašli smo {{ relatedProducts.brand_variants.length }} sličnih proizvoda drugih brendova po sličnim cijenama.
+              </template>
+            </p>
+            <div class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+              <div
+                v-for="variant in relatedProducts.brand_variants"
+                :key="variant.id"
+                class="flex-shrink-0 w-[200px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer snap-start"
+                @click="navigateTo(`/proizvodi/${variant.id}`)"
+              >
+                <!-- Product Image -->
+                <div class="relative h-32 bg-gray-50">
+                  <img
+                    v-if="variant.image_path"
+                    :src="getImageUrl(variant.image_path)"
+                    :alt="variant.title"
+                    class="w-full h-full object-contain p-2"
+                  />
+                  <div v-else class="flex items-center justify-center h-full text-gray-300">
+                    <Icon name="mdi:image-off" class="w-8 h-8" />
+                  </div>
+
+                  <!-- Brand badge -->
+                  <div class="absolute top-2 left-2 bg-orange-500 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm truncate max-w-[80%]">
+                    {{ variant.brand || 'Drugi brend' }}
+                  </div>
+
+                  <!-- Price diff badge if cheaper -->
+                  <div
+                    v-if="variant.is_cheaper"
+                    class="absolute top-2 right-2 bg-green-500 text-white px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-sm"
+                  >
+                    ↓{{ Math.abs(variant.price_diff_pct || 0) }}%
+                  </div>
+
+                  <!-- Store badge -->
+                  <div class="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-0.5 rounded text-xs">
+                    {{ variant.business_name }}
+                  </div>
+                </div>
+
+                <!-- Product Info -->
+                <div class="p-3">
+                  <h4 class="text-xs font-medium text-gray-900 line-clamp-2 min-h-[2rem] mb-2">
+                    {{ variant.title }}
+                  </h4>
+
+                  <!-- Price -->
+                  <div class="flex items-baseline gap-1 mb-2">
+                    <span :class="[
+                      'text-base font-bold',
+                      variant.is_cheaper ? 'text-green-600' : 'text-gray-900'
+                    ]">
+                      {{ variant.effective_price?.toFixed(2) }} KM
+                    </span>
+                  </div>
+
+                  <!-- Action Buttons -->
+                  <div class="flex items-center justify-between">
+                    <button
+                      @click.stop="handleRelatedFavorite(variant.id)"
+                      class="p-1 rounded hover:bg-pink-50 transition-colors"
+                    >
+                      <Icon
+                        :name="isRelatedFavorited(variant.id) ? 'mdi:heart' : 'mdi:heart-outline'"
+                        class="w-4 h-4"
+                        :class="isRelatedFavorited(variant.id) ? 'text-pink-600' : 'text-gray-400'"
+                      />
+                    </button>
+                    <button
+                      @click.stop="handleRelatedAddToList(variant)"
+                      class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                    >
+                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Loading Related Products -->
+        <div v-if="loadingRelated" class="mt-8 flex items-center justify-center py-8">
+          <Icon name="mdi:loading" class="w-6 h-6 animate-spin text-gray-400" />
+          <span class="ml-2 text-gray-500">Tražimo povezane proizvode...</span>
+        </div>
+
         <!-- Comments Section - Full Width -->
         <div class="mt-12 bg-gray-50 rounded-2xl p-6">
           <h2 class="text-xl font-bold text-gray-900 mb-4">Komentari</h2>
@@ -337,6 +681,19 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const api = useApi()
 const cartStore = useCartStore()
+
+// Helper for Serbian/Bosnian noun declension (prodavnica/prodavnice/prodavnica)
+function formatProdavnica(count: number): string {
+  if (count === 1) return 'prodavnica'
+  if (count >= 2 && count <= 4) return 'prodavnice'
+  return 'prodavnica' // 5+, 0
+}
+
+function formatProdavnici(count: number): string {
+  if (count === 1) return 'prodavnici'
+  if (count >= 2 && count <= 4) return 'prodavnice'
+  return 'prodavnica' // 5+, 0
+}
 const favoritesStore = useFavoritesStore()
 const { handleApiError, showSuccess } = useCreditsToast()
 const { isAuthenticated, refreshUser } = useAuth()
@@ -358,6 +715,64 @@ const comments = ref<any[]>([])
 const loadingComments = ref(false)
 const newComment = ref('')
 const isSubmittingComment = ref(false)
+
+// Related products state
+const relatedProducts = ref<{ clones: any[], siblings: any[], brand_variants: any[] }>({
+  clones: [],
+  siblings: [],
+  brand_variants: []
+})
+const loadingRelated = ref(false)
+
+// Cheapest clone computed
+const cheapestClone = computed(() => {
+  const cheaper = relatedProducts.value.clones.filter(c => c.is_cheaper)
+  return cheaper.length > 0 ? cheaper[0] : null
+})
+
+// Has best price - true if no cheaper clones exist (this product is the cheapest)
+const hasBestPrice = computed(() => {
+  if (relatedProducts.value.clones.length === 0) return false
+  // If no clone is cheaper, this product has the best price
+  return !relatedProducts.value.clones.some(c => c.is_cheaper)
+})
+
+// Siblings summary for text description
+const siblingSummary = computed(() => {
+  const siblings = relatedProducts.value.siblings
+  if (siblings.length === 0) return { hasSmaller: false, hasLarger: false }
+
+  const currentSize = product.value?.size_value || 0
+  const hasSmaller = siblings.some(s => (s.size_value || 0) < currentSize)
+  const hasLarger = siblings.some(s => (s.size_value || 0) > currentSize)
+
+  return { hasSmaller, hasLarger }
+})
+
+// Brand variants summary for text description
+const brandVariantSummary = computed(() => {
+  const variants = relatedProducts.value.brand_variants
+  if (variants.length === 0) return { hasCheaper: false, hasMoreExpensive: false, cheaperCount: 0, maxSavingPct: 0, maxExpensivePct: 0 }
+
+  const cheaper = variants.filter(v => v.is_cheaper)
+  const moreExpensive = variants.filter(v => v.is_more_expensive)
+
+  const maxSavingPct = cheaper.length > 0
+    ? Math.max(...cheaper.map(v => Math.abs(v.price_diff_pct || 0)))
+    : 0
+
+  const maxExpensivePct = moreExpensive.length > 0
+    ? Math.max(...moreExpensive.map(v => v.price_diff_pct || 0))
+    : 0
+
+  return {
+    hasCheaper: cheaper.length > 0,
+    hasMoreExpensive: moreExpensive.length > 0,
+    cheaperCount: cheaper.length,
+    maxSavingPct,
+    maxExpensivePct
+  }
+})
 
 const commentLength = computed(() => newComment.value.trim().length)
 
@@ -616,6 +1031,94 @@ const formatCommentDate = (dateString: string) => {
   return date.toLocaleDateString('bs-BA', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+// Related products functions
+async function loadRelatedProducts() {
+  if (!route.params.id) return
+
+  loadingRelated.value = true
+  try {
+    const headers: Record<string, string> = {}
+    const token = localStorage.getItem('token')
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${config.public.apiBase}/api/products/${route.params.id}/related`, { headers })
+    const data = await response.json()
+
+    if (data.success) {
+      relatedProducts.value = {
+        clones: data.clones || [],
+        siblings: data.siblings || [],
+        brand_variants: data.brand_variants || []
+      }
+    }
+  } catch (error) {
+    console.error('Error loading related products:', error)
+  } finally {
+    loadingRelated.value = false
+  }
+}
+
+function isRelatedFavorited(productId: number): boolean {
+  if (!isAuthenticated.value) return false
+  return favoritesStore.isFavorited(productId)
+}
+
+async function handleRelatedFavorite(productId: number) {
+  if (!isAuthenticated.value) {
+    navigateTo('/registracija')
+    return
+  }
+
+  try {
+    await favoritesStore.toggleFavorite(productId)
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+  }
+}
+
+async function handleRelatedVote(productId: number, voteType: 'up' | 'down') {
+  if (!isAuthenticated.value) {
+    navigateTo('/registracija')
+    return
+  }
+
+  try {
+    const response = await api.post(`/api/products/${productId}/vote`, { vote_type: voteType })
+    if (response.success && response.credits_earned > 0) {
+      triggerCreditAnimation(response.credits_earned)
+      await refreshUser()
+      await refreshCredits()
+    }
+  } catch (error) {
+    console.error('Error voting:', error)
+  }
+}
+
+async function handleRelatedAddToList(product: any) {
+  if (!isAuthenticated.value) {
+    navigateTo('/registracija')
+    return
+  }
+
+  try {
+    const result = await cartStore.addItem(
+      product.id,
+      product.business_id || 1,
+      1
+    )
+
+    if (result.success) {
+      showSuccess(`"${product.title}" dodano na listu!`)
+    } else if (result.error) {
+      handleApiError(result.error)
+    }
+  } catch (error) {
+    console.error('Error adding to list:', error)
+  }
+}
+
 // Load product using useAsyncData for SSR (required for OG meta tags)
 const { data: productData, pending: isLoadingProduct } = await useAsyncData(
   `product-${route.params.id}`,
@@ -633,7 +1136,7 @@ watch(productData, (newData) => {
   }
 }, { immediate: true })
 
-// Load price history, votes and comments on mount (client-side only)
+// Load price history, votes, comments and related products on mount (client-side only)
 onMounted(async () => {
   isLoading.value = isLoadingProduct.value
 
@@ -642,8 +1145,8 @@ onMounted(async () => {
     const historyResponse = await api.get(`/api/products/${route.params.id}/price-history`)
     priceHistory.value = historyResponse || []
 
-    // Load votes and comments
-    await Promise.all([loadVotes(), loadComments()])
+    // Load votes, comments and related products in parallel
+    await Promise.all([loadVotes(), loadComments(), loadRelatedProducts()])
   } catch (error) {
     console.error('Failed to load additional data:', error)
   } finally {

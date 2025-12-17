@@ -8,11 +8,77 @@ from sqlalchemy import desc, func
 
 engagement_bp = Blueprint('engagement', __name__, url_prefix='/api')
 
+# ==================== CREDIT DEDUCTION ====================
+
+@engagement_bp.route('/credits/deduct', methods=['POST'])
+@require_jwt_auth
+def deduct_credits():
+    """Deduct credits for actions like viewing product details"""
+    try:
+        user_id = request.current_user_id
+        data = request.get_json() or {}
+
+        amount = data.get('amount', 1)
+        action = data.get('action', 'product_view')
+        product_id = data.get('product_id')
+
+        if amount < 1:
+            return jsonify({'error': 'Invalid amount'}), 400
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Calculate available credits
+        weekly_remaining = user.weekly_credits - user.weekly_credits_used
+        total_available = weekly_remaining + user.extra_credits
+
+        if total_available < amount:
+            return jsonify({
+                'success': False,
+                'error': 'Nemate dovoljno kredita',
+                'credits_remaining': total_available
+            }), 400
+
+        # Deduct from weekly credits first, then extra
+        if weekly_remaining >= amount:
+            user.weekly_credits_used += amount
+        else:
+            user.weekly_credits_used = user.weekly_credits
+            remaining_needed = amount - weekly_remaining
+            user.extra_credits -= remaining_needed
+
+        # Record engagement if product_id provided
+        if product_id:
+            engagement = UserEngagement(
+                user_id=user_id,
+                activity_type=action,
+                product_id=product_id,
+                credits_earned=-amount  # Negative since we're deducting
+            )
+            db.session.add(engagement)
+
+        db.session.commit()
+
+        new_remaining = (user.weekly_credits - user.weekly_credits_used) + user.extra_credits
+
+        return jsonify({
+            'success': True,
+            'credits_deducted': amount,
+            'credits_remaining': new_remaining
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deducting credits: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # ==================== PRODUCT COMMENTS ====================
 
 @engagement_bp.route('/products/<int:product_id>/comments', methods=['GET'])
+@require_jwt_auth
 def get_product_comments(product_id):
-    """Get all comments for a product (latest first)"""
+    """Get all comments for a product (latest first, requires authentication)"""
     try:
         # Check if product exists
         product = Product.query.get(product_id)
@@ -225,8 +291,9 @@ def vote_product(product_id):
 
 
 @engagement_bp.route('/products/<int:product_id>/votes', methods=['GET'])
+@require_jwt_auth
 def get_product_votes(product_id):
-    """Get vote statistics for a product"""
+    """Get vote statistics for a product (requires authentication)"""
     try:
         # Check if product exists
         product = Product.query.get(product_id)
@@ -576,6 +643,7 @@ def update_report_status(report_id):
 # ==================== BULK ENGAGEMENT STATS ====================
 
 @engagement_bp.route('/products/engagement-stats', methods=['POST'])
+@require_jwt_auth
 def get_bulk_engagement_stats():
     """Get engagement stats (votes, comments) for multiple products at once.
 

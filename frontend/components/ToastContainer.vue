@@ -1,27 +1,27 @@
 <template>
-  <div class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
+  <div class="fixed top-2 right-2 md:top-4 md:right-4 z-[100] space-y-2 pointer-events-none">
     <TransitionGroup name="toast">
       <div
         v-for="toast in toasts"
         :key="toast.id"
-        class="pointer-events-auto w-96 max-w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border overflow-hidden"
+        class="pointer-events-auto w-72 md:w-96 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border overflow-hidden"
         :class="toastBorderClass(toast.type)"
       >
-        <div class="p-4">
+        <div class="p-3 md:p-4">
           <!-- Header -->
-          <div class="flex items-start justify-between mb-2">
+          <div class="flex items-start justify-between mb-1 md:mb-2">
             <div class="flex items-center gap-2">
               <!-- Icon -->
               <div class="flex-shrink-0">
                 <Icon
                   :name="toastIcon(toast.type)"
                   :class="toastIconClass(toast.type)"
-                  class="w-5 h-5"
+                  class="w-4 h-4 md:w-5 md:h-5"
                 />
               </div>
 
               <!-- Title -->
-              <h4 v-if="toast.title" class="font-semibold text-gray-900 dark:text-white">
+              <h4 v-if="toast.title" class="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
                 {{ toast.title }}
               </h4>
             </div>
@@ -31,12 +31,12 @@
               @click="dismissToast(toast.id)"
               class="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
-              <Icon name="mdi:close" class="w-5 h-5" />
+              <Icon name="mdi:close" class="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
 
           <!-- Message -->
-          <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
+          <p class="text-xs md:text-sm text-gray-700 dark:text-gray-300 mb-2 md:mb-3">
             {{ toast.message }}
           </p>
 
@@ -44,7 +44,7 @@
           <button
             v-if="toast.action"
             @click="toast.action.onClick(); dismissToast(toast.id)"
-            class="w-full py-2 px-4 rounded-md font-medium text-sm transition-colors"
+            class="w-full py-1.5 md:py-2 px-3 md:px-4 rounded-md font-medium text-xs md:text-sm transition-colors"
             :class="actionButtonClass(toast.type)"
           >
             {{ toast.action.label }}

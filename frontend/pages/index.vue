@@ -1317,7 +1317,7 @@ async function performSearch() {
       // Transform new agent response format to match UI expectations
       searchResults.value = {
         response: data.explanation || 'Rezultati pretrage',
-        products: data.results || [],  // Agent uses 'results' not 'products'
+        products: data.products || data.results || [],  // Backend uses 'products', legacy uses 'results'
         intent: data.intent,
         metadata: data.metadata,
         credits_remaining: data.credits_remaining,
@@ -1341,8 +1341,9 @@ async function performSearch() {
       }
 
       // Expand all groups by default when new results come in
-      if (isGroupedResults(data.results)) {
-        const groupNames = Object.keys(data.results)
+      const productsData = data.products || data.results
+      if (isGroupedResults(productsData)) {
+        const groupNames = Object.keys(productsData)
         expandedGroups.value = new Set(groupNames)
         // Set first group as active for mobile navigation
         if (groupNames.length > 0) {
