@@ -6411,13 +6411,11 @@ def api_admin_products():
             )
         )
 
-    # Categorization filter - uncategorized means missing brand/product_type/size_value/size_unit
+    # Categorization filter - uncategorized means missing product_type/size_value/size_unit
+    # Note: brand can be null (truly unknown brand is valid, not a categorization issue)
     if categorization_filter == 'uncategorized':
         query = query.filter(
             db.or_(
-                Product.brand.is_(None),
-                Product.brand == '',
-                Product.brand == 'unknown',
                 Product.product_type.is_(None),
                 Product.product_type == '',
                 Product.product_type == 'unknown',
@@ -7592,10 +7590,10 @@ Use ALL available info (title + category + tags) to determine the fields."""
                         app.logger.warning(f"Background job {job_id}: Empty AI result, marking {len(products)} products with defaults")
                         for p in products:
                             # Set defaults for ALL fields that are in the OR filter
+                            # Note: brand stays null if unknown (not set to 'unknown')
                             if not p.product_type:
                                 p.product_type = 'unknown'
-                            if not p.brand:
-                                p.brand = 'unknown'
+                            # brand intentionally left as null if not set
                             if p.size_value is None:
                                 p.size_value = 0
                             if not p.size_unit:
@@ -7654,9 +7652,7 @@ Use ALL available info (title + category + tags) to determine the fields."""
                                 elif not product.size_unit:
                                     product.size_unit = 'unknown'
 
-                                # Update brand - set default if AI doesn't provide
-                                if not product.brand:
-                                    product.brand = 'unknown'
+                                # Brand stays null if not provided by AI (no 'unknown' fallback)
 
                                 # Update category_group - set default if not set
                                 if not product.category_group:
@@ -9154,10 +9150,10 @@ def run_product_matching_job(job_id, app_context):
             # Create brand variant matches
             for type_size_key, products in type_size_groups.items():
                 if len(products) > 1:
-                    # Group by brand
+                    # Group by brand (use '_no_brand_' as key for products without brand)
                     by_brand = {}
                     for p in products:
-                        brand = (p.brand or 'unknown').lower()
+                        brand = (p.brand.lower() if p.brand else '_no_brand_')
                         if brand not in by_brand:
                             by_brand[brand] = []
                         by_brand[brand].append(p)

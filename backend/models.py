@@ -248,11 +248,14 @@ class Product(db.Model):
         return False
 
     def generate_match_key(self):
-        """Generate a match key from brand, product_type, variant, size_value, size_unit for clone detection"""
-        if not self.brand or not self.product_type or self.size_value is None or not self.size_unit:
+        """Generate a match key from brand, product_type, variant, size_value, size_unit for clone detection.
+        Brand is optional - if unknown/null, it will be omitted from the key."""
+        # Require at minimum: product_type, size_value, size_unit
+        if not self.product_type or self.size_value is None or not self.size_unit:
             return None
         # Normalize: lowercase, strip whitespace
-        brand = self.brand.lower().strip()
+        # Brand can be null/unknown - exclude from key if so
+        brand = self.brand.lower().strip() if self.brand and self.brand.lower() not in ['unknown', ''] else None
         product_type = self.product_type.lower().strip()
         variant = self.variant.lower().strip() if self.variant else ''
         # Format size: normalize units (e.g., 1000ml -> 1l, 1000g -> 1kg)
@@ -267,10 +270,15 @@ class Product(db.Model):
             size_unit = 'kg'
         # Format: remove trailing zeros from float
         size_str = f"{size_value:g}" if size_value == int(size_value) else f"{size_value:.2f}".rstrip('0').rstrip('.')
-        # Include variant in match_key if present
+        # Build match key - brand is optional
+        parts = []
+        if brand:
+            parts.append(brand)
+        parts.append(product_type)
         if variant:
-            return f"{brand}:{product_type}:{variant}:{size_str}{size_unit}"
-        return f"{brand}:{product_type}:{size_str}{size_unit}"
+            parts.append(variant)
+        parts.append(f"{size_str}{size_unit}")
+        return ':'.join(parts)
 
     def update_match_key(self):
         """Update the match_key field based on current values"""

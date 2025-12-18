@@ -1026,11 +1026,18 @@ function getCategoryGroupColor(group: string): string {
 
 function getCategorizationProgress(businessData: any): string {
   const total = businessData.products.length
-  const categorized = businessData.products.filter((p: any) => p.category_group).length
-  if (categorized === total) {
-    return `✅ ${categorized}/${total} kategorizirano`
+  // Fully categorized = has category_group AND all matching fields (product_type, size_value, size_unit)
+  // Note: brand is optional (can be null for products without a known brand)
+  const fullyCategorized = businessData.products.filter((p: any) =>
+    p.category_group &&
+    p.product_type &&
+    p.size_value !== null && p.size_value !== undefined &&
+    p.size_unit
+  ).length
+  if (fullyCategorized === total) {
+    return `✅ ${fullyCategorized}/${total} kategorizirano`
   }
-  return `${categorized}/${total} kategorizirano`
+  return `${fullyCategorized}/${total} kategorizirano`
 }
 
 const averageProductsPerBusiness = computed(() => {
