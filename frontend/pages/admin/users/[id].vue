@@ -383,6 +383,151 @@
               </div>
             </div>
 
+            <!-- Tracking Tab -->
+            <div v-if="activeTab === 'tracking'">
+              <!-- Action Buttons -->
+              <div class="flex flex-wrap gap-3 mb-6">
+                <button
+                  @click="extractFromPreferences"
+                  :disabled="isRunningExtraction"
+                  class="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                >
+                  <Icon v-if="isRunningExtraction" name="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
+                  <Icon v-else name="mdi:auto-fix" class="w-4 h-4 mr-2" />
+                  Izvuci iz preferencija
+                </button>
+                <button
+                  @click="runManualScan"
+                  :disabled="isRunningScan || trackedProducts.length === 0"
+                  class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  <Icon v-if="isRunningScan" name="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
+                  <Icon v-else name="mdi:magnify-scan" class="w-4 h-4 mr-2" />
+                  Pokreni skeniranje
+                </button>
+              </div>
+
+              <!-- Tracked Terms -->
+              <div class="mb-6">
+                <h4 class="text-sm font-medium text-gray-700 mb-3">Praceni pojmovi ({{ trackedProducts.length }})</h4>
+                <div class="flex flex-wrap gap-2 mb-3">
+                  <span
+                    v-for="t in trackedProducts"
+                    :key="t.id"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-800 text-sm rounded-full"
+                  >
+                    {{ t.search_term }}
+                    <button @click="deleteTrackingTerm(t.id)" class="ml-1 hover:text-purple-600">
+                      <Icon name="mdi:close" class="w-3 h-3" />
+                    </button>
+                  </span>
+                </div>
+                <!-- Add new term -->
+                <div class="flex gap-2">
+                  <input
+                    v-model="newTrackingTerm"
+                    @keyup.enter="addTrackingTerm"
+                    type="text"
+                    placeholder="Dodaj novi pojam..."
+                    class="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"
+                  />
+                  <button
+                    @click="addTrackingTerm"
+                    :disabled="!newTrackingTerm.trim()"
+                    class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    <Icon name="mdi:plus" class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Scan History Selector -->
+              <div v-if="productScans.length > 0" class="mb-6">
+                <div class="flex items-center gap-4">
+                  <label class="text-sm font-medium text-gray-700">Datum skeniranja:</label>
+                  <select
+                    @change="(e) => loadScanDetails(Number((e.target as HTMLSelectElement).value))"
+                    class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option v-for="scan in productScans" :key="scan.id" :value="scan.id">
+                      {{ scan.scan_date }} - {{ scan.summary_text || 'Nema sazetka' }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Scan Summary -->
+              <div v-if="selectedScan" class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-medium text-purple-900">Skeniranje: {{ selectedScan.scan_date }}</span>
+                  <span class="text-sm text-purple-700">{{ selectedScan.total_products_found }} proizvoda</span>
+                </div>
+                <p class="text-sm text-purple-800">{{ selectedScan.summary_text }}</p>
+                <div class="flex gap-4 mt-2 text-xs text-purple-600">
+                  <span v-if="selectedScan.new_products_count > 0">{{ selectedScan.new_products_count }} novih</span>
+                  <span v-if="selectedScan.new_discounts_count > 0">{{ selectedScan.new_discounts_count }} novih popusta</span>
+                </div>
+              </div>
+
+              <!-- Scan Results Grouped by Term -->
+              <div v-if="scanGroups.length > 0" class="space-y-4">
+                <div v-for="group in scanGroups" :key="group.tracked_product_id" class="border border-gray-200 rounded-lg">
+                  <button
+                    @click="toggleGroup(group.tracked_product_id)"
+                    class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+                  >
+                    <div class="flex items-center gap-2">
+                      <Icon
+                        :name="expandedGroups.has(group.tracked_product_id) ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+                        class="w-5 h-5 text-gray-400"
+                      />
+                      <span class="font-medium text-gray-900">{{ group.search_term }}</span>
+                      <span class="text-sm text-gray-500">({{ group.products.length }} rezultata)</span>
+                    </div>
+                  </button>
+                  <div v-if="expandedGroups.has(group.tracked_product_id)" class="border-t border-gray-200 p-4">
+                    <div class="space-y-2">
+                      <div
+                        v-for="product in group.products"
+                        :key="product.id"
+                        class="flex items-center justify-between py-2 px-3 rounded-lg"
+                        :class="product.is_new_today ? 'bg-green-50' : product.price_dropped_today ? 'bg-orange-50' : 'bg-gray-50'"
+                      >
+                        <div class="flex-1">
+                          <div class="flex items-center gap-2">
+                            <span v-if="product.is_new_today" class="text-green-600 text-xs font-medium">NOVO</span>
+                            <span v-if="product.price_dropped_today" class="text-orange-600 text-xs font-medium">POPUST</span>
+                            <span class="text-sm text-gray-900">{{ product.product_title }}</span>
+                          </div>
+                          <div class="text-xs text-gray-500">{{ product.business_name }}</div>
+                        </div>
+                        <div class="text-right">
+                          <div v-if="product.discount_price" class="text-sm">
+                            <span class="text-gray-400 line-through">{{ product.base_price?.toFixed(2) }} KM</span>
+                            <span class="text-green-600 font-medium ml-2">{{ product.discount_price?.toFixed(2) }} KM</span>
+                          </div>
+                          <div v-else class="text-sm text-gray-900">{{ product.base_price?.toFixed(2) }} KM</div>
+                          <div class="text-xs text-gray-400">{{ (product.similarity_score * 100).toFixed(0) }}% match</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Empty State -->
+              <div v-if="!isLoadingTracking && trackedProducts.length === 0" class="text-center py-12">
+                <Icon name="mdi:package-variant-closed" class="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Nema pracenih proizvoda</h3>
+                <p class="text-gray-500 mb-4">Kliknite "Izvuci iz preferencija" da automatski dodate pojmove na osnovu korisnikovih preferencija.</p>
+              </div>
+
+              <!-- Loading -->
+              <div v-if="isLoadingTracking" class="text-center py-12">
+                <Icon name="mdi:loading" class="w-8 h-8 animate-spin text-purple-600 mx-auto" />
+              </div>
+            </div>
+
             <!-- Business Tab -->
             <div v-if="activeTab === 'business'">
               <h3 class="text-lg font-medium text-gray-900 mb-4">Clanstvo u biznisima</h3>
@@ -460,7 +605,7 @@ definePageMeta({
 
 const route = useRoute()
 const config = useRuntimeConfig()
-const { get } = useApi()
+const { get, post, del } = useApi()
 
 const userId = route.params.id as string
 const isLoading = ref(true)
@@ -479,12 +624,24 @@ const recentFavorites = ref<any[]>([])
 const businessMemberships = ref<any[]>([])
 const latestOtp = ref<any>(null)
 
+// Tracking data
+const trackedProducts = ref<any[]>([])
+const productScans = ref<any[]>([])
+const selectedScan = ref<any>(null)
+const scanGroups = ref<any[]>([])
+const isLoadingTracking = ref(false)
+const isRunningExtraction = ref(false)
+const isRunningScan = ref(false)
+const newTrackingTerm = ref('')
+const expandedGroups = ref<Set<number>>(new Set())
+
 const tabs = [
   { id: 'activity', label: 'Aktivnost', icon: 'mdi:chart-line' },
   { id: 'credits', label: 'Krediti', icon: 'mdi:currency-usd' },
   { id: 'searches', label: 'Pretrage', icon: 'mdi:magnify' },
   { id: 'engagements', label: 'Interakcije', icon: 'mdi:thumb-up' },
   { id: 'favorites', label: 'Omiljeni', icon: 'mdi:heart' },
+  { id: 'tracking', label: 'Praceni proizvodi', icon: 'mdi:package-variant-closed' },
   { id: 'business', label: 'Biznisi', icon: 'mdi:store' },
   { id: 'otp', label: 'OTP', icon: 'mdi:cellphone-key' },
 ]
@@ -634,6 +791,130 @@ function getImageUrl(path: string): string {
   if (path.startsWith('http')) return path
   return `${config.public.apiBase}/static/${path}`
 }
+
+// ===== TRACKING FUNCTIONS =====
+
+async function loadTrackingData() {
+  if (!userId) return
+  isLoadingTracking.value = true
+
+  try {
+    // Load tracked products
+    const trackedRes = await get(`/api/admin/users/${userId}/tracked-products`)
+    if (trackedRes.success) {
+      trackedProducts.value = trackedRes.tracked_products
+    }
+
+    // Load scans
+    const scansRes = await get(`/api/admin/users/${userId}/product-scans`)
+    if (scansRes.success) {
+      productScans.value = scansRes.scans
+      // Load details for the latest scan
+      if (scansRes.scans.length > 0) {
+        await loadScanDetails(scansRes.scans[0].id)
+      }
+    }
+  } catch (err) {
+    console.error('Error loading tracking data:', err)
+  } finally {
+    isLoadingTracking.value = false
+  }
+}
+
+async function loadScanDetails(scanId: number) {
+  try {
+    const res = await get(`/api/admin/users/${userId}/product-scans/${scanId}`)
+    if (res.success) {
+      selectedScan.value = res.scan
+      scanGroups.value = res.groups
+    }
+  } catch (err) {
+    console.error('Error loading scan details:', err)
+  }
+}
+
+async function extractFromPreferences() {
+  if (!userId) return
+  isRunningExtraction.value = true
+
+  try {
+    const res = await post(`/api/admin/users/${userId}/extract-tracked-products`, {})
+    if (res.success) {
+      alert(`Dodano ${res.total_added} novih pojmova za pracenje`)
+      await loadTrackingData()
+    } else {
+      alert(res.error || 'Greska pri ekstrakciji')
+    }
+  } catch (err: any) {
+    alert(err.message || 'Greska')
+  } finally {
+    isRunningExtraction.value = false
+  }
+}
+
+async function runManualScan() {
+  if (!userId) return
+  isRunningScan.value = true
+
+  try {
+    const res = await post(`/api/admin/users/${userId}/run-scan`, {})
+    if (res.success) {
+      alert(`Skeniranje zavrseno: ${res.total_found} proizvoda, ${res.new_count} novih`)
+      await loadTrackingData()
+    } else {
+      alert(res.error || 'Greska pri skeniranju')
+    }
+  } catch (err: any) {
+    alert(err.message || 'Greska')
+  } finally {
+    isRunningScan.value = false
+  }
+}
+
+async function addTrackingTerm() {
+  if (!newTrackingTerm.value.trim() || !userId) return
+
+  try {
+    const res = await post(`/api/admin/users/${userId}/tracked-products`, {
+      search_term: newTrackingTerm.value.trim()
+    })
+    if (res.success) {
+      trackedProducts.value.unshift(res.tracked_product)
+      newTrackingTerm.value = ''
+    } else if (res.error === 'Term already tracked') {
+      alert('Ovaj pojam vec postoji')
+    }
+  } catch (err: any) {
+    alert(err.message || 'Greska')
+  }
+}
+
+async function deleteTrackingTerm(id: number) {
+  if (!confirm('Obrisati ovaj pojam?')) return
+
+  try {
+    await del(`/api/admin/users/${userId}/tracked-products/${id}`)
+    trackedProducts.value = trackedProducts.value.filter(t => t.id !== id)
+  } catch (err: any) {
+    alert(err.message || 'Greska')
+  }
+}
+
+function toggleGroup(groupId: number) {
+  if (expandedGroups.value.has(groupId)) {
+    expandedGroups.value.delete(groupId)
+  } else {
+    expandedGroups.value.add(groupId)
+  }
+  expandedGroups.value = new Set(expandedGroups.value)
+}
+
+// Load tracking data when tab is selected
+watch(activeTab, (newTab) => {
+  if (newTab === 'tracking' && trackedProducts.value.length === 0) {
+    loadTrackingData()
+  }
+})
 
 useSeoMeta({
   title: 'Profil korisnika - Admin - Popust.ba',

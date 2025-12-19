@@ -8817,6 +8817,595 @@ def api_admin_user_preferences():
         return jsonify({'error': str(e)}), 500
 
 
+# ==================== USER PRODUCT TRACKING ====================
+
+@app.route('/api/admin/users/<user_id>/tracked-products', methods=['GET'])
+@csrf.exempt
+def api_admin_get_tracked_products(user_id):
+    """Get all tracked products for a user"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get user
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Get tracked products
+        tracked = UserTrackedProduct.query.filter_by(user_id=user_id).order_by(
+            UserTrackedProduct.created_at.desc()
+        ).all()
+
+        return jsonify({
+            'success': True,
+            'tracked_products': [{
+                'id': t.id,
+                'search_term': t.search_term,
+                'original_text': t.original_text,
+                'source': t.source,
+                'is_active': t.is_active,
+                'created_at': t.created_at.isoformat() if t.created_at else None
+            } for t in tracked]
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting tracked products: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<user_id>/tracked-products', methods=['POST'])
+@csrf.exempt
+def api_admin_add_tracked_product(user_id):
+    """Add a new tracked product for a user"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        search_term = data.get('search_term', '').strip().lower()
+        if not search_term:
+            return jsonify({'error': 'search_term is required'}), 400
+
+        # Check if already exists
+        existing = UserTrackedProduct.query.filter_by(
+            user_id=user_id,
+            search_term=search_term
+        ).first()
+        if existing:
+            return jsonify({'error': 'Term already tracked', 'id': existing.id}), 409
+
+        tracked = UserTrackedProduct(
+            user_id=user_id,
+            search_term=search_term,
+            original_text=data.get('original_text'),
+            source=data.get('source', 'manual'),
+            is_active=True
+        )
+        db.session.add(tracked)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'tracked_product': {
+                'id': tracked.id,
+                'search_term': tracked.search_term,
+                'source': tracked.source
+            }
+        }), 201
+
+    except Exception as e:
+        app.logger.error(f"Error adding tracked product: {e}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<user_id>/tracked-products/<int:tracked_id>', methods=['DELETE'])
+@csrf.exempt
+def api_admin_delete_tracked_product(user_id, tracked_id):
+    """Delete a tracked product"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        tracked = UserTrackedProduct.query.filter_by(id=tracked_id, user_id=user_id).first()
+        if not tracked:
+            return jsonify({'error': 'Tracked product not found'}), 404
+
+        db.session.delete(tracked)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Deleted'}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error deleting tracked product: {e}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<user_id>/extract-tracked-products', methods=['POST'])
+@csrf.exempt
+def api_admin_extract_tracked_products(user_id):
+    """Use AI to extract product search terms from user preferences"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct
+    from openai_utils import openai_client
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Gather all preference data
+        prefs = user.preferences or {}
+        grocery_interests = prefs.get('grocery_interests', [])
+        typical_products = prefs.get('typical_products', [])
+
+        if not grocery_interests and not typical_products:
+            return jsonify({'error': 'User has no preferences to extract from'}), 400
+
+        # Build prompt for AI
+        all_items = []
+        for item in grocery_interests:
+            all_items.append(f"- {item} (from grocery_interests)")
+        for item in typical_products:
+            all_items.append(f"- {item} (from typical_products)")
+
+        items_text = "\n".join(all_items)
+
+        system_prompt = """You extract normalized product search terms from user preferences.
+
+For each item, extract the core product name suitable for semantic search.
+Examples:
+- "Ariel deterdžent za veš" → "ariel deterdžent"
+- "svježe mlijeko" → "mlijeko"
+- "coca cola zero" → "coca cola zero"
+- "voće i povrće" → split into "voće", "povrće"
+- "jeftina hrana" → skip (too generic)
+
+Return JSON array of objects with: search_term, original_text, source
+Only include specific, searchable product terms. Skip generic terms like "hrana", "namirnice", "jeftino"."""
+
+        user_prompt = f"""Extract product search terms from these user preferences:
+
+{items_text}
+
+Return JSON array like:
+[{{"search_term": "mlijeko", "original_text": "svježe mlijeko", "source": "grocery_interests"}}]"""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            max_tokens=1000
+        )
+
+        result_text = response.choices[0].message.content.strip()
+        result = json.loads(result_text)
+
+        # Handle various JSON formats
+        if isinstance(result, dict):
+            extracted = result.get('items', result.get('products', result.get('terms', [])))
+        else:
+            extracted = result
+
+        # Add to database
+        added = []
+        skipped = []
+        for item in extracted:
+            search_term = item.get('search_term', '').strip().lower()
+            if not search_term or len(search_term) < 2:
+                continue
+
+            existing = UserTrackedProduct.query.filter_by(
+                user_id=user_id,
+                search_term=search_term
+            ).first()
+
+            if existing:
+                skipped.append(search_term)
+                continue
+
+            tracked = UserTrackedProduct(
+                user_id=user_id,
+                search_term=search_term,
+                original_text=item.get('original_text'),
+                source=item.get('source', 'ai_extracted'),
+                is_active=True
+            )
+            db.session.add(tracked)
+            added.append(search_term)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'added': added,
+            'skipped': skipped,
+            'total_added': len(added)
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error extracting tracked products: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<user_id>/product-scans', methods=['GET'])
+@csrf.exempt
+def api_admin_get_product_scans(user_id):
+    """Get product scan history for a user"""
+    from auth_api import decode_jwt_token
+    from models import UserProductScan, UserScanResult, UserTrackedProduct
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Parse date filters
+        date_str = request.args.get('date')
+        from_date_str = request.args.get('from_date')
+        to_date_str = request.args.get('to_date')
+
+        query = UserProductScan.query.filter_by(user_id=user_id)
+
+        if date_str:
+            scan_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            query = query.filter(UserProductScan.scan_date == scan_date)
+        else:
+            if from_date_str:
+                from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+                query = query.filter(UserProductScan.scan_date >= from_date)
+            if to_date_str:
+                to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+                query = query.filter(UserProductScan.scan_date <= to_date)
+
+        scans = query.order_by(UserProductScan.scan_date.desc()).limit(90).all()
+
+        return jsonify({
+            'success': True,
+            'scans': [{
+                'id': s.id,
+                'scan_date': s.scan_date.isoformat(),
+                'status': s.status,
+                'total_products_found': s.total_products_found,
+                'new_products_count': s.new_products_count,
+                'new_discounts_count': s.new_discounts_count,
+                'summary_text': s.summary_text,
+                'created_at': s.created_at.isoformat() if s.created_at else None
+            } for s in scans]
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting product scans: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<user_id>/product-scans/<int:scan_id>', methods=['GET'])
+@csrf.exempt
+def api_admin_get_scan_details(user_id, scan_id):
+    """Get detailed scan results grouped by tracked term"""
+    from auth_api import decode_jwt_token
+    from models import UserProductScan, UserScanResult, UserTrackedProduct
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        scan = UserProductScan.query.filter_by(id=scan_id, user_id=user_id).first()
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+
+        # Get results grouped by tracked product
+        results = UserScanResult.query.filter_by(scan_id=scan_id).all()
+
+        # Group by tracked_product_id
+        grouped = {}
+        for r in results:
+            tid = r.tracked_product_id
+            if tid not in grouped:
+                tracked = UserTrackedProduct.query.get(tid)
+                grouped[tid] = {
+                    'tracked_product_id': tid,
+                    'search_term': tracked.search_term if tracked else 'Unknown',
+                    'products': []
+                }
+            grouped[tid]['products'].append({
+                'id': r.id,
+                'product_id': r.product_id,
+                'product_title': r.product_title,
+                'business_name': r.business_name,
+                'similarity_score': r.similarity_score,
+                'base_price': r.base_price,
+                'discount_price': r.discount_price,
+                'is_new_today': r.is_new_today,
+                'was_discounted_yesterday': r.was_discounted_yesterday,
+                'price_dropped_today': r.price_dropped_today
+            })
+
+        return jsonify({
+            'success': True,
+            'scan': {
+                'id': scan.id,
+                'scan_date': scan.scan_date.isoformat(),
+                'status': scan.status,
+                'total_products_found': scan.total_products_found,
+                'new_products_count': scan.new_products_count,
+                'new_discounts_count': scan.new_discounts_count,
+                'summary_text': scan.summary_text
+            },
+            'groups': list(grouped.values())
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting scan details: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<user_id>/run-scan', methods=['POST'])
+@csrf.exempt
+def api_admin_run_user_scan(user_id):
+    """Manually trigger a product scan for a user"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct, UserProductScan, UserScanResult
+    from agents.common.db_utils import search_by_vector
+    from agents.common.embeddings import get_embedding
+    from datetime import date
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Get tracked products
+        tracked_products = UserTrackedProduct.query.filter_by(
+            user_id=user_id,
+            is_active=True
+        ).all()
+
+        if not tracked_products:
+            return jsonify({'error': 'No tracked products for this user'}), 400
+
+        today = date.today()
+
+        # Check if scan already exists for today
+        existing_scan = UserProductScan.query.filter_by(
+            user_id=user_id,
+            scan_date=today
+        ).first()
+
+        if existing_scan:
+            # Delete existing results and update scan
+            UserScanResult.query.filter_by(scan_id=existing_scan.id).delete()
+            scan = existing_scan
+            scan.status = 'running'
+        else:
+            scan = UserProductScan(
+                user_id=user_id,
+                scan_date=today,
+                status='running'
+            )
+            db.session.add(scan)
+
+        db.session.commit()
+
+        # Get yesterday's results for comparison
+        yesterday = today - timedelta(days=1)
+        yesterday_scan = UserProductScan.query.filter_by(
+            user_id=user_id,
+            scan_date=yesterday
+        ).first()
+
+        yesterday_products = set()
+        yesterday_prices = {}
+        if yesterday_scan:
+            yesterday_results = UserScanResult.query.filter_by(scan_id=yesterday_scan.id).all()
+            for r in yesterday_results:
+                if r.product_id:
+                    yesterday_products.add(r.product_id)
+                    yesterday_prices[r.product_id] = {
+                        'base': r.base_price,
+                        'discount': r.discount_price
+                    }
+
+        # Run searches for each tracked term
+        total_found = 0
+        new_count = 0
+        discount_count = 0
+
+        for tracked in tracked_products:
+            try:
+                # Get embedding for search term
+                embedding = get_embedding(tracked.search_term)
+
+                # Run vector search (no store limit for all matches)
+                results = search_by_vector(
+                    query_embedding=embedding,
+                    k=50,  # Get more results
+                    similarity_threshold=0.3,
+                    max_per_store=10  # Allow more per store
+                )
+
+                for product_data in results:
+                    product_id = product_data.get('id')
+                    is_new = product_id not in yesterday_products
+
+                    # Check if price dropped
+                    price_dropped = False
+                    was_discounted = False
+                    if product_id in yesterday_prices:
+                        yp = yesterday_prices[product_id]
+                        current_price = product_data.get('discount_price') or product_data.get('base_price')
+                        old_price = yp.get('discount') or yp.get('base')
+                        if current_price and old_price and current_price < old_price:
+                            price_dropped = True
+                        # New discount: wasn't discounted yesterday, is now
+                        if not yp.get('discount') and product_data.get('discount_price'):
+                            was_discounted = False
+                            discount_count += 1
+
+                    result = UserScanResult(
+                        scan_id=scan.id,
+                        tracked_product_id=tracked.id,
+                        product_id=product_id,
+                        product_title=product_data.get('title'),
+                        business_name=product_data.get('business', {}).get('name'),
+                        similarity_score=product_data.get('similarity'),
+                        base_price=product_data.get('base_price'),
+                        discount_price=product_data.get('discount_price'),
+                        is_new_today=is_new,
+                        was_discounted_yesterday=was_discounted,
+                        price_dropped_today=price_dropped
+                    )
+                    db.session.add(result)
+                    total_found += 1
+                    if is_new:
+                        new_count += 1
+
+            except Exception as search_err:
+                app.logger.error(f"Error searching for '{tracked.search_term}': {search_err}")
+                continue
+
+        # Update scan summary
+        scan.status = 'completed'
+        scan.total_products_found = total_found
+        scan.new_products_count = new_count
+        scan.new_discounts_count = discount_count
+
+        # Generate summary
+        summary_parts = []
+        if new_count > 0:
+            summary_parts.append(f"{new_count} novih proizvoda")
+        if discount_count > 0:
+            summary_parts.append(f"{discount_count} novih popusta")
+        if not summary_parts:
+            summary_parts.append("Bez promjena od jučer")
+        scan.summary_text = ", ".join(summary_parts)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'scan_id': scan.id,
+            'total_found': total_found,
+            'new_count': new_count,
+            'discount_count': discount_count,
+            'summary': scan.summary_text
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error running user scan: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== PRODUCT MATCHING ====================
 
 # Background product matching job tracking

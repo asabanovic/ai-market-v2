@@ -992,3 +992,90 @@ class UserFeedback(db.Model):
         db.Index('idx_user_feedback_created_at', 'created_at'),
         db.Index('idx_user_feedback_trigger', 'trigger_type'),
     )
+
+
+# ==================== USER PRODUCT TRACKING ====================
+
+class UserTrackedProduct(db.Model):
+    """Extracted search terms from user preferences for daily scanning"""
+    __tablename__ = 'user_tracked_products'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    search_term = db.Column(db.String, nullable=False)  # Normalized search term (e.g., "mlijeko")
+    original_text = db.Column(db.String, nullable=True)  # Original text from preferences
+    source = db.Column(db.String, default='grocery_interests')  # Where it came from
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('tracked_products', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'search_term', name='uq_user_tracked_product'),
+        db.Index('idx_tracked_products_user', 'user_id'),
+        db.Index('idx_tracked_products_active', 'is_active'),
+    )
+
+    @staticmethod
+    def get_preferences_hash(user):
+        """Generate a hash of user preferences for change detection"""
+        import hashlib
+        prefs = user.preferences or {}
+        grocery_interests = sorted(prefs.get('grocery_interests', []))
+        typical_products = sorted(prefs.get('typical_products', []))
+        combined = '|'.join(grocery_interests + typical_products)
+        return hashlib.md5(combined.encode()).hexdigest()
+
+
+class UserProductScan(db.Model):
+    """Daily scan results metadata - one entry per user per day"""
+    __tablename__ = 'user_product_scans'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    scan_date = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String, default='completed')  # pending, running, completed, failed
+    total_products_found = db.Column(db.Integer, default=0)
+    new_products_count = db.Column(db.Integer, default=0)  # Products not in previous day
+    new_discounts_count = db.Column(db.Integer, default=0)  # Same products but now discounted
+    summary_text = db.Column(db.Text, nullable=True)  # AI-generated summary of changes
+    preferences_hash = db.Column(db.String(32), nullable=True)  # Hash of preferences used for change detection
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('product_scans', lazy='dynamic'))
+    results = db.relationship('UserScanResult', backref='scan', lazy='dynamic', cascade='all, delete-orphan')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'scan_date', name='uq_user_scan_date'),
+        db.Index('idx_scans_user_date', 'user_id', 'scan_date'),
+        db.Index('idx_scans_date', 'scan_date'),
+    )
+
+
+class UserScanResult(db.Model):
+    """Individual product results per scan per tracked term"""
+    __tablename__ = 'user_scan_results'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    scan_id = db.Column(db.Integer, db.ForeignKey('user_product_scans.id', ondelete='CASCADE'), nullable=False)
+    tracked_product_id = db.Column(db.Integer, db.ForeignKey('user_tracked_products.id', ondelete='CASCADE'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+    product_title = db.Column(db.String, nullable=True)  # Snapshot of title at scan time
+    business_name = db.Column(db.String, nullable=True)  # Snapshot of business name
+    similarity_score = db.Column(db.Float, nullable=True)
+    base_price = db.Column(db.Float, nullable=True)  # Full price history
+    discount_price = db.Column(db.Float, nullable=True)  # Full price history
+    was_discounted_yesterday = db.Column(db.Boolean, default=False)
+    is_new_today = db.Column(db.Boolean, default=False)  # Wasn't in yesterday's results
+    price_dropped_today = db.Column(db.Boolean, default=False)  # Price lower than yesterday
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    tracked_product = db.relationship('UserTrackedProduct', backref=db.backref('scan_results', lazy='dynamic'))
+    product = db.relationship('Product', backref=db.backref('tracking_results', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_scan_results_scan', 'scan_id'),
+        db.Index('idx_scan_results_tracked', 'tracked_product_id'),
+        db.Index('idx_scan_results_product', 'product_id'),
+    )
