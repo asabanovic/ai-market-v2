@@ -11,6 +11,19 @@ interface User {
   onboarding_completed?: boolean
   welcome_guide_seen?: boolean
   preferences?: Record<string, any>
+  // Streak info
+  current_streak?: number
+  longest_streak?: number
+  next_milestone?: number | null
+  next_milestone_bonus?: number | null
+  milestones?: Record<number, number>
+}
+
+interface BonusAwarded {
+  daily_bonus: number
+  streak_bonus: number
+  current_streak: number
+  milestone_reached: number | null
 }
 
 interface LoginCredentials {
@@ -27,6 +40,7 @@ export const useAuth = () => {
   const api = useApi()
   const user = useState<User | null>('user', () => null)
   const authReady = useState<boolean>('authReady', () => false)
+  const lastBonusAwarded = useState<BonusAwarded | null>('lastBonusAwarded', () => null)
   const isAuthenticated = computed(() => !!user.value)
 
   const login = async (email: string, password: string) => {
@@ -45,6 +59,7 @@ export const useAuth = () => {
       localStorage.removeItem('token')
     }
     user.value = null
+    lastBonusAwarded.value = null
     navigateTo('/prijava')
   }
 
@@ -55,6 +70,10 @@ export const useAuth = () => {
         try {
           const response = await api.get('/auth/verify')
           user.value = response.user
+          // Store bonus info if credits were awarded
+          if (response.bonus_awarded) {
+            lastBonusAwarded.value = response.bonus_awarded
+          }
         } catch (error) {
           logout()
         }
@@ -70,6 +89,10 @@ export const useAuth = () => {
         try {
           const response = await api.get('/auth/verify')
           user.value = response.user
+          // Store bonus info if credits were awarded
+          if (response.bonus_awarded) {
+            lastBonusAwarded.value = response.bonus_awarded
+          }
         } catch (error) {
           console.error('Failed to refresh user:', error)
         }
@@ -77,13 +100,19 @@ export const useAuth = () => {
     }
   }
 
+  const clearBonusNotification = () => {
+    lastBonusAwarded.value = null
+  }
+
   return {
     user,
     isAuthenticated,
     authReady,
+    lastBonusAwarded,
     login,
     logout,
     checkAuth,
-    refreshUser
+    refreshUser,
+    clearBonusNotification
   }
 }

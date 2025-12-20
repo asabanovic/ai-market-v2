@@ -30,6 +30,7 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     verification_token = db.Column(db.String, nullable=True)
     verification_token_expires = db.Column(db.DateTime, nullable=True)
+    verification_email_sent_at = db.Column(db.DateTime, nullable=True)  # When verification email was last sent
     is_admin = db.Column(db.Boolean, default=False)
     
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -57,13 +58,18 @@ class User(UserMixin, db.Model):
     # Welcome guide flag - True if user has seen the welcome guide popup
     welcome_guide_seen = db.Column(db.Boolean, default=False)
 
-    # Weekly credits system - Two buckets:
-    # 1. Regular credits: 40 credits per week (reset every Monday, never exceed 40)
-    weekly_credits = db.Column(db.Integer, default=40)  # Regular credits (reset weekly)
+    # Weekly credits system (LEGACY - kept for backward compatibility)
+    weekly_credits = db.Column(db.Integer, default=40)
     weekly_credits_used = db.Column(db.Integer, default=0)
     weekly_credits_reset_date = db.Column(db.Date, default=date.today)
 
-    # 2. Extra credits: Earned credits (referrals, purchases) - these accumulate
+    # Monthly credits system - Two buckets:
+    # 1. Regular credits: 40 credits per month (reset on 1st of each month)
+    monthly_credits = db.Column(db.Integer, default=40)  # Regular credits (reset monthly)
+    monthly_credits_used = db.Column(db.Integer, default=0)
+    monthly_credits_reset_date = db.Column(db.Date, default=date.today)
+
+    # 2. Extra credits: Earned credits (referrals, engagement) - these accumulate
     extra_credits = db.Column(db.Integer, default=0)  # Never reset, can go up or down
 
     # First search reward - bonus credits for completing first search
@@ -82,6 +88,12 @@ class User(UserMixin, db.Model):
     custom_referral_code = db.Column(db.String(50), unique=True, nullable=True)  # User-chosen custom code (e.g., "adnan")
     custom_code_changed = db.Column(db.Boolean, default=False, nullable=False)  # Has user customized their auto-generated code?
     referred_by_code = db.Column(db.String(20), nullable=True)  # Who referred this user
+
+    # Streak system - daily activity tracking
+    current_streak = db.Column(db.Integer, default=0, nullable=False)  # Current consecutive days
+    longest_streak = db.Column(db.Integer, default=0, nullable=False)  # All-time longest streak
+    last_activity_date = db.Column(db.Date, nullable=True)  # Last day user was active
+    last_streak_milestone = db.Column(db.Integer, default=0, nullable=False)  # Last milestone rewarded (3, 7, 14, 30, 60)
 
     # Relationships
     package = db.relationship('Package', backref='users')
@@ -909,6 +921,9 @@ class UserDailyVisit(db.Model):
 
     # Count of page views on that day (optional, for extra insight)
     page_views = db.Column(db.Integer, default=1)
+
+    # Daily bonus tracking - +2 credits for first activity of the day
+    daily_bonus_claimed = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationships
     user = db.relationship('User', backref=db.backref('daily_visits', lazy='dynamic'))

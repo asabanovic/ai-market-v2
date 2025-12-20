@@ -2,6 +2,7 @@
   <div class="min-h-screen flex flex-col">
     <LayoutHeader />
     <ClientOnly>
+      <StreakTimeline />
       <PhoneBanner />
     </ClientOnly>
     <main class="flex-1">

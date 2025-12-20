@@ -1476,12 +1476,12 @@ watch(() => props.show, async (newValue) => {
     }
 
     // Load all data in parallel
+    // Note: Product view is now FREE - no credit deduction
     await Promise.all([
       loadComments(),
       loadVotes(),
       loadRelatedProducts(),
-      checkReportStatus(),
-      deductViewCredit()
+      checkReportStatus()
     ])
   } else {
     // Destroy chart when modal closes

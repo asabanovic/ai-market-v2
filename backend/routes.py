@@ -19,7 +19,7 @@ from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
                           normalize_text_for_search, extract_search_intent, match_products_by_tags, smart_rank_products, generate_bulk_product_tags, generate_enriched_description)
-from infobip_email import send_contact_email, send_welcome_email, send_verification_email, generate_verification_token, send_invitation_email, send_password_reset_email
+from sendgrid_utils import send_contact_email, send_welcome_email, send_verification_email, generate_verification_token, send_invitation_email, send_password_reset_email
 from models import SavingsStatistics
 # Temporarily commenting PDF imports to fix server
 # from pdf_parser import process_pdf_for_business, download_pdf_from_url, normalize_product_title
@@ -1142,13 +1142,13 @@ def api_products():
         search = request.args.get('search')
         sort = request.args.get('sort', 'discount_desc')
 
-        # Credit check for pages beyond page 1
-        PRODUCTS_PAGE_COST = 3
+        # Pagination is now FREE - no credit check needed
+        # Credits are earned through engagement, not spent on basic features
         credits_remaining = None
         user = None
-        can_paginate = True  # Whether user has enough credits for next page
+        can_paginate = True  # Always allow pagination
 
-        # Try to get authenticated user (for any page, to show credit status)
+        # Try to get authenticated user (for display purposes)
         from auth_api import decode_jwt_token
         auth_header = request.headers.get('Authorization')
 
@@ -1158,50 +1158,12 @@ def api_products():
                 payload = decode_jwt_token(token)
                 if payload:
                     user = User.query.get(payload.get('user_id'))
+                    if user:
+                        # Get credits for display only
+                        from agents_api import get_available_credits
+                        credits_remaining = get_available_credits(user)
             except Exception:
                 pass
-
-        if page > 1:
-            if not auth_header:
-                return jsonify({
-                    'error': 'credits_required',
-                    'message': 'Morate biti prijavljeni da biste pregledali više proizvoda.',
-                    'credits_needed': PRODUCTS_PAGE_COST,
-                    'credits_remaining': 0
-                }), 401
-
-            if not user:
-                return jsonify({
-                    'error': 'credits_required',
-                    'message': 'Morate biti prijavljeni da biste pregledali više proizvoda.',
-                    'credits_needed': PRODUCTS_PAGE_COST,
-                    'credits_remaining': 0
-                }), 401
-
-            # Check and deduct credits
-            from agents_api import check_and_deduct_credits
-            success, message, credits_remaining = check_and_deduct_credits(user, PRODUCTS_PAGE_COST)
-
-            if not success:
-                # Calculate remaining credits for response
-                weekly_remaining = user.weekly_credits - user.weekly_credits_used
-                total_remaining = weekly_remaining + user.extra_credits
-
-                return jsonify({
-                    'error': 'insufficient_credits',
-                    'message': 'Nemate dovoljno kredita za pregled ove stranice.',
-                    'credits_needed': PRODUCTS_PAGE_COST,
-                    'credits_remaining': total_remaining,
-                    'earn_credits_message': 'Zaradite kredite tako što ćete ostaviti komentar (+5) ili glasati za proizvode (+2). Pomozite drugima da donesu bolju odluku pri kupovini!'
-                }), 402  # Payment Required
-        elif user:
-            # For page 1, just get user's credits for display (no deduction)
-            from agents_api import get_available_credits
-            credits_remaining = get_available_credits(user)
-
-        # Determine if user can paginate (has enough credits for page 2+)
-        if user and credits_remaining is not None:
-            can_paginate = credits_remaining >= PRODUCTS_PAGE_COST
 
         # Base query - show all products (expired discounts become regular products)
         query = Product.query.join(Business)
@@ -2406,29 +2368,18 @@ def search():
         debug_available = current_user.is_authenticated and (getattr(
             current_user, 'is_admin', False) or app.config.get('DEBUG', False))
 
-        # Deduct credits and increment counters ONLY for successful searches (with results)
+        # Search is now FREE - no credit deduction
+        # Credits are earned through engagement (votes, comments, daily activity)
         first_search_bonus_awarded = False
         if current_user.is_authenticated:
-            from credits_service_weekly import WeeklyCreditsService
-            try:
-                WeeklyCreditsService.deduct_credits(
-                    user_id=current_user.id,
-                    amount=1,
-                    action='SEARCH',
-                    metadata={'query': query}
-                )
-                app.logger.info(f"Deducted 1 credit for search by user {current_user.id}")
-
-                # Check and award first search bonus (+3 extra credits)
-                if not current_user.first_search_reward_claimed:
-                    current_user.extra_credits += 3
-                    current_user.first_search_reward_claimed = True
-                    first_search_bonus_awarded = True
-                    app.logger.info(f"Awarded +3 first search bonus to user {current_user.id}")
-            except Exception as credit_error:
-                app.logger.error(f"Failed to deduct credit: {credit_error}")
+            # Award first search bonus (+3 extra credits) - still valid as welcome bonus
+            if not current_user.first_search_reward_claimed:
+                current_user.extra_credits = (current_user.extra_credits or 0) + 3
+                current_user.first_search_reward_claimed = True
+                first_search_bonus_awarded = True
+                app.logger.info(f"Awarded +3 first search bonus to user {current_user.id}")
         else:
-            # Increment search count for anonymous users
+            # Increment search count for anonymous users (for analytics)
             increment_search_count()
 
         db.session.commit()
@@ -9234,15 +9185,131 @@ def api_admin_get_scan_details(user_id, scan_id):
         return jsonify({'error': str(e)}), 500
 
 
+def run_user_scan_worker(user_id, scan_id, tracked_data, business_ids, yesterday_products, yesterday_prices):
+    """Background worker to run product scan for a user"""
+    from models import UserProductScan, UserScanResult
+    from semantic_search import semantic_search_with_context
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    with app.app_context():
+        try:
+            total_found = 0
+            new_count = 0
+            discount_count = 0
+
+            # Minimum combined score (vector similarity + text bonus + context bonus) to include
+            # Products matching user's favorites context get additional boost
+            # - Text match: +0.3 to +0.5 bonus
+            # - Context match (similar to favorites): +0.0 to +0.2 bonus
+            # So 0.5 threshold filters out irrelevant products
+            MIN_COMBINED_SCORE = 0.5
+
+            for tracked_id, search_term in tracked_data:
+                try:
+                    # Run semantic search with user context (favorites-based boosting)
+                    # Products similar to user's favorites get higher scores
+                    # Limit to 10 results per tracked term (free tier)
+                    # TODO: Premium users could get 20, 30, etc.
+                    results = semantic_search_with_context(
+                        query=search_term,
+                        user_id=user_id,
+                        k=10,  # Max 10 products per tracked term
+                        min_similarity=0.25,  # Low raw threshold, combined score filters
+                        business_ids=business_ids,  # Filter by user's preferred stores
+                        context_weight=0.2  # Context bonus weight (0.2 = up to +20% for favorites match)
+                    )
+
+                    for product_data in results:
+                        # Filter by combined score (includes text bonus + context bonus)
+                        combined_score = product_data.get('similarity_score', 0)
+                        if combined_score < MIN_COMBINED_SCORE:
+                            continue  # Skip low-relevance products
+
+                        product_id = product_data.get('id')
+                        is_new = product_id not in yesterday_products
+
+                        price_dropped = False
+                        was_discounted = False
+                        if product_id in yesterday_prices:
+                            yp = yesterday_prices[product_id]
+                            current_price = product_data.get('discount_price') or product_data.get('base_price')
+                            old_price = yp.get('discount') or yp.get('base')
+                            if current_price and old_price and current_price < old_price:
+                                price_dropped = True
+                            if not yp.get('discount') and product_data.get('discount_price'):
+                                discount_count += 1
+
+                        result = UserScanResult(
+                            scan_id=scan_id,
+                            tracked_product_id=tracked_id,
+                            product_id=product_id,
+                            product_title=product_data.get('title'),
+                            business_name=product_data.get('business', {}).get('name'),
+                            similarity_score=product_data.get('similarity_score'),
+                            base_price=product_data.get('base_price'),
+                            discount_price=product_data.get('discount_price'),
+                            is_new_today=is_new,
+                            was_discounted_yesterday=was_discounted,
+                            price_dropped_today=price_dropped
+                        )
+                        db.session.add(result)
+                        total_found += 1
+                        if is_new:
+                            new_count += 1
+
+                    # Commit results for this search term
+                    db.session.commit()
+
+                except Exception as search_err:
+                    logger.error(f"Error searching for '{search_term}': {search_err}")
+                    db.session.rollback()
+                    continue
+
+            # Update scan summary
+            scan = UserProductScan.query.get(scan_id)
+            if scan:
+                scan.status = 'completed'
+                scan.total_products_found = total_found
+                scan.new_products_count = new_count
+                scan.new_discounts_count = discount_count
+
+                summary_parts = []
+                if new_count > 0:
+                    summary_parts.append(f"{new_count} novih proizvoda")
+                if discount_count > 0:
+                    summary_parts.append(f"{discount_count} novih popusta")
+                if not summary_parts:
+                    summary_parts.append("Bez promjena od jučer")
+                scan.summary_text = ", ".join(summary_parts)
+
+                db.session.commit()
+                logger.info(f"Scan {scan_id} completed: {total_found} products, {new_count} new")
+
+        except Exception as e:
+            logger.error(f"Error in scan worker for user {user_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Mark scan as failed
+            try:
+                scan = UserProductScan.query.get(scan_id)
+                if scan:
+                    scan.status = 'failed'
+                    scan.summary_text = f"Greška: {str(e)[:100]}"
+                    db.session.commit()
+            except:
+                db.session.rollback()
+
+
 @app.route('/api/admin/users/<user_id>/run-scan', methods=['POST'])
 @csrf.exempt
 def api_admin_run_user_scan(user_id):
-    """Manually trigger a product scan for a user"""
+    """Manually trigger a product scan for a user (async)"""
     from auth_api import decode_jwt_token
     from models import UserTrackedProduct, UserProductScan, UserScanResult
-    from agents.common.db_utils import search_by_vector
-    from agents.common.embeddings import get_embedding
     from datetime import date
+    import threading
 
     auth_header = request.headers.get('Authorization')
     if not auth_header:
@@ -9271,6 +9338,12 @@ def api_admin_run_user_scan(user_id):
         if not tracked_products:
             return jsonify({'error': 'No tracked products for this user'}), 400
 
+        # Get user's preferred stores (filter results by these)
+        prefs = user.preferences or {}
+        business_ids = prefs.get('preferred_stores', None)
+        if business_ids and len(business_ids) == 0:
+            business_ids = None  # Empty list means no filter
+
         today = date.today()
 
         # Check if scan already exists for today
@@ -9280,7 +9353,6 @@ def api_admin_run_user_scan(user_id):
         ).first()
 
         if existing_scan:
-            # Delete existing results and update scan
             UserScanResult.query.filter_by(scan_id=existing_scan.id).delete()
             scan = existing_scan
             scan.status = 'running'
@@ -9293,6 +9365,7 @@ def api_admin_run_user_scan(user_id):
             db.session.add(scan)
 
         db.session.commit()
+        scan_id = scan.id
 
         # Get yesterday's results for comparison
         yesterday = today - timedelta(days=1)
@@ -9313,96 +9386,275 @@ def api_admin_run_user_scan(user_id):
                         'discount': r.discount_price
                     }
 
-        # Run searches for each tracked term
-        total_found = 0
-        new_count = 0
-        discount_count = 0
+        # Pre-load tracked data
+        tracked_data = [(t.id, t.search_term) for t in tracked_products]
 
-        for tracked in tracked_products:
-            try:
-                # Get embedding for search term
-                embedding = get_embedding(tracked.search_term)
+        # Run scan in background thread
+        thread = threading.Thread(
+            target=run_user_scan_worker,
+            args=(user_id, scan_id, tracked_data, business_ids, yesterday_products, yesterday_prices)
+        )
+        thread.daemon = True
+        thread.start()
 
-                # Run vector search (no store limit for all matches)
-                results = search_by_vector(
-                    query_embedding=embedding,
-                    k=50,  # Get more results
-                    similarity_threshold=0.3,
-                    max_per_store=10  # Allow more per store
-                )
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id,
+            'status': 'running',
+            'message': 'Skeniranje pokrenuto u pozadini'
+        }), 202  # 202 Accepted for async
 
-                for product_data in results:
-                    product_id = product_data.get('id')
-                    is_new = product_id not in yesterday_products
+    except Exception as e:
+        app.logger.error(f"Error starting user scan: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
-                    # Check if price dropped
-                    price_dropped = False
-                    was_discounted = False
-                    if product_id in yesterday_prices:
-                        yp = yesterday_prices[product_id]
-                        current_price = product_data.get('discount_price') or product_data.get('base_price')
-                        old_price = yp.get('discount') or yp.get('base')
-                        if current_price and old_price and current_price < old_price:
-                            price_dropped = True
-                        # New discount: wasn't discounted yesterday, is now
-                        if not yp.get('discount') and product_data.get('discount_price'):
-                            was_discounted = False
-                            discount_count += 1
 
-                    result = UserScanResult(
-                        scan_id=scan.id,
-                        tracked_product_id=tracked.id,
-                        product_id=product_id,
-                        product_title=product_data.get('title'),
-                        business_name=product_data.get('business', {}).get('name'),
-                        similarity_score=product_data.get('similarity'),
-                        base_price=product_data.get('base_price'),
-                        discount_price=product_data.get('discount_price'),
-                        is_new_today=is_new,
-                        was_discounted_yesterday=was_discounted,
-                        price_dropped_today=price_dropped
-                    )
-                    db.session.add(result)
-                    total_found += 1
-                    if is_new:
-                        new_count += 1
+# ==================== USER TRACKED PRODUCTS (Public) ====================
 
-            except Exception as search_err:
-                app.logger.error(f"Error searching for '{tracked.search_term}': {search_err}")
-                continue
+@app.route('/api/user/tracked-products', methods=['GET'])
+def api_user_tracked_products():
+    """Get current user's tracked products and latest scan results"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct, UserProductScan, UserScanResult
 
-        # Update scan summary
-        scan.status = 'completed'
-        scan.total_products_found = total_found
-        scan.new_products_count = new_count
-        scan.new_discounts_count = discount_count
+    # Check authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
 
-        # Generate summary
-        summary_parts = []
-        if new_count > 0:
-            summary_parts.append(f"{new_count} novih proizvoda")
-        if discount_count > 0:
-            summary_parts.append(f"{discount_count} novih popusta")
-        if not summary_parts:
-            summary_parts.append("Bez promjena od jučer")
-        scan.summary_text = ", ".join(summary_parts)
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+        user_id = payload.get('user_id')
+    except Exception:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    try:
+        # Get tracked products
+        tracked = UserTrackedProduct.query.filter_by(
+            user_id=user_id,
+            is_active=True
+        ).all()
+
+        # Get latest scan
+        latest_scan = UserProductScan.query.filter_by(
+            user_id=user_id,
+            status='completed'
+        ).order_by(UserProductScan.scan_date.desc()).first()
+
+        # Build response
+        tracked_items = []
+        for t in tracked:
+            item = {
+                'id': t.id,
+                'search_term': t.search_term,
+                'original_text': t.original_text,
+                'source': t.source,
+                'is_active': t.is_active,
+                'products': []
+            }
+
+            # Get results for this tracked product from latest scan
+            if latest_scan:
+                results = UserScanResult.query.filter_by(
+                    scan_id=latest_scan.id,
+                    tracked_product_id=t.id
+                ).order_by(
+                    UserScanResult.similarity_score.desc()
+                ).limit(20).all()
+
+                for r in results:
+                    # Get product image if available
+                    product = Product.query.get(r.product_id) if r.product_id else None
+                    image_url = product.image_path if product else None
+
+                    item['products'].append({
+                        'id': r.product_id,
+                        'title': r.product_title,
+                        'business': r.business_name,
+                        'base_price': float(r.base_price) if r.base_price else None,
+                        'discount_price': float(r.discount_price) if r.discount_price else None,
+                        'similarity_score': float(r.similarity_score) if r.similarity_score else None,
+                        'is_new_today': r.is_new_today,
+                        'price_dropped_today': r.price_dropped_today,
+                        'image_url': image_url
+                    })
+
+            tracked_items.append(item)
+
+        # Scan info
+        scan_info = None
+        if latest_scan:
+            scan_info = {
+                'id': latest_scan.id,
+                'date': latest_scan.scan_date.isoformat(),
+                'status': latest_scan.status,
+                'total_products': latest_scan.total_products_found,
+                'new_products': latest_scan.new_products_count,
+                'new_discounts': latest_scan.new_discounts_count,
+                'summary': latest_scan.summary_text
+            }
+
+        return jsonify({
+            'success': True,
+            'tracked_products': tracked_items,
+            'latest_scan': scan_info,
+            'has_tracking': len(tracked) > 0
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching tracked products: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/tracked-products/<int:tracked_id>', methods=['DELETE'])
+def api_user_delete_tracked_product(tracked_id):
+    """Delete a tracked product for the current user and refund credit"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct
+    from credits_service_monthly import MonthlyCreditsService
+
+    # Check authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+        user_id = payload.get('user_id')
+    except Exception:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    try:
+        tracked = UserTrackedProduct.query.filter_by(
+            id=tracked_id,
+            user_id=user_id
+        ).first()
+
+        if not tracked:
+            return jsonify({'error': 'Tracked product not found'}), 404
+
+        # Soft delete by deactivating
+        tracked.is_active = False
+
+        # Refund 1 credit when removing tracked product
+        try:
+            MonthlyCreditsService.refund_credits(user_id, 1, action='TRACKING_REMOVED')
+            credit_refunded = True
+        except Exception as ce:
+            app.logger.warning(f"Could not refund credit for tracking removal: {ce}")
+            credit_refunded = False
 
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'scan_id': scan.id,
-            'total_found': total_found,
-            'new_count': new_count,
-            'discount_count': discount_count,
-            'summary': scan.summary_text
-        }), 200
+            'message': 'Praćenje ukinuto' + (' (+1 kredit vraćen)' if credit_refunded else '')
+        })
 
     except Exception as e:
-        app.logger.error(f"Error running user scan: {e}")
-        import traceback
-        traceback.print_exc()
         db.session.rollback()
+        app.logger.error(f"Error deleting tracked product: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/tracked-products', methods=['POST'])
+def api_user_add_tracked_product():
+    """Add a new tracked product for the current user (costs 1 credit)"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct
+    from credits_service_monthly import MonthlyCreditsService
+    from credits_service import InsufficientCreditsError
+
+    # Check authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+        user_id = payload.get('user_id')
+    except Exception:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    try:
+        data = request.get_json()
+        search_term = data.get('search_term', '').strip().lower()
+
+        if not search_term or len(search_term) < 2:
+            return jsonify({'error': 'Search term too short'}), 400
+
+        # Check if already exists
+        existing = UserTrackedProduct.query.filter_by(
+            user_id=user_id,
+            search_term=search_term
+        ).first()
+
+        if existing:
+            if not existing.is_active:
+                # Reactivating requires 1 credit
+                try:
+                    MonthlyCreditsService.deduct_credits(user_id, 1, action='TRACKING_REACTIVATE')
+                except InsufficientCreditsError:
+                    balance = MonthlyCreditsService.get_balance(user_id)
+                    return jsonify({
+                        'error': 'Nemate dovoljno kredita za praćenje proizvoda',
+                        'credits_required': 1,
+                        'credits_available': balance['total_credits']
+                    }), 402
+
+                existing.is_active = True
+                db.session.commit()
+                return jsonify({'success': True, 'id': existing.id, 'message': 'Praćenje reaktivirano (-1 kredit)'})
+            return jsonify({'error': 'Already tracking this term'}), 400
+
+        # Check credits before adding new tracking
+        try:
+            MonthlyCreditsService.deduct_credits(user_id, 1, action='TRACKING_ADD')
+        except InsufficientCreditsError:
+            balance = MonthlyCreditsService.get_balance(user_id)
+            return jsonify({
+                'error': 'Nemate dovoljno kredita za praćenje proizvoda',
+                'credits_required': 1,
+                'credits_available': balance['total_credits']
+            }), 402
+
+        tracked = UserTrackedProduct(
+            user_id=user_id,
+            search_term=search_term,
+            original_text=data.get('original_text', search_term),
+            source='manual',
+            is_active=True
+        )
+        db.session.add(tracked)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'id': tracked.id,
+            'message': 'Proizvod dodan za praćenje (-1 kredit)'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding tracked product: {e}")
         return jsonify({'error': str(e)}), 500
 
 

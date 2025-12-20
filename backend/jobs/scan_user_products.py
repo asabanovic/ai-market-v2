@@ -4,9 +4,12 @@ Daily product scan job for user tracking.
 Runs vector searches for all users with tracked products and stores results.
 
 Features:
+- Round-robin processing: scans users incrementally (BATCH_SIZE per run)
+- Filters by user's preferred_stores
 - Detects changes in user preferences and auto-extracts new search terms
 - Runs vector searches for each tracked term
 - Compares with previous day to find new products and discounts
+- Rate limited with delays between users to prevent system overload
 
 Schedule: Daily at 6 AM UTC (0 6 * * *)
 Command: python jobs/scan_user_products.py
@@ -15,6 +18,7 @@ Command: python jobs/scan_user_products.py
 import os
 import sys
 import json
+import time
 from datetime import date, timedelta
 
 # Add parent directory to path
@@ -26,6 +30,11 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configuration
+BATCH_SIZE = 10  # Number of users to process per run (round-robin)
+DELAY_BETWEEN_USERS = 2  # Seconds to wait between users
+DELAY_BETWEEN_SEARCHES = 0.5  # Seconds to wait between search terms
 
 
 def extract_tracked_products_for_user(user):
@@ -131,199 +140,266 @@ def sync_tracked_products(user, extracted_items):
     return added
 
 
+def get_users_to_scan_round_robin():
+    """
+    Get the next batch of users to scan using round-robin.
+    Prioritizes users who haven't been scanned today, ordered by last scan date.
+    """
+    today = date.today()
+
+    # Get all users with preferences
+    all_users_with_prefs = User.query.filter(
+        User.preferences.isnot(None)
+    ).all()
+
+    # Filter to users who have actual grocery data
+    eligible_users = []
+    for user in all_users_with_prefs:
+        prefs = user.preferences or {}
+        if prefs.get('grocery_interests') or prefs.get('typical_products'):
+            # Check if already scanned today
+            today_scan = UserProductScan.query.filter_by(
+                user_id=user.id,
+                scan_date=today,
+                status='completed'
+            ).first()
+            if not today_scan:
+                eligible_users.append(user)
+
+    # Sort by last scan date (oldest first for fair round-robin)
+    def get_last_scan_date(user):
+        last_scan = UserProductScan.query.filter_by(
+            user_id=user.id
+        ).order_by(UserProductScan.scan_date.desc()).first()
+        return last_scan.scan_date if last_scan else date(2000, 1, 1)
+
+    eligible_users.sort(key=get_last_scan_date)
+
+    # Return up to BATCH_SIZE users
+    return eligible_users[:BATCH_SIZE]
+
+
+def scan_single_user(user):
+    """
+    Run product scan for a single user.
+    Returns (total_found, new_count, discount_count) or None on error.
+    """
+    from semantic_search import semantic_search_with_context
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    try:
+        # Calculate current preferences hash
+        current_hash = UserTrackedProduct.get_preferences_hash(user)
+
+        # Get last scan to check if preferences changed
+        last_scan = UserProductScan.query.filter_by(
+            user_id=user.id
+        ).order_by(UserProductScan.scan_date.desc()).first()
+
+        # Get tracked products
+        tracked_products = UserTrackedProduct.query.filter_by(
+            user_id=user.id,
+            is_active=True
+        ).all()
+
+        # Check if we need to extract new terms
+        needs_extraction = (
+            len(tracked_products) == 0 or
+            (last_scan and last_scan.preferences_hash != current_hash)
+        )
+
+        if needs_extraction:
+            logger.info(f"Extracting tracked products for user {user.id}")
+            extracted = extract_tracked_products_for_user(user)
+            if extracted:
+                sync_tracked_products(user, extracted)
+                # Refresh tracked products
+                tracked_products = UserTrackedProduct.query.filter_by(
+                    user_id=user.id,
+                    is_active=True
+                ).all()
+
+        if not tracked_products:
+            logger.debug(f"Skipping user {user.id} - no tracked products")
+            return None
+
+        # Get user's preferred stores (filter by these)
+        prefs = user.preferences or {}
+        business_ids = prefs.get('preferred_stores', None)
+        if business_ids and len(business_ids) == 0:
+            business_ids = None  # Empty list means no filter
+
+        # Create or update scan record
+        existing_scan = UserProductScan.query.filter_by(
+            user_id=user.id,
+            scan_date=today
+        ).first()
+
+        if existing_scan:
+            UserScanResult.query.filter_by(scan_id=existing_scan.id).delete()
+            scan = existing_scan
+        else:
+            scan = UserProductScan(
+                user_id=user.id,
+                scan_date=today,
+                status='running'
+            )
+            db.session.add(scan)
+
+        scan.status = 'running'
+        scan.preferences_hash = current_hash
+        db.session.commit()
+
+        # Get yesterday's results for comparison
+        yesterday_scan = UserProductScan.query.filter_by(
+            user_id=user.id,
+            scan_date=yesterday
+        ).first()
+
+        yesterday_products = set()
+        yesterday_prices = {}
+        if yesterday_scan:
+            yesterday_results = UserScanResult.query.filter_by(
+                scan_id=yesterday_scan.id
+            ).all()
+            for r in yesterday_results:
+                if r.product_id:
+                    yesterday_products.add(r.product_id)
+                    yesterday_prices[r.product_id] = {
+                        'base': r.base_price,
+                        'discount': r.discount_price
+                    }
+
+        # Run searches with delays
+        user_total = 0
+        new_count = 0
+        discount_count = 0
+
+        # Minimum combined score (vector similarity + text bonus + context bonus) to include
+        # Products matching user's favorites context get additional boost
+        # - Text match: +0.3 to +0.5 bonus
+        # - Context match (similar to favorites): +0.0 to +0.2 bonus
+        # So 0.5 threshold filters out irrelevant products
+        MIN_COMBINED_SCORE = 0.5
+
+        for tracked in tracked_products:
+            try:
+                # Run semantic search with user context (favorites-based boosting)
+                # Products similar to user's favorites get higher scores
+                # Limit to 10 results per tracked term (free tier)
+                results = semantic_search_with_context(
+                    query=tracked.search_term,
+                    user_id=user.id,
+                    k=10,  # Max 10 products per tracked term
+                    min_similarity=0.25,  # Low raw threshold, combined score filters
+                    business_ids=business_ids,  # Filter by user's stores
+                    context_weight=0.2  # Context bonus weight (0.2 = up to +20% for favorites match)
+                )
+
+                for product_data in results:
+                    # Filter by combined score (includes text bonus + context bonus)
+                    combined_score = product_data.get('similarity_score', 0)
+                    if combined_score < MIN_COMBINED_SCORE:
+                        continue  # Skip low-relevance products
+                    product_id = product_data.get('id')
+                    is_new = product_id not in yesterday_products
+
+                    price_dropped = False
+                    was_discounted = False
+                    if product_id in yesterday_prices:
+                        yp = yesterday_prices[product_id]
+                        current_price = product_data.get('discount_price') or product_data.get('base_price')
+                        old_price = yp.get('discount') or yp.get('base')
+                        if current_price and old_price and current_price < old_price:
+                            price_dropped = True
+                        if not yp.get('discount') and product_data.get('discount_price'):
+                            discount_count += 1
+
+                    result = UserScanResult(
+                        scan_id=scan.id,
+                        tracked_product_id=tracked.id,
+                        product_id=product_id,
+                        product_title=product_data.get('title'),
+                        business_name=product_data.get('business', {}).get('name'),
+                        similarity_score=product_data.get('similarity_score'),
+                        base_price=product_data.get('base_price'),
+                        discount_price=product_data.get('discount_price'),
+                        is_new_today=is_new,
+                        was_discounted_yesterday=was_discounted,
+                        price_dropped_today=price_dropped
+                    )
+                    db.session.add(result)
+                    user_total += 1
+                    if is_new:
+                        new_count += 1
+
+                # Rate limit between search terms
+                time.sleep(DELAY_BETWEEN_SEARCHES)
+
+            except Exception as search_err:
+                logger.error(f"Error searching for '{tracked.search_term}': {search_err}")
+                db.session.rollback()
+                continue
+
+        # Update scan summary
+        scan.status = 'completed'
+        scan.total_products_found = user_total
+        scan.new_products_count = new_count
+        scan.new_discounts_count = discount_count
+
+        summary_parts = []
+        if new_count > 0:
+            summary_parts.append(f"{new_count} novih proizvoda")
+        if discount_count > 0:
+            summary_parts.append(f"{discount_count} novih popusta")
+        if not summary_parts:
+            summary_parts.append("Bez promjena od jučer")
+        scan.summary_text = ", ".join(summary_parts)
+
+        db.session.commit()
+        logger.info(f"Completed scan for user {user.id}: {user_total} products, {new_count} new")
+
+        return (user_total, new_count, discount_count)
+
+    except Exception as e:
+        logger.error(f"Error processing user {user.id}: {e}")
+        db.session.rollback()
+        return None
+
+
 def run_daily_scan():
-    """Run daily product scan for all users with preferences or tracked products"""
+    """
+    Run daily product scan using round-robin approach.
+    Processes BATCH_SIZE users per run, with delays between users.
+    """
     with app.app_context():
         try:
-            from agents.common.db_utils import search_by_vector
-            from agents.common.embeddings import get_embedding
+            # Get next batch of users to scan
+            users_to_scan = get_users_to_scan_round_robin()
 
-            today = date.today()
-            yesterday = today - timedelta(days=1)
+            if not users_to_scan:
+                logger.info("No users need scanning at this time")
+                return
 
-            # Get all users with preferences (grocery_interests or typical_products)
-            # This is broader than just users with tracked products - we want to auto-extract
-            all_users_with_prefs = User.query.filter(
-                User.preferences.isnot(None)
-            ).all()
-
-            # Filter to users who have actual grocery data
-            users_to_scan = []
-            for user in all_users_with_prefs:
-                prefs = user.preferences or {}
-                if prefs.get('grocery_interests') or prefs.get('typical_products'):
-                    users_to_scan.append(user)
-
-            logger.info(f"Found {len(users_to_scan)} users with preferences to scan")
+            logger.info(f"Processing batch of {len(users_to_scan)} users (round-robin)")
 
             total_users_processed = 0
             total_products_found = 0
-            total_extractions = 0
 
             for user in users_to_scan:
-                try:
-                    # Calculate current preferences hash
-                    current_hash = UserTrackedProduct.get_preferences_hash(user)
+                result = scan_single_user(user)
 
-                    # Get last scan to check if preferences changed
-                    last_scan = UserProductScan.query.filter_by(
-                        user_id=user.id
-                    ).order_by(UserProductScan.scan_date.desc()).first()
-
-                    # Check if we need to extract new terms:
-                    # 1. User has no tracked products yet
-                    # 2. Preferences changed since last scan
-                    tracked_products = UserTrackedProduct.query.filter_by(
-                        user_id=user.id,
-                        is_active=True
-                    ).all()
-
-                    needs_extraction = (
-                        len(tracked_products) == 0 or
-                        (last_scan and last_scan.preferences_hash != current_hash)
-                    )
-
-                    if needs_extraction:
-                        logger.info(f"Extracting tracked products for user {user.id} (preferences changed or new user)")
-                        extracted = extract_tracked_products_for_user(user)
-                        if extracted:
-                            sync_tracked_products(user, extracted)
-                            total_extractions += 1
-                            # Refresh tracked products
-                            tracked_products = UserTrackedProduct.query.filter_by(
-                                user_id=user.id,
-                                is_active=True
-                            ).all()
-
-                    if not tracked_products:
-                        logger.debug(f"Skipping user {user.id} - no tracked products after extraction")
-                        continue
-
-                    # Check if scan already exists for today
-                    existing_scan = UserProductScan.query.filter_by(
-                        user_id=user.id,
-                        scan_date=today
-                    ).first()
-
-                    if existing_scan:
-                        # Skip if already completed today with same preferences
-                        if existing_scan.status == 'completed' and existing_scan.preferences_hash == current_hash:
-                            logger.info(f"Skipping user {user.id} - already scanned today with same preferences")
-                            continue
-                        # Delete incomplete results or re-scan due to preference change
-                        UserScanResult.query.filter_by(scan_id=existing_scan.id).delete()
-                        scan = existing_scan
-                    else:
-                        scan = UserProductScan(
-                            user_id=user.id,
-                            scan_date=today,
-                            status='running'
-                        )
-                        db.session.add(scan)
-
-                    scan.status = 'running'
-                    scan.preferences_hash = current_hash  # Save current preferences hash
-                    db.session.commit()
-
-                    # Get yesterday's results for comparison
-                    yesterday_scan = UserProductScan.query.filter_by(
-                        user_id=user.id,
-                        scan_date=yesterday
-                    ).first()
-
-                    yesterday_products = set()
-                    yesterday_prices = {}
-                    if yesterday_scan:
-                        yesterday_results = UserScanResult.query.filter_by(
-                            scan_id=yesterday_scan.id
-                        ).all()
-                        for r in yesterday_results:
-                            if r.product_id:
-                                yesterday_products.add(r.product_id)
-                                yesterday_prices[r.product_id] = {
-                                    'base': r.base_price,
-                                    'discount': r.discount_price
-                                }
-
-                    # Run searches
-                    user_total = 0
-                    new_count = 0
-                    discount_count = 0
-
-                    for tracked in tracked_products:
-                        try:
-                            embedding = get_embedding(tracked.search_term)
-                            results = search_by_vector(
-                                query_embedding=embedding,
-                                k=50,
-                                similarity_threshold=0.3,
-                                max_per_store=10
-                            )
-
-                            for product_data in results:
-                                product_id = product_data.get('id')
-                                is_new = product_id not in yesterday_products
-
-                                price_dropped = False
-                                was_discounted = False
-                                if product_id in yesterday_prices:
-                                    yp = yesterday_prices[product_id]
-                                    current_price = product_data.get('discount_price') or product_data.get('base_price')
-                                    old_price = yp.get('discount') or yp.get('base')
-                                    if current_price and old_price and current_price < old_price:
-                                        price_dropped = True
-                                    if not yp.get('discount') and product_data.get('discount_price'):
-                                        discount_count += 1
-
-                                result = UserScanResult(
-                                    scan_id=scan.id,
-                                    tracked_product_id=tracked.id,
-                                    product_id=product_id,
-                                    product_title=product_data.get('title'),
-                                    business_name=product_data.get('business', {}).get('name'),
-                                    similarity_score=product_data.get('similarity'),
-                                    base_price=product_data.get('base_price'),
-                                    discount_price=product_data.get('discount_price'),
-                                    is_new_today=is_new,
-                                    was_discounted_yesterday=was_discounted,
-                                    price_dropped_today=price_dropped
-                                )
-                                db.session.add(result)
-                                user_total += 1
-                                if is_new:
-                                    new_count += 1
-
-                        except Exception as search_err:
-                            logger.error(f"Error searching for '{tracked.search_term}': {search_err}")
-                            continue
-
-                    # Update scan summary
-                    scan.status = 'completed'
-                    scan.total_products_found = user_total
-                    scan.new_products_count = new_count
-                    scan.new_discounts_count = discount_count
-
-                    summary_parts = []
-                    if new_count > 0:
-                        summary_parts.append(f"{new_count} novih proizvoda")
-                    if discount_count > 0:
-                        summary_parts.append(f"{discount_count} novih popusta")
-                    if not summary_parts:
-                        summary_parts.append("Bez promjena od jučer")
-                    scan.summary_text = ", ".join(summary_parts)
-
-                    db.session.commit()
+                if result:
+                    user_total, new_count, discount_count = result
                     total_users_processed += 1
                     total_products_found += user_total
 
-                    logger.info(f"Completed scan for user {user.id}: {user_total} products, {new_count} new")
+                # Rate limit between users
+                time.sleep(DELAY_BETWEEN_USERS)
 
-                except Exception as user_err:
-                    logger.error(f"Error processing user {user.id}: {user_err}")
-                    db.session.rollback()
-                    continue
-
-            logger.info(f"Daily scan complete: {total_users_processed} users, {total_products_found} total products, {total_extractions} new extractions")
+            logger.info(f"Batch complete: {total_users_processed} users processed, {total_products_found} total products")
 
         except Exception as e:
             logger.error(f"Fatal error in daily scan: {e}")
@@ -332,6 +408,6 @@ def run_daily_scan():
 
 
 if __name__ == '__main__':
-    logger.info("Starting daily user product scan job")
+    logger.info("Starting daily user product scan job (round-robin)")
     run_daily_scan()
     logger.info("Daily scan job finished")

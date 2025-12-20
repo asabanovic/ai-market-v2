@@ -393,7 +393,7 @@
                   class="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
                 >
                   <Icon v-if="isRunningExtraction" name="mdi:loading" class="w-4 h-4 mr-2 animate-spin" />
-                  <Icon v-else name="mdi:auto-fix" class="w-4 h-4 mr-2" />
+                  <Icon v-else name="mdi:creation" class="w-4 h-4 mr-2" />
                   Izvuci iz preferencija
                 </button>
                 <button
@@ -429,7 +429,7 @@
                     @keyup.enter="addTrackingTerm"
                     type="text"
                     placeholder="Dodaj novi pojam..."
-                    class="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"
+                    class="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
                   />
                   <button
                     @click="addTrackingTerm"
@@ -447,7 +447,7 @@
                   <label class="text-sm font-medium text-gray-700">Datum skeniranja:</label>
                   <select
                     @change="(e) => loadScanDetails(Number((e.target as HTMLSelectElement).value))"
-                    class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"
+                    class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
                   >
                     <option v-for="scan in productScans" :key="scan.id" :value="scan.id">
                       {{ scan.scan_date }} - {{ scan.summary_text || 'Nema sazetka' }}
@@ -641,7 +641,7 @@ const tabs = [
   { id: 'searches', label: 'Pretrage', icon: 'mdi:magnify' },
   { id: 'engagements', label: 'Interakcije', icon: 'mdi:thumb-up' },
   { id: 'favorites', label: 'Omiljeni', icon: 'mdi:heart' },
-  { id: 'tracking', label: 'Praceni proizvodi', icon: 'mdi:package-variant-closed' },
+  { id: 'tracking', label: 'Praćeni proizvodi', icon: 'mdi:package-variant-closed' },
   { id: 'business', label: 'Biznisi', icon: 'mdi:store' },
   { id: 'otp', label: 'OTP', icon: 'mdi:cellphone-key' },
 ]
@@ -859,7 +859,32 @@ async function runManualScan() {
   try {
     const res = await post(`/api/admin/users/${userId}/run-scan`, {})
     if (res.success) {
-      alert(`Skeniranje zavrseno: ${res.total_found} proizvoda, ${res.new_count} novih`)
+      // Scan runs in background - poll for completion
+      const scanId = res.scan_id
+      let attempts = 0
+      const maxAttempts = 30 // 30 seconds max
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+        attempts++
+
+        try {
+          const scanRes = await get(`/api/admin/users/${userId}/product-scans/${scanId}`)
+          if (scanRes.success && scanRes.scan) {
+            if (scanRes.scan.status === 'completed') {
+              alert(`Skeniranje zavrseno: ${scanRes.scan.total_products_found} proizvoda, ${scanRes.scan.new_products_count} novih`)
+              await loadTrackingData()
+              return
+            } else if (scanRes.scan.status === 'failed') {
+              alert('Skeniranje nije uspjelo')
+              return
+            }
+          }
+        } catch {
+          // Scan might not be ready yet, continue polling
+        }
+      }
+      alert('Skeniranje traje predugo, osvjezite stranicu za rezultate')
       await loadTrackingData()
     } else {
       alert(res.error || 'Greska pri skeniranju')

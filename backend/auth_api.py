@@ -10,13 +10,45 @@ from models import User, UserDailyVisit
 from constants import BOSNIAN_CITIES
 
 
+# Streak milestone bonuses: {days: bonus_credits}
+STREAK_MILESTONES = {
+    3: 5,    # 3 days streak = +5 credits
+    7: 10,   # 7 days streak = +10 credits
+    14: 20,  # 14 days streak = +20 credits
+    30: 50,  # 30 days streak = +50 credits
+    60: 100, # 60 days streak = +100 credits
+}
+
+DAILY_ACTIVITY_BONUS = 2  # +2 credits for first activity each day
+
+
 def track_daily_visit(user_id: str):
     """
     Track a daily visit for a user. Creates one record per user per day.
     If a record already exists for today, updates last_seen and increments page_views.
+
+    Also handles:
+    - Daily activity bonus: +2 credits for first activity of the day
+    - Streak tracking: consecutive days of activity
+    - Milestone bonuses: extra credits at 3, 7, 14, 30, 60 day streaks
+
+    Returns dict with bonus info if any credits were awarded.
     """
+    bonus_info = {
+        'daily_bonus': 0,
+        'streak_bonus': 0,
+        'current_streak': 0,
+        'milestone_reached': None
+    }
+
     try:
         today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        # Get the user
+        user = User.query.get(user_id)
+        if not user:
+            return bonus_info
 
         # Try to find existing visit for today
         visit = UserDailyVisit.query.filter_by(
@@ -29,21 +61,69 @@ def track_daily_visit(user_id: str):
             visit.last_seen = datetime.now()
             visit.page_views = (visit.page_views or 1) + 1
         else:
-            # Create new visit for today
+            # Create new visit for today - this is first activity of the day!
             visit = UserDailyVisit(
                 user_id=user_id,
                 visit_date=today,
                 first_seen=datetime.now(),
                 last_seen=datetime.now(),
-                page_views=1
+                page_views=1,
+                daily_bonus_claimed=False
             )
             db.session.add(visit)
 
+        # Award daily bonus if not claimed yet today
+        if not visit.daily_bonus_claimed:
+            user.extra_credits = (user.extra_credits or 0) + DAILY_ACTIVITY_BONUS
+            visit.daily_bonus_claimed = True
+            bonus_info['daily_bonus'] = DAILY_ACTIVITY_BONUS
+
+            # Update streak
+            if user.last_activity_date == yesterday:
+                # Consecutive day - increment streak
+                user.current_streak = (user.current_streak or 0) + 1
+            elif user.last_activity_date == today:
+                # Already updated today, don't change streak
+                pass
+            else:
+                # Streak broken - start fresh
+                user.current_streak = 1
+
+            # Update last activity date
+            user.last_activity_date = today
+
+            # Update longest streak if current is higher
+            if user.current_streak > (user.longest_streak or 0):
+                user.longest_streak = user.current_streak
+
+            # Check for milestone bonus
+            current_streak = user.current_streak
+            last_milestone = user.last_streak_milestone or 0
+
+            for milestone_days, bonus_credits in sorted(STREAK_MILESTONES.items()):
+                if current_streak >= milestone_days and milestone_days > last_milestone:
+                    # Award milestone bonus
+                    user.extra_credits = (user.extra_credits or 0) + bonus_credits
+                    user.last_streak_milestone = milestone_days
+                    bonus_info['streak_bonus'] = bonus_credits
+                    bonus_info['milestone_reached'] = milestone_days
+                    app.logger.info(f"User {user_id} reached {milestone_days}-day streak, awarded {bonus_credits} bonus credits")
+                    break  # Only award one milestone at a time
+
+            bonus_info['current_streak'] = user.current_streak
+
         db.session.commit()
+
+        if bonus_info['daily_bonus'] > 0 or bonus_info['streak_bonus'] > 0:
+            app.logger.info(f"User {user_id} daily visit: +{bonus_info['daily_bonus']} daily, +{bonus_info['streak_bonus']} streak bonus, streak={bonus_info['current_streak']}")
+
+        return bonus_info
+
     except Exception as e:
         # Don't fail the main request if tracking fails
         app.logger.error(f"Error tracking daily visit for user {user_id}: {e}")
         db.session.rollback()
+        return bonus_info
 
 # Create blueprint
 auth_api_bp = Blueprint('auth_api', __name__, url_prefix='/auth')
@@ -215,8 +295,21 @@ def api_verify():
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
-        # Track daily visit (non-blocking)
-        track_daily_visit(user.id)
+        # Track daily visit and get bonus info
+        bonus_info = track_daily_visit(user.id)
+
+        # Refresh user to get updated credit values
+        db.session.refresh(user)
+
+        # Calculate next milestone
+        current_streak = user.current_streak or 0
+        next_milestone = None
+        next_milestone_bonus = None
+        for days, bonus in sorted(STREAK_MILESTONES.items()):
+            if days > current_streak:
+                next_milestone = days
+                next_milestone_bonus = bonus
+                break
 
         user_data = {
             'id': user.id,
@@ -230,10 +323,22 @@ def api_verify():
             'onboarding_completed': user.onboarding_completed or False,
             'welcome_guide_seen': user.welcome_guide_seen or False,
             'preferences': user.preferences or {},
-            'first_search_reward_claimed': user.first_search_reward_claimed or False
+            'first_search_reward_claimed': user.first_search_reward_claimed or False,
+            # Streak info
+            'current_streak': current_streak,
+            'longest_streak': user.longest_streak or 0,
+            'next_milestone': next_milestone,
+            'next_milestone_bonus': next_milestone_bonus,
+            'milestones': STREAK_MILESTONES
         }
 
-        return jsonify({'user': user_data}), 200
+        response_data = {'user': user_data}
+
+        # Include bonus info if any credits were just awarded
+        if bonus_info and (bonus_info.get('daily_bonus', 0) > 0 or bonus_info.get('streak_bonus', 0) > 0):
+            response_data['bonus_awarded'] = bonus_info
+
+        return jsonify(response_data), 200
 
     except Exception as e:
         app.logger.error(f"API verify error: {e}")
@@ -999,3 +1104,501 @@ def get_search_counts_jwt():
             'user_type': 'anonymous',
             'is_unlimited': False
         }), 200
+
+
+# =====================================================
+# RESEND VERIFICATION EMAIL
+# =====================================================
+
+@auth_api_bp.route('/resend-verification', methods=['POST', 'OPTIONS'])
+def resend_verification_email():
+    """Resend verification email to user"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        from sendgrid_utils import send_verification_email, generate_verification_token
+
+        data = request.get_json()
+        email = data.get('email') if data else None
+
+        # Check if request comes from authenticated user
+        auth_header = request.headers.get('Authorization')
+        user = None
+
+        if auth_header:
+            try:
+                token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+                payload = decode_jwt_token(token)
+                if payload:
+                    user = User.query.filter_by(id=payload['user_id']).first()
+            except Exception:
+                pass
+
+        # If no auth, require email in body
+        if not user and not email:
+            return jsonify({'error': 'Email je obavezan'}), 400
+
+        # Find user by email if not authenticated
+        if not user:
+            user = User.query.filter_by(email=email).first()
+
+        if not user:
+            return jsonify({'error': 'Korisnik nije pronađen'}), 404
+
+        if user.is_verified:
+            return jsonify({'error': 'Email je već verifikovan'}), 400
+
+        # Rate limiting: check if email was sent recently (within 60 seconds)
+        if user.verification_email_sent_at:
+            time_since_last = datetime.now() - user.verification_email_sent_at
+            if time_since_last.total_seconds() < 60:
+                remaining = 60 - int(time_since_last.total_seconds())
+                return jsonify({
+                    'error': f'Molimo sačekajte {remaining} sekundi prije ponovnog slanja',
+                    'retry_after': remaining
+                }), 429
+
+        # Generate new verification token
+        verification_token = generate_verification_token()
+        user.verification_token = verification_token
+        user.verification_token_expires = datetime.now() + timedelta(hours=24)
+        user.verification_email_sent_at = datetime.now()
+
+        db.session.commit()
+
+        # Send verification email
+        base_url = os.environ.get("BASE_URL", "https://popust.ba")
+        if send_verification_email(user.email, user.first_name, verification_token, base_url):
+            app.logger.info(f"Verification email resent to {user.email}")
+            return jsonify({
+                'success': True,
+                'message': 'Verifikacijski email je poslan'
+            }), 200
+        else:
+            return jsonify({'error': 'Greška pri slanju emaila'}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Resend verification error: {e}")
+        return jsonify({'error': 'Greška pri slanju emaila'}), 500
+
+
+# =====================================================
+# ADMIN EMAIL TEST ENDPOINTS
+# =====================================================
+
+@auth_api_bp.route('/admin/test-email/<template_type>', methods=['POST', 'OPTIONS'])
+@require_jwt_auth
+def test_email_template(template_type):
+    """Test email templates - Admin only. Sends to adnanxteam@gmail.com"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    # Check if user is admin
+    user = User.query.get(request.current_user_id)
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from sendgrid_utils import (
+        send_verification_email, send_welcome_email, send_password_reset_email,
+        send_invitation_email, send_contact_email, send_scan_summary_email,
+        generate_verification_token
+    )
+
+    test_email = "adnanxteam@gmail.com"
+    test_name = "Adnan"
+    base_url = os.environ.get("BASE_URL", "https://popust.ba")
+
+    try:
+        if template_type == 'verification':
+            token = generate_verification_token()
+            success = send_verification_email(test_email, test_name, token, base_url)
+            template_name = "Email Verification"
+
+        elif template_type == 'welcome':
+            success = send_welcome_email(test_email, test_name)
+            template_name = "Welcome Email"
+
+        elif template_type == 'password-reset':
+            token = generate_verification_token()
+            success = send_password_reset_email(test_email, test_name, token, base_url)
+            template_name = "Password Reset"
+
+        elif template_type == 'invitation':
+            token = generate_verification_token()
+            success = send_invitation_email(test_email, "Test Business", "manager", token, base_url)
+            template_name = "Business Invitation"
+
+        elif template_type == 'contact':
+            success = send_contact_email(test_name, test_email, "Ovo je test poruka sa kontakt forme.")
+            template_name = "Contact Form"
+
+        elif template_type == 'scan-summary':
+            # Create test summary data
+            test_summary = {
+                'total_products': 42,
+                'new_products': 5,
+                'new_discounts': 3,
+                'terms': [
+                    {
+                        'search_term': 'Nutella',
+                        'lowest_price': 7.99,
+                        'lowest_store': 'Bingo',
+                        'new_count': 2
+                    },
+                    {
+                        'search_term': 'Mlijeko',
+                        'lowest_price': 1.89,
+                        'lowest_store': 'Konzum',
+                        'new_count': 0
+                    },
+                    {
+                        'search_term': 'Coca Cola',
+                        'lowest_price': 2.49,
+                        'lowest_store': 'Robot',
+                        'new_count': 3
+                    }
+                ]
+            }
+            success = send_scan_summary_email(test_email, test_name, test_summary)
+            template_name = "Scan Summary"
+
+        elif template_type == 'weekly-summary':
+            from sendgrid_utils import send_weekly_summary_email
+            # Create comprehensive test data for weekly summary
+            test_summary = {
+                'total_products': 23,
+                'total_savings': 47.50,
+                'best_deals': [
+                    {
+                        'product': 'Nutella 750g',
+                        'store': 'Bingo',
+                        'original_price': 12.99,
+                        'discount_price': 8.99,
+                        'savings_percent': 31
+                    },
+                    {
+                        'product': 'Coca Cola 2L',
+                        'store': 'Konzum',
+                        'original_price': 3.49,
+                        'discount_price': 2.49,
+                        'savings_percent': 29
+                    },
+                    {
+                        'product': 'Cedevita 500g',
+                        'store': 'Robot',
+                        'original_price': 6.99,
+                        'discount_price': 4.99,
+                        'savings_percent': 29
+                    }
+                ],
+                'tracked_items': [
+                    {'product': 'Nutella 750g', 'store': 'Bingo', 'current_price': 8.99, 'price_change': -4.00},
+                    {'product': 'Mlijeko Meggle 1L', 'store': 'Konzum', 'current_price': 1.89, 'price_change': 0},
+                    {'product': 'Coca Cola 2L', 'store': 'Konzum', 'current_price': 2.49, 'price_change': -1.00},
+                    {'product': 'Cedevita 500g', 'store': 'Robot', 'current_price': 4.99, 'price_change': -2.00},
+                    {'product': 'Jaja 10kom', 'store': 'Bingo', 'current_price': 3.29, 'price_change': 0.20},
+                    {'product': 'Pivo Sarajevsko 0.5L', 'store': 'Konzum', 'current_price': 1.79, 'price_change': 0},
+                    {'product': 'Kafa Grand Gold 200g', 'store': 'Robot', 'current_price': 5.49, 'price_change': -0.50},
+                    {'product': 'Ulje Zvijezda 1L', 'store': 'Bingo', 'current_price': 2.99, 'price_change': 0}
+                ],
+                'price_drops': [
+                    {'product': 'Nutella 750g', 'drop_amount': 4.00},
+                    {'product': 'Cedevita 500g', 'drop_amount': 2.00},
+                    {'product': 'Coca Cola 2L', 'drop_amount': 1.00},
+                    {'product': 'Kafa Grand Gold 200g', 'drop_amount': 0.50}
+                ],
+                'new_products': [
+                    {'product': 'Milka Oreo 100g', 'store': 'Bingo', 'price': 2.99},
+                    {'product': 'Dorina Lješnjak 200g', 'store': 'Konzum', 'price': 3.49},
+                    {'product': 'Čokolino 500g', 'store': 'Robot', 'price': 4.29}
+                ]
+            }
+            success = send_weekly_summary_email(test_email, test_name, test_summary)
+            template_name = "Weekly Summary"
+
+        else:
+            return jsonify({'error': f'Unknown template type: {template_type}'}), 400
+
+        if success:
+            app.logger.info(f"Test email '{template_name}' sent to {test_email}")
+            return jsonify({
+                'success': True,
+                'message': f'{template_name} email sent to {test_email}'
+            }), 200
+        else:
+            return jsonify({'error': f'Failed to send {template_name} email'}), 500
+
+    except Exception as e:
+        app.logger.error(f"Test email error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@auth_api_bp.route('/admin/send-scan-summary/<user_id>', methods=['POST', 'OPTIONS'])
+@require_jwt_auth
+def admin_send_scan_summary(user_id):
+    """Manually trigger scan summary email for a specific user - Admin only"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    # Check if user is admin
+    admin_user = User.query.get(request.current_user_id)
+    if not admin_user or not admin_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from jobs.send_scan_email_summaries import get_scan_summary_for_user, send_scan_summary_email
+
+    try:
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if not target_user.email:
+            return jsonify({'error': 'User has no email address'}), 400
+
+        # Get today's scan summary
+        today = date.today()
+        summary = get_scan_summary_for_user(target_user.id, today)
+
+        if not summary or summary['total_products'] == 0:
+            return jsonify({
+                'error': 'No scan data found for today. Run a scan first.',
+                'has_scan': False
+            }), 404
+
+        # Send email
+        if send_scan_summary_email(target_user, summary):
+            app.logger.info(f"Admin triggered scan summary email for user {user_id}")
+            return jsonify({
+                'success': True,
+                'message': f'Scan summary sent to {target_user.email}',
+                'summary': {
+                    'total_products': summary['total_products'],
+                    'new_products': summary['new_products'],
+                    'new_discounts': summary['new_discounts'],
+                    'terms_count': len(summary['terms'])
+                }
+            }), 200
+        else:
+            return jsonify({'error': 'Failed to send email (notifications may be disabled)'}), 500
+
+    except Exception as e:
+        app.logger.error(f"Admin scan summary error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def get_weekly_summary_for_user(user_id: str, top_n: int = 2) -> dict:
+    """
+    Generate weekly summary data from actual database records.
+
+    Groups results by tracked search term and returns only TOP N products per term
+    (sorted by lowest price). This provides realistic statistics instead of showing
+    all 400+ matching products.
+
+    Args:
+        user_id: The user ID to generate summary for
+        top_n: Number of top products to show per tracked term (default: 2)
+
+    Returns dict formatted for send_weekly_summary_email function.
+    """
+    from models import UserTrackedProduct, UserProductScan, UserScanResult
+    from datetime import timedelta
+
+    # Get user's tracked products
+    tracked_products = UserTrackedProduct.query.filter_by(
+        user_id=user_id,
+        is_active=True
+    ).all()
+
+    if not tracked_products:
+        return None
+
+    # Create lookup map for tracked products
+    tracked_map = {tp.id: tp for tp in tracked_products}
+
+    # Get scans from last 7 days
+    week_ago = date.today() - timedelta(days=7)
+
+    # Get the most recent scan
+    latest_scan = UserProductScan.query.filter(
+        UserProductScan.user_id == user_id,
+        UserProductScan.scan_date >= week_ago,
+        UserProductScan.status == 'completed'
+    ).order_by(UserProductScan.scan_date.desc()).first()
+
+    if not latest_scan:
+        return None
+
+    # Get all results from latest scan
+    scan_results = UserScanResult.query.filter_by(scan_id=latest_scan.id).all()
+
+    if not scan_results:
+        return None
+
+    # Group results by tracked product (search term)
+    results_by_term = {}
+    for result in scan_results:
+        tracked = tracked_map.get(result.tracked_product_id)
+        if not tracked:
+            continue
+
+        term = tracked.search_term
+        if term not in results_by_term:
+            results_by_term[term] = {
+                'search_term': term,
+                'original_text': tracked.original_text,
+                'products': []
+            }
+
+        current_price = float(result.discount_price or result.base_price or 0)
+        original_price = float(result.base_price or current_price)
+
+        results_by_term[term]['products'].append({
+            'product': result.product_title or term,
+            'store': result.business_name or 'Nepoznato',
+            'current_price': current_price,
+            'original_price': original_price,
+            'discount_price': float(result.discount_price) if result.discount_price else None,
+            'is_new': result.is_new_today,
+            'price_dropped': result.price_dropped_today
+        })
+
+    # Now select TOP N products per term (by lowest current price)
+    tracked_items = []
+    best_deals = []
+    price_drops = []
+    new_products = []
+    total_savings = 0
+
+    for term, data in results_by_term.items():
+        # Sort products by current price (lowest first)
+        products = sorted(data['products'], key=lambda x: x['current_price'] if x['current_price'] > 0 else float('inf'))
+
+        # Take only TOP N products per term
+        top_products = products[:top_n]
+
+        for product in top_products:
+            # Add to tracked items
+            price_change = 0
+            if product['discount_price'] and product['original_price'] > product['discount_price']:
+                price_change = -(product['original_price'] - product['discount_price'])
+
+            tracked_items.append({
+                'product': product['product'],
+                'store': product['store'],
+                'current_price': product['current_price'],
+                'price_change': price_change,
+                'search_term': term  # Include term for grouping in email
+            })
+
+            # Best deals - products with discounts (calculate savings per item, not total)
+            if product['discount_price'] and product['original_price'] > product['discount_price']:
+                savings_pct = ((product['original_price'] - product['discount_price']) / product['original_price']) * 100
+
+                best_deals.append({
+                    'product': product['product'],
+                    'store': product['store'],
+                    'original_price': product['original_price'],
+                    'discount_price': product['discount_price'],
+                    'savings_percent': savings_pct
+                })
+
+            # Price drops
+            if product['price_dropped']:
+                if product['discount_price'] and product['original_price'] > product['discount_price']:
+                    drop_amount = product['original_price'] - product['discount_price']
+                    price_drops.append({
+                        'product': product['product'],
+                        'drop_amount': drop_amount
+                    })
+
+            # New products
+            if product['is_new']:
+                new_products.append({
+                    'product': product['product'],
+                    'store': product['store'],
+                    'price': product['current_price']
+                })
+
+        # Calculate realistic savings: best deal per term (what user would actually buy)
+        # Take only the BEST price per term for savings calculation
+        if top_products:
+            best_product = top_products[0]  # Already sorted by price
+            if best_product['discount_price'] and best_product['original_price'] > best_product['discount_price']:
+                total_savings += (best_product['original_price'] - best_product['discount_price'])
+
+    # Sort best deals by savings percentage
+    best_deals.sort(key=lambda x: x['savings_percent'], reverse=True)
+
+    # Sort price drops by amount
+    price_drops.sort(key=lambda x: x['drop_amount'], reverse=True)
+
+    return {
+        'total_products': len(tracked_products),  # Number of tracked TERMS, not all matches
+        'total_matches': len(tracked_items),  # Total items shown (top_n per term)
+        'total_savings': round(total_savings, 2),  # Realistic savings (1 item per term)
+        'best_deals': best_deals[:5],
+        'tracked_items': tracked_items,  # All top_n items per term
+        'price_drops': price_drops[:5],
+        'new_products': new_products[:5],
+        'terms_count': len(results_by_term)  # How many terms had results
+    }
+
+
+@auth_api_bp.route('/admin/send-weekly-summary/<user_id>', methods=['POST', 'OPTIONS'])
+@require_jwt_auth
+def admin_send_weekly_summary(user_id):
+    """Send weekly summary email with REAL data from database - Admin only"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    # Check if user is admin
+    admin_user = User.query.get(request.current_user_id)
+    if not admin_user or not admin_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from sendgrid_utils import send_weekly_summary_email
+
+    try:
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if not target_user.email:
+            return jsonify({'error': 'User has no email address'}), 400
+
+        # Get real summary data from database
+        summary = get_weekly_summary_for_user(target_user.id)
+
+        if not summary or summary['total_products'] == 0:
+            return jsonify({
+                'error': 'No tracked products found for this user. Add products to track first.',
+                'has_data': False
+            }), 404
+
+        # Get user name
+        user_name = target_user.first_name or target_user.email.split('@')[0]
+
+        # Send email with real data
+        if send_weekly_summary_email(target_user.email, user_name, summary):
+            app.logger.info(f"Admin triggered weekly summary email for user {user_id}")
+            return jsonify({
+                'success': True,
+                'message': f'Weekly summary sent to {target_user.email}',
+                'summary': {
+                    'tracked_terms': summary['total_products'],  # Number of tracked terms
+                    'top_matches': summary.get('total_matches', len(summary['tracked_items'])),  # Top N per term
+                    'total_savings': summary['total_savings'],
+                    'terms_with_results': summary.get('terms_count', 0),
+                    'best_deals_count': len(summary['best_deals']),
+                    'price_drops_count': len(summary['price_drops']),
+                    'new_products_count': len(summary['new_products'])
+                }
+            }), 200
+        else:
+            return jsonify({'error': 'Failed to send email'}), 500
+
+    except Exception as e:
+        app.logger.error(f"Admin weekly summary error: {e}")
+        return jsonify({'error': str(e)}), 500

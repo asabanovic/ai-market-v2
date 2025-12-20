@@ -90,6 +90,17 @@
               </div>
             </div>
 
+            <!-- Streak Badge -->
+            <button
+              v-if="isAuthenticated && user"
+              @click="openStreakModal"
+              class="text-sm font-medium px-3 py-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-1.5"
+              title="Vaš streak - kliknite za detalje"
+            >
+              <span>{{ user?.current_streak >= 7 ? '🔥' : user?.current_streak >= 3 ? '🔥' : '✨' }}</span>
+              <span class="font-bold">{{ user?.current_streak || 0 }}</span>
+            </button>
+
             <!-- Search Counter -->
             <NuxtLink
               v-if="searchCounts"
@@ -158,6 +169,14 @@
                     >
                       <Icon name="mdi:account" class="w-4 h-4 mr-2" />
                       Moj profil
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/moji-proizvodi"
+                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <Icon name="mdi:tag-search" class="w-4 h-4 mr-2" />
+                      Moji proizvodi
                     </NuxtLink>
                     <NuxtLink
                       v-if="user?.is_admin"
@@ -252,6 +271,17 @@
             </select>
           </div>
 
+          <!-- Mobile Streak Badge -->
+          <button
+            v-if="isAuthenticated && user"
+            @click="openStreakModal"
+            class="text-sm font-medium px-3 py-2 rounded-md mx-3 mb-2 border border-purple-200 bg-purple-50 text-purple-700 flex items-center gap-2 w-[calc(100%-1.5rem)]"
+          >
+            <span>{{ user?.current_streak >= 7 ? '🔥' : user?.current_streak >= 3 ? '🔥' : '✨' }}</span>
+            <span class="font-bold">{{ user?.current_streak || 0 }}</span>
+            <span class="text-purple-600">dana streak</span>
+          </button>
+
           <div
             v-if="searchCounts"
             :class="[
@@ -289,6 +319,10 @@
               <Icon name="mdi:account" class="w-4 h-4 inline mr-2" />
               Moj profil
             </NuxtLink>
+            <NuxtLink to="/moji-proizvodi" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+              <Icon name="mdi:tag-search" class="w-4 h-4 inline mr-2" />
+              Moji proizvodi
+            </NuxtLink>
             <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
               <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />
               Admin Dashboard
@@ -318,6 +352,9 @@
 
     <!-- Toast Container -->
     <ToastContainer />
+
+    <!-- Streak Timeline Modal -->
+    <StreakTimeline ref="streakTimelineRef" />
   </nav>
 
     <!-- Mobile Bottom Navigation (outside nav to avoid hydration issues) -->
@@ -336,6 +373,13 @@ const showMobileMenu = ref(false)
 const showProfileDropdown = ref(false)
 const showSidebar = ref(false)
 const logoError = ref(false)
+
+// Streak timeline ref
+const streakTimelineRef = ref<{ openModal: () => void } | null>(null)
+
+function openStreakModal() {
+  streakTimelineRef.value?.openModal()
+}
 
 // City selector state
 const showCityDropdown = ref(false)

@@ -22,3 +22,4 @@ langchain-core>=0.3.0
 twilio
 boto3>=1.34.0
 duckduckgo_search>=6.0.0
+sendgrid>=6.10.0

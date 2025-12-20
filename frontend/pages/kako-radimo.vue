@@ -242,53 +242,84 @@
             </svg>
           </div>
           <h2 class="text-3xl font-bold text-gray-900 mb-4">Sistem kredita - fer i transparentan</h2>
-          <p class="text-lg text-gray-600">Plaćate samo za uspješne pretrage koje vam stvarno pomažu</p>
+          <p class="text-lg text-gray-600">Krediti se koriste za praćenje proizvoda - pretraga je BESPLATNA!</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
-            <div class="text-4xl mb-4">🎁</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">Besplatno bez rezultata</h3>
+            <div class="text-4xl mb-4">🔍</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">Pretraga BESPLATNA</h3>
             <p class="text-gray-600">
-              Ako pretraga ne vrati rezultate, ne trošite kredit! Krediti se troše samo kada pronađemo proizvode koji vas zanimaju.
+              Pretražujte koliko god želite - pretraga je potpuno besplatna za sve korisnike! Nema limita.
             </p>
           </div>
 
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
             <div class="text-4xl mb-4">📅</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">40 kredita sedmično</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">40 kredita mjesečno</h3>
             <p class="text-gray-600">
-              Registrovani korisnici dobijaju 40 kredita svake sedmice koji se obnavljaju svakog ponedjeljka. Neregistrovani dobijaju 1 besplatni test dnevno.
+              Dobijate 40 kredita svakog mjeseca za praćenje proizvoda (1 kredit = 1 proizvod). Krediti se obnavljaju 1. u mjesecu.
             </p>
           </div>
 
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
-            <div class="text-4xl mb-4">🚀</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">Bonus krediti</h3>
+            <div class="text-4xl mb-4">🔥</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">Zarađujte kredite</h3>
             <p class="text-gray-600">
-              Zaradite dodatne kredite kroz referral program (100 po referralu) koji se NIKAD ne resetuju i ostaju zauvijek!
+              Aktivnošću zarađujete bonus kredite: dnevna aktivnost (+2), streak bonusi, glasanje (+2), komentari (+5).
             </p>
           </div>
         </div>
 
+        <!-- Streak Bonuses -->
+        <div class="bg-white rounded-xl p-6 mb-6">
+          <h4 class="font-semibold text-gray-900 mb-4 text-center">Streak bonusi - nagrade za redovnu aktivnost</h4>
+          <div class="flex flex-wrap justify-center gap-4">
+            <div class="text-center px-4 py-2 bg-purple-50 rounded-lg">
+              <span class="block text-lg font-bold text-purple-600">3 dana</span>
+              <span class="text-sm text-gray-600">+5 kredita</span>
+            </div>
+            <div class="text-center px-4 py-2 bg-purple-50 rounded-lg">
+              <span class="block text-lg font-bold text-purple-600">7 dana</span>
+              <span class="text-sm text-gray-600">+10 kredita</span>
+            </div>
+            <div class="text-center px-4 py-2 bg-purple-50 rounded-lg">
+              <span class="block text-lg font-bold text-purple-600">14 dana</span>
+              <span class="text-sm text-gray-600">+20 kredita</span>
+            </div>
+            <div class="text-center px-4 py-2 bg-purple-50 rounded-lg">
+              <span class="block text-lg font-bold text-purple-600">30 dana</span>
+              <span class="text-sm text-gray-600">+50 kredita</span>
+            </div>
+            <div class="text-center px-4 py-2 bg-purple-50 rounded-lg">
+              <span class="block text-lg font-bold text-purple-600">60 dana</span>
+              <span class="text-sm text-gray-600">+100 kredita</span>
+            </div>
+          </div>
+        </div>
+
         <div class="bg-white rounded-xl p-6">
-          <h4 class="font-semibold text-gray-900 mb-4 text-center">Kako se troše krediti?</h4>
+          <h4 class="font-semibold text-gray-900 mb-4 text-center">Šta je besplatno, a šta troši kredite?</h4>
           <div class="space-y-3 max-w-2xl mx-auto">
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span class="text-gray-700">Pretraga koja vrati proizvode</span>
+            <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <span class="text-gray-700">Pretraga proizvoda</span>
+              <span class="font-semibold text-green-600">BESPLATNO</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <span class="text-gray-700">Pregledanje detalja proizvoda</span>
+              <span class="font-semibold text-green-600">BESPLATNO</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <span class="text-gray-700">Primanje email notifikacija</span>
+              <span class="font-semibold text-green-600">BESPLATNO</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+              <span class="text-gray-700">Praćenje proizvoda (price alert)</span>
               <span class="font-semibold text-purple-600">1 kredit</span>
             </div>
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span class="text-gray-700">Pretraga bez rezultata</span>
-              <span class="font-semibold text-green-600">BESPLATNO</span>
-            </div>
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span class="text-gray-700">Pregledanje proizvoda, lista, favorita</span>
-              <span class="font-semibold text-green-600">BESPLATNO</span>
-            </div>
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span class="text-gray-700">Primanje notifikacija</span>
-              <span class="font-semibold text-green-600">BESPLATNO</span>
+            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <span class="text-gray-700">Uklanjanje praćenja</span>
+              <span class="font-semibold text-blue-600">+1 kredit vraćen</span>
             </div>
           </div>
         </div>
@@ -440,33 +471,33 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div class="bg-white rounded-xl p-6 shadow-md">
-            <div class="text-3xl mb-4">⚡</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">40 sedmičnih pretraga</h3>
-            <p class="text-gray-600 text-sm">Umjesto 1 besplatnog testa, dobijate 40 kredita sedmično koji se obnavljaju svakog ponedjeljka.</p>
+            <div class="text-3xl mb-4">🔍</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Neograničena pretraga</h3>
+            <p class="text-gray-600 text-sm">Pretražujte proizvode koliko god želite - potpuno besplatno i bez limita!</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
-            <div class="text-3xl mb-4">📱</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">SMS notifikacije</h3>
-            <p class="text-gray-600 text-sm">Primajte notifikacije kada proizvodi koje pratite padnu na popust.</p>
+            <div class="text-3xl mb-4">📅</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">40 kredita mjesečno</h3>
+            <p class="text-gray-600 text-sm">Pratite do 40 proizvoda mjesečno. Kada uklonite praćenje, kredit se vraća!</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
-            <div class="text-3xl mb-4">📋</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Liste za kupovinu</h3>
-            <p class="text-gray-600 text-sm">Kreirajte i sačuvajte liste, organizovane po trgovinama sa ukupnim iznosom.</p>
+            <div class="text-3xl mb-4">🔥</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Streak bonusi</h3>
+            <p class="text-gray-600 text-sm">Dnevna aktivnost (+2), streak bonusi do +100 kredita za redovnu aktivnost.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
-            <div class="text-3xl mb-4">❤️</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Omiljeni proizvodi</h3>
-            <p class="text-gray-600 text-sm">Pratite cijene proizvoda koji vas zanimaju kroz vrijeme.</p>
+            <div class="text-3xl mb-4">📧</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Email notifikacije</h3>
+            <p class="text-gray-600 text-sm">Primajte obavještenja kada praćeni proizvodi padnu na popust.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
-            <div class="text-3xl mb-4">📊</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Historija pretraga</h3>
-            <p class="text-gray-600 text-sm">Sve vaše pretrage i liste se čuvaju i možete ih pregledati bilo kada.</p>
+            <div class="text-3xl mb-4">💬</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Zarađujte aktivnošću</h3>
+            <p class="text-gray-600 text-sm">Glasajte (+2 kredita) i komentirajte proizvode (+5 kredita) za dodatne kredite.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
@@ -479,7 +510,7 @@
         <div v-if="!isAuthenticated" class="text-center mt-12">
           <NuxtLink to="/registracija"
              class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-10 py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition duration-200 inline-block shadow-xl transform hover:scale-105">
-            🚀 Registrujte se za 10 sekundi
+            Registrujte se za 10 sekundi
           </NuxtLink>
           <p class="text-sm text-gray-600 mt-4">Bez kreditne kartice. Bez obaveza. Uvijek besplatno.</p>
         </div>
