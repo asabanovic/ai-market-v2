@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""
+Unified job scheduler for all background tasks.
+Runs as a single process and executes jobs at their scheduled times.
+
+Usage:
+  python jobs/scheduler.py
+
+On Railway, run this as a separate worker service.
+"""
+
+import os
+import sys
+import time
+import threading
+from datetime import datetime, timedelta
+import logging
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Track last run times to prevent duplicate runs
+last_run = {}
+
+
+class Job:
+    """Represents a scheduled job."""
+
+    def __init__(self, name: str, hour: int, minute: int, func, enabled: bool = True):
+        self.name = name
+        self.hour = hour  # UTC hour (0-23)
+        self.minute = minute  # Minute (0-59)
+        self.func = func
+        self.enabled = enabled
+
+    def should_run(self, now: datetime) -> bool:
+        """Check if job should run at current time."""
+        if not self.enabled:
+            return False
+
+        # Check if it's the right time (within 1 minute window)
+        if now.hour != self.hour or now.minute != self.minute:
+            return False
+
+        # Check if already ran today
+        today = now.date()
+        last = last_run.get(self.name)
+        if last and last.date() == today:
+            return False
+
+        return True
+
+    def run(self):
+        """Execute the job."""
+        try:
+            logger.info(f"Starting job: {self.name}")
+            start_time = time.time()
+
+            self.func()
+
+            elapsed = time.time() - start_time
+            logger.info(f"Completed job: {self.name} in {elapsed:.1f}s")
+            last_run[self.name] = datetime.utcnow()
+
+        except Exception as e:
+            logger.error(f"Job {self.name} failed: {e}", exc_info=True)
+
+
+def run_scan_job():
+    """Run the product scan job."""
+    from jobs.scan_user_products import run_daily_scan
+    run_daily_scan()
+
+
+def run_email_summary_job():
+    """Run the email summary job."""
+    from jobs.send_scan_email_summaries import run_email_summaries
+    run_email_summaries()
+
+
+def run_monthly_credits_job():
+    """Run monthly credits allocation (1st of each month)."""
+    now = datetime.utcnow()
+    if now.day != 1:
+        logger.info("Skipping monthly credits - not the 1st of month")
+        return
+
+    from credits_service_monthly import allocate_monthly_credits
+    allocate_monthly_credits()
+
+
+# Define all scheduled jobs
+JOBS = [
+    # Product scan - runs at 6:00 AM UTC daily
+    Job("product_scan", hour=6, minute=0, func=run_scan_job),
+
+    # Email summaries - runs at 7:00 AM UTC daily (after scan completes)
+    Job("email_summary", hour=7, minute=0, func=run_email_summary_job),
+
+    # Monthly credits - runs at 0:05 AM UTC on 1st of month
+    Job("monthly_credits", hour=0, minute=5, func=run_monthly_credits_job),
+]
+
+
+def get_job_status():
+    """Get status of all jobs for monitoring."""
+    status = []
+    now = datetime.utcnow()
+
+    for job in JOBS:
+        next_run = datetime(now.year, now.month, now.day, job.hour, job.minute)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+
+        status.append({
+            'name': job.name,
+            'enabled': job.enabled,
+            'scheduled_time': f"{job.hour:02d}:{job.minute:02d} UTC",
+            'last_run': last_run.get(job.name, None),
+            'next_run': next_run,
+        })
+
+    return status
+
+
+def main():
+    """Main scheduler loop."""
+    logger.info("=" * 60)
+    logger.info("Starting unified job scheduler")
+    logger.info(f"Registered {len(JOBS)} jobs:")
+    for job in JOBS:
+        status = "enabled" if job.enabled else "disabled"
+        logger.info(f"  - {job.name}: {job.hour:02d}:{job.minute:02d} UTC ({status})")
+    logger.info("=" * 60)
+
+    check_interval = 30  # Check every 30 seconds
+
+    while True:
+        try:
+            now = datetime.utcnow()
+
+            for job in JOBS:
+                if job.should_run(now):
+                    # Run job in a separate thread to not block scheduler
+                    thread = threading.Thread(target=job.run, name=job.name)
+                    thread.start()
+
+            time.sleep(check_interval)
+
+        except KeyboardInterrupt:
+            logger.info("Scheduler stopped by user")
+            break
+        except Exception as e:
+            logger.error(f"Scheduler error: {e}", exc_info=True)
+            time.sleep(60)  # Wait a bit before retrying
+
+
+if __name__ == "__main__":
+    # Import Flask app context
+    from app import app
+
+    with app.app_context():
+        main()

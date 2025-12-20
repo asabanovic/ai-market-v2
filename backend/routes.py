@@ -1302,7 +1302,7 @@ def api_products():
             'total': paginated.total,
             'total_pages': paginated.pages,
             'category_counts': category_counts,
-            'credits_cost': PRODUCTS_PAGE_COST if page > 1 else 0,
+            'credits_cost': 0,  # Products browsing is free
             'can_paginate': can_paginate
         }
 
