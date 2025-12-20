@@ -313,51 +313,112 @@ def get_cohort_analysis():
 @jwt_admin_required
 def get_email_engagement():
     """
-    Get email engagement statistics from SendGrid.
+    Get email engagement statistics from our database (populated by SendGrid webhook).
 
-    Note: This requires SendGrid's Event Webhook to be set up to POST events
-    to our API, or we need to query SendGrid's Stats API.
-
-    For now, returns placeholder structure that can be populated once
-    SendGrid webhook is configured.
+    Query params:
+    - days: int (default 30) - number of days to look back
     """
-    import os
-    from datetime import datetime, timedelta
+    from app import db
+    from models import EmailEvent
 
-    # Check if SendGrid API key is configured
-    sendgrid_api_key = os.environ.get("SENDGRID_API_KEY")
-
-    if not sendgrid_api_key:
-        return jsonify({
-            'enabled': False,
-            'message': 'SendGrid API key not configured',
-            'stats': None
-        })
-
-    # TODO: Implement actual SendGrid stats API call
-    # For now, return structure showing what data will be available
+    days = request.args.get('days', 30, type=int)
 
     try:
-        # This would call SendGrid Stats API:
-        # GET https://api.sendgrid.com/v3/stats?start_date=2024-01-01
+        today = date.today()
+        start_date = today - timedelta(days=days)
 
-        # Placeholder structure
+        # Count events by type
+        delivered_count = EmailEvent.query.filter(
+            EmailEvent.event_type == 'delivered',
+            func.date(EmailEvent.timestamp) >= start_date
+        ).count()
+
+        opened_count = EmailEvent.query.filter(
+            EmailEvent.event_type == 'open',
+            func.date(EmailEvent.timestamp) >= start_date
+        ).count()
+
+        clicked_count = EmailEvent.query.filter(
+            EmailEvent.event_type == 'click',
+            func.date(EmailEvent.timestamp) >= start_date
+        ).count()
+
+        bounced_count = EmailEvent.query.filter(
+            EmailEvent.event_type.in_(['bounce', 'dropped']),
+            func.date(EmailEvent.timestamp) >= start_date
+        ).count()
+
+        # Unique users who opened/clicked
+        unique_openers = db.session.query(func.count(func.distinct(EmailEvent.email))).filter(
+            EmailEvent.event_type == 'open',
+            func.date(EmailEvent.timestamp) >= start_date
+        ).scalar() or 0
+
+        unique_clickers = db.session.query(func.count(func.distinct(EmailEvent.email))).filter(
+            EmailEvent.event_type == 'click',
+            func.date(EmailEvent.timestamp) >= start_date
+        ).scalar() or 0
+
+        # Calculate rates
+        open_rate = round((opened_count / delivered_count * 100), 1) if delivered_count > 0 else 0
+        click_rate = round((clicked_count / delivered_count * 100), 1) if delivered_count > 0 else 0
+
+        # Daily breakdown for chart
+        daily_events = db.session.query(
+            func.date(EmailEvent.timestamp).label('date'),
+            EmailEvent.event_type,
+            func.count(EmailEvent.id).label('count')
+        ).filter(
+            func.date(EmailEvent.timestamp) >= start_date
+        ).group_by(
+            func.date(EmailEvent.timestamp),
+            EmailEvent.event_type
+        ).all()
+
+        # Build daily data
+        daily_data = {}
+        for event in daily_events:
+            date_str = str(event.date)
+            if date_str not in daily_data:
+                daily_data[date_str] = {'date': date_str, 'delivered': 0, 'opened': 0, 'clicked': 0}
+            if event.event_type == 'delivered':
+                daily_data[date_str]['delivered'] = event.count
+            elif event.event_type == 'open':
+                daily_data[date_str]['opened'] = event.count
+            elif event.event_type == 'click':
+                daily_data[date_str]['clicked'] = event.count
+
+        # Sort by date
+        daily_list = sorted(daily_data.values(), key=lambda x: x['date'])
+
+        # Recent click URLs (what users are clicking on)
+        recent_clicks = db.session.query(
+            EmailEvent.url,
+            func.count(EmailEvent.id).label('count')
+        ).filter(
+            EmailEvent.event_type == 'click',
+            EmailEvent.url.isnot(None),
+            func.date(EmailEvent.timestamp) >= start_date
+        ).group_by(EmailEvent.url).order_by(func.count(EmailEvent.id).desc()).limit(10).all()
+
+        top_urls = [{'url': r.url, 'clicks': r.count} for r in recent_clicks]
+
         return jsonify({
             'enabled': True,
-            'message': 'SendGrid integration ready - webhook setup required for click tracking',
-            'setup_instructions': {
-                'webhook_url': '/api/webhooks/sendgrid',
-                'events_to_track': ['click', 'open', 'delivered'],
-                'docs': 'https://docs.sendgrid.com/for-developers/tracking-events/event-webhook'
-            },
+            'webhook_url': 'https://popust.ba/api/webhooks/sendgrid',
             'stats': {
-                'emails_sent': 0,
-                'delivered': 0,
-                'opened': 0,
-                'clicked': 0,
-                'click_rate': 0,
-                'open_rate': 0
-            }
+                'delivered': delivered_count,
+                'opened': opened_count,
+                'clicked': clicked_count,
+                'bounced': bounced_count,
+                'unique_openers': unique_openers,
+                'unique_clickers': unique_clickers,
+                'open_rate': open_rate,
+                'click_rate': click_rate
+            },
+            'daily_activity': daily_list,
+            'top_clicked_urls': top_urls,
+            'period_days': days
         })
 
     except Exception as e:

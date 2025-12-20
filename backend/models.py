@@ -1094,3 +1094,41 @@ class UserScanResult(db.Model):
         db.Index('idx_scan_results_tracked', 'tracked_product_id'),
         db.Index('idx_scan_results_product', 'product_id'),
     )
+
+
+class EmailEvent(db.Model):
+    """Tracks email events from SendGrid webhook (opens, clicks, etc.)"""
+    __tablename__ = 'email_events'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # SendGrid event data
+    email = db.Column(db.String, nullable=False, index=True)
+    event_type = db.Column(db.String, nullable=False)  # 'open', 'click', 'delivered', 'bounce', etc.
+
+    # User reference (if we can match the email)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+    # Email metadata
+    sg_message_id = db.Column(db.String, nullable=True)  # SendGrid message ID
+    sg_event_id = db.Column(db.String, nullable=True, unique=True)  # Unique event ID to prevent duplicates
+
+    # Click-specific data
+    url = db.Column(db.String, nullable=True)  # URL clicked (for click events)
+
+    # Additional metadata
+    user_agent = db.Column(db.String, nullable=True)
+    ip = db.Column(db.String, nullable=True)
+
+    # Timestamps
+    timestamp = db.Column(db.DateTime, nullable=False)  # When SendGrid recorded the event
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('email_events', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_email_events_email', 'email'),
+        db.Index('idx_email_events_user', 'user_id'),
+        db.Index('idx_email_events_type', 'event_type'),
+        db.Index('idx_email_events_timestamp', 'timestamp'),
+    )
