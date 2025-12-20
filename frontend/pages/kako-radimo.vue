@@ -3,10 +3,10 @@
     <!-- Hero Section -->
     <div class="gradient-bg text-white py-16">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 class="text-5xl font-bold mb-6">Kako Popust.ba radi?</h1>
+        <h1 class="text-5xl font-bold mb-6">Kako funkcioniše Popust.ba?</h1>
         <p class="text-xl opacity-90 max-w-3xl mx-auto">
-          Revolucionarna platforma koja koristi umjetnu inteligenciju da pronađe najbolje popuste u vašem gradu.
-          Uštedite vrijeme i novac - prepustite pretraživanje nama!
+          Inovativna platforma koja koristi umjetnu inteligenciju kako bi pronašla najpovoljnije ponude u vašem gradu.
+          Uštedite vrijeme i novac - mi preuzimamo pretraživanje umjesto vas!
         </p>
       </div>
     </div>
@@ -20,10 +20,10 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
         </div>
-        <h2 class="text-4xl font-bold text-gray-900 mb-4">Vaš lični Popust asistent za kupovinu</h2>
+        <h2 class="text-4xl font-bold text-gray-900 mb-4">Vaš osobni asistent za povoljnu kupovinu</h2>
         <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-          Umjesto da provjeravate desetine web stranica i kataloga, samo pitajte Popust asistenta.
-          On pretražuje sve trgovine istovremeno i pronalazi najbolje ponude za vas.
+          Umjesto da provjeravate desetine internetskih stranica i kataloga, jednostavno upitajte Popust asistenta.
+          On istovremeno pretražuje sve prodavnice i pronalazi najpovoljnije ponude za vas.
         </p>
       </div>
 
@@ -31,7 +31,7 @@
       <div class="mb-20">
         <div class="text-center mb-12">
           <h2 class="text-3xl font-bold text-gray-900 mb-4">Za kupce - kako koristiti Popust</h2>
-          <p class="text-lg text-gray-600">4 jednostavna koraka do uštede</p>
+          <p class="text-lg text-gray-600">Četiri jednostavna koraka do uštede</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -40,9 +40,9 @@
             <div class="bg-gradient-to-br from-purple-500 to-purple-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
               1
             </div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">Pitajte Popust asistenta</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Postavite pitanje asistentu</h3>
             <p class="text-gray-600">
-              Jednostavno opišite šta vam treba prirodnim jezikom. "Trebam losos i piletinu" ili "Gdje kupiti najjeftiniji deterdžent?"
+              Jednostavno opišite što vam treba prirodnim jezikom. Na primjer: "Trebam losos i piletinu" ili "Gdje mogu kupiti najpovoljniji deterdžent?"
             </p>
             <div class="mt-4 p-3 bg-purple-50 rounded-lg text-sm text-purple-700">
               Popust razumije i najsloženije upite!
@@ -54,12 +54,12 @@
             <div class="bg-gradient-to-br from-blue-500 to-blue-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
               2
             </div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">Dobijte najbolje rezultate</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Dobijte najpovoljnije rezultate</h3>
             <p class="text-gray-600">
-              Popust pretražuje hiljade proizvoda iz svih trgovina u vašem gradu i prikazuje najjeftinije opcije sa trenutnim popustima.
+              Popust pretražuje hiljade proizvoda iz svih prodavnica u vašem gradu i prikazuje najpovoljnije opcije s aktuelnim sniženjima.
             </p>
             <div class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-              Rezultati u sekundi, ne minutima!
+              Rezultati u sekundi, ne u minutama!
             </div>
           </div>
 
@@ -70,10 +70,10 @@
             </div>
             <h3 class="text-xl font-semibold text-gray-900 mb-4">Uporedite cijene</h3>
             <p class="text-gray-600">
-              Vidite cijene iz različitih trgovina, procenat popusta, stare cijene i koliko možete uštedjeti na svakom proizvodu.
+              Pregledajte cijene iz različitih prodavnica, postotak sniženja, prethodne cijene i koliko možete uštedjeti na svakom proizvodu.
             </p>
             <div class="mt-4 p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              Transparentno, bez skrivenih troškova
+              Potpuna transparentnost, bez skrivenih troškova
             </div>
           </div>
 
@@ -84,10 +84,10 @@
             </div>
             <h3 class="text-xl font-semibold text-gray-900 mb-4">Kupujte pametno</h3>
             <p class="text-gray-600">
-              Kreirajte liste za kupovinu, dodajte proizvode u omiljene, primajte notifikacije kada su na popustu i štedite novac!
+              Kreirajte liste za kupovinu, dodajte proizvode u omiljene, primajte obavještenja kada budu na sniženju i štedite novac!
             </p>
             <div class="mt-4 p-3 bg-orange-50 rounded-lg text-sm text-orange-700">
-              Ušteda garantovana!
+              Ušteda je zagarantovana!
             </div>
           </div>
         </div>
@@ -102,8 +102,8 @@
               <path fill-rule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clip-rule="evenodd" />
             </svg>
           </div>
-          <h2 class="text-4xl font-bold mb-4">Moć umjetne inteligencije</h2>
-          <p class="text-xl opacity-90">Popust koristi napredne AI modele da razumije vaše potrebe</p>
+          <h2 class="text-4xl font-bold mb-4">Snaga umjetne inteligencije</h2>
+          <p class="text-xl opacity-90">Popust koristi napredne modele umjetne inteligencije kako bi razumio vaše potrebe</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -111,7 +111,7 @@
             <div class="text-4xl mb-4">🧠</div>
             <h3 class="text-xl font-semibold mb-3">Prirodno razumijevanje</h3>
             <p class="opacity-90">
-              Popust razumije kako vi pričate - ne morate biti precizni. "Trebam nešto za rostilj" je sasvim dovoljan upit.
+              Popust razumije kako vi govorite - ne morate biti precizni. "Trebam nešto za roštilj" je sasvim dovoljan upit.
             </p>
           </div>
 
@@ -127,7 +127,7 @@
             <div class="text-4xl mb-4">💡</div>
             <h3 class="text-xl font-semibold mb-3">Pametne preporuke</h3>
             <p class="opacity-90">
-              Popust pamti vaše preference i predlaže proizvode koji odgovaraju vašim potrebama i budžetu.
+              Popust pamti vaše preferencije i predlaže proizvode koji odgovaraju vašim potrebama i budžetu.
             </p>
           </div>
         </div>
@@ -136,8 +136,8 @@
       <!-- Features Grid -->
       <div class="mb-20">
         <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold text-gray-900 mb-4">Šta sve možete raditi?</h2>
-          <p class="text-lg text-gray-600">Sve što vam treba za pametniju kupovinu</p>
+          <h2 class="text-3xl font-bold text-gray-900 mb-4">Koje mogućnosti su vam dostupne?</h2>
+          <p class="text-lg text-gray-600">Sve što vam je potrebno za pametniju kupovinu</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -151,7 +151,7 @@
               </div>
               <div>
                 <h3 class="text-lg font-semibold text-gray-900 mb-2">Liste za kupovinu</h3>
-                <p class="text-gray-600 text-sm">Kreirajte liste, automatski se organizuju po trgovinama, vidite ukupan iznos i uštedu prije nego što odete u radnju.</p>
+                <p class="text-gray-600 text-sm">Kreirajte liste koje se automatski organizuju po prodavnicama, pregledajte ukupan iznos i uštedu prije odlaska u radnju.</p>
               </div>
             </div>
           </div>
@@ -165,8 +165,8 @@
                 </svg>
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">Notifikacije o popustima</h3>
-                <p class="text-gray-600 text-sm">Pratimo cijene proizvoda koji vas zanimaju i automatski vam šaljemo SMS/email kada padnu na popust.</p>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Obavještenja o sniženjima</h3>
+                <p class="text-gray-600 text-sm">Pratimo cijene proizvoda koji vas zanimaju i automatski vam šaljemo SMS ili e-poštu kada cijene padnu.</p>
               </div>
             </div>
           </div>
@@ -181,7 +181,7 @@
               </div>
               <div>
                 <h3 class="text-lg font-semibold text-gray-900 mb-2">Omiljeni proizvodi</h3>
-                <p class="text-gray-600 text-sm">Dodajte proizvode u omiljene i pratite njihove cijene kroz vrijeme. Automatski dobijate obavještenja o akcijama.</p>
+                <p class="text-gray-600 text-sm">Dodajte proizvode u omiljene i pratite njihove cijene kroz vrijeme. Automatski primate obavještenja o akcijama.</p>
               </div>
             </div>
           </div>
@@ -195,8 +195,8 @@
                 </svg>
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">Historija cijena</h3>
-                <p class="text-gray-600 text-sm">Vidite kako su se cijene mijenjale kroz vrijeme i procijenite da li je trenutni popust stvarno dobar.</p>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Pregled kretanja cijena</h3>
+                <p class="text-gray-600 text-sm">Pratite kako su se cijene mijenjale kroz vrijeme i procijenite da li je trenutno sniženje zaista povoljno.</p>
               </div>
             </div>
           </div>
@@ -210,8 +210,8 @@
                 </svg>
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">Praćenje historije</h3>
-                <p class="text-gray-600 text-sm">Sve vaše prethodne pretrage i liste se čuvaju. Uvijek možete vratiti stare rezultate i vidjeti kako ste štedili.</p>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Arhiva pretraga</h3>
+                <p class="text-gray-600 text-sm">Sve vaše prethodne pretrage i liste se čuvaju. Uvijek možete pregledati ranije rezultate i pratiti svoju uštedu.</p>
               </div>
             </div>
           </div>
@@ -225,8 +225,8 @@
                 </svg>
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">Referral program</h3>
-                <p class="text-gray-600 text-sm">Pozovite prijatelje i dobijte 100 kredita za svaki uspješan referral. Krediti se ne resetuju - ostaju zauvijek!</p>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Program preporuka</h3>
+                <p class="text-gray-600 text-sm">Pozovite prijatelje i zaradite 100 kredita za svaku uspješnu preporuku. Krediti ostaju trajno na vašem računu!</p>
               </div>
             </div>
           </div>
@@ -241,16 +241,16 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
             </svg>
           </div>
-          <h2 class="text-3xl font-bold text-gray-900 mb-4">Sistem kredita - fer i transparentan</h2>
-          <p class="text-lg text-gray-600">Krediti se koriste za praćenje proizvoda - pretraga je BESPLATNA!</p>
+          <h2 class="text-3xl font-bold text-gray-900 mb-4">Sistem kredita - pošten i transparentan</h2>
+          <p class="text-lg text-gray-600">Krediti se koriste za praćenje proizvoda - pretraga je potpuno BESPLATNA!</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
             <div class="text-4xl mb-4">🔍</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">Pretraga BESPLATNA</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">Pretraga je BESPLATNA</h3>
             <p class="text-gray-600">
-              Pretražujte koliko god želite - pretraga je potpuno besplatna za sve korisnike! Nema limita.
+              Pretražujte koliko god želite - pretraga je potpuno besplatna za sve korisnike, bez ikakvih ograničenja.
             </p>
           </div>
 
@@ -258,22 +258,22 @@
             <div class="text-4xl mb-4">📅</div>
             <h3 class="text-xl font-semibold text-gray-900 mb-3">40 kredita mjesečno</h3>
             <p class="text-gray-600">
-              Dobijate 40 kredita svakog mjeseca za praćenje proizvoda (1 kredit = 1 proizvod). Krediti se obnavljaju 1. u mjesecu.
+              Dobijate 40 kredita svakog mjeseca za praćenje proizvoda (1 kredit = 1 proizvod). Krediti se obnavljaju prvog u mjesecu.
             </p>
           </div>
 
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
             <div class="text-4xl mb-4">🔥</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">Zarađujte kredite</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">Zaradite dodatne kredite</h3>
             <p class="text-gray-600">
-              Aktivnošću zarađujete bonus kredite: dnevna aktivnost (+2), streak bonusi, glasanje (+2), komentari (+5).
+              Aktivnošću zarađujete bonus kredite: dnevna aktivnost (+2), bonusi za redovno korištenje, glasanje (+2), komentari (+5).
             </p>
           </div>
         </div>
 
         <!-- Streak Bonuses -->
         <div class="bg-white rounded-xl p-6 mb-6">
-          <h4 class="font-semibold text-gray-900 mb-4 text-center">Streak bonusi - nagrade za redovnu aktivnost</h4>
+          <h4 class="font-semibold text-gray-900 mb-4 text-center">Bonusi za redovnu aktivnost - nagrade za vjernost</h4>
           <div class="flex flex-wrap justify-center gap-4">
             <div class="text-center px-4 py-2 bg-purple-50 rounded-lg">
               <span class="block text-lg font-bold text-purple-600">3 dana</span>
@@ -299,26 +299,26 @@
         </div>
 
         <div class="bg-white rounded-xl p-6">
-          <h4 class="font-semibold text-gray-900 mb-4 text-center">Šta je besplatno, a šta troši kredite?</h4>
+          <h4 class="font-semibold text-gray-900 mb-4 text-center">Što je besplatno, a što zahtijeva kredite?</h4>
           <div class="space-y-3 max-w-2xl mx-auto">
             <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
               <span class="text-gray-700">Pretraga proizvoda</span>
               <span class="font-semibold text-green-600">BESPLATNO</span>
             </div>
             <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <span class="text-gray-700">Pregledanje detalja proizvoda</span>
+              <span class="text-gray-700">Pregled detalja proizvoda</span>
               <span class="font-semibold text-green-600">BESPLATNO</span>
             </div>
             <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <span class="text-gray-700">Primanje email notifikacija</span>
+              <span class="text-gray-700">Primanje obavještenja putem e-pošte</span>
               <span class="font-semibold text-green-600">BESPLATNO</span>
             </div>
             <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-              <span class="text-gray-700">Praćenje proizvoda (price alert)</span>
+              <span class="text-gray-700">Praćenje cijene proizvoda</span>
               <span class="font-semibold text-purple-600">1 kredit</span>
             </div>
             <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-              <span class="text-gray-700">Uklanjanje praćenja</span>
+              <span class="text-gray-700">Uklanjanje praćenja proizvoda</span>
               <span class="font-semibold text-blue-600">+1 kredit vraćen</span>
             </div>
           </div>
@@ -327,7 +327,7 @@
         <div v-if="!isAuthenticated" class="text-center mt-8">
           <NuxtLink to="/registracija"
              class="bg-green-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition duration-200 inline-block shadow-lg">
-            Registrujte se za 40 besplatnih kredita
+            Registrujte se i dobijte 40 besplatnih kredita
           </NuxtLink>
         </div>
       </div>
@@ -335,8 +335,8 @@
       <!-- For Businesses Section -->
       <div class="mb-20">
         <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold text-gray-900 mb-4">Za radnje i trgovine</h2>
-          <p class="text-lg text-gray-600">Povećajte prodaju i dosegnite ciljanu publiku</p>
+          <h2 class="text-3xl font-bold text-gray-900 mb-4">Za prodavnice i trgovce</h2>
+          <p class="text-lg text-gray-600">Povećajte prodaju i dođite do ciljanih kupaca</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
@@ -350,7 +350,7 @@
                 </div>
                 <div>
                   <h4 class="font-semibold text-gray-900 mb-1">Jednostavan unos</h4>
-                  <p class="text-gray-600 text-sm">Dodajte proizvode kroz obrazac, CSV fajl ili obični tekst - sistem automatski prepoznaje kategorije.</p>
+                  <p class="text-gray-600 text-sm">Dodajte proizvode putem obrasca, CSV datoteke ili običnog teksta - sistem automatski prepoznaje kategorije.</p>
                 </div>
               </div>
 
@@ -359,8 +359,8 @@
                   <span class="text-purple-600 font-bold">2</span>
                 </div>
                 <div>
-                  <h4 class="font-semibold text-gray-900 mb-1">AI kategorizacija</h4>
-                  <p class="text-gray-600 text-sm">Umjetna inteligencija automatski kategoriše proizvode i optimizuje ih za pretraživanje.</p>
+                  <h4 class="font-semibold text-gray-900 mb-1">Automatska kategorizacija</h4>
+                  <p class="text-gray-600 text-sm">Umjetna inteligencija automatski razvrstava proizvode i optimizira ih za pretraživanje.</p>
                 </div>
               </div>
 
@@ -370,7 +370,7 @@
                 </div>
                 <div>
                   <h4 class="font-semibold text-gray-900 mb-1">Trenutna vidljivost</h4>
-                  <p class="text-gray-600 text-sm">Vaši proizvodi postaju vidljivi svim korisnicima koji pretražuju odmah nakon dodavanja.</p>
+                  <p class="text-gray-600 text-sm">Vaši proizvodi postaju vidljivi svim korisnicima odmah nakon dodavanja.</p>
                 </div>
               </div>
             </div>
@@ -378,15 +378,15 @@
 
           <!-- Benefits for Businesses -->
           <div class="bg-gradient-to-br from-purple-600 to-blue-700 rounded-xl shadow-lg p-8 text-white">
-            <h3 class="text-2xl font-semibold mb-6">Prednosti za vašu radnju</h3>
+            <h3 class="text-2xl font-semibold mb-6">Prednosti za vašu prodavnicu</h3>
             <div class="space-y-4">
               <div class="flex items-start">
                 <svg class="w-6 h-6 mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                 </svg>
                 <div>
-                  <h4 class="font-semibold mb-1">Ciljna publika</h4>
-                  <p class="text-sm opacity-90">Dosegnite kupce koji aktivno traže baš vaše proizvode - to je najkvalitetniji trafik!</p>
+                  <h4 class="font-semibold mb-1">Ciljani kupci</h4>
+                  <p class="text-sm opacity-90">Dođite do kupaca koji aktivno traže upravo vaše proizvode - to su najkvalitetniji potencijalni kupci!</p>
                 </div>
               </div>
 
@@ -395,8 +395,8 @@
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                 </svg>
                 <div>
-                  <h4 class="font-semibold mb-1">Praćenje statistika</h4>
-                  <p class="text-sm opacity-90">Detaljne statistike pregleda, pretrage i konverzija za svaki proizvod i kategoriju.</p>
+                  <h4 class="font-semibold mb-1">Detaljna statistika</h4>
+                  <p class="text-sm opacity-90">Pregledajte detaljne podatke o pregledima, pretragama i konverzijama za svaki proizvod i kategoriju.</p>
                 </div>
               </div>
 
@@ -405,8 +405,8 @@
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                 </svg>
                 <div>
-                  <h4 class="font-semibold mb-1">Notifikacije korisnicima</h4>
-                  <p class="text-sm opacity-90">Korisnici koji prate vaše proizvode dobijaju automatske notifikacije o akcijama i sniženjima.</p>
+                  <h4 class="font-semibold mb-1">Automatska obavještenja</h4>
+                  <p class="text-sm opacity-90">Korisnici koji prate vaše proizvode automatski primaju obavještenja o akcijama i sniženjima.</p>
                 </div>
               </div>
 
@@ -415,8 +415,8 @@
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                 </svg>
                 <div>
-                  <h4 class="font-semibold mb-1">Konkurentna analiza</h4>
-                  <p class="text-sm opacity-90">Vidite kako se vaše cijene pozicioniraju u odnosu na konkurenciju i optimizujte ponudu.</p>
+                  <h4 class="font-semibold mb-1">Analiza konkurencije</h4>
+                  <p class="text-sm opacity-90">Pratite pozicioniranje vaših cijena u odnosu na konkurenciju i optimizirajte svoju ponudu.</p>
                 </div>
               </div>
             </div>
@@ -424,8 +424,8 @@
         </div>
 
         <div class="bg-green-50 border-2 border-green-200 rounded-xl p-8 text-center">
-          <h3 class="text-2xl font-bold text-gray-900 mb-4">Zainteresovani ste za partnerstvo?</h3>
-          <p class="text-gray-700 mb-6">Kontaktirajte nas i saznajte kako možete povećati prodaju kroz Popust platformu</p>
+          <h3 class="text-2xl font-bold text-gray-900 mb-4">Zainteresovani ste za saradnju?</h3>
+          <p class="text-gray-700 mb-6">Kontaktirajte nas i saznajte kako možete povećati prodaju putem platforme Popust.ba</p>
           <a href="mailto:info@popust.ba" class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200 inline-block">
             Kontaktirajte nas
           </a>
@@ -437,8 +437,8 @@
         <div class="text-center mb-12">
           <h2 class="text-3xl font-bold text-gray-900 mb-4">Napredna tehnologija</h2>
           <p class="text-lg text-gray-600">
-            Koristimo najnovije AI modele za razumijevanje prirodnog jezika i inteligentno pretraživanje.
-            Sistem kontinuirano uči i poboljšava se.
+            Koristimo najnovije modele umjetne inteligencije za razumijevanje prirodnog jezika i inteligentno pretraživanje.
+            Sistem se kontinuirano unaprjeđuje i poboljšava.
           </p>
         </div>
 
@@ -473,25 +473,25 @@
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">🔍</div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">Neograničena pretraga</h3>
-            <p class="text-gray-600 text-sm">Pretražujte proizvode koliko god želite - potpuno besplatno i bez limita!</p>
+            <p class="text-gray-600 text-sm">Pretražujte proizvode koliko god želite - potpuno besplatno i bez ikakvih ograničenja!</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">📅</div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">40 kredita mjesečno</h3>
-            <p class="text-gray-600 text-sm">Pratite do 40 proizvoda mjesečno. Kada uklonite praćenje, kredit se vraća!</p>
+            <p class="text-gray-600 text-sm">Pratite do 40 proizvoda mjesečno. Kada uklonite praćenje, kredit vam se vraća!</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">🔥</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Streak bonusi</h3>
-            <p class="text-gray-600 text-sm">Dnevna aktivnost (+2), streak bonusi do +100 kredita za redovnu aktivnost.</p>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Bonusi za aktivnost</h3>
+            <p class="text-gray-600 text-sm">Dnevna aktivnost (+2), bonusi za redovno korištenje do +100 kredita.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">📧</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Email notifikacije</h3>
-            <p class="text-gray-600 text-sm">Primajte obavještenja kada praćeni proizvodi padnu na popust.</p>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Obavještenja putem e-pošte</h3>
+            <p class="text-gray-600 text-sm">Primajte obavještenja kada praćeni proizvodi budu na sniženju.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
@@ -502,8 +502,8 @@
 
           <div class="bg-white rounded-xl p-6 shadow-md">
             <div class="text-3xl mb-4">🎁</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Referral program</h3>
-            <p class="text-gray-600 text-sm">Zaradite 100 ekstra kredita za svakog prijatelja koga pozovete!</p>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Program preporuka</h3>
+            <p class="text-gray-600 text-sm">Zaradite 100 dodatnih kredita za svakog prijatelja kojeg pozovete!</p>
           </div>
         </div>
 
@@ -525,14 +525,14 @@
         <div class="space-y-4 max-w-3xl mx-auto">
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Da li je Popust.ba potpuno besplatan?</span>
+              <span>Da li je Popust.ba u potpunosti besplatan?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Da! Popust.ba je potpuno besplatna platforma za sve korisnike. Nema skrivenih troškova, pretplata ili naknad.
-              Registrovani korisnici dobijaju 40 besplatnih pretraga sedmično, a mogu zaraditi dodatne kredite kroz referral program.
+              Da! Popust.ba je potpuno besplatna platforma za sve korisnike. Nema skrivenih troškova, pretplata ili naknada.
+              Registrovani korisnici dobijaju 40 besplatnih kredita mjesečno, a mogu zaraditi dodatne kredite kroz program preporuka.
             </p>
           </details>
 
@@ -544,8 +544,8 @@
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Popust koristi naprednu umjetnu inteligenciju koja razumije prirodan jezik i semantičko značenje vašeg upita.
-              Sistem pretražuje hiljade proizvoda iz svih partnertskih trgovina i prikazuje najbolje rezultate sa trenutnim popustima.
+              Popust koristi naprednu umjetnu inteligenciju koja razumije prirodni jezik i semantičko značenje vašeg upita.
+              Sistem pretražuje hiljade proizvoda iz svih partnerskih prodavnica i prikazuje najpovoljnije rezultate s aktuelnim sniženjima.
             </p>
           </details>
 
@@ -557,48 +557,48 @@
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Cijene se ažuriraju u realnom vremenu. Trgovine redovno šalju svoje aktuelne kataloge i akcije,
-              pa uvijek vidite najnovije cijene i popuste.
+              Cijene se ažuriraju u realnom vremenu. Prodavnice redovno dostavljaju svoje aktualne kataloge i akcije,
+              tako da uvijek vidite najnovije cijene i sniženja.
             </p>
           </details>
 
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Mogu li vjerovati prikazanim cijenama?</span>
+              <span>Mogu li se pouzdati u prikazane cijene?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Apsolutno! Sve cijene dolaze direktno od trgovina i ažuriraju se redovno. Ipak, preporučujemo da potvrdite cijenu
-              u trgovini prije kupovine, jer ponekad može doći do kašnjenja u ažuriranju ili greške.
+              Apsolutno! Sve cijene dolaze direktno od prodavnica i redovno se ažuriraju. Ipak, preporučujemo da potvrdite cijenu
+              u prodavnici prije kupovine, jer ponekad može doći do kašnjenja u ažuriranju ili greške.
             </p>
           </details>
 
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Mogu li kupiti direktno preko Popust.ba?</span>
+              <span>Mogu li kupiti direktno putem Popust.ba?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Trenutno Popust.ba služi kao platforma za pronalaženje najboljih ponuda. Kupovinu obavljate direktno u trgovinama
-              ili na njihovim web stranicama. Radimo na integraciji online kupovine za budućnost!
+              Trenutno Popust.ba služi kao platforma za pronalaženje najpovoljnijih ponuda. Kupovinu obavljate direktno u prodavnicama
+              ili na njihovim internetskim stranicama. Radimo na integraciji online kupovine za budućnost!
             </p>
           </details>
 
           <details class="bg-white rounded-lg shadow-md p-6 group">
             <summary class="font-semibold text-gray-900 cursor-pointer flex items-center justify-between">
-              <span>Kako funkcionišu notifikacije?</span>
+              <span>Kako funkcionišu obavještenja?</span>
               <svg class="w-5 h-5 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
-              Kada dodate proizvod u omiljene, mi pratimo njegovu cijenu. Čim cijena padne na popust ili
-              postane jeftinija od prethodne cijene, automatski vam šaljemo SMS ili email notifikaciju.
-              Možete birati koje notifikacije želite primati u postavkama.
+              Kada dodate proizvod u omiljene, mi pratimo njegovu cijenu. Čim cijena padne na sniženje ili
+              postane niža od prethodne, automatski vam šaljemo SMS ili e-poštu.
+              Možete odabrati koje obavještenja želite primati u postavkama.
             </p>
           </details>
         </div>
@@ -606,9 +606,9 @@
 
       <!-- Final CTA -->
       <div class="bg-gradient-to-r from-purple-600 via-purple-700 to-blue-700 rounded-2xl p-12 text-white text-center">
-        <h2 class="text-4xl font-bold mb-4">Spremni ste da počnete štediti?</h2>
+        <h2 class="text-4xl font-bold mb-4">Spremni ste da počnete štedjeti?</h2>
         <p class="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-          Pridružite se hiljadama korisnika koji već štede novac sa Popust asistentom
+          Pridružite se hiljadama korisnika koji već štede novac uz Popust asistenta
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <NuxtLink v-if="!isAuthenticated" to="/registracija"
@@ -617,7 +617,7 @@
           </NuxtLink>
           <NuxtLink to="/"
              class="bg-transparent border-2 border-white text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition duration-200">
-            Probajte pretragu odmah
+            Isprobajte pretragu odmah
           </NuxtLink>
         </div>
       </div>
@@ -630,10 +630,10 @@
 const { isAuthenticated } = useAuth()
 
 useSeoMeta({
-  title: 'Kako radimo - Popust.ba',
-  description: 'Saznajte kako Popust.ba koristi umjetnu inteligenciju da pronađe najbolje popuste i akcije u vašem gradu. Besplatno, brzo i efikasno!',
-  ogTitle: 'Kako Popust.ba radi - Popust asistent za pametniju kupovinu',
-  ogDescription: 'Revolucionarna platforma koja koristi AI da pronađe najbolje popuste. Registracija besplatna, 10 pretraga sedmično!',
+  title: 'Kako funkcionišemo - Popust.ba',
+  description: 'Saznajte kako Popust.ba koristi umjetnu inteligenciju kako bi pronašao najpovoljnije ponude i akcije u vašem gradu. Besplatno, brzo i efikasno!',
+  ogTitle: 'Kako Popust.ba funkcioniše - Popust asistent za pametniju kupovinu',
+  ogDescription: 'Inovativna platforma koja koristi umjetnu inteligenciju za pronalaženje najpovoljnijih ponuda. Registracija besplatna, neograničena pretraga!',
 })
 </script>
 
