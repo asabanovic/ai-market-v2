@@ -458,23 +458,33 @@ def get_jobs_status():
 def trigger_job(job_name):
     """Manually trigger a job by name."""
     import threading
+    from jobs.scheduler import last_run
+    from datetime import datetime
+
+    def run_and_track(job_func, job_name):
+        """Run job and update last_run tracking."""
+        try:
+            job_func()
+            last_run[job_name] = datetime.utcnow()
+        except Exception as e:
+            logger.error(f"Job {job_name} failed: {e}", exc_info=True)
 
     try:
         if job_name == 'product_scan':
             from jobs.scan_user_products import run_daily_scan
-            thread = threading.Thread(target=run_daily_scan)
+            thread = threading.Thread(target=run_and_track, args=(run_daily_scan, job_name))
             thread.start()
             return jsonify({'status': 'started', 'job': job_name})
 
         elif job_name == 'email_summary':
             from jobs.send_scan_email_summaries import run_email_summaries
-            thread = threading.Thread(target=run_email_summaries)
+            thread = threading.Thread(target=run_and_track, args=(run_email_summaries, job_name))
             thread.start()
             return jsonify({'status': 'started', 'job': job_name})
 
         elif job_name == 'monthly_credits':
             from credits_service_monthly import allocate_monthly_credits
-            thread = threading.Thread(target=allocate_monthly_credits)
+            thread = threading.Thread(target=run_and_track, args=(allocate_monthly_credits, job_name))
             thread.start()
             return jsonify({'status': 'started', 'job': job_name})
 
