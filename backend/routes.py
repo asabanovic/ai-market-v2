@@ -8979,8 +8979,8 @@ Only include specific, searchable product terms. Skip generic terms like "hrana"
 
 {items_text}
 
-Return JSON array like:
-[{{"search_term": "mlijeko", "original_text": "svježe mlijeko", "source": "grocery_interests"}}]"""
+Return JSON object with "items" array:
+{{"items": [{{"search_term": "mlijeko", "original_text": "svježe mlijeko", "source": "grocery_interests"}}]}}"""
 
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
@@ -8996,11 +8996,29 @@ Return JSON array like:
         result_text = response.choices[0].message.content.strip()
         result = json.loads(result_text)
 
-        # Handle various JSON formats
+        # Handle various JSON formats from OpenAI
+        # With json_object response format, AI always returns a dict
         if isinstance(result, dict):
-            extracted = result.get('items', result.get('products', result.get('terms', [])))
+            # Try common keys the AI might use
+            extracted = (
+                result.get('items') or
+                result.get('products') or
+                result.get('terms') or
+                result.get('results') or
+                result.get('extracted') or
+                result.get('data') or
+                []
+            )
+            # If still empty but dict has values that look like our items, find first list
+            if not extracted:
+                for key, val in result.items():
+                    if isinstance(val, list) and len(val) > 0:
+                        extracted = val
+                        break
         else:
             extracted = result
+
+        app.logger.info(f"AI extraction for user {user_id}: raw result keys={list(result.keys()) if isinstance(result, dict) else 'array'}, extracted {len(extracted)} items")
 
         # Add to database
         added = []

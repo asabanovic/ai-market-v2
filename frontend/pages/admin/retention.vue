@@ -113,6 +113,89 @@
         </div>
       </div>
 
+      <!-- Scheduled Jobs -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">Zakazani poslovi</h3>
+          <button
+            @click="loadJobs"
+            class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+          >
+            <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': jobsLoading }" />
+            Osvjezi
+          </button>
+        </div>
+
+        <div v-if="jobsLoading && jobs.length === 0" class="flex items-center justify-center h-24">
+          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+        </div>
+
+        <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            v-for="job in jobs"
+            :key="job.name"
+            class="border rounded-lg p-4"
+            :class="job.enabled ? 'border-gray-200' : 'border-gray-100 bg-gray-50'"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <Icon
+                  :name="getJobIcon(job.name)"
+                  class="w-5 h-5"
+                  :class="job.enabled ? 'text-purple-600' : 'text-gray-400'"
+                />
+                <span class="font-medium text-gray-900">{{ getJobLabel(job.name) }}</span>
+              </div>
+              <span
+                :class="[
+                  'px-2 py-0.5 text-xs rounded-full',
+                  job.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
+                ]"
+              >
+                {{ job.enabled ? 'Aktivan' : 'Neaktivan' }}
+              </span>
+            </div>
+
+            <div class="text-sm text-gray-500 mb-3">
+              <div class="flex items-center gap-1">
+                <Icon name="mdi:clock-outline" class="w-4 h-4" />
+                Zakazano: {{ job.scheduled_time }}
+              </div>
+              <div v-if="job.last_run" class="flex items-center gap-1 mt-1">
+                <Icon name="mdi:check-circle-outline" class="w-4 h-4 text-green-600" />
+                Zadnji put: {{ formatDateTime(job.last_run) }}
+              </div>
+              <div v-else class="flex items-center gap-1 mt-1 text-gray-400">
+                <Icon name="mdi:clock-alert-outline" class="w-4 h-4" />
+                Nikad nije pokrenuto
+              </div>
+            </div>
+
+            <button
+              @click="triggerJob(job.name)"
+              :disabled="runningJob === job.name"
+              class="w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              :class="
+                runningJob === job.name
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              "
+            >
+              <Icon
+                :name="runningJob === job.name ? 'mdi:loading' : 'mdi:play'"
+                class="w-4 h-4"
+                :class="{ 'animate-spin': runningJob === job.name }"
+              />
+              {{ runningJob === job.name ? 'Pokrece se...' : 'Pokreni sada' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="jobMessage" class="mt-4 p-3 rounded-lg" :class="jobMessageType === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'">
+          {{ jobMessage }}
+        </div>
+      </div>
+
       <!-- Cohort Analysis -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Kohort analiza (po nedeljama registracije)</h3>
@@ -397,7 +480,7 @@ definePageMeta({
   layout: 'default'
 })
 
-const { get } = useApi()
+const { get, post } = useApi()
 const { user } = useAuth()
 
 // Redirect non-admins
@@ -426,6 +509,11 @@ const stats = ref({
 })
 const cohorts = ref<any[]>([])
 const chartData = ref<any>(null)
+const jobs = ref<any[]>([])
+const jobsLoading = ref(false)
+const runningJob = ref<string | null>(null)
+const jobMessage = ref('')
+const jobMessageType = ref<'success' | 'error'>('success')
 
 const chartOptions = {
   responsive: true,
@@ -449,6 +537,7 @@ onMounted(() => {
   loadReturningUsers()
   loadDailyActivity(activityDays.value)
   loadCohortAnalysis()
+  loadJobs()
 })
 
 async function loadReturningUsers(page = 1) {
@@ -510,6 +599,70 @@ async function loadCohortAnalysis() {
   } finally {
     cohortLoading.value = false
   }
+}
+
+async function loadJobs() {
+  jobsLoading.value = true
+  try {
+    const data = await get('/api/admin/retention/jobs')
+    jobs.value = data.jobs
+  } catch (error) {
+    console.error('Error loading jobs:', error)
+  } finally {
+    jobsLoading.value = false
+  }
+}
+
+async function triggerJob(jobName: string) {
+  runningJob.value = jobName
+  jobMessage.value = ''
+  try {
+    const data = await post(`/api/admin/retention/jobs/${jobName}/run`, {})
+    jobMessageType.value = 'success'
+    jobMessage.value = `Posao "${getJobLabel(jobName)}" je uspjesno pokrenut!`
+    // Refresh jobs status after a delay
+    setTimeout(() => {
+      loadJobs()
+    }, 2000)
+  } catch (error: any) {
+    jobMessageType.value = 'error'
+    jobMessage.value = `Greska pri pokretanju posla: ${error.message || 'Nepoznata greska'}`
+  } finally {
+    runningJob.value = null
+    // Clear message after 5 seconds
+    setTimeout(() => {
+      jobMessage.value = ''
+    }, 5000)
+  }
+}
+
+function getJobIcon(jobName: string): string {
+  const icons: Record<string, string> = {
+    'product_scan': 'mdi:magnify-scan',
+    'email_summary': 'mdi:email-newsletter',
+    'monthly_credits': 'mdi:currency-usd'
+  }
+  return icons[jobName] || 'mdi:clock-outline'
+}
+
+function getJobLabel(jobName: string): string {
+  const labels: Record<string, string> = {
+    'product_scan': 'Skeniranje proizvoda',
+    'email_summary': 'Email izvjestaji',
+    'monthly_credits': 'Mjesecni krediti'
+  }
+  return labels[jobName] || jobName
+}
+
+function formatDateTime(dateString: string | null) {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('sr-Latn-BA', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 function setFilter(filter: string) {
