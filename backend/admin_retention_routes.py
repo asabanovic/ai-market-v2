@@ -424,3 +424,63 @@ def get_email_engagement():
     except Exception as e:
         logger.error(f"Error getting email engagement: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+@admin_retention_bp.route('/jobs', methods=['GET'])
+@jwt_admin_required
+def get_jobs_status():
+    """Get status of all scheduled jobs."""
+    from jobs.scheduler import JOBS, last_run
+    from datetime import datetime
+
+    now = datetime.utcnow()
+    jobs_status = []
+
+    for job in JOBS:
+        next_run = datetime(now.year, now.month, now.day, job.hour, job.minute)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+
+        last = last_run.get(job.name)
+        jobs_status.append({
+            'name': job.name,
+            'enabled': job.enabled,
+            'scheduled_time': f"{job.hour:02d}:{job.minute:02d} UTC",
+            'last_run': last.isoformat() if last else None,
+            'next_run': next_run.isoformat(),
+        })
+
+    return jsonify({'jobs': jobs_status})
+
+
+@admin_retention_bp.route('/jobs/<job_name>/run', methods=['POST'])
+@jwt_admin_required
+def trigger_job(job_name):
+    """Manually trigger a job by name."""
+    import threading
+
+    try:
+        if job_name == 'product_scan':
+            from jobs.scan_user_products import run_daily_scan
+            thread = threading.Thread(target=run_daily_scan)
+            thread.start()
+            return jsonify({'status': 'started', 'job': job_name})
+
+        elif job_name == 'email_summary':
+            from jobs.send_scan_email_summaries import run_email_summaries
+            thread = threading.Thread(target=run_email_summaries)
+            thread.start()
+            return jsonify({'status': 'started', 'job': job_name})
+
+        elif job_name == 'monthly_credits':
+            from credits_service_monthly import allocate_monthly_credits
+            thread = threading.Thread(target=allocate_monthly_credits)
+            thread.start()
+            return jsonify({'status': 'started', 'job': job_name})
+
+        else:
+            return jsonify({'error': f'Unknown job: {job_name}'}), 404
+
+    except Exception as e:
+        logger.error(f"Error triggering job {job_name}: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
