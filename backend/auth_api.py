@@ -320,6 +320,7 @@ def api_verify():
             'phone': user.phone,
             'city': user.city,
             'is_admin': user.is_admin,
+            'is_verified': user.is_verified,
             'onboarding_completed': user.onboarding_completed or False,
             'welcome_guide_seen': user.welcome_guide_seen or False,
             'preferences': user.preferences or {},
@@ -386,14 +387,21 @@ def api_register():
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Korisnik sa ovim emailom već postoji'}), 400
 
-        # Create new user
+        # Generate verification token with 24h expiry
+        from sendgrid_utils import generate_verification_token, send_verification_email
+        verification_token = generate_verification_token()
+        token_expires = datetime.now() + timedelta(hours=24)
+
+        # Create new user (unverified - requires email verification)
         new_user = User(
             id=str(datetime.now().timestamp()),
             email=email,
             first_name=first_name,
             last_name=last_name,
             password_hash=generate_password_hash(password),
-            is_verified=True,  # Auto-verify for now
+            is_verified=False,  # Requires email verification
+            verification_token=verification_token,
+            verification_token_expires=token_expires,
             package_id=1,  # Free package
             registration_method='email',
             referred_by_code=referral_code  # Save who referred this user
@@ -401,6 +409,13 @@ def api_register():
 
         db.session.add(new_user)
         db.session.commit()
+
+        # Send verification email
+        try:
+            send_verification_email(email, first_name or email, verification_token)
+            app.logger.info(f"Verification email sent to: {email}")
+        except Exception as email_error:
+            app.logger.error(f"Failed to send verification email: {email_error}")
 
         # Initialize credits for new user
         try:
@@ -419,7 +434,7 @@ def api_register():
             except Exception as ref_error:
                 app.logger.error(f"Error awarding referral bonus: {ref_error}")
 
-        # Generate JWT token
+        # Generate JWT token (user can login but some actions may be restricted until verified)
         token = generate_jwt_token(new_user.id, new_user.email)
 
         # Prepare user data
@@ -428,16 +443,18 @@ def api_register():
             'email': new_user.email,
             'name': f"{first_name} {last_name}".strip() or email,
             'first_name': first_name,
-            'last_name': last_name
+            'last_name': last_name,
+            'is_verified': False
         }
 
-        app.logger.info(f"New user registered: {email}")
+        app.logger.info(f"New user registered (pending verification): {email}")
 
         return jsonify({
             'success': True,
             'token': token,
             'user': user_data,
-            'message': 'Uspješno ste se registrovali!'
+            'message': 'Uspješno ste se registrovali! Molimo vas provjerite vaš email za verifikaciju računa.',
+            'verification_required': True
         }), 201
 
     except Exception as e:

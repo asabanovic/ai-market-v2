@@ -5,6 +5,7 @@ interface User {
   first_name?: string
   last_name?: string
   is_admin?: boolean
+  is_verified?: boolean
   phone?: string
   city?: string
   first_search_reward_claimed?: boolean
@@ -104,15 +105,27 @@ export const useAuth = () => {
     lastBonusAwarded.value = null
   }
 
+  const resendVerificationEmail = async () => {
+    if (!user.value?.email) {
+      throw new Error('Niste prijavljeni')
+    }
+    const response = await api.post('/auth/resend-verification', { email: user.value.email })
+    return response
+  }
+
+  const isVerified = computed(() => user.value?.is_verified !== false)
+
   return {
     user,
     isAuthenticated,
+    isVerified,
     authReady,
     lastBonusAwarded,
     login,
     logout,
     checkAuth,
     refreshUser,
-    clearBonusNotification
+    clearBonusNotification,
+    resendVerificationEmail
   }
 }

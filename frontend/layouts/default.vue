@@ -3,6 +3,7 @@
     <LayoutHeader />
     <ClientOnly>
       <StreakTimeline />
+      <EmailVerificationBanner />
       <PhoneBanner />
     </ClientOnly>
     <main class="flex-1">
