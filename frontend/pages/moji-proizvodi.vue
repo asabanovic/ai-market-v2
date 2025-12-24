@@ -91,6 +91,17 @@
               </div>
               <div class="flex items-center gap-3">
                 <span class="text-sm text-gray-500">{{ tracked.products.length }} pronađeno</span>
+                <!-- Sort Dropdown -->
+                <select
+                  v-if="tracked.products.length > 1"
+                  v-model="sortOrder[tracked.id]"
+                  @change="sortProducts(tracked)"
+                  class="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                >
+                  <option value="">Sortiraj</option>
+                  <option value="price_asc">Cijena: najniža</option>
+                  <option value="price_desc">Cijena: najviša</option>
+                </select>
                 <button
                   @click="removeTracked(tracked.id)"
                   class="text-gray-400 hover:text-red-500 transition-colors"
@@ -369,6 +380,7 @@ const trackedProducts = ref<any[]>([])
 const latestScan = ref<any>(null)
 const hasTracking = ref(false)
 const showAllProducts = ref<Record<number, boolean>>({})
+const sortOrder = ref<Record<number, string>>({})
 
 // Add modal
 const showAddModal = ref(false)
@@ -452,6 +464,20 @@ function formatDate(dateString: string): string {
 
   const months = ['januar', 'februar', 'mart', 'april', 'maj', 'juni', 'juli', 'august', 'septembar', 'oktobar', 'novembar', 'decembar']
   return `${date.getDate()}. ${months[date.getMonth()]}`
+}
+
+// Sort products by price
+function sortProducts(tracked: any) {
+  const order = sortOrder.value[tracked.id]
+  if (!order) return
+
+  const getPrice = (p: any) => p.discount_price || p.base_price || 0
+
+  if (order === 'price_asc') {
+    tracked.products.sort((a: any, b: any) => getPrice(a) - getPrice(b))
+  } else if (order === 'price_desc') {
+    tracked.products.sort((a: any, b: any) => getPrice(b) - getPrice(a))
+  }
 }
 
 // Check if product is favorited

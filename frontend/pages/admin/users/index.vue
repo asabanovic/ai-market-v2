@@ -411,13 +411,22 @@
 
                 <!-- Actions -->
                 <td class="px-6 py-4 whitespace-nowrap" @click.stop>
-                  <button
-                    @click="openUserProfile(user.id)"
-                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                  >
-                    <Icon name="mdi:account-details" class="w-4 h-4 mr-1" />
-                    Profil
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      @click="openUserProfile(user.id)"
+                      class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                    >
+                      <Icon name="mdi:account-details" class="w-4 h-4 mr-1" />
+                      Profil
+                    </button>
+                    <button
+                      @click="confirmDeleteUser(user)"
+                      class="inline-flex items-center px-2 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                      title="Obriši korisnika"
+                    >
+                      <Icon name="mdi:delete" class="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -776,6 +785,60 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete User Confirmation Modal -->
+    <div
+      v-if="showDeleteModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      @click.self="showDeleteModal = false"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-red-50">
+          <h3 class="text-lg font-semibold text-red-800 flex items-center gap-2">
+            <Icon name="mdi:alert-circle" class="w-6 h-6" />
+            Potvrda brisanja
+          </h3>
+          <button
+            @click="showDeleteModal = false"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <Icon name="mdi:close" class="w-6 h-6" />
+          </button>
+        </div>
+        <div class="p-6">
+          <p class="text-gray-700 mb-4">
+            Jeste li sigurni da želite obrisati korisnika?
+          </p>
+          <div v-if="userToDelete" class="bg-gray-50 rounded-lg p-4 mb-4">
+            <div class="font-medium text-gray-900">
+              {{ userToDelete.first_name || 'N/A' }} {{ userToDelete.last_name || '' }}
+            </div>
+            <div class="text-sm text-gray-600">{{ userToDelete.email || userToDelete.phone }}</div>
+          </div>
+          <p class="text-sm text-red-600 mb-6">
+            <Icon name="mdi:alert" class="w-4 h-4 inline mr-1" />
+            Ova akcija je nepovratna. Svi podaci korisnika će biti trajno obrisani.
+          </p>
+          <div class="flex justify-end gap-3">
+            <button
+              @click="showDeleteModal = false"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Odustani
+            </button>
+            <button
+              @click="deleteUser"
+              :disabled="deleting"
+              class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <Icon v-if="deleting" name="mdi:loading" class="w-4 h-4 animate-spin" />
+              <Icon v-else name="mdi:delete" class="w-4 h-4" />
+              {{ deleting ? 'Brisanje...' : 'Obriši korisnika' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -808,7 +871,7 @@ definePageMeta({
   layout: 'default'
 })
 
-const { get, post } = useApi()
+const { get, post, del } = useApi()
 const { user } = useAuth()
 
 // Redirect non-admins
@@ -830,6 +893,11 @@ const pagination = ref({
 const userActivity = ref<Record<string, any[]>>({})
 const loadingActivity = ref<Record<string, boolean>>({})
 const storesModalUser = ref<any>(null)
+
+// Delete user state
+const showDeleteModal = ref(false)
+const userToDelete = ref<any>(null)
+const deleting = ref(false)
 
 // Email history state
 const emails = ref<any[]>([])
@@ -1000,6 +1068,36 @@ async function loadAllUserActivities() {
 
 function openUserProfile(userId: string) {
   navigateTo(`/admin/users/${userId}`)
+}
+
+// Delete user functions
+function confirmDeleteUser(user: any) {
+  userToDelete.value = user
+  showDeleteModal.value = true
+}
+
+async function deleteUser() {
+  if (!userToDelete.value) return
+
+  deleting.value = true
+  try {
+    await del(`/api/admin/users/${userToDelete.value.id}`)
+
+    // Remove user from list
+    users.value = users.value.filter(u => u.id !== userToDelete.value.id)
+
+    // Update stats
+    if (stats.value.total > 0) stats.value.total--
+
+    // Close modal
+    showDeleteModal.value = false
+    userToDelete.value = null
+  } catch (error: any) {
+    console.error('Error deleting user:', error)
+    alert(error.message || 'Greška pri brisanju korisnika')
+  } finally {
+    deleting.value = false
+  }
 }
 
 // Analytics functions

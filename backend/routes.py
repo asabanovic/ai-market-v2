@@ -6325,6 +6325,111 @@ def api_admin_user_profile(user_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/users/<path:user_id>', methods=['DELETE'])
+def api_admin_delete_user(user_id):
+    """API endpoint for admin to delete a user and all their data"""
+    from auth_api import decode_jwt_token
+    from models import (User, UserSearch, UserEngagement, CreditTransaction,
+                        Favorite, ShoppingList, ProductComment, ProductVote,
+                        ProductReport, Notification, BusinessMembership, OTPCode, UserLogin,
+                        UserTrackedProduct, UserProductScan, UserScanResult, EmailHistory)
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the target user
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Prevent deleting yourself
+        if target_user.id == admin_user.id:
+            return jsonify({'error': 'Ne možete obrisati sebe'}), 400
+
+        # Prevent deleting other admins
+        if target_user.is_admin:
+            return jsonify({'error': 'Ne možete obrisati drugog admina'}), 400
+
+        # Delete all related data
+        # 1. User searches
+        db.session.query(UserSearch).filter_by(user_id=user_id).delete()
+
+        # 2. User engagements
+        UserEngagement.query.filter_by(user_id=user_id).delete()
+
+        # 3. Credit transactions
+        CreditTransaction.query.filter_by(user_id=user_id).delete()
+
+        # 4. Favorites
+        Favorite.query.filter_by(user_id=user_id).delete()
+
+        # 5. Shopping lists
+        ShoppingList.query.filter_by(user_id=user_id).delete()
+
+        # 6. Product comments
+        ProductComment.query.filter_by(user_id=user_id).delete()
+
+        # 7. Product votes
+        ProductVote.query.filter_by(user_id=user_id).delete()
+
+        # 8. Product reports
+        ProductReport.query.filter_by(user_id=user_id).delete()
+
+        # 9. Notifications
+        Notification.query.filter_by(user_id=user_id).delete()
+
+        # 10. Business memberships
+        BusinessMembership.query.filter_by(user_id=user_id).delete()
+
+        # 11. OTP codes (by phone if exists)
+        if target_user.phone:
+            OTPCode.query.filter_by(phone=target_user.phone).delete()
+
+        # 12. User logins
+        UserLogin.query.filter_by(user_id=user_id).delete()
+
+        # 13. User tracked products and scans
+        UserTrackedProduct.query.filter_by(user_id=user_id).delete()
+
+        # Delete scan results first, then scans
+        scans = UserProductScan.query.filter_by(user_id=user_id).all()
+        for scan in scans:
+            UserScanResult.query.filter_by(scan_id=scan.id).delete()
+        UserProductScan.query.filter_by(user_id=user_id).delete()
+
+        # 14. Email history
+        EmailHistory.query.filter_by(user_id=user_id).delete()
+
+        # Finally, delete the user
+        db.session.delete(target_user)
+        db.session.commit()
+
+        app.logger.info(f"Admin {admin_user.email} deleted user {user_id}")
+
+        return jsonify({'success': True, 'message': 'Korisnik je uspješno obrisan'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Admin delete user error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 # ==================== ADMIN PRODUCTS API ====================
 
 @app.route('/api/admin/products')
