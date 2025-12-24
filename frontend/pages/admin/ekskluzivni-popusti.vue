@@ -512,7 +512,7 @@
                     <div>
                       <label class="block text-sm font-medium text-gray-700 mb-1">Validnost (dana) *</label>
                       <select v-model.number="newCoupon.valid_days" class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white">
-                        <option v-for="d in 10" :key="d" :value="d">{{ d }} {{ d === 1 ? 'dan' : 'dana' }}</option>
+                        <option v-for="d in 30" :key="d" :value="d">{{ d }} {{ d === 1 ? 'dan' : 'dana' }}</option>
                       </select>
                       <p v-if="newCoupon.valid_days" class="text-xs text-gray-500 mt-1">
                         Ističe: {{ getExpiryDate(newCoupon.valid_days) }}
@@ -837,7 +837,16 @@ async function toggleCouponActive(coupon: any) {
 function getExpiryDate(days: number): string {
   const date = new Date()
   date.setDate(date.getDate() + days)
-  return date.toLocaleDateString('bs-BA', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  const dani = ['Nedjelja', 'Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota']
+  const mjeseci = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Juni', 'Juli', 'August', 'Septembar', 'Oktobar', 'Novembar', 'Decembar']
+
+  const dan = dani[date.getDay()]
+  const datum = date.getDate()
+  const mjesec = mjeseci[date.getMonth()]
+  const godina = date.getFullYear()
+
+  return `${dan}, ${datum}. ${mjesec}, ${godina}`
 }
 
 function isSunday(days: number): boolean {
