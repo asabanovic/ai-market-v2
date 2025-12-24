@@ -651,10 +651,79 @@
                         class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
                     </td>
-                    <!-- Product Name -->
+                    <!-- Product Name + Image -->
                     <td class="px-4 py-3">
                       <div class="text-sm font-medium text-gray-900 max-w-xs truncate" :title="product.title">{{ product.title }}</div>
-                      <div class="text-xs text-gray-500">ID: {{ product.id }}</div>
+                      <div class="text-xs text-gray-500 mb-2">ID: {{ product.id }}</div>
+
+                      <!-- Current Image + Suggestions -->
+                      <div class="mt-2">
+                        <!-- Main image -->
+                        <div
+                          class="w-[100px] h-[100px] bg-gray-100 rounded-lg overflow-hidden border-2 border-dashed border-gray-300 cursor-pointer hover:border-indigo-400 transition-colors"
+                          @click="loadImageSuggestions(product)"
+                          :title="product.image_path ? 'Klikni za prijedloge slika' : 'Klikni za pretragu slika'"
+                        >
+                          <img
+                            v-if="product.image_path"
+                            :src="getProductImageUrl(product.image_path)"
+                            :alt="product.title"
+                            class="w-full h-full object-contain"
+                          />
+                          <div v-else class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span class="text-xs mt-1">Klikni</span>
+                          </div>
+                        </div>
+
+                        <!-- Image Suggestions (below main image) -->
+                        <div v-if="imageSuggestions[product.id] !== undefined" class="mt-2">
+                          <!-- Loading state -->
+                          <div v-if="isLoadingImageSuggestions.has(product.id)" class="flex items-center gap-2 text-xs text-gray-500">
+                            <svg class="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            Tražim...
+                          </div>
+
+                          <!-- Suggestions row -->
+                          <div v-else-if="imageSuggestions[product.id]?.length > 0" class="flex gap-2 flex-wrap">
+                            <div
+                              v-for="(img, idx) in imageSuggestions[product.id]"
+                              :key="idx"
+                              class="w-[100px] h-[100px] bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all flex-shrink-0"
+                              :class="{ 'ring-2 ring-green-500': isSettingImage[product.id] === idx }"
+                              @click="setProductImage(product, img, idx)"
+                              :title="'Postavi kao sliku proizvoda'"
+                            >
+                              <img
+                                :src="img"
+                                :alt="'Suggestion ' + (idx + 1)"
+                                class="w-full h-full object-contain"
+                                @error="handleImageError($event, product.id, idx)"
+                              />
+                            </div>
+                            <!-- Refresh button -->
+                            <div
+                              class="w-[100px] h-[100px] bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 transition-colors flex items-center justify-center flex-shrink-0"
+                              @click="loadImageSuggestions(product)"
+                              title="Učitaj druge slike"
+                            >
+                              <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </div>
+                          </div>
+
+                          <!-- No results -->
+                          <div v-else-if="imageSuggestions[product.id]?.length === 0" class="text-xs text-gray-400">
+                            Nema slika
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <!-- Match & Sibling Counts -->
                     <td class="px-4 py-3 whitespace-nowrap">
@@ -966,6 +1035,12 @@ const relatedProducts = ref<any[]>([])
 const relatedModalTitle = ref('')
 const relatedSourceProduct = ref<any>(null)
 const isLoadingRelated = ref(false)
+
+// Image suggestions state
+const imageSuggestions = ref<Record<number, string[]>>({})
+const isLoadingImageSuggestions = ref<Set<number>>(new Set())
+const isSettingImage = ref<Record<number, number | null>>({})
+const imageSearchAttempts = ref<Record<number, number>>({})
 
 // Pending changes state for inline editing
 const pendingChanges = ref<Record<number, Record<string, any>>>({})
@@ -1631,6 +1706,69 @@ function getProductImageUrl(imagePath: string | null): string {
   if (imagePath.startsWith('http')) return imagePath
   // For S3 images, construct the full URL
   return `https://popust-ba.s3.eu-central-1.amazonaws.com/${imagePath}`
+}
+
+// Image suggestion functions
+async function loadImageSuggestions(product: any) {
+  const productId = product.id
+
+  // Increment attempt counter for query variation
+  const attempt = (imageSearchAttempts.value[productId] || 0) + 1
+  imageSearchAttempts.value[productId] = attempt
+
+  // Initialize the suggestions array for this product to trigger the loading UI
+  imageSuggestions.value[productId] = []
+  isLoadingImageSuggestions.value.add(productId)
+  isLoadingImageSuggestions.value = new Set(isLoadingImageSuggestions.value)
+
+  try {
+    const data = await get(`/api/admin/products/${productId}/suggest-images?attempt=${attempt}`)
+    imageSuggestions.value[productId] = data.images || []
+  } catch (error: any) {
+    console.error('Error loading image suggestions:', error)
+    showNotification(error.message || 'Greška pri učitavanju slika', 'error')
+    imageSuggestions.value[productId] = []
+  } finally {
+    isLoadingImageSuggestions.value.delete(productId)
+    isLoadingImageSuggestions.value = new Set(isLoadingImageSuggestions.value)
+  }
+}
+
+async function setProductImage(product: any, imageUrl: string, idx: number) {
+  const productId = product.id
+  isSettingImage.value[productId] = idx
+
+  try {
+    await post(`/api/admin/products/${productId}/set-image`, { image_url: imageUrl })
+
+    // Update the product in the local state
+    for (const businessData of businessesWithProducts.value) {
+      const productIndex = businessData.products.findIndex((p: any) => p.id === productId)
+      if (productIndex !== -1) {
+        businessData.products[productIndex].image_path = imageUrl
+        break
+      }
+    }
+
+    showNotification('Slika je uspješno postavljena', 'success')
+
+    // Clear the suggestions for this product
+    delete imageSuggestions.value[productId]
+  } catch (error: any) {
+    console.error('Error setting product image:', error)
+    showNotification(error.message || 'Greška pri postavljanju slike', 'error')
+  } finally {
+    isSettingImage.value[productId] = null
+  }
+}
+
+function handleImageError(event: Event, productId: number, idx: number) {
+  // Remove the broken image from suggestions
+  const images = imageSuggestions.value[productId]
+  if (images && images[idx]) {
+    images.splice(idx, 1)
+    imageSuggestions.value[productId] = [...images]
+  }
 }
 
 function hasDiscount(product: any): boolean {

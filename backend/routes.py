@@ -7282,6 +7282,134 @@ def api_admin_get_suggested_images(product_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/products/<int:product_id>/suggest-images', methods=['GET'])
+def api_admin_quick_suggest_images(product_id):
+    """Quickly search for images using DuckDuckGo and return URLs directly (no S3 upload)"""
+    from auth_api import decode_jwt_token
+    from image_search import search_duckduckgo_images
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        # Get attempt number for query variation
+        attempt = request.args.get('attempt', 1, type=int)
+
+        # Strategy: Keep query on-topic, use offsetting for variety
+        # Build a list of focused query variations (all include product title or brand+type)
+        query_variations = [product.title]  # Base query is always the title
+
+        # Add brand + product type if available (still focused)
+        if product.brand and product.product_type:
+            query_variations.append(f"{product.brand} {product.product_type}")
+
+        # Add title with minor suffixes to get slightly different results
+        query_variations.append(product.title + " product")
+        query_variations.append(product.title + " package")
+
+        # Determine which query to use (cycle through variations every 3 attempts)
+        query_index = (attempt - 1) // 3
+        query_index = query_index % len(query_variations)
+        search_query = query_variations[query_index]
+
+        # Determine offset within results (0, 5, 10 for each query)
+        result_offset = ((attempt - 1) % 3) * 5
+
+        # Fetch enough results to support offsetting
+        num_to_fetch = 20
+        images = search_duckduckgo_images(search_query, num_results=num_to_fetch, is_custom_query=True)
+
+        # Apply offset to show different images
+        if result_offset > 0 and len(images) > result_offset:
+            images = images[result_offset:result_offset+5]
+        else:
+            images = images[:5]
+
+        return jsonify({
+            'images': images,
+            'current_image': product.image_path,
+            'query_used': search_query
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Quick suggest images error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/products/<int:product_id>/set-image', methods=['POST'])
+def api_admin_set_image(product_id):
+    """Set product image to a given URL"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        data = request.get_json()
+        image_url = data.get('image_url')
+
+        if not image_url:
+            return jsonify({'error': 'image_url is required'}), 400
+
+        # Store original image if not already stored
+        if not product.original_image_path and product.image_path:
+            product.original_image_path = product.image_path
+
+        # Update product image
+        product.image_path = image_url
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'image_path': product.image_path,
+            'original_image': product.original_image_path
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Set image error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @app.route('/api/admin/products/images', methods=['GET'])
 def api_admin_products_images():
     """Get all products with image info for bulk image matching"""

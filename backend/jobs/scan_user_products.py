@@ -371,48 +371,55 @@ def scan_single_user(user):
 
 def run_daily_scan():
     """
-    Run daily product scan using round-robin approach.
-    Processes BATCH_SIZE users per run, with delays between users.
+    Run daily product scan for ALL users.
+    Processes users in batches of BATCH_SIZE until everyone is scanned.
     """
     with app.app_context():
         # Start tracking this job run
         job_run = JobRun.start('product_scan')
 
         try:
-            # Get next batch of users to scan
-            users_to_scan = get_users_to_scan_round_robin()
-
-            if not users_to_scan:
-                logger.info("No users need scanning at this time")
-                job_run.complete(records_processed=0, records_success=0, records_failed=0)
-                return
-
-            logger.info(f"Processing batch of {len(users_to_scan)} users (round-robin)")
-
             total_users_processed = 0
             total_products_found = 0
             failed_count = 0
+            batch_number = 0
 
-            for user in users_to_scan:
-                try:
-                    result = scan_single_user(user)
+            # Keep looping until all users are scanned
+            while True:
+                batch_number += 1
+                users_to_scan = get_users_to_scan_round_robin()
 
-                    if result:
-                        user_total, new_count, discount_count = result
-                        total_users_processed += 1
-                        total_products_found += user_total
-                except Exception as e:
-                    logger.error(f"Error scanning user {user.id}: {e}")
-                    failed_count += 1
+                if not users_to_scan:
+                    logger.info(f"All users scanned after {batch_number - 1} batches")
+                    break
 
-                # Rate limit between users
-                time.sleep(DELAY_BETWEEN_USERS)
+                logger.info(f"Processing batch {batch_number}: {len(users_to_scan)} users")
 
-            logger.info(f"Batch complete: {total_users_processed} users processed, {total_products_found} total products")
+                for user in users_to_scan:
+                    try:
+                        result = scan_single_user(user)
+
+                        if result:
+                            user_total, new_count, discount_count = result
+                            total_users_processed += 1
+                            total_products_found += user_total
+                    except Exception as e:
+                        logger.error(f"Error scanning user {user.id}: {e}")
+                        failed_count += 1
+
+                    # Rate limit between users
+                    time.sleep(DELAY_BETWEEN_USERS)
+
+                logger.info(f"Batch {batch_number} complete. Total so far: {total_users_processed} users, {total_products_found} products")
+
+                # Small delay between batches
+                time.sleep(5)
+
+            logger.info(f"Daily scan complete: {total_users_processed} users processed, {total_products_found} total products, {failed_count} failed")
 
             # Complete job tracking
             job_run.complete(
-                records_processed=len(users_to_scan),
+                records_processed=total_users_processed + failed_count,
                 records_success=total_users_processed,
                 records_failed=failed_count
             )

@@ -15,6 +15,7 @@ Command: python jobs/send_scan_email_summaries.py
 
 import os
 import sys
+import time
 from datetime import date
 
 # Add parent directory to path
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 BASE_URL = os.environ.get("BASE_URL", "https://popust.ba")
+EMAIL_BATCH_SIZE = 10  # Log progress every N emails
+DELAY_BETWEEN_EMAILS = 0.5  # Seconds to wait between emails (avoid rate limits)
 
 
 def get_scan_summary_for_user(user_id: int, scan_date: date) -> dict:
@@ -290,7 +293,9 @@ def run_email_summaries():
             skipped_count = 0
             failed_count = 0
 
+            processed_count = 0
             for scan in completed_scans:
+                processed_count += 1
                 user = User.query.get(scan.user_id)
                 if not user:
                     continue
@@ -305,7 +310,6 @@ def run_email_summaries():
                 try:
                     if send_scan_summary_email(user, summary):
                         sent_count += 1
-                        logger.info(f"Sent summary email to user {user.id}")
 
                         # Log the email notification
                         EmailNotification.log_email(
@@ -321,6 +325,9 @@ def run_email_summaries():
                                 'terms_count': len(summary['terms'])
                             }
                         )
+
+                        # Rate limit between emails
+                        time.sleep(DELAY_BETWEEN_EMAILS)
                     else:
                         skipped_count += 1
                 except Exception as e:
@@ -335,6 +342,10 @@ def run_email_summaries():
                         status='failed',
                         error_message=str(e)
                     )
+
+                # Log progress every N emails
+                if processed_count % EMAIL_BATCH_SIZE == 0:
+                    logger.info(f"Progress: {processed_count}/{len(completed_scans)} processed, {sent_count} sent")
 
             logger.info(f"Email summary job complete: {sent_count} sent, {skipped_count} skipped, {failed_count} failed")
 
