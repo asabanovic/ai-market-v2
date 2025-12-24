@@ -11,19 +11,19 @@
         <Transition name="slide-up">
           <div
             v-if="showModal"
-            class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto"
+            class="bg-white w-full sm:w-[520px] sm:rounded-2xl rounded-t-3xl p-6 sm:p-8 shadow-2xl max-h-[85vh] overflow-y-auto"
           >
             <!-- Header -->
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-3">
-                <span class="text-3xl" :class="{ 'animate-pulse': currentStreak >= 3 }">
+            <div class="flex items-center justify-between mb-6">
+              <div class="flex items-center gap-4">
+                <span class="text-5xl" :class="{ 'animate-pulse': currentStreak >= 3 }">
                   {{ currentStreak >= 7 ? '🔥' : currentStreak >= 3 ? '🔥' : '✨' }}
                 </span>
                 <div>
-                  <h3 class="text-xl font-bold text-gray-900">
+                  <h3 class="text-2xl font-bold text-gray-900">
                     {{ currentStreak }} {{ currentStreak === 1 ? 'dan' : 'dana' }}
                   </h3>
-                  <p class="text-sm text-purple-600">{{ streakMessage }}</p>
+                  <p class="text-base text-purple-600 font-medium">{{ streakMessage }}</p>
                 </div>
               </div>
               <button
@@ -37,8 +37,8 @@
             </div>
 
             <!-- Next milestone info -->
-            <div v-if="nextMilestone" class="bg-purple-50 rounded-lg p-3 mb-4">
-              <p class="text-sm text-purple-700">
+            <div v-if="nextMilestone" class="bg-purple-50 rounded-xl p-4 mb-6">
+              <p class="text-base text-purple-700">
                 Još <span class="font-bold">{{ daysToNextMilestone }}</span> dana do
                 <span class="font-bold text-purple-900">+{{ nextMilestoneBonus }} kredita</span>
               </p>
@@ -87,14 +87,14 @@
             </div>
 
             <!-- Stats -->
-            <div class="grid grid-cols-2 gap-3 text-center">
-              <div class="bg-gray-50 rounded-lg p-3">
-                <p class="text-2xl font-bold text-purple-600">{{ currentStreak }}</p>
-                <p class="text-xs text-gray-500">Trenutni streak</p>
+            <div class="grid grid-cols-2 gap-4 text-center">
+              <div class="bg-gray-50 rounded-xl p-4">
+                <p class="text-3xl font-bold text-purple-600">{{ currentStreak }}</p>
+                <p class="text-sm text-gray-500">Trenutni streak</p>
               </div>
-              <div class="bg-gray-50 rounded-lg p-3">
-                <p class="text-2xl font-bold text-green-600">{{ user?.longest_streak || 0 }}</p>
-                <p class="text-xs text-gray-500">Najduži streak</p>
+              <div class="bg-gray-50 rounded-xl p-4">
+                <p class="text-3xl font-bold text-green-600">{{ user?.longest_streak || 0 }}</p>
+                <p class="text-sm text-gray-500">Najduži streak</p>
               </div>
             </div>
           </div>
@@ -158,23 +158,39 @@ const streakMessage = computed(() => {
   return 'Legenda!'
 })
 
-// Get the max milestone for progress bar scaling
-const maxMilestone = computed(() => {
-  const keys = Object.keys(milestones.value).map(Number)
-  return Math.max(...keys, 60)
+// Get sorted milestone days array
+const milestoneDays = computed(() => {
+  return Object.keys(milestones.value).map(Number).sort((a, b) => a - b)
 })
 
-// Calculate progress percentage (0-100)
+// Calculate progress percentage (0-100) using milestone index-based scaling
 const progressPercent = computed(() => {
   const streak = currentStreak.value
-  const max = maxMilestone.value
-  return Math.min(100, (streak / max) * 100)
+  const days = milestoneDays.value
+  const numMilestones = days.length
+
+  // Find where streak falls between milestones
+  for (let i = 0; i < numMilestones; i++) {
+    if (streak < days[i]) {
+      // Between previous milestone and this one
+      const prevDays = i === 0 ? 0 : days[i - 1]
+      const prevPos = i === 0 ? 0 : ((i) / numMilestones) * 100
+      const nextPos = ((i + 1) / numMilestones) * 100
+      const progress = (streak - prevDays) / (days[i] - prevDays)
+      return prevPos + progress * (nextPos - prevPos)
+    }
+  }
+  // Past last milestone
+  return 100
 })
 
-// Get position of milestone marker on the bar (0-100%)
+// Get position of milestone marker on the bar (0-100%) - evenly spaced
 function getMilestonePosition(days: number): number {
-  const max = maxMilestone.value
-  return (days / max) * 100
+  const allDays = milestoneDays.value
+  const index = allDays.indexOf(days)
+  if (index === -1) return 0
+  // Position based on index (1-indexed for visual spacing)
+  return ((index + 1) / allDays.length) * 100
 }
 
 // Expose openModal for parent to call
