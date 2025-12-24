@@ -10904,6 +10904,112 @@ def api_get_product_related(product_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 
+# ==================== ADMIN EMAIL & JOB LOGS ====================
+
+@app.route('/api/admin/email-logs', methods=['GET'])
+@jwt_required()
+def get_admin_email_logs():
+    """Get email notification logs for admin dashboard."""
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        email_type = request.args.get('type', None)
+        status = request.args.get('status', None)
+
+        query = EmailNotification.query
+
+        if email_type:
+            query = query.filter_by(email_type=email_type)
+        if status:
+            query = query.filter_by(status=status)
+
+        query = query.order_by(EmailNotification.sent_at.desc())
+
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        emails = []
+        for e in pagination.items:
+            emails.append({
+                'id': e.id,
+                'email': e.email,
+                'email_type': e.email_type,
+                'subject': e.subject,
+                'status': e.status,
+                'error_message': e.error_message,
+                'sent_at': e.sent_at.isoformat() if e.sent_at else None,
+                'user_id': e.user_id,
+                'extra_data': e.extra_data
+            })
+
+        return jsonify({
+            'emails': emails,
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching email logs: {e}")
+        return jsonify({'error': 'Failed to fetch email logs'}), 500
+
+
+@app.route('/api/admin/job-runs', methods=['GET'])
+@jwt_required()
+def get_admin_job_runs():
+    """Get scheduled job run history for admin dashboard."""
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        job_name = request.args.get('job_name', None)
+
+        query = JobRun.query
+
+        if job_name:
+            query = query.filter_by(job_name=job_name)
+
+        query = query.order_by(JobRun.started_at.desc())
+
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        jobs = []
+        for j in pagination.items:
+            jobs.append({
+                'id': j.id,
+                'job_name': j.job_name,
+                'status': j.status,
+                'started_at': j.started_at.isoformat() if j.started_at else None,
+                'completed_at': j.completed_at.isoformat() if j.completed_at else None,
+                'duration_seconds': (j.completed_at - j.started_at).total_seconds() if j.completed_at and j.started_at else None,
+                'records_processed': j.records_processed,
+                'records_success': j.records_success,
+                'records_failed': j.records_failed,
+                'error_message': j.error_message
+            })
+
+        return jsonify({
+            'jobs': jobs,
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching job runs: {e}")
+        return jsonify({'error': 'Failed to fetch job runs'}), 500
+
+
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
