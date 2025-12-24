@@ -104,7 +104,7 @@ class User(UserMixin, db.Model):
 
 # (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 class OAuth(OAuthConsumerMixin, db.Model):
-    user_id = db.Column(db.String, db.ForeignKey(User.id))
+    user_id = db.Column(db.String, db.ForeignKey(User.id, ondelete='CASCADE'))
     browser_session_key = db.Column(db.String, nullable=False)
     user = db.relationship(User)
 
@@ -567,7 +567,7 @@ class ProductMatch(db.Model):
 class UserSearch(db.Model):
     __tablename__ = 'user_searches'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)  # Allow null for anonymous searches
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)  # Allow null for anonymous searches
     user_ip = db.Column(db.String(50), nullable=True)  # For tracking anonymous users
     query = db.Column(db.String, nullable=False)
     results = db.Column(JSON, nullable=True)
@@ -606,8 +606,8 @@ class OTPCode(db.Model):
 class Referral(db.Model):
     __tablename__ = 'referrals'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    referrer_code = db.Column(db.String(20), db.ForeignKey('users.referral_code'), nullable=False)  # Who referred
-    referred_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)  # Who was referred
+    referrer_code = db.Column(db.String(20), db.ForeignKey('users.referral_code', ondelete='CASCADE'), nullable=False)  # Who referred
+    referred_user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)  # Who was referred
     credits_awarded = db.Column(db.Integer, default=100)  # Credits given to referrer
     created_at = db.Column(db.DateTime, default=datetime.now)
 
@@ -623,8 +623,8 @@ class Referral(db.Model):
 class BusinessMembership(db.Model):
     __tablename__ = 'business_memberships'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     role = db.Column(db.String, nullable=False, default='staff')  # owner > manager > staff
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -644,11 +644,11 @@ class BusinessInvitation(db.Model):
     email = db.Column(db.String, nullable=False)
     token_hash = db.Column(db.String, unique=True, nullable=False)
     role = db.Column(db.String, nullable=False, default='staff')
-    invited_by_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    invited_by_user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     accepted_at = db.Column(db.DateTime, nullable=True)
     revoked_at = db.Column(db.DateTime, nullable=True)
-    redeemed_by_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    redeemed_by_user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     # Relationships
@@ -748,7 +748,7 @@ def user_has_business_role(user_id, business_id, min_role='staff'):
 class CreditTransaction(db.Model):
     __tablename__ = 'credit_transactions'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     delta = db.Column(db.Integer, nullable=False)  # Positive for additions, negative for deductions
     balance_after = db.Column(db.Integer, nullable=False)  # Snapshot of balance after transaction
     action = db.Column(db.String, nullable=False)  # e.g., 'ADD_TO_CART', 'ADD_FAVORITE', 'CHECKOUT_SMS', 'TOP_UP'
@@ -763,7 +763,7 @@ class CreditTransaction(db.Model):
 class Favorite(db.Model):
     __tablename__ = 'favorites'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
@@ -780,7 +780,7 @@ class Favorite(db.Model):
 class ShoppingList(db.Model):
     __tablename__ = 'shopping_lists'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     status = db.Column(db.String, nullable=False, default='ACTIVE')  # ACTIVE, EXPIRED, SENT, CANCELLED, COMPLETED
     created_at = db.Column(db.DateTime, default=datetime.now)
     expires_at = db.Column(db.DateTime, nullable=False)  # created_at + 24 hours
@@ -823,7 +823,7 @@ class ShoppingList(db.Model):
 class ShoppingListItem(db.Model):
     __tablename__ = 'shopping_list_items'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    list_id = db.Column(db.Integer, db.ForeignKey('shopping_lists.id'), nullable=False)
+    list_id = db.Column(db.Integer, db.ForeignKey('shopping_lists.id', ondelete='CASCADE'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False)  # Store-specific offer
     qty = db.Column(db.Integer, default=1, nullable=False)
@@ -868,8 +868,8 @@ class ShoppingListItem(db.Model):
 class SMSOutbox(db.Model):
     __tablename__ = 'sms_outbox'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
-    list_id = db.Column(db.Integer, db.ForeignKey('shopping_lists.id'), nullable=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    list_id = db.Column(db.Integer, db.ForeignKey('shopping_lists.id', ondelete='SET NULL'), nullable=True)
     phone = db.Column(db.String, nullable=False)
     body = db.Column(db.Text, nullable=False)
     status = db.Column(db.String, nullable=False, default='QUEUED')  # QUEUED, SENT, FAILED
@@ -894,7 +894,7 @@ class ProductComment(db.Model):
     __tablename__ = 'product_comments'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     comment_text = db.Column(db.Text, nullable=False)  # 20-1000 characters
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
@@ -914,7 +914,7 @@ class ProductVote(db.Model):
     __tablename__ = 'product_votes'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     vote_type = db.Column(db.String, nullable=False)  # 'up' or 'down'
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
@@ -933,7 +933,7 @@ class ProductVote(db.Model):
 class UserEngagement(db.Model):
     __tablename__ = 'user_engagements'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     activity_type = db.Column(db.String, nullable=False)  # 'vote_up', 'vote_down', 'comment'
     product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     credits_earned = db.Column(db.Integer, nullable=False)  # +1 for votes, +2 for comments
@@ -968,11 +968,11 @@ class AnonymousSearch(db.Model):
 class Notification(db.Model):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     notification_type = db.Column(db.String, nullable=False)  # 'discount_alert', 'price_drop', etc.
     title = db.Column(db.String, nullable=False)
     message = db.Column(db.Text, nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     action_url = db.Column(db.String, nullable=True)  # Optional URL to navigate to
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -1053,7 +1053,7 @@ class SearchLog(db.Model):
 class UserActivity(db.Model):
     __tablename__ = 'user_activities'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
 
     # Activity type: 'page_view', 'filter', 'pagination', 'login', etc.
     activity_type = db.Column(db.String(50), nullable=False)
@@ -1084,7 +1084,7 @@ class UserActivity(db.Model):
 class UserDailyVisit(db.Model):
     __tablename__ = 'user_daily_visits'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     visit_date = db.Column(db.Date, nullable=False)  # The date of the visit
 
     # Track first and last activity time on that day
@@ -1112,7 +1112,7 @@ class UserDailyVisit(db.Model):
 class UserLogin(db.Model):
     __tablename__ = 'user_logins'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
 
     # Login method: 'email', 'phone', 'google', etc.
     login_method = db.Column(db.String(20), nullable=True)
@@ -1145,7 +1145,7 @@ class UserFeedback(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     # User info (nullable for anonymous users)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
     # For anonymous users, track by IP/session
     anonymous_id = db.Column(db.String(100), nullable=True)  # Could be IP hash or session ID
@@ -1324,7 +1324,7 @@ class Campaign(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    created_by_user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
     # Relationships
     business = db.relationship('Business', backref=db.backref('campaigns', lazy='dynamic'))
@@ -1397,7 +1397,7 @@ class Coupon(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    created_by_user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
     # Relationships
     business = db.relationship('Business', backref=db.backref('coupons', lazy='dynamic'))
@@ -1432,8 +1432,8 @@ class UserCoupon(db.Model):
     """Purchased coupon by user"""
     __tablename__ = 'user_coupons'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    coupon_id = db.Column(db.Integer, db.ForeignKey('coupons.id'), nullable=False)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    coupon_id = db.Column(db.Integer, db.ForeignKey('coupons.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
 
     # Redemption
     redemption_code = db.Column(db.String(6), nullable=False, index=True)  # "847293"

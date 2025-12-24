@@ -6330,9 +6330,9 @@ def api_admin_delete_user(user_id):
     """API endpoint for admin to delete a user and all their data"""
     from auth_api import decode_jwt_token
     from models import (User, UserSearch, UserEngagement, CreditTransaction,
-                        Favorite, ShoppingList, ProductComment, ProductVote,
+                        Favorite, ShoppingList, ShoppingListItem, ProductComment, ProductVote,
                         ProductReport, Notification, BusinessMembership, OTPCode, UserLogin,
-                        UserTrackedProduct, UserProductScan, UserScanResult, EmailHistory)
+                        UserTrackedProduct, UserProductScan, UserScanResult, EmailEvent)
 
     # Check JWT authentication
     auth_header = request.headers.get('Authorization')
@@ -6377,7 +6377,10 @@ def api_admin_delete_user(user_id):
         # 4. Favorites
         Favorite.query.filter_by(user_id=user_id).delete()
 
-        # 5. Shopping lists
+        # 5. Shopping lists - delete items first, then lists
+        lists = ShoppingList.query.filter_by(user_id=user_id).all()
+        for lst in lists:
+            ShoppingListItem.query.filter_by(list_id=lst.id).delete()
         ShoppingList.query.filter_by(user_id=user_id).delete()
 
         # 6. Product comments
@@ -6411,8 +6414,8 @@ def api_admin_delete_user(user_id):
             UserScanResult.query.filter_by(scan_id=scan.id).delete()
         UserProductScan.query.filter_by(user_id=user_id).delete()
 
-        # 14. Email history
-        EmailHistory.query.filter_by(user_id=user_id).delete()
+        # 14. Email events
+        EmailEvent.query.filter_by(user_id=user_id).delete()
 
         # Finally, delete the user
         db.session.delete(target_user)
