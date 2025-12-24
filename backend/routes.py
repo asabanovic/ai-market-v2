@@ -1320,19 +1320,29 @@ def api_products():
 # API endpoint for businesses list
 @app.route('/api/businesses')
 def api_businesses():
-    """API endpoint for businesses listing - only returns businesses with products"""
+    """API endpoint for businesses listing - supports search and filtering"""
     try:
         # Check if we want all businesses (for store filter) or only those with products
         include_all = request.args.get('all', 'false').lower() == 'true'
+        search = request.args.get('search', '').strip()
+
+        # Build base query
+        query = Business.query.filter(Business.status == 'active')
+
+        # Apply search filter if provided
+        if search:
+            query = query.filter(Business.name.ilike(f'%{search}%'))
 
         if include_all:
             # Return all active businesses regardless of products
-            businesses = Business.query.filter(Business.status == 'active').order_by(Business.name).all()
+            businesses = query.order_by(Business.name).all()
         else:
             # Only return businesses that have at least one product (legacy behavior)
-            businesses = db.session.query(Business).join(Product).filter(
-                Business.status == 'active'
-            ).distinct().all()
+            # Use subquery to avoid DISTINCT on JSON columns (PostgreSQL limitation)
+            business_ids_with_products = db.session.query(Product.business_id).distinct().subquery()
+            businesses = query.filter(
+                Business.id.in_(db.session.query(business_ids_with_products))
+            ).order_by(Business.name).all()
 
         result = []
         for business in businesses:

@@ -362,7 +362,7 @@
                   v-model="businessSearch"
                   type="text"
                   placeholder="Naziv biznisa..."
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                   @input="searchBusinesses"
                 />
               </div>
@@ -390,7 +390,7 @@
               <div v-if="selectedBusiness" class="space-y-4 border-t pt-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Tip biznisa</label>
-                  <select v-model="newBusinessSettings.business_type" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <select v-model="newBusinessSettings.business_type" class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white">
                     <option value="local_business">Lokalni biznis (mesnica, pekara...)</option>
                     <option value="supermarket">Supermarket</option>
                   </select>
@@ -403,7 +403,7 @@
                     type="number"
                     min="1"
                     max="100"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                   />
                 </div>
 
@@ -412,7 +412,7 @@
                   <textarea
                     v-model="newBusinessSettings.description"
                     rows="2"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                     placeholder="Kratki opis biznisa..."
                   ></textarea>
                 </div>
@@ -422,7 +422,7 @@
                   <input
                     v-model="newBusinessSettings.address"
                     type="text"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                     placeholder="Ulica i broj, grad"
                   />
                 </div>
@@ -476,7 +476,7 @@
                       <input
                         v-model="newCoupon.article_name"
                         type="text"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                         placeholder="npr. 1kg Mljeveno meso"
                       />
                     </div>
@@ -486,7 +486,7 @@
                         v-model.number="newCoupon.normal_price"
                         type="number"
                         step="0.01"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                       />
                     </div>
                     <div>
@@ -496,7 +496,7 @@
                         type="number"
                         min="1"
                         max="99"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                       />
                     </div>
                     <div>
@@ -506,12 +506,12 @@
                         type="number"
                         min="1"
                         max="100"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                       />
                     </div>
                     <div>
                       <label class="block text-sm font-medium text-gray-700 mb-1">Validnost (dana) *</label>
-                      <select v-model.number="newCoupon.valid_days" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                      <select v-model.number="newCoupon.valid_days" class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white">
                         <option v-for="d in 10" :key="d" :value="d">{{ d }} {{ d === 1 ? 'dan' : 'dana' }}</option>
                       </select>
                       <p v-if="newCoupon.valid_days" class="text-xs text-gray-500 mt-1">
@@ -526,7 +526,7 @@
                       <input
                         v-model="newCoupon.quantity_description"
                         type="text"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                         placeholder="npr. 1kg, 500g, 1 komad"
                       />
                     </div>
@@ -535,7 +535,7 @@
                       <textarea
                         v-model="newCoupon.description"
                         rows="2"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                         placeholder="Dodatne informacije o ponudi..."
                       ></textarea>
                     </div>
