@@ -468,8 +468,65 @@
                   </button>
                 </div>
 
+                <!-- Campaign Section -->
+                <div v-if="showCreateCouponForm" class="bg-blue-50 rounded-lg p-4 mb-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <h5 class="font-medium text-gray-700">Kampanja *</h5>
+                    <button
+                      v-if="!showCreateCampaignForm"
+                      @click="showCreateCampaignForm = true"
+                      class="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      + Nova kampanja
+                    </button>
+                  </div>
+
+                  <!-- Create Campaign Form -->
+                  <div v-if="showCreateCampaignForm" class="mb-3">
+                    <div class="flex gap-2">
+                      <input
+                        v-model="newCampaignName"
+                        type="text"
+                        placeholder="Naziv kampanje (npr. Božićna akcija)"
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                      />
+                      <button
+                        @click="createCampaign"
+                        :disabled="!newCampaignName.trim()"
+                        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+                      >
+                        Kreiraj
+                      </button>
+                      <button
+                        @click="showCreateCampaignForm = false; newCampaignName = ''"
+                        class="px-3 py-2 text-gray-600 hover:text-gray-800"
+                      >
+                        Otkaži
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Campaign Selector -->
+                  <div v-if="campaigns.length > 0">
+                    <select
+                      v-model="newCoupon.campaign_id"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    >
+                      <option :value="null" disabled>Odaberi kampanju</option>
+                      <option v-for="c in campaigns" :key="c.id" :value="c.id">
+                        {{ c.name }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- No Campaigns -->
+                  <div v-else-if="!showCreateCampaignForm" class="text-sm text-gray-500">
+                    Nema kampanja. Kreirajte novu kampanju da biste mogli dodati kupone.
+                  </div>
+                </div>
+
                 <!-- Create Coupon Form -->
-                <div v-if="showCreateCouponForm" class="bg-gray-50 rounded-lg p-4 mb-4">
+                <div v-if="showCreateCouponForm && newCoupon.campaign_id" class="bg-gray-50 rounded-lg p-4 mb-4">
                   <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
                       <label class="block text-sm font-medium text-gray-700 mb-1">Naziv artikla *</label>
@@ -633,6 +690,12 @@ const newBusinessSettings = ref({
 // Manage business
 const managingBusiness = ref<any>(null)
 
+// Campaigns
+const campaigns = ref<any[]>([])
+const selectedCampaignId = ref<number | null>(null)
+const showCreateCampaignForm = ref(false)
+const newCampaignName = ref('')
+
 // New coupon
 const newCoupon = ref({
   article_name: '',
@@ -641,7 +704,8 @@ const newCoupon = ref({
   total_quantity: 5,
   valid_days: 7,
   quantity_description: '',
-  description: ''
+  description: '',
+  campaign_id: null as number | null
 })
 
 const isValidCoupon = computed(() => {
@@ -650,7 +714,8 @@ const isValidCoupon = computed(() => {
     newCoupon.value.discount_percent >= 1 &&
     newCoupon.value.discount_percent <= 99 &&
     newCoupon.value.total_quantity >= 1 &&
-    newCoupon.value.valid_days >= 1
+    newCoupon.value.valid_days >= 1 &&
+    newCoupon.value.campaign_id
 })
 
 onMounted(async () => {
@@ -786,13 +851,48 @@ async function manageBusiness(business: any) {
   managingBusiness.value = business
   showManageModal.value = true
   showCreateCouponForm.value = false
+  showCreateCampaignForm.value = false
+  selectedCampaignId.value = null
+  newCampaignName.value = ''
 
   try {
-    const res = await get(`/api/business/${business.id}/coupons`)
-    businessCoupons.value = res.coupons || []
+    // Load campaigns and coupons in parallel
+    const [couponsRes, campaignsRes] = await Promise.all([
+      get(`/api/business/${business.id}/coupons`),
+      get(`/api/business/${business.id}/campaigns`)
+    ])
+    businessCoupons.value = couponsRes.coupons || []
+    campaigns.value = campaignsRes.campaigns || []
+
+    // Auto-select first campaign if exists
+    if (campaigns.value.length > 0) {
+      selectedCampaignId.value = campaigns.value[0].id
+      newCoupon.value.campaign_id = campaigns.value[0].id
+    }
   } catch (error) {
-    console.error('Error loading business coupons:', error)
+    console.error('Error loading business data:', error)
     businessCoupons.value = []
+    campaigns.value = []
+  }
+}
+
+async function createCampaign() {
+  if (!managingBusiness.value || !newCampaignName.value.trim()) return
+  try {
+    const res = await post(`/api/business/${managingBusiness.value.id}/campaigns`, {
+      name: newCampaignName.value.trim()
+    })
+
+    // Add to campaigns list and select it
+    campaigns.value.push(res.campaign)
+    selectedCampaignId.value = res.campaign.id
+    newCoupon.value.campaign_id = res.campaign.id
+
+    // Reset form
+    newCampaignName.value = ''
+    showCreateCampaignForm.value = false
+  } catch (error) {
+    console.error('Error creating campaign:', error)
   }
 }
 
@@ -801,7 +901,8 @@ async function createCoupon() {
   try {
     await post(`/api/business/${managingBusiness.value.id}/coupons`, newCoupon.value)
 
-    // Reset form
+    // Reset form but keep campaign_id
+    const currentCampaignId = newCoupon.value.campaign_id
     newCoupon.value = {
       article_name: '',
       normal_price: 0,
@@ -809,7 +910,8 @@ async function createCoupon() {
       total_quantity: 5,
       valid_days: 7,
       quantity_description: '',
-      description: ''
+      description: '',
+      campaign_id: currentCampaignId
     }
     showCreateCouponForm.value = false
 
