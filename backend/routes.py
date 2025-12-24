@@ -10907,14 +10907,10 @@ def api_get_product_related(product_id):
 # ==================== ADMIN EMAIL & JOB LOGS ====================
 
 @app.route('/api/admin/email-logs', methods=['GET'])
-@jwt_required()
+@require_jwt_auth
+@require_admin
 def get_admin_email_logs():
     """Get email notification logs for admin dashboard."""
-    user_id = get_jwt_identity()
-    user = db.session.get(User, user_id)
-    if not user or not user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
-
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
@@ -10960,14 +10956,10 @@ def get_admin_email_logs():
 
 
 @app.route('/api/admin/job-runs', methods=['GET'])
-@jwt_required()
+@require_jwt_auth
+@require_admin
 def get_admin_job_runs():
     """Get scheduled job run history for admin dashboard."""
-    user_id = get_jwt_identity()
-    user = db.session.get(User, user_id)
-    if not user or not user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
-
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
