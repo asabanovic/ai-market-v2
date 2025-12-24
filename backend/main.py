@@ -9,6 +9,7 @@ from notifications_api import notifications_bp
 from admin_credits_routes import admin_credits_bp
 from admin_retention_routes import admin_retention_bp
 from sendgrid_webhook import sendgrid_webhook_bp
+from coupon_routes import coupon_bp
 from app import csrf
 
 # Disable CSRF for agents API endpoints (JWT-based)
@@ -17,6 +18,7 @@ csrf.exempt(notifications_bp)
 csrf.exempt(admin_credits_bp)
 csrf.exempt(admin_retention_bp)
 csrf.exempt(sendgrid_webhook_bp)
+csrf.exempt(coupon_bp)
 
 # Register API blueprints
 app.register_blueprint(agents_api_bp)
@@ -24,12 +26,14 @@ app.register_blueprint(notifications_bp)
 app.register_blueprint(admin_credits_bp)
 app.register_blueprint(admin_retention_bp)
 app.register_blueprint(sendgrid_webhook_bp)
+app.register_blueprint(coupon_bp)
 
 print("🤖 AI Agents System initialized (LangGraph with Supervisor)")
 print("📧 SendGrid Webhook initialized")
 print("🔔 Notifications API initialized")
 print("💰 Admin Credits API initialized")
 print("📊 Admin Retention API initialized")
+print("🎟️ Exclusive Coupons API initialized")
 
 # Add helper functions to Jinja context after routes import
 from routes import user_has_business_role

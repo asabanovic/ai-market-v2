@@ -152,6 +152,17 @@ class Business(db.Model):
     is_promo_active = db.Column(db.Boolean, default=True)  # Show on homepage if True
     views = db.Column(db.Integer, default=0)
 
+    # Exclusive coupons fields
+    business_type = db.Column(db.String(50), default='supermarket')  # 'supermarket' or 'local_business'
+    description = db.Column(db.Text, nullable=True)  # Business description
+    address = db.Column(db.String(300), nullable=True)  # Full address
+    working_hours = db.Column(JSON, nullable=True)  # {"mon": "08:00-20:00", "tue": "08:00-20:00", ...}
+    has_exclusive_coupons = db.Column(db.Boolean, default=False)  # Enabled for exclusive coupons
+    max_campaigns_allowed = db.Column(db.Integer, default=1)  # Max campaigns for this business (admin can increase)
+    average_rating = db.Column(db.Float, default=0.0)  # Cached average rating
+    total_reviews = db.Column(db.Integer, default=0)  # Cached total reviews count
+    cover_image_path = db.Column(db.String, nullable=True)  # Large storefront/cover image for landing page
+
     # Relationships
     products = db.relationship('Product', backref='business', lazy='dynamic', cascade='all, delete-orphan')
 
@@ -205,6 +216,167 @@ class Business(db.Model):
 
         # Fallback to stored google_link
         return self.google_link
+
+    def is_open_now(self, timezone_offset=1):
+        """
+        Check if business is currently open based on working_hours.
+        timezone_offset: Bosnia is UTC+1 (CET) or UTC+2 (CEST)
+        Returns: True if open, False if closed, None if no working hours set
+        """
+        if not self.working_hours:
+            return None
+
+        from datetime import datetime, timedelta
+        import pytz
+
+        # Get current time in Bosnia timezone
+        bosnia_tz = pytz.timezone('Europe/Sarajevo')
+        now = datetime.now(bosnia_tz)
+
+        # Get day name (lowercase)
+        day_names = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+        current_day = day_names[now.weekday()]
+
+        hours = self.working_hours.get(current_day)
+        if not hours or hours.lower() in ['closed', 'zatvoreno', '']:
+            return False
+
+        try:
+            # Parse hours like "08:00-20:00"
+            open_time, close_time = hours.split('-')
+            open_hour, open_min = map(int, open_time.strip().split(':'))
+            close_hour, close_min = map(int, close_time.strip().split(':'))
+
+            current_minutes = now.hour * 60 + now.minute
+            open_minutes = open_hour * 60 + open_min
+            close_minutes = close_hour * 60 + close_min
+
+            return open_minutes <= current_minutes <= close_minutes
+        except (ValueError, AttributeError):
+            return None
+
+    def get_active_coupons_count(self):
+        """Get count of currently active coupons for this business"""
+        return Coupon.query.filter_by(
+            business_id=self.id,
+            is_active=True
+        ).filter(Coupon.remaining_quantity > 0).count()
+
+    def get_campaigns_count(self):
+        """Get count of campaigns for this business"""
+        return Campaign.query.filter_by(business_id=self.id).count()
+
+    def get_active_campaigns_count(self):
+        """Get count of active campaigns for this business"""
+        return Campaign.query.filter_by(business_id=self.id, is_active=True).count()
+
+    def can_create_campaign(self):
+        """Check if business can create more campaigns"""
+        return self.get_campaigns_count() < self.max_campaigns_allowed
+
+    def update_rating_cache(self):
+        """Update cached average rating and total reviews"""
+        from sqlalchemy import func
+        result = db.session.query(
+            func.avg(UserCoupon.buyer_to_business_rating),
+            func.count(UserCoupon.id)
+        ).join(Coupon).filter(
+            Coupon.business_id == self.id,
+            UserCoupon.buyer_to_business_rating.isnot(None)
+        ).first()
+
+        self.average_rating = round(result[0] or 0, 1)
+        self.total_reviews = result[1] or 0
+
+
+class Store(db.Model):
+    """
+    Physical store location for a business.
+    A business can have multiple stores (locations) in different areas.
+    Each store can have its own address, working hours, and be associated with coupons.
+    """
+    __tablename__ = 'stores'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
+
+    # Store info
+    name = db.Column(db.String(200), nullable=False)  # e.g., "Mesnica Tuzla - Centar"
+    address = db.Column(db.String(300), nullable=False)
+    city = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(50), nullable=True)
+
+    # Location
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    google_maps_link = db.Column(db.String, nullable=True)
+
+    # Working hours (per day, like business)
+    working_hours = db.Column(JSON, nullable=True)  # {"mon": "08:00-20:00", ...}
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_primary = db.Column(db.Boolean, default=False, nullable=False)  # Primary/main store location
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Relationships
+    business = db.relationship('Business', backref=db.backref('stores', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_stores_business', 'business_id'),
+        db.Index('idx_stores_city', 'city'),
+        db.Index('idx_stores_active', 'is_active'),
+    )
+
+    def is_open_now(self):
+        """Check if store is currently open based on working_hours."""
+        if not self.working_hours:
+            return None
+
+        import pytz
+        bosnia_tz = pytz.timezone('Europe/Sarajevo')
+        now = datetime.now(bosnia_tz)
+
+        day_names = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+        current_day = day_names[now.weekday()]
+
+        hours = self.working_hours.get(current_day)
+        if not hours or hours.lower() in ['closed', 'zatvoreno', '']:
+            return False
+
+        try:
+            open_time, close_time = hours.split('-')
+            open_hour, open_min = map(int, open_time.strip().split(':'))
+            close_hour, close_min = map(int, close_time.strip().split(':'))
+
+            current_minutes = now.hour * 60 + now.minute
+            open_minutes = open_hour * 60 + open_min
+            close_minutes = close_hour * 60 + close_min
+
+            return open_minutes <= current_minutes <= close_minutes
+        except (ValueError, AttributeError):
+            return None
+
+    def to_dict(self):
+        """Convert store to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'business_id': self.business_id,
+            'name': self.name,
+            'address': self.address,
+            'city': self.city,
+            'phone': self.phone,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'google_maps_link': self.google_maps_link,
+            'working_hours': self.working_hours,
+            'is_active': self.is_active,
+            'is_primary': self.is_primary,
+            'is_open': self.is_open_now()
+        }
+
 
 # Products table
 class Product(db.Model):
@@ -1094,6 +1266,228 @@ class UserScanResult(db.Model):
         db.Index('idx_scan_results_tracked', 'tracked_product_id'),
         db.Index('idx_scan_results_product', 'product_id'),
     )
+
+
+# ==================== FEATURE FLAGS ====================
+
+class FeatureFlag(db.Model):
+    """Feature flags for controlling feature visibility"""
+    __tablename__ = 'feature_flags'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    key = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    value = db.Column(db.Boolean, default=False, nullable=False)
+    description = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    @classmethod
+    def is_enabled(cls, key, default=False):
+        """Check if a feature flag is enabled"""
+        flag = cls.query.filter_by(key=key).first()
+        return flag.value if flag else default
+
+    @classmethod
+    def set_flag(cls, key, value, description=None):
+        """Set or create a feature flag"""
+        flag = cls.query.filter_by(key=key).first()
+        if flag:
+            flag.value = value
+            if description:
+                flag.description = description
+        else:
+            flag = cls(key=key, value=value, description=description)
+            db.session.add(flag)
+        db.session.commit()
+        return flag
+
+
+# ==================== EXCLUSIVE COUPONS ====================
+
+class Campaign(db.Model):
+    """Campaign groups coupons together. Each business can have limited campaigns."""
+    __tablename__ = 'campaigns'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
+
+    # Campaign info
+    name = db.Column(db.String(200), nullable=False)  # "Božićna Akcija 2025"
+    description = db.Column(db.Text, nullable=True)
+
+    # Limits
+    max_coupons = db.Column(db.Integer, default=20, nullable=False)  # Max coupons in this campaign
+
+    # Validity
+    starts_at = db.Column(db.DateTime, nullable=True)  # Optional start date
+    expires_at = db.Column(db.DateTime, nullable=True)  # Optional end date
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_by_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+
+    # Relationships
+    business = db.relationship('Business', backref=db.backref('campaigns', lazy='dynamic'))
+    created_by = db.relationship('User', backref='created_campaigns')
+
+    __table_args__ = (
+        db.Index('idx_campaigns_business', 'business_id'),
+        db.Index('idx_campaigns_active', 'is_active'),
+    )
+
+    def get_coupons_count(self):
+        """Get number of coupons in this campaign"""
+        return Coupon.query.filter_by(campaign_id=self.id).count()
+
+    def get_active_coupons_count(self):
+        """Get number of active coupons in this campaign"""
+        return Coupon.query.filter_by(
+            campaign_id=self.id,
+            is_active=True
+        ).count()
+
+    def can_add_coupon(self):
+        """Check if campaign can have more coupons"""
+        return self.get_coupons_count() < self.max_coupons
+
+    def to_dict(self):
+        """Convert campaign to dictionary"""
+        return {
+            'id': self.id,
+            'business_id': self.business_id,
+            'name': self.name,
+            'description': self.description,
+            'max_coupons': self.max_coupons,
+            'coupons_count': self.get_coupons_count(),
+            'active_coupons_count': self.get_active_coupons_count(),
+            'can_add_coupon': self.can_add_coupon(),
+            'starts_at': self.starts_at.isoformat() if self.starts_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class Coupon(db.Model):
+    """Exclusive coupon template created by business or admin"""
+    __tablename__ = 'coupons'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
+    campaign_id = db.Column(db.Integer, db.ForeignKey('campaigns.id'), nullable=True)  # Campaign this coupon belongs to
+    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=True)  # Optional specific store
+
+    # Article info
+    article_name = db.Column(db.String(200), nullable=False)  # "1kg Mljeveno meso"
+    description = db.Column(db.Text, nullable=True)  # Additional description
+    normal_price = db.Column(db.Float, nullable=False)  # 20.00 KM
+    discount_percent = db.Column(db.Integer, nullable=False)  # 50
+    quantity_description = db.Column(db.String(100), nullable=True)  # "1kg"
+    image_path = db.Column(db.String, nullable=True)  # Coupon/product image
+
+    # Availability
+    total_quantity = db.Column(db.Integer, nullable=False)  # 5 coupons total
+    remaining_quantity = db.Column(db.Integer, nullable=False)  # 3 remaining
+    credits_cost = db.Column(db.Integer, default=20, nullable=False)  # 20 credits
+
+    # Validity
+    valid_days = db.Column(db.Integer, nullable=False)  # 1-10 days from purchase
+    expires_at = db.Column(db.DateTime, nullable=True)  # Optional hard expiration for entire coupon campaign
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_by_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+
+    # Relationships
+    business = db.relationship('Business', backref=db.backref('coupons', lazy='dynamic'))
+    campaign = db.relationship('Campaign', backref=db.backref('coupons', lazy='dynamic'))
+    store = db.relationship('Store', backref=db.backref('coupons', lazy='dynamic'))
+    created_by = db.relationship('User', backref='created_coupons')
+
+    __table_args__ = (
+        db.Index('idx_coupons_business', 'business_id'),
+        db.Index('idx_coupons_campaign', 'campaign_id'),
+        db.Index('idx_coupons_store', 'store_id'),
+        db.Index('idx_coupons_active', 'is_active'),
+    )
+
+    @property
+    def final_price(self):
+        """Calculate final price after discount"""
+        return round(self.normal_price * (1 - self.discount_percent / 100), 2)
+
+    @property
+    def savings(self):
+        """Calculate savings amount"""
+        return round(self.normal_price - self.final_price, 2)
+
+    @property
+    def is_sold_out(self):
+        """Check if coupon is sold out"""
+        return self.remaining_quantity <= 0
+
+
+class UserCoupon(db.Model):
+    """Purchased coupon by user"""
+    __tablename__ = 'user_coupons'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    coupon_id = db.Column(db.Integer, db.ForeignKey('coupons.id'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+
+    # Redemption
+    redemption_code = db.Column(db.String(6), nullable=False, index=True)  # "847293"
+    status = db.Column(db.String(20), default='active', nullable=False)  # 'active', 'redeemed', 'expired'
+
+    # Dates
+    purchased_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    redeemed_at = db.Column(db.DateTime, nullable=True)
+
+    # Reminder tracking
+    reminder_50_sent = db.Column(db.Boolean, default=False, nullable=False)
+    reminder_final_sent = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Buyer rates business
+    buyer_to_business_rating = db.Column(db.Integer, nullable=True)  # 1-5 stars
+    buyer_to_business_comment = db.Column(db.Text, nullable=True)
+    buyer_product_review = db.Column(db.Text, nullable=True)  # Unlocks 24h after redemption
+    buyer_review_unlocked_at = db.Column(db.DateTime, nullable=True)
+    buyer_review_submitted_at = db.Column(db.DateTime, nullable=True)
+
+    # Business rates buyer
+    business_to_buyer_rating = db.Column(db.Integer, nullable=True)  # 1-5 stars
+    business_to_buyer_comment = db.Column(db.Text, nullable=True)
+
+    # Relationships
+    coupon = db.relationship('Coupon', backref=db.backref('user_coupons', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('purchased_coupons', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_user_coupons_user', 'user_id'),
+        db.Index('idx_user_coupons_coupon', 'coupon_id'),
+        db.Index('idx_user_coupons_status', 'status'),
+        db.Index('idx_user_coupons_expires', 'expires_at'),
+        db.Index('idx_user_coupons_code', 'redemption_code'),
+    )
+
+    @staticmethod
+    def generate_redemption_code():
+        """Generate a 6-digit redemption code"""
+        import random
+        return ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+    @property
+    def is_expired(self):
+        """Check if coupon has expired"""
+        return datetime.now() > self.expires_at and self.status != 'redeemed'
+
+    @property
+    def can_submit_product_review(self):
+        """Check if user can submit product review (24h after redemption)"""
+        if not self.redeemed_at or self.buyer_product_review:
+            return False
+        return datetime.now() >= self.buyer_review_unlocked_at
 
 
 class EmailEvent(db.Model):

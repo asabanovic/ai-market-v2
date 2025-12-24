@@ -2160,9 +2160,14 @@ def api_featured_data():
         categories = [{'name': cat[0], 'count': cat[1]} for cat in popular_categories]
 
         # Get businesses with active products
-        businesses = db.session.query(Business).join(Product).filter(
+        # Use subquery to avoid DISTINCT on JSON columns
+        business_ids_with_products = db.session.query(Product.business_id).filter(
             or_(Product.expires.is_(None), Product.expires >= date.today())
-        ).distinct().order_by(Business.name).all()
+        ).distinct().subquery()
+
+        businesses = db.session.query(Business).filter(
+            Business.id.in_(db.session.query(business_ids_with_products))
+        ).order_by(Business.name).all()
 
         businesses_list = []
         for business in businesses:

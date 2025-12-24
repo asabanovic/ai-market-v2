@@ -488,6 +488,12 @@ def trigger_job(job_name):
             thread.start()
             return jsonify({'status': 'started', 'job': job_name})
 
+        elif job_name == 'coupon_reminders':
+            from jobs.coupon_reminders import run_coupon_reminders
+            thread = threading.Thread(target=run_and_track, args=(run_coupon_reminders, job_name))
+            thread.start()
+            return jsonify({'status': 'started', 'job': job_name})
+
         else:
             return jsonify({'error': f'Unknown job: {job_name}'}), 404
 

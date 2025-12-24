@@ -584,3 +584,566 @@ Hvala Vam što ste dio Popust.ba zajednice!
     subject = f"🎁 Dobili ste {credits_amount} bonus kredita! | {reason}"
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
+
+
+# =============================================================================
+# EXCLUSIVE COUPONS EMAIL FUNCTIONS
+# =============================================================================
+
+def send_coupon_purchase_email(user_email: str, user_name: str, coupon_data: dict) -> bool:
+    """
+    Send coupon purchase confirmation to buyer with redemption code.
+
+    coupon_data should contain:
+    - redemption_code: str (6-digit code)
+    - article_name: str
+    - business_name: str
+    - business_address: str
+    - original_price: float
+    - final_price: float
+    - discount_percent: int
+    - expires_at: str (formatted date)
+    - valid_days: int
+    """
+    greeting = f" {user_name}" if user_name else ""
+
+    redemption_code = coupon_data.get('redemption_code', '------')
+    article_name = coupon_data.get('article_name', '')
+    business_name = coupon_data.get('business_name', '')
+    business_address = coupon_data.get('business_address', '')
+    original_price = coupon_data.get('original_price', 0)
+    final_price = coupon_data.get('final_price', 0)
+    discount_percent = coupon_data.get('discount_percent', 0)
+    expires_at = coupon_data.get('expires_at', '')
+    valid_days = coupon_data.get('valid_days', 0)
+
+    # Format redemption code with spaces for readability
+    formatted_code = ' '.join([redemption_code[i:i+2] for i in range(0, len(redemption_code), 2)])
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">🎟️</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">Kupon uspješno kupljen!</h1>
+</div>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Čestitamo! Uspješno ste kupili ekskluzivni kupon. Ispod su detalji Vašeg kupona:</p>
+
+<!-- Redemption Code Box -->
+<div style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#A7F3D0;font-weight:500;margin-bottom:8px;">VAŠ KOD ZA ISKORIŠTAVANJE</div>
+<div style="font-size:42px;font-weight:800;color:#ffffff;letter-spacing:8px;font-family:monospace;">{formatted_code}</div>
+<div style="font-size:12px;color:#A7F3D0;margin-top:12px;">Pokažite ovaj kod na blagajni</div>
+</div>
+
+<!-- Coupon Details -->
+<div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:24px 0;">
+<table width="100%">
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Artikal</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{article_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Trgovina</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{business_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Adresa</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;color:#444;">{business_address}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Originalna cijena</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;color:#888;text-decoration:line-through;">{original_price:.2f} KM</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Vaša cijena</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:18px;font-weight:700;color:#10B981;">{final_price:.2f} KM</span>
+<span style="display:inline-block;padding:2px 8px;background:#ECFDF5;color:#10B981;font-size:11px;border-radius:10px;margin-left:8px;">-{discount_percent}%</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;">
+<span style="font-size:13px;color:#666;">Vrijedi do</span>
+</td>
+<td style="padding:10px 0;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#EF4444;">{expires_at}</span>
+<span style="font-size:12px;color:#888;margin-left:4px;">({valid_days} dana)</span>
+</td>
+</tr>
+</table>
+</div>
+
+<!-- Important Notice -->
+<div style="margin:24px 0;padding:16px;background:#FEF3C7;border-radius:8px;border-left:3px solid #F59E0B;">
+<p style="margin:0;font-size:13px;color:#92400E;line-height:1.5;">
+<strong>Važno:</strong> Kupon možete iskoristiti samo jednom. Pokažite kod na blagajni trgovine {business_name} prije isteka roka.
+</p>
+</div>
+
+{get_button("Pogledajte moje kupone", f"{BASE_URL}/profil/kuponi", "#7C3AED")}
+
+<p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
+Uživajte u uštedi!
+</p>
+'''
+
+    subject = f"🎟️ Vaš kupon za {article_name} | Kod: {formatted_code}"
+    html = get_base_template(content, "#10B981")
+    return send_email(user_email, subject, html)
+
+
+def send_coupon_sale_notification_email(business_email: str, business_name: str, sale_data: dict) -> bool:
+    """
+    Send notification to business owner when someone purchases their coupon.
+
+    sale_data should contain:
+    - buyer_name: str
+    - article_name: str
+    - final_price: float
+    - remaining_quantity: int
+    - total_sold: int
+    """
+    buyer_name = sale_data.get('buyer_name', 'Korisnik')
+    article_name = sale_data.get('article_name', '')
+    final_price = sale_data.get('final_price', 0)
+    remaining_quantity = sale_data.get('remaining_quantity', 0)
+    total_sold = sale_data.get('total_sold', 0)
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">💰</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">Nova prodaja kupona!</h1>
+</div>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
+Upravo je neko kupio Vaš ekskluzivni kupon na Popust.ba!
+</p>
+
+<!-- Sale Details -->
+<div style="background:linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#E9D5FF;font-weight:500;margin-bottom:8px;">PRODATO</div>
+<div style="font-size:24px;font-weight:700;color:#ffffff;">{article_name}</div>
+<div style="font-size:32px;font-weight:800;color:#ffffff;margin-top:12px;">{final_price:.2f} KM</div>
+</div>
+
+<!-- Stats -->
+<div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:24px 0;">
+<table width="100%">
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Kupac</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{buyer_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Ukupno prodato</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#7C3AED;">{total_sold}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;">
+<span style="font-size:13px;color:#666;">Preostalo</span>
+</td>
+<td style="padding:10px 0;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{remaining_quantity}</span>
+</td>
+</tr>
+</table>
+</div>
+
+<p style="margin:24px 0;font-size:14px;color:#444;line-height:1.6;text-align:center;">
+Kupac će doći u Vašu trgovinu sa kodom za iskorištavanje.
+Kod možete potvrditi na Vašoj poslovnoj kontrolnoj ploči.
+</p>
+
+{get_button("Otvorite kontrolnu ploču", f"{BASE_URL}/moj-biznis", "#7C3AED")}
+'''
+
+    subject = f"💰 Nova prodaja: {article_name} | {business_name}"
+    html = get_base_template(content, "#7C3AED")
+    return send_email(business_email, subject, html)
+
+
+def send_coupon_halfway_reminder_email(user_email: str, user_name: str, coupon_data: dict) -> bool:
+    """
+    Send reminder when coupon is at 50% of its validity period.
+
+    coupon_data should contain:
+    - redemption_code: str
+    - article_name: str
+    - business_name: str
+    - business_address: str
+    - final_price: float
+    - expires_at: str
+    - days_remaining: int
+    """
+    greeting = f" {user_name}" if user_name else ""
+
+    redemption_code = coupon_data.get('redemption_code', '------')
+    article_name = coupon_data.get('article_name', '')
+    business_name = coupon_data.get('business_name', '')
+    business_address = coupon_data.get('business_address', '')
+    final_price = coupon_data.get('final_price', 0)
+    expires_at = coupon_data.get('expires_at', '')
+    days_remaining = coupon_data.get('days_remaining', 0)
+
+    formatted_code = ' '.join([redemption_code[i:i+2] for i in range(0, len(redemption_code), 2)])
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">⏰</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">Podsjetnik: Vaš kupon ističe uskoro</h1>
+</div>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
+Podsjetnik da Vam je prešla polovina roka za iskorištavanje Vašeg ekskluzivnog kupona.
+Ne zaboravite ga iskoristiti!
+</p>
+
+<!-- Time Warning -->
+<div style="background:#FEF3C7;border-radius:12px;padding:20px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#92400E;font-weight:500;margin-bottom:4px;">PREOSTALO VRIJEME</div>
+<div style="font-size:36px;font-weight:800;color:#F59E0B;">{days_remaining} dana</div>
+<div style="font-size:13px;color:#92400E;margin-top:8px;">Ističe: {expires_at}</div>
+</div>
+
+<!-- Coupon Info -->
+<div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:24px 0;">
+<table width="100%">
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Artikal</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{article_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Trgovina</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{business_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;">
+<span style="font-size:13px;color:#666;">Adresa</span>
+</td>
+<td style="padding:10px 0;text-align:right;">
+<span style="font-size:14px;color:#444;">{business_address}</span>
+</td>
+</tr>
+</table>
+</div>
+
+<!-- Redemption Code -->
+<div style="background:#ECFDF5;border-radius:12px;padding:16px;text-align:center;margin:24px 0;">
+<div style="font-size:12px;color:#059669;font-weight:500;margin-bottom:4px;">VAŠ KOD</div>
+<div style="font-size:28px;font-weight:700;color:#10B981;letter-spacing:4px;font-family:monospace;">{formatted_code}</div>
+</div>
+
+{get_button("Pogledajte detalje kupona", f"{BASE_URL}/profil/kuponi", "#F59E0B")}
+'''
+
+    subject = f"⏰ Podsjetnik: Kupon za {article_name} ističe za {days_remaining} dana"
+    html = get_base_template(content, "#F59E0B")
+    return send_email(user_email, subject, html)
+
+
+def send_coupon_expiry_reminder_email(user_email: str, user_name: str, coupon_data: dict) -> bool:
+    """
+    Send urgent reminder when coupon expires tomorrow.
+
+    coupon_data should contain:
+    - redemption_code: str
+    - article_name: str
+    - business_name: str
+    - business_address: str
+    - final_price: float
+    - expires_at: str
+    """
+    greeting = f" {user_name}" if user_name else ""
+
+    redemption_code = coupon_data.get('redemption_code', '------')
+    article_name = coupon_data.get('article_name', '')
+    business_name = coupon_data.get('business_name', '')
+    business_address = coupon_data.get('business_address', '')
+    final_price = coupon_data.get('final_price', 0)
+    expires_at = coupon_data.get('expires_at', '')
+
+    formatted_code = ' '.join([redemption_code[i:i+2] for i in range(0, len(redemption_code), 2)])
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">🚨</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#EF4444;">HITNO: Kupon ističe sutra!</h1>
+</div>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
+<strong>Vaš ekskluzivni kupon ističe sutra!</strong> Ne propustite priliku za uštedu -
+iskoristite kupon danas ili sutra prije isteka.
+</p>
+
+<!-- Urgent Warning -->
+<div style="background:#FEE2E2;border-radius:12px;padding:20px;text-align:center;margin:24px 0;border:2px solid #EF4444;">
+<div style="font-size:14px;color:#991B1B;font-weight:600;margin-bottom:4px;">⚠️ ISTIČE SUTRA ⚠️</div>
+<div style="font-size:18px;font-weight:700;color:#EF4444;">{expires_at}</div>
+</div>
+
+<!-- Coupon Info -->
+<div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:24px 0;">
+<table width="100%">
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Artikal</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{article_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Vaša cijena</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:18px;font-weight:700;color:#10B981;">{final_price:.2f} KM</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Trgovina</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{business_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;">
+<span style="font-size:13px;color:#666;">Adresa</span>
+</td>
+<td style="padding:10px 0;text-align:right;">
+<span style="font-size:14px;color:#444;">{business_address}</span>
+</td>
+</tr>
+</table>
+</div>
+
+<!-- Redemption Code - Prominent -->
+<div style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#A7F3D0;font-weight:500;margin-bottom:8px;">VAŠ KOD ZA ISKORIŠTAVANJE</div>
+<div style="font-size:42px;font-weight:800;color:#ffffff;letter-spacing:8px;font-family:monospace;">{formatted_code}</div>
+</div>
+
+{get_button("Pogledajte kupon", f"{BASE_URL}/profil/kuponi", "#EF4444")}
+
+<p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
+Požurite dok nije kasno!
+</p>
+'''
+
+    subject = f"🚨 HITNO: Kupon za {article_name} ističe SUTRA!"
+    html = get_base_template(content, "#EF4444")
+    return send_email(user_email, subject, html)
+
+
+def send_coupon_redemption_email(user_email: str, user_name: str, redemption_data: dict) -> bool:
+    """
+    Send confirmation when coupon is redeemed, with prompt to leave review.
+
+    redemption_data should contain:
+    - article_name: str
+    - business_name: str
+    - final_price: float
+    - savings: float
+    - redeemed_at: str (formatted datetime)
+    """
+    greeting = f" {user_name}" if user_name else ""
+
+    article_name = redemption_data.get('article_name', '')
+    business_name = redemption_data.get('business_name', '')
+    final_price = redemption_data.get('final_price', 0)
+    savings = redemption_data.get('savings', 0)
+    redeemed_at = redemption_data.get('redeemed_at', '')
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">✅</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#10B981;">Kupon uspješno iskorišten!</h1>
+</div>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
+Čestitamo! Uspješno ste iskoristili Vaš ekskluzivni kupon.
+Nadamo se da ste zadovoljni uslugom!
+</p>
+
+<!-- Success Box -->
+<div style="background:#ECFDF5;border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#059669;font-weight:500;margin-bottom:8px;">UŠTEDJELI STE</div>
+<div style="font-size:42px;font-weight:800;color:#10B981;">{savings:.2f} KM</div>
+</div>
+
+<!-- Details -->
+<div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:24px 0;">
+<table width="100%">
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Artikal</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{article_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Trgovina</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{business_name}</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Plaćeno</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:16px;font-weight:700;color:#1a1a1a;">{final_price:.2f} KM</span>
+</td>
+</tr>
+<tr>
+<td style="padding:10px 0;">
+<span style="font-size:13px;color:#666;">Iskorišteno</span>
+</td>
+<td style="padding:10px 0;text-align:right;">
+<span style="font-size:14px;color:#444;">{redeemed_at}</span>
+</td>
+</tr>
+</table>
+</div>
+
+<!-- Review Prompt -->
+<div style="margin:24px 0;padding:20px;background:#F5F3FF;border-radius:12px;text-align:center;">
+<div style="font-size:28px;margin-bottom:8px;">⭐</div>
+<p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#1a1a1a;">Kako je bilo Vaše iskustvo?</p>
+<p style="margin:0 0 16px;font-size:14px;color:#666;">
+Vaša ocjena pomaže drugim korisnicima i poboljšava kvalitet ponuda.
+</p>
+{get_button("Ocijenite iskustvo", f"{BASE_URL}/profil/kuponi", "#7C3AED")}
+</div>
+
+<p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
+Hvala što koristite Popust.ba ekskluzivne ponude!
+</p>
+'''
+
+    subject = f"✅ Kupon iskorišten: {article_name} | Uštedjeli ste {savings:.2f} KM"
+    html = get_base_template(content, "#10B981")
+    return send_email(user_email, subject, html)
+
+
+def send_new_rating_notification_email(recipient_email: str, recipient_name: str, rating_data: dict, is_business: bool = False) -> bool:
+    """
+    Send notification when someone receives a new rating.
+
+    rating_data should contain:
+    - rater_name: str (who gave the rating)
+    - rating: int (1-5)
+    - comment: str (optional)
+    - article_name: str
+    - business_name: str (if recipient is user)
+    """
+    greeting = f" {recipient_name}" if recipient_name else ""
+
+    rater_name = rating_data.get('rater_name', 'Korisnik')
+    rating = rating_data.get('rating', 5)
+    comment = rating_data.get('comment', '')
+    article_name = rating_data.get('article_name', '')
+    business_name = rating_data.get('business_name', '')
+
+    # Generate star rating visual
+    stars = '★' * rating + '☆' * (5 - rating)
+    star_color = '#F59E0B' if rating >= 4 else '#9CA3AF' if rating >= 2 else '#EF4444'
+
+    if is_business:
+        title = "Dobili ste novu ocjenu od kupca!"
+        description = f"Kupac <strong>{rater_name}</strong> je ocijenio Vašu uslugu."
+        context_label = "Artikal"
+        context_value = article_name
+    else:
+        title = f"Trgovina {business_name} Vas je ocijenila!"
+        description = f"Trgovina je ocijenila Vaše iskustvo prilikom korištenja kupona."
+        context_label = "Trgovina"
+        context_value = business_name
+
+    comment_html = ""
+    if comment:
+        comment_html = f'''
+<div style="margin:16px 0;padding:16px;background:#F9FAFB;border-radius:8px;border-left:3px solid #7C3AED;">
+<p style="margin:0;font-size:14px;color:#444;line-height:1.6;font-style:italic;">"{comment}"</p>
+</div>
+'''
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">⭐</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">{title}</h1>
+</div>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">{description}</p>
+
+<!-- Rating Display -->
+<div style="background:#FEF3C7;border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:36px;color:{star_color};letter-spacing:4px;">{stars}</div>
+<div style="font-size:24px;font-weight:700;color:#1a1a1a;margin-top:8px;">{rating}/5</div>
+</div>
+
+{comment_html}
+
+<!-- Context -->
+<div style="background:#F9FAFB;border-radius:12px;padding:16px;margin:24px 0;">
+<table width="100%">
+<tr>
+<td style="padding:8px 0;">
+<span style="font-size:13px;color:#666;">{context_label}</span>
+</td>
+<td style="padding:8px 0;text-align:right;">
+<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{context_value}</span>
+</td>
+</tr>
+</table>
+</div>
+
+{get_button("Pogledajte detalje", f"{BASE_URL}/profil/kuponi" if not is_business else f"{BASE_URL}/moj-biznis", "#7C3AED")}
+'''
+
+    subject = f"⭐ Nova ocjena: {rating}/5 | {article_name}"
+    html = get_base_template(content, "#F59E0B")
+    return send_email(recipient_email, subject, html)

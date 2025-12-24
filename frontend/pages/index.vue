@@ -268,6 +268,9 @@
       </div>
     </div>
 
+    <!-- Exclusive Coupons Section -->
+    <ExclusiveCouponsSection />
+
     <!-- Featured Businesses Section - Animated Marquee -->
     <section v-if="featuredBusinesses && featuredBusinesses.length > 0" class="py-12 bg-gray-50 overflow-hidden">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

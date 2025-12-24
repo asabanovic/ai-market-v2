@@ -95,6 +95,12 @@ def run_monthly_credits_job():
     allocate_monthly_credits()
 
 
+def run_coupon_reminders_job():
+    """Run coupon reminder job (50% and expiry notifications)."""
+    from jobs.coupon_reminders import run_coupon_reminders
+    run_coupon_reminders()
+
+
 # Define all scheduled jobs
 JOBS = [
     # Product scan - runs at 6:00 AM UTC daily
@@ -105,6 +111,9 @@ JOBS = [
 
     # Monthly credits - runs at 0:05 AM UTC on 1st of month
     Job("monthly_credits", hour=0, minute=5, func=run_monthly_credits_job),
+
+    # Coupon reminders - runs at 7:00 AM UTC daily (8 AM Bosnia time)
+    Job("coupon_reminders", hour=7, minute=0, func=run_coupon_reminders_job),
 ]
 
 
