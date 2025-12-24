@@ -639,8 +639,8 @@ def create_coupon(business_id):
     if data['discount_percent'] < 1 or data['discount_percent'] > 99:
         return jsonify({'error': 'Popust mora biti između 1% i 99%'}), 400
 
-    if data['valid_days'] < 1 or data['valid_days'] > 10:
-        return jsonify({'error': 'Broj dana važenja mora biti između 1 i 10'}), 400
+    if data['valid_days'] < 1 or data['valid_days'] > 30:
+        return jsonify({'error': 'Broj dana važenja mora biti između 1 i 30'}), 400
 
     if data['total_quantity'] < 1 or data['total_quantity'] > 100:
         return jsonify({'error': 'Broj kupona mora biti između 1 i 100'}), 400
