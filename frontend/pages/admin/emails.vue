@@ -46,13 +46,13 @@
       <div v-if="activeTab === 'emails'" class="bg-white rounded-lg shadow">
         <!-- Filters -->
         <div class="p-4 border-b border-gray-200 flex flex-wrap gap-4">
-          <select v-model="emailTypeFilter" class="rounded-md border-gray-300 text-sm">
+          <select v-model="emailTypeFilter" class="rounded-md border-gray-300 text-sm text-gray-900">
             <option value="">Svi tipovi</option>
             <option value="daily_scan">Daily Scan</option>
             <option value="welcome">Welcome</option>
             <option value="verification">Verification</option>
           </select>
-          <select v-model="emailStatusFilter" class="rounded-md border-gray-300 text-sm">
+          <select v-model="emailStatusFilter" class="rounded-md border-gray-300 text-sm text-gray-900">
             <option value="">Svi statusi</option>
             <option value="sent">Sent</option>
             <option value="failed">Failed</option>
@@ -130,15 +130,15 @@
             <button
               @click="emailsPage--; loadEmails()"
               :disabled="emailsPage <= 1"
-              class="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              class="px-3 py-1 border rounded text-sm text-gray-900 disabled:opacity-50"
             >
               Prethodna
             </button>
-            <span class="px-3 py-1 text-sm">{{ emailsPage }} / {{ emailsPagination.pages }}</span>
+            <span class="px-3 py-1 text-sm text-gray-900">{{ emailsPage }} / {{ emailsPagination.pages }}</span>
             <button
               @click="emailsPage++; loadEmails()"
               :disabled="emailsPage >= emailsPagination.pages"
-              class="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              class="px-3 py-1 border rounded text-sm text-gray-900 disabled:opacity-50"
             >
               Sljedeća
             </button>
@@ -150,7 +150,7 @@
       <div v-if="activeTab === 'jobs'" class="bg-white rounded-lg shadow">
         <!-- Filters -->
         <div class="p-4 border-b border-gray-200 flex flex-wrap gap-4">
-          <select v-model="jobNameFilter" class="rounded-md border-gray-300 text-sm">
+          <select v-model="jobNameFilter" class="rounded-md border-gray-300 text-sm text-gray-900">
             <option value="">Svi jobovi</option>
             <option value="product_scan">Product Scan</option>
             <option value="email_summary">Email Summary</option>
@@ -235,15 +235,15 @@
             <button
               @click="jobsPage--; loadJobs()"
               :disabled="jobsPage <= 1"
-              class="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              class="px-3 py-1 border rounded text-sm text-gray-900 disabled:opacity-50"
             >
               Prethodna
             </button>
-            <span class="px-3 py-1 text-sm">{{ jobsPage }} / {{ jobsPagination.pages }}</span>
+            <span class="px-3 py-1 text-sm text-gray-900">{{ jobsPage }} / {{ jobsPagination.pages }}</span>
             <button
               @click="jobsPage++; loadJobs()"
               :disabled="jobsPage >= jobsPagination.pages"
-              class="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              class="px-3 py-1 border rounded text-sm text-gray-900 disabled:opacity-50"
             >
               Sljedeća
             </button>
