@@ -14,6 +14,51 @@
         <p class="text-gray-600">Pregled svih registrovanih korisnika i njihovih OTP kodova</p>
       </div>
 
+      <!-- Tabs -->
+      <div class="mb-6 border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8">
+          <button
+            @click="activeTab = 'users'"
+            :class="[
+              'py-4 px-1 border-b-2 font-medium text-sm transition-colors',
+              activeTab === 'users'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            <Icon name="mdi:account-group" class="w-5 h-5 inline mr-2" />
+            Korisnici
+          </button>
+          <button
+            @click="activeTab = 'emails'; loadEmails()"
+            :class="[
+              'py-4 px-1 border-b-2 font-medium text-sm transition-colors',
+              activeTab === 'emails'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            <Icon name="mdi:email-newsletter" class="w-5 h-5 inline mr-2" />
+            Email historija
+          </button>
+          <button
+            @click="activeTab = 'jobs'; loadJobs()"
+            :class="[
+              'py-4 px-1 border-b-2 font-medium text-sm transition-colors',
+              activeTab === 'jobs'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            <Icon name="mdi:cog-sync" class="w-5 h-5 inline mr-2" />
+            Job logovi
+          </button>
+        </nav>
+      </div>
+
+      <!-- Tab Content: Users -->
+      <div v-show="activeTab === 'users'">
+
       <!-- Analytics Chart Section -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <div class="flex items-center justify-between mb-6">
@@ -402,6 +447,301 @@
           </div>
         </div>
       </div>
+      </div>
+      <!-- End Tab Content: Users -->
+
+      <!-- Tab Content: Emails -->
+      <div v-show="activeTab === 'emails'">
+        <!-- Email Stats Summary -->
+        <div v-if="emailStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow p-4 text-center">
+            <div class="text-3xl font-bold text-purple-600">{{ emailStats.total_week }}</div>
+            <div class="text-sm text-gray-500">Ova sedmica</div>
+          </div>
+          <div v-for="stat in emailStats.by_type?.slice(0, 3)" :key="stat.email_type" class="bg-white rounded-lg shadow p-4 text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ stat.sent }}</div>
+            <div class="text-sm text-gray-500">{{ getEmailTypeLabel(stat.email_type) }}</div>
+            <div v-if="stat.failed > 0" class="text-xs text-red-500">{{ stat.failed }} neuspjesno</div>
+          </div>
+        </div>
+
+        <!-- Email Filters -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Email historija</h3>
+            <div class="flex items-center gap-3">
+              <select v-model="emailTypeFilter" @change="loadEmails()" class="text-sm border border-gray-300 rounded-md px-3 py-2">
+                <option value="">Svi tipovi</option>
+                <option value="daily_scan">Dnevno skeniranje</option>
+                <option value="weekly_summary">Sedmicni izvjestaj</option>
+                <option value="verification">Verifikacija</option>
+                <option value="welcome">Dobrodoslica</option>
+                <option value="coupon_purchase">Kupovina kupona</option>
+                <option value="coupon_reminder">Podsjetnik za kupon</option>
+              </select>
+              <button
+                @click="loadEmails()"
+                class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+              >
+                <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': emailsLoading }" />
+                Osvjezi
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Email Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div v-if="emailsLoading && emails.length === 0" class="flex items-center justify-center h-48">
+            <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+          </div>
+
+          <div v-else-if="emails.length === 0" class="text-center py-12 text-gray-500">
+            <Icon name="mdi:email-off-outline" class="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>Nema poslatih emailova</p>
+          </div>
+
+          <div v-else class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Korisnik</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Naslov</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Poslato</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr v-for="email in emails" :key="email.id" class="hover:bg-gray-50">
+                  <td class="px-6 py-4">
+                    <div class="text-sm font-medium text-gray-900">{{ email.user_name || 'N/A' }}</div>
+                    <div class="text-xs text-gray-500">{{ email.email }}</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs rounded-full" :class="getEmailTypeBadgeClass(email.email_type)">
+                      {{ getEmailTypeLabel(email.email_type) }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                    {{ email.subject || '-' }}
+                  </td>
+                  <td class="px-6 py-4">
+                    <span
+                      class="px-2 py-1 text-xs rounded-full"
+                      :class="email.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                    >
+                      {{ email.status === 'sent' ? 'Poslato' : 'Neuspjelo' }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ formatEmailDate(email.sent_at) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Email Pagination -->
+          <div v-if="emailPagination.pages > 1" class="bg-gray-50 px-6 py-4 flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+              Stranica {{ emailPagination.page }} od {{ emailPagination.pages }}
+            </div>
+            <div class="flex gap-2">
+              <button
+                @click="loadEmails(emailPagination.page - 1)"
+                :disabled="emailPagination.page === 1"
+                class="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50"
+              >
+                Prethodna
+              </button>
+              <button
+                @click="loadEmails(emailPagination.page + 1)"
+                :disabled="emailPagination.page === emailPagination.pages"
+                class="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50"
+              >
+                Sljedeca
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Tab Content: Emails -->
+
+      <!-- Tab Content: Jobs -->
+      <div v-show="activeTab === 'jobs'">
+        <!-- Scheduled Jobs -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Zakazani poslovi</h3>
+            <button
+              @click="loadJobs"
+              class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+            >
+              <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': jobsLoading }" />
+              Osvjezi
+            </button>
+          </div>
+
+          <div v-if="jobsLoading && jobs.length === 0" class="flex items-center justify-center h-24">
+            <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+          </div>
+
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              v-for="job in jobs"
+              :key="job.name"
+              class="border rounded-lg p-4"
+              :class="job.enabled ? 'border-gray-200' : 'border-gray-100 bg-gray-50'"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <Icon
+                    :name="getJobIcon(job.name)"
+                    class="w-5 h-5"
+                    :class="job.enabled ? 'text-purple-600' : 'text-gray-400'"
+                  />
+                  <span class="font-medium text-gray-900">{{ getJobLabel(job.name) }}</span>
+                </div>
+                <span
+                  :class="[
+                    'px-2 py-0.5 text-xs rounded-full',
+                    job.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
+                  ]"
+                >
+                  {{ job.enabled ? 'Aktivan' : 'Neaktivan' }}
+                </span>
+              </div>
+
+              <div class="text-sm text-gray-500 mb-3">
+                <div class="flex items-center gap-1">
+                  <Icon name="mdi:clock-outline" class="w-4 h-4" />
+                  Zakazano: {{ job.scheduled_time }}
+                </div>
+                <div v-if="job.last_run" class="mt-2 space-y-1">
+                  <div class="flex items-center gap-1">
+                    <Icon
+                      :name="job.last_run.status === 'completed' ? 'mdi:check-circle' : job.last_run.status === 'failed' ? 'mdi:alert-circle' : 'mdi:loading'"
+                      class="w-4 h-4"
+                      :class="job.last_run.status === 'completed' ? 'text-green-600' : job.last_run.status === 'failed' ? 'text-red-600' : 'text-yellow-600 animate-spin'"
+                    />
+                    {{ formatEmailDate(job.last_run.started_at) }}
+                  </div>
+                  <div v-if="job.last_run.records_processed !== null" class="text-xs pl-5">
+                    {{ job.last_run.records_success }}/{{ job.last_run.records_processed }} uspjesno
+                    <span v-if="job.last_run.duration_seconds" class="text-gray-400">({{ job.last_run.duration_seconds.toFixed(1) }}s)</span>
+                  </div>
+                  <div v-if="job.last_run.error_message" class="text-xs text-red-500 pl-5">
+                    {{ job.last_run.error_message.substring(0, 50) }}...
+                  </div>
+                </div>
+                <div v-else class="flex items-center gap-1 mt-1 text-gray-400">
+                  <Icon name="mdi:clock-alert-outline" class="w-4 h-4" />
+                  Nikad nije pokrenuto
+                </div>
+              </div>
+
+              <button
+                @click="triggerJob(job.name)"
+                :disabled="runningJob === job.name"
+                class="w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                :class="
+                  runningJob === job.name
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                "
+              >
+                <Icon
+                  :name="runningJob === job.name ? 'mdi:loading' : 'mdi:play'"
+                  class="w-4 h-4"
+                  :class="{ 'animate-spin': runningJob === job.name }"
+                />
+                {{ runningJob === job.name ? 'Pokrece se...' : 'Pokreni sada' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="jobMessage" class="mt-4 p-3 rounded-lg" :class="jobMessageType === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'">
+            {{ jobMessage }}
+          </div>
+        </div>
+
+        <!-- Job History -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Historija pokretanja</h3>
+            <select v-model="jobHistoryFilter" @change="loadJobHistory()" class="text-sm border border-gray-300 rounded-md px-3 py-2">
+              <option value="">Svi poslovi</option>
+              <option value="product_scan">Skeniranje proizvoda</option>
+              <option value="email_summary">Email izvjestaji</option>
+              <option value="monthly_credits">Mjesecni krediti</option>
+              <option value="coupon_reminders">Podsjetnici za kupone</option>
+            </select>
+          </div>
+
+          <div v-if="jobHistoryLoading" class="flex items-center justify-center h-32">
+            <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+          </div>
+
+          <div v-else-if="jobHistory.length === 0" class="text-center py-12 text-gray-500">
+            <Icon name="mdi:history" class="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>Nema historije pokretanja</p>
+          </div>
+
+          <div v-else class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posao</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pokrenuto</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trajanje</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rezultat</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr v-for="run in jobHistory" :key="run.id" class="hover:bg-gray-50">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                      <Icon :name="getJobIcon(run.job_name)" class="w-5 h-5 text-purple-600" />
+                      <span class="font-medium text-gray-900">{{ getJobLabel(run.job_name) }}</span>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span
+                      class="px-2 py-1 text-xs rounded-full"
+                      :class="{
+                        'bg-green-100 text-green-800': run.status === 'completed',
+                        'bg-red-100 text-red-800': run.status === 'failed',
+                        'bg-yellow-100 text-yellow-800': run.status === 'started'
+                      }"
+                    >
+                      {{ run.status === 'completed' ? 'Zavrseno' : run.status === 'failed' ? 'Neuspjelo' : 'U toku' }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ formatEmailDate(run.started_at) }}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ run.duration_seconds ? `${run.duration_seconds.toFixed(1)}s` : '-' }}
+                  </td>
+                  <td class="px-6 py-4">
+                    <div v-if="run.records_processed !== null" class="text-sm">
+                      <span class="text-green-600">{{ run.records_success }}</span> / {{ run.records_processed }}
+                      <span v-if="run.records_failed > 0" class="text-red-600 ml-1">({{ run.records_failed }} failed)</span>
+                    </div>
+                    <div v-if="run.error_message" class="text-xs text-red-500 mt-1 max-w-xs truncate" :title="run.error_message">
+                      {{ run.error_message }}
+                    </div>
+                    <span v-if="!run.records_processed && !run.error_message" class="text-gray-400">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- End Tab Content: Jobs -->
     </div>
 
     <!-- Stores Modal -->
@@ -468,13 +808,16 @@ definePageMeta({
   layout: 'default'
 })
 
-const { get } = useApi()
+const { get, post } = useApi()
 const { user } = useAuth()
 
 // Redirect non-admins
 if (!user.value?.is_admin) {
   navigateTo('/')
 }
+
+// Tab state
+const activeTab = ref('users')
 
 const users = ref<any[]>([])
 const searchQuery = ref('')
@@ -487,6 +830,28 @@ const pagination = ref({
 const userActivity = ref<Record<string, any[]>>({})
 const loadingActivity = ref<Record<string, boolean>>({})
 const storesModalUser = ref<any>(null)
+
+// Email history state
+const emails = ref<any[]>([])
+const emailsLoading = ref(false)
+const emailTypeFilter = ref('')
+const emailStats = ref<any>(null)
+const emailPagination = ref({
+  page: 1,
+  per_page: 30,
+  total: 0,
+  pages: 0
+})
+
+// Job logs state
+const jobs = ref<any[]>([])
+const jobsLoading = ref(false)
+const runningJob = ref<string | null>(null)
+const jobMessage = ref('')
+const jobMessageType = ref<'success' | 'error'>('success')
+const jobHistory = ref<any[]>([])
+const jobHistoryLoading = ref(false)
+const jobHistoryFilter = ref('')
 
 // Analytics chart state
 const selectedInterval = ref('day')
@@ -695,6 +1060,155 @@ function getIntervalLabel() {
   if (selectedInterval.value === 'hour') return 'Zadnja 24 sata'
   if (selectedInterval.value === 'day') return 'Zadnjih 30 dana'
   return 'Zadnjih 12 mjeseci'
+}
+
+// Email functions
+async function loadEmails(page = 1) {
+  emailsLoading.value = true
+  try {
+    let url = `/api/admin/retention/emails?page=${page}&per_page=${emailPagination.value.per_page}`
+    if (emailTypeFilter.value) {
+      url += `&type=${emailTypeFilter.value}`
+    }
+    const data = await get(url)
+    emails.value = data.emails
+    emailPagination.value = data.pagination
+
+    // Load stats if not loaded
+    if (!emailStats.value) {
+      loadEmailStats()
+    }
+  } catch (error) {
+    console.error('Error loading emails:', error)
+  } finally {
+    emailsLoading.value = false
+  }
+}
+
+async function loadEmailStats() {
+  try {
+    const data = await get('/api/admin/retention/emails/stats')
+    emailStats.value = data
+  } catch (error) {
+    console.error('Error loading email stats:', error)
+  }
+}
+
+function getEmailTypeLabel(emailType: string): string {
+  const labels: Record<string, string> = {
+    'daily_scan': 'Dnevno sken.',
+    'weekly_summary': 'Sedmicni',
+    'verification': 'Verifikacija',
+    'welcome': 'Dobrodoslica',
+    'password_reset': 'Reset lozinke',
+    'coupon_purchase': 'Kupon',
+    'coupon_reminder': 'Podsjetnik',
+    'coupon_expiry': 'Istek kupona',
+    'bonus_credits': 'Bonus krediti'
+  }
+  return labels[emailType] || emailType
+}
+
+function getEmailTypeBadgeClass(emailType: string): string {
+  const classes: Record<string, string> = {
+    'daily_scan': 'bg-blue-100 text-blue-800',
+    'weekly_summary': 'bg-purple-100 text-purple-800',
+    'verification': 'bg-yellow-100 text-yellow-800',
+    'welcome': 'bg-green-100 text-green-800',
+    'coupon_purchase': 'bg-pink-100 text-pink-800',
+    'coupon_reminder': 'bg-orange-100 text-orange-800'
+  }
+  return classes[emailType] || 'bg-gray-100 text-gray-800'
+}
+
+function formatEmailDate(dateString: string | null) {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('sr-Latn-BA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// Job functions
+async function loadJobs() {
+  jobsLoading.value = true
+  try {
+    const data = await get('/api/admin/retention/jobs')
+    jobs.value = data.jobs
+
+    // Also load job history
+    if (jobHistory.value.length === 0) {
+      loadJobHistory()
+    }
+  } catch (error) {
+    console.error('Error loading jobs:', error)
+  } finally {
+    jobsLoading.value = false
+  }
+}
+
+async function loadJobHistory() {
+  jobHistoryLoading.value = true
+  try {
+    let url = '/api/admin/retention/jobs/history?limit=50'
+    if (jobHistoryFilter.value) {
+      url += `&job_name=${jobHistoryFilter.value}`
+    }
+    const data = await get(url)
+    jobHistory.value = data.history || []
+  } catch (error) {
+    console.error('Error loading job history:', error)
+  } finally {
+    jobHistoryLoading.value = false
+  }
+}
+
+async function triggerJob(jobName: string) {
+  runningJob.value = jobName
+  jobMessage.value = ''
+  try {
+    await post(`/api/admin/retention/jobs/${jobName}/run`, {})
+    jobMessageType.value = 'success'
+    jobMessage.value = `Posao "${getJobLabel(jobName)}" je uspjesno pokrenut!`
+    // Refresh jobs status after a delay
+    setTimeout(() => {
+      loadJobs()
+      loadJobHistory()
+    }, 2000)
+  } catch (error: any) {
+    jobMessageType.value = 'error'
+    jobMessage.value = `Greska pri pokretanju posla: ${error.message || 'Nepoznata greska'}`
+  } finally {
+    runningJob.value = null
+    // Clear message after 5 seconds
+    setTimeout(() => {
+      jobMessage.value = ''
+    }, 5000)
+  }
+}
+
+function getJobIcon(jobName: string): string {
+  const icons: Record<string, string> = {
+    'product_scan': 'mdi:magnify-scan',
+    'email_summary': 'mdi:email-newsletter',
+    'monthly_credits': 'mdi:currency-usd',
+    'coupon_reminders': 'mdi:bell-ring'
+  }
+  return icons[jobName] || 'mdi:clock-outline'
+}
+
+function getJobLabel(jobName: string): string {
+  const labels: Record<string, string> = {
+    'product_scan': 'Skeniranje proizvoda',
+    'email_summary': 'Email izvjestaji',
+    'monthly_credits': 'Mjesecni krediti',
+    'coupon_reminders': 'Podsjetnici za kupone'
+  }
+  return labels[jobName] || jobName
 }
 
 useSeoMeta({

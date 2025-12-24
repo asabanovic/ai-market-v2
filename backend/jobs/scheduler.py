@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Track last run times to prevent duplicate runs
+# In-memory cache for last run times (also persisted to DB via JobRun)
 last_run = {}
 
 
@@ -119,6 +119,8 @@ JOBS = [
 
 def get_job_status():
     """Get status of all jobs for monitoring."""
+    from models import JobRun
+
     status = []
     now = datetime.utcnow()
 
@@ -127,15 +129,54 @@ def get_job_status():
         if next_run <= now:
             next_run += timedelta(days=1)
 
+        # Get last run from database
+        last_job_run = JobRun.get_last_run(job.name)
+        last_run_info = None
+        if last_job_run:
+            last_run_info = {
+                'started_at': last_job_run.started_at.isoformat() if last_job_run.started_at else None,
+                'completed_at': last_job_run.completed_at.isoformat() if last_job_run.completed_at else None,
+                'status': last_job_run.status,
+                'duration_seconds': last_job_run.duration_seconds,
+                'records_processed': last_job_run.records_processed,
+                'records_success': last_job_run.records_success,
+                'records_failed': last_job_run.records_failed,
+                'error_message': last_job_run.error_message
+            }
+
         status.append({
             'name': job.name,
             'enabled': job.enabled,
             'scheduled_time': f"{job.hour:02d}:{job.minute:02d} UTC",
-            'last_run': last_run.get(job.name, None),
-            'next_run': next_run,
+            'last_run': last_run_info,
+            'next_run': next_run.isoformat(),
         })
 
     return status
+
+
+def get_job_history(job_name: str = None, limit: int = 50):
+    """Get job run history for monitoring."""
+    from models import JobRun
+
+    query = JobRun.query
+    if job_name:
+        query = query.filter_by(job_name=job_name)
+
+    runs = query.order_by(JobRun.started_at.desc()).limit(limit).all()
+
+    return [{
+        'id': run.id,
+        'job_name': run.job_name,
+        'status': run.status,
+        'started_at': run.started_at.isoformat() if run.started_at else None,
+        'completed_at': run.completed_at.isoformat() if run.completed_at else None,
+        'duration_seconds': run.duration_seconds,
+        'records_processed': run.records_processed,
+        'records_success': run.records_success,
+        'records_failed': run.records_failed,
+        'error_message': run.error_message
+    } for run in runs]
 
 
 def main():

@@ -1526,3 +1526,130 @@ class EmailEvent(db.Model):
         db.Index('idx_email_events_type', 'event_type'),
         db.Index('idx_email_events_timestamp', 'timestamp'),
     )
+
+
+class JobRun(db.Model):
+    """Track scheduled job executions for monitoring and history"""
+    __tablename__ = 'job_runs'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    job_name = db.Column(db.String(100), nullable=False, index=True)  # 'product_scan', 'email_summary', etc.
+    status = db.Column(db.String(20), nullable=False)  # 'started', 'completed', 'failed'
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=True)
+
+    # Stats
+    records_processed = db.Column(db.Integer, nullable=True)  # e.g., users scanned, emails sent
+    records_success = db.Column(db.Integer, nullable=True)
+    records_failed = db.Column(db.Integer, nullable=True)
+
+    # Error tracking
+    error_message = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        db.Index('idx_job_runs_name_started', 'job_name', 'started_at'),
+    )
+
+    @classmethod
+    def start(cls, job_name: str):
+        """Start tracking a new job run"""
+        run = cls(job_name=job_name, status='started', started_at=datetime.now())
+        db.session.add(run)
+        db.session.commit()
+        return run
+
+    def complete(self, records_processed=None, records_success=None, records_failed=None):
+        """Mark job as completed"""
+        self.status = 'completed'
+        self.completed_at = datetime.now()
+        self.duration_seconds = (self.completed_at - self.started_at).total_seconds()
+        self.records_processed = records_processed
+        self.records_success = records_success
+        self.records_failed = records_failed
+        db.session.commit()
+
+    def fail(self, error_message: str):
+        """Mark job as failed"""
+        self.status = 'failed'
+        self.completed_at = datetime.now()
+        self.duration_seconds = (self.completed_at - self.started_at).total_seconds()
+        self.error_message = error_message
+        db.session.commit()
+
+    @classmethod
+    def get_last_run(cls, job_name: str):
+        """Get the most recent run for a job"""
+        return cls.query.filter_by(job_name=job_name).order_by(cls.started_at.desc()).first()
+
+    @classmethod
+    def get_last_successful_run(cls, job_name: str):
+        """Get the most recent successful run for a job"""
+        return cls.query.filter_by(job_name=job_name, status='completed').order_by(cls.started_at.desc()).first()
+
+
+class EmailNotification(db.Model):
+    """Track all emails sent by the system"""
+    __tablename__ = 'email_notifications'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Who received it
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    email = db.Column(db.String, nullable=False, index=True)
+
+    # What type of email
+    email_type = db.Column(db.String(50), nullable=False, index=True)
+    # Types: 'daily_scan', 'weekly_summary', 'verification', 'welcome', 'password_reset',
+    #        'coupon_purchase', 'coupon_reminder', 'coupon_expiry', 'bonus_credits', etc.
+
+    # Subject and brief description
+    subject = db.Column(db.String(500), nullable=True)
+
+    # Status
+    status = db.Column(db.String(20), nullable=False, default='sent')  # 'sent', 'failed', 'bounced'
+    error_message = db.Column(db.Text, nullable=True)
+
+    # Timing
+    sent_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
+
+    # Optional extra data (JSON)
+    extra_data = db.Column(db.JSON, nullable=True)  # e.g., {'products_found': 10, 'terms_count': 3}
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('email_notifications', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_email_notifications_type_sent', 'email_type', 'sent_at'),
+        db.Index('idx_email_notifications_user_sent', 'user_id', 'sent_at'),
+    )
+
+    @classmethod
+    def log_email(cls, email: str, email_type: str, subject: str = None,
+                  user_id: str = None, status: str = 'sent',
+                  error_message: str = None, extra_data: dict = None):
+        """Log an email that was sent"""
+        notification = cls(
+            email=email,
+            email_type=email_type,
+            subject=subject,
+            user_id=user_id,
+            status=status,
+            error_message=error_message,
+            extra_data=extra_data,
+            sent_at=datetime.now()
+        )
+        db.session.add(notification)
+        db.session.commit()
+        return notification
+
+    @classmethod
+    def get_user_email_history(cls, user_id: str, limit: int = 50):
+        """Get email history for a user"""
+        return cls.query.filter_by(user_id=user_id).order_by(cls.sent_at.desc()).limit(limit).all()
+
+    @classmethod
+    def get_recent_emails(cls, email_type: str = None, limit: int = 100):
+        """Get recent emails, optionally filtered by type"""
+        query = cls.query
+        if email_type:
+            query = query.filter_by(email_type=email_type)
+        return query.order_by(cls.sent_at.desc()).limit(limit).all()

@@ -25,7 +25,7 @@ from datetime import date, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db
-from models import User, UserTrackedProduct, UserProductScan, UserScanResult
+from models import User, UserTrackedProduct, UserProductScan, UserScanResult, JobRun
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -375,36 +375,53 @@ def run_daily_scan():
     Processes BATCH_SIZE users per run, with delays between users.
     """
     with app.app_context():
+        # Start tracking this job run
+        job_run = JobRun.start('product_scan')
+
         try:
             # Get next batch of users to scan
             users_to_scan = get_users_to_scan_round_robin()
 
             if not users_to_scan:
                 logger.info("No users need scanning at this time")
+                job_run.complete(records_processed=0, records_success=0, records_failed=0)
                 return
 
             logger.info(f"Processing batch of {len(users_to_scan)} users (round-robin)")
 
             total_users_processed = 0
             total_products_found = 0
+            failed_count = 0
 
             for user in users_to_scan:
-                result = scan_single_user(user)
+                try:
+                    result = scan_single_user(user)
 
-                if result:
-                    user_total, new_count, discount_count = result
-                    total_users_processed += 1
-                    total_products_found += user_total
+                    if result:
+                        user_total, new_count, discount_count = result
+                        total_users_processed += 1
+                        total_products_found += user_total
+                except Exception as e:
+                    logger.error(f"Error scanning user {user.id}: {e}")
+                    failed_count += 1
 
                 # Rate limit between users
                 time.sleep(DELAY_BETWEEN_USERS)
 
             logger.info(f"Batch complete: {total_users_processed} users processed, {total_products_found} total products")
 
+            # Complete job tracking
+            job_run.complete(
+                records_processed=len(users_to_scan),
+                records_success=total_users_processed,
+                records_failed=failed_count
+            )
+
         except Exception as e:
             logger.error(f"Fatal error in daily scan: {e}")
             import traceback
             traceback.print_exc()
+            job_run.fail(str(e))
 
 
 if __name__ == '__main__':

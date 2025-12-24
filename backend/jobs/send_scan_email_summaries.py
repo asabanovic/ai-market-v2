@@ -21,7 +21,7 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db
-from models import User, UserProductScan, UserScanResult, UserTrackedProduct
+from models import User, UserProductScan, UserScanResult, UserTrackedProduct, JobRun, EmailNotification
 from sendgrid_utils import send_scan_summary_email as sendgrid_scan_summary
 import logging
 
@@ -267,46 +267,87 @@ def send_scan_summary_email(user: User, summary: dict) -> bool:
 def run_email_summaries():
     """Send email summaries for all users who had scans today."""
     with app.app_context():
-        today = date.today()
+        # Start tracking this job run
+        job_run = JobRun.start('email_summary')
 
-        # Get all completed scans for today
-        completed_scans = UserProductScan.query.filter_by(
-            scan_date=today,
-            status='completed'
-        ).all()
+        try:
+            today = date.today()
 
-        if not completed_scans:
-            logger.info("No completed scans found for today")
-            return
+            # Get all completed scans for today
+            completed_scans = UserProductScan.query.filter_by(
+                scan_date=today,
+                status='completed'
+            ).all()
 
-        logger.info(f"Found {len(completed_scans)} completed scans for today")
+            if not completed_scans:
+                logger.info("No completed scans found for today")
+                job_run.complete(records_processed=0, records_success=0, records_failed=0)
+                return
 
-        sent_count = 0
-        skipped_count = 0
+            logger.info(f"Found {len(completed_scans)} completed scans for today")
 
-        for scan in completed_scans:
-            user = User.query.get(scan.user_id)
-            if not user:
-                continue
+            sent_count = 0
+            skipped_count = 0
+            failed_count = 0
 
-            # Get summary
-            summary = get_scan_summary_for_user(user.id, today)
-            if not summary or summary['total_products'] == 0:
-                skipped_count += 1
-                continue
+            for scan in completed_scans:
+                user = User.query.get(scan.user_id)
+                if not user:
+                    continue
 
-            # Send email
-            try:
-                if send_scan_summary_email(user, summary):
-                    sent_count += 1
-                    logger.info(f"Sent summary email to user {user.id}")
-                else:
+                # Get summary
+                summary = get_scan_summary_for_user(user.id, today)
+                if not summary or summary['total_products'] == 0:
                     skipped_count += 1
-            except Exception as e:
-                logger.error(f"Error sending email to user {user.id}: {e}")
-                skipped_count += 1
+                    continue
 
-        logger.info(f"Email summary job complete: {sent_count} sent, {skipped_count} skipped")
+                # Send email
+                try:
+                    if send_scan_summary_email(user, summary):
+                        sent_count += 1
+                        logger.info(f"Sent summary email to user {user.id}")
+
+                        # Log the email notification
+                        EmailNotification.log_email(
+                            email=user.email,
+                            email_type='daily_scan',
+                            subject=f"Dnevni pregled - {summary['total_products']} proizvoda pronađeno",
+                            user_id=user.id,
+                            status='sent',
+                            extra_data={
+                                'total_products': summary['total_products'],
+                                'new_products': summary['new_products'],
+                                'new_discounts': summary['new_discounts'],
+                                'terms_count': len(summary['terms'])
+                            }
+                        )
+                    else:
+                        skipped_count += 1
+                except Exception as e:
+                    logger.error(f"Error sending email to user {user.id}: {e}")
+                    failed_count += 1
+
+                    # Log failed email
+                    EmailNotification.log_email(
+                        email=user.email if user else 'unknown',
+                        email_type='daily_scan',
+                        user_id=user.id if user else None,
+                        status='failed',
+                        error_message=str(e)
+                    )
+
+            logger.info(f"Email summary job complete: {sent_count} sent, {skipped_count} skipped, {failed_count} failed")
+
+            # Complete job tracking
+            job_run.complete(
+                records_processed=len(completed_scans),
+                records_success=sent_count,
+                records_failed=failed_count
+            )
+
+        except Exception as e:
+            logger.error(f"Email summary job failed: {e}")
+            job_run.fail(str(e))
 
 
 if __name__ == '__main__':

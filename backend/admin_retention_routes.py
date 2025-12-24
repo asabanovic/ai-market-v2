@@ -429,28 +429,145 @@ def get_email_engagement():
 @admin_retention_bp.route('/jobs', methods=['GET'])
 @jwt_admin_required
 def get_jobs_status():
-    """Get status of all scheduled jobs."""
-    from jobs.scheduler import JOBS, last_run
-    from datetime import datetime
+    """Get status of all scheduled jobs from database."""
+    from jobs.scheduler import get_job_status
 
-    now = datetime.utcnow()
-    jobs_status = []
+    try:
+        jobs_status = get_job_status()
+        return jsonify({'jobs': jobs_status})
+    except Exception as e:
+        logger.error(f"Error getting job status: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
-    for job in JOBS:
-        next_run = datetime(now.year, now.month, now.day, job.hour, job.minute)
-        if next_run <= now:
-            next_run += timedelta(days=1)
 
-        last = last_run.get(job.name)
-        jobs_status.append({
-            'name': job.name,
-            'enabled': job.enabled,
-            'scheduled_time': f"{job.hour:02d}:{job.minute:02d} UTC",
-            'last_run': last.isoformat() if last else None,
-            'next_run': next_run.isoformat(),
+@admin_retention_bp.route('/jobs/history', methods=['GET'])
+@jwt_admin_required
+def get_jobs_history():
+    """Get job run history from database."""
+    from jobs.scheduler import get_job_history
+
+    job_name = request.args.get('job_name')
+    limit = request.args.get('limit', 50, type=int)
+
+    try:
+        history = get_job_history(job_name, limit)
+        return jsonify({'history': history})
+    except Exception as e:
+        logger.error(f"Error getting job history: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_retention_bp.route('/emails', methods=['GET'])
+@jwt_admin_required
+def get_email_notifications():
+    """Get email notification history."""
+    from models import EmailNotification, User
+
+    email_type = request.args.get('type')
+    user_id = request.args.get('user_id')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+
+    try:
+        query = EmailNotification.query
+
+        if email_type:
+            query = query.filter_by(email_type=email_type)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+
+        # Get total count
+        total = query.count()
+
+        # Get paginated results
+        emails = query.order_by(EmailNotification.sent_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+        result = []
+        for email in emails:
+            user_name = None
+            if email.user_id:
+                user = User.query.get(email.user_id)
+                user_name = user.display_name if user else None
+
+            result.append({
+                'id': email.id,
+                'email': email.email,
+                'email_type': email.email_type,
+                'subject': email.subject,
+                'status': email.status,
+                'sent_at': email.sent_at.isoformat() if email.sent_at else None,
+                'user_id': email.user_id,
+                'user_name': user_name,
+                'extra_data': email.extra_data,
+                'error_message': email.error_message
+            })
+
+        return jsonify({
+            'emails': result,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'pages': (total + per_page - 1) // per_page
+            }
         })
 
-    return jsonify({'jobs': jobs_status})
+    except Exception as e:
+        logger.error(f"Error getting email notifications: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_retention_bp.route('/emails/stats', methods=['GET'])
+@jwt_admin_required
+def get_email_stats():
+    """Get email notification statistics."""
+    from app import db
+    from models import EmailNotification
+
+    try:
+        today = date.today()
+        week_ago = today - timedelta(days=7)
+
+        # Get counts by type for past week
+        stats_query = db.session.query(
+            EmailNotification.email_type,
+            func.count(EmailNotification.id).label('count'),
+            func.count().filter(EmailNotification.status == 'sent').label('sent_count'),
+            func.count().filter(EmailNotification.status == 'failed').label('failed_count')
+        ).filter(
+            EmailNotification.sent_at >= week_ago
+        ).group_by(EmailNotification.email_type).all()
+
+        type_stats = []
+        for stat in stats_query:
+            type_stats.append({
+                'email_type': stat.email_type,
+                'total': stat.count,
+                'sent': stat.sent_count,
+                'failed': stat.failed_count
+            })
+
+        # Get daily counts for past week
+        daily_query = db.session.query(
+            func.date(EmailNotification.sent_at).label('day'),
+            func.count(EmailNotification.id).label('count')
+        ).filter(
+            EmailNotification.sent_at >= week_ago
+        ).group_by(func.date(EmailNotification.sent_at)).order_by(
+            func.date(EmailNotification.sent_at)
+        ).all()
+
+        daily_stats = [{'date': str(d.day), 'count': d.count} for d in daily_query]
+
+        return jsonify({
+            'by_type': type_stats,
+            'daily': daily_stats,
+            'total_week': sum(s['total'] for s in type_stats)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting email stats: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 
 @admin_retention_bp.route('/jobs/<job_name>/run', methods=['POST'])

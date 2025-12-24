@@ -161,9 +161,22 @@
                 <Icon name="mdi:clock-outline" class="w-4 h-4" />
                 Zakazano: {{ job.scheduled_time }}
               </div>
-              <div v-if="job.last_run" class="flex items-center gap-1 mt-1">
-                <Icon name="mdi:check-circle-outline" class="w-4 h-4 text-green-600" />
-                Zadnji put: {{ formatDateTime(job.last_run) }}
+              <div v-if="job.last_run" class="mt-2 space-y-1">
+                <div class="flex items-center gap-1">
+                  <Icon
+                    :name="job.last_run.status === 'completed' ? 'mdi:check-circle' : job.last_run.status === 'failed' ? 'mdi:alert-circle' : 'mdi:loading'"
+                    class="w-4 h-4"
+                    :class="job.last_run.status === 'completed' ? 'text-green-600' : job.last_run.status === 'failed' ? 'text-red-600' : 'text-yellow-600 animate-spin'"
+                  />
+                  {{ formatDateTime(job.last_run.started_at) }}
+                </div>
+                <div v-if="job.last_run.records_processed !== null" class="text-xs pl-5">
+                  {{ job.last_run.records_success }}/{{ job.last_run.records_processed }} uspjesno
+                  <span v-if="job.last_run.duration_seconds" class="text-gray-400">({{ job.last_run.duration_seconds.toFixed(1) }}s)</span>
+                </div>
+                <div v-if="job.last_run.error_message" class="text-xs text-red-500 pl-5">
+                  {{ job.last_run.error_message.substring(0, 50) }}...
+                </div>
               </div>
               <div v-else class="flex items-center gap-1 mt-1 text-gray-400">
                 <Icon name="mdi:clock-alert-outline" class="w-4 h-4" />
@@ -193,6 +206,117 @@
 
         <div v-if="jobMessage" class="mt-4 p-3 rounded-lg" :class="jobMessageType === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'">
           {{ jobMessage }}
+        </div>
+      </div>
+
+      <!-- Email History -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">Email istorija</h3>
+          <div class="flex items-center gap-3">
+            <select v-model="emailTypeFilter" @change="loadEmails" class="text-sm border border-gray-300 rounded-md px-3 py-1.5">
+              <option value="">Svi tipovi</option>
+              <option value="daily_scan">Dnevno skeniranje</option>
+              <option value="weekly_summary">Sedmicni izvjestaj</option>
+              <option value="verification">Verifikacija</option>
+              <option value="welcome">Dobrodoslica</option>
+              <option value="coupon_purchase">Kupovina kupona</option>
+              <option value="coupon_reminder">Podsjetnik za kupon</option>
+            </select>
+            <button
+              @click="loadEmails"
+              class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+            >
+              <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': emailsLoading }" />
+              Osvjezi
+            </button>
+          </div>
+        </div>
+
+        <!-- Email Stats Summary -->
+        <div v-if="emailStats" class="grid grid-cols-4 gap-4 mb-4">
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-purple-600">{{ emailStats.total_week }}</div>
+            <div class="text-xs text-gray-500">Ova sedmica</div>
+          </div>
+          <div v-for="stat in emailStats.by_type?.slice(0, 3)" :key="stat.email_type" class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-xl font-bold text-gray-900">{{ stat.sent }}</div>
+            <div class="text-xs text-gray-500">{{ getEmailTypeLabel(stat.email_type) }}</div>
+            <div v-if="stat.failed > 0" class="text-xs text-red-500">{{ stat.failed }} neuspjesno</div>
+          </div>
+        </div>
+
+        <div v-if="emailsLoading && emails.length === 0" class="flex items-center justify-center h-24">
+          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+        </div>
+
+        <div v-else-if="emails.length === 0" class="text-center py-8 text-gray-500">
+          <Icon name="mdi:email-off-outline" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <p>Nema poslatih emailova</p>
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Korisnik</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Naslov</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Poslato</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr v-for="email in emails" :key="email.id" class="hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <div class="text-sm font-medium text-gray-900">{{ email.user_name || 'N/A' }}</div>
+                  <div class="text-xs text-gray-500">{{ email.email }}</div>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-1 text-xs rounded-full" :class="getEmailTypeBadgeClass(email.email_type)">
+                    {{ getEmailTypeLabel(email.email_type) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                  {{ email.subject || '-' }}
+                </td>
+                <td class="px-4 py-3">
+                  <span
+                    class="px-2 py-1 text-xs rounded-full"
+                    :class="email.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                  >
+                    {{ email.status === 'sent' ? 'Poslato' : 'Neuspjelo' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-500">
+                  {{ formatDateTime(email.sent_at) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Email Pagination -->
+        <div v-if="emailPagination.pages > 1" class="mt-4 flex items-center justify-between">
+          <div class="text-sm text-gray-500">
+            Stranica {{ emailPagination.page }} od {{ emailPagination.pages }}
+          </div>
+          <div class="flex gap-2">
+            <button
+              @click="loadEmails(emailPagination.page - 1)"
+              :disabled="emailPagination.page === 1"
+              class="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50"
+            >
+              Prethodna
+            </button>
+            <button
+              @click="loadEmails(emailPagination.page + 1)"
+              :disabled="emailPagination.page === emailPagination.pages"
+              class="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50"
+            >
+              Sljedeca
+            </button>
+          </div>
         </div>
       </div>
 
@@ -515,6 +639,18 @@ const runningJob = ref<string | null>(null)
 const jobMessage = ref('')
 const jobMessageType = ref<'success' | 'error'>('success')
 
+// Email history
+const emails = ref<any[]>([])
+const emailsLoading = ref(false)
+const emailTypeFilter = ref('')
+const emailStats = ref<any>(null)
+const emailPagination = ref({
+  page: 1,
+  per_page: 20,
+  total: 0,
+  pages: 0
+})
+
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -538,6 +674,8 @@ onMounted(() => {
   loadDailyActivity(activityDays.value)
   loadCohortAnalysis()
   loadJobs()
+  loadEmails()
+  loadEmailStats()
 })
 
 async function loadReturningUsers(page = 1) {
@@ -611,6 +749,59 @@ async function loadJobs() {
   } finally {
     jobsLoading.value = false
   }
+}
+
+async function loadEmails(page = 1) {
+  emailsLoading.value = true
+  try {
+    let url = `/api/admin/retention/emails?page=${page}&per_page=${emailPagination.value.per_page}`
+    if (emailTypeFilter.value) {
+      url += `&type=${emailTypeFilter.value}`
+    }
+    const data = await get(url)
+    emails.value = data.emails
+    emailPagination.value = data.pagination
+  } catch (error) {
+    console.error('Error loading emails:', error)
+  } finally {
+    emailsLoading.value = false
+  }
+}
+
+async function loadEmailStats() {
+  try {
+    const data = await get('/api/admin/retention/emails/stats')
+    emailStats.value = data
+  } catch (error) {
+    console.error('Error loading email stats:', error)
+  }
+}
+
+function getEmailTypeLabel(emailType: string): string {
+  const labels: Record<string, string> = {
+    'daily_scan': 'Dnevno sken.',
+    'weekly_summary': 'Sedmicni',
+    'verification': 'Verifikacija',
+    'welcome': 'Dobrodoslica',
+    'password_reset': 'Reset lozinke',
+    'coupon_purchase': 'Kupon',
+    'coupon_reminder': 'Podsjetnik',
+    'coupon_expiry': 'Istek kupona',
+    'bonus_credits': 'Bonus krediti'
+  }
+  return labels[emailType] || emailType
+}
+
+function getEmailTypeBadgeClass(emailType: string): string {
+  const classes: Record<string, string> = {
+    'daily_scan': 'bg-blue-100 text-blue-800',
+    'weekly_summary': 'bg-purple-100 text-purple-800',
+    'verification': 'bg-yellow-100 text-yellow-800',
+    'welcome': 'bg-green-100 text-green-800',
+    'coupon_purchase': 'bg-pink-100 text-pink-800',
+    'coupon_reminder': 'bg-orange-100 text-orange-800'
+  }
+  return classes[emailType] || 'bg-gray-100 text-gray-800'
 }
 
 async function triggerJob(jobName: string) {
