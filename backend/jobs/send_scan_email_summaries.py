@@ -261,7 +261,7 @@ def send_scan_summary_email(user: User, summary: dict) -> bool:
         logger.info(f"User {user.id} has email notifications disabled")
         return False
 
-    user_name = user.name or user.email.split('@')[0]
+    user_name = user.first_name or user.email.split('@')[0]
 
     # Use SendGrid template
     return sendgrid_scan_summary(user.email, user_name, summary)
