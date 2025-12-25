@@ -101,6 +101,17 @@ def run_coupon_reminders_job():
     run_coupon_reminders()
 
 
+def run_monthly_reengagement_job():
+    """Run monthly re-engagement emails for users without tracked products (1st of each month)."""
+    now = datetime.utcnow()
+    if now.day != 1:
+        logger.info("Skipping monthly reengagement - not the 1st of month")
+        return
+
+    from jobs.monthly_reengagement import run_reengagement_emails
+    run_reengagement_emails()
+
+
 # Define all scheduled jobs
 JOBS = [
     # Product scan - runs at 6:00 AM UTC daily
@@ -114,6 +125,9 @@ JOBS = [
 
     # Coupon reminders - runs at 7:00 AM UTC daily (8 AM Bosnia time)
     Job("coupon_reminders", hour=7, minute=0, func=run_coupon_reminders_job),
+
+    # Monthly reengagement emails - runs at 8:00 AM UTC on 1st of month
+    Job("monthly_reengagement", hour=8, minute=0, func=run_monthly_reengagement_job),
 ]
 
 

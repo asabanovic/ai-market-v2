@@ -1068,6 +1068,105 @@ Hvala što koristite Popust.ba ekskluzivne ponude!
     return send_email(user_email, subject, html)
 
 
+def send_reengagement_email(user_email: str, user_name: str, data: dict) -> bool:
+    """
+    Send monthly re-engagement email to users without tracked products.
+    Shows popular items others are tracking and best current deals.
+
+    data should contain:
+    - popular_terms: list of dicts [{term, users_count}]
+    - best_deals: list of dicts [{title, store, discount_price, discount_percent}]
+    - total_users_tracking: int (how many users are tracking products)
+    """
+    greeting = f" {user_name}" if user_name else ""
+
+    popular_terms = data.get('popular_terms', [])
+    best_deals = data.get('best_deals', [])
+    total_users = data.get('total_users_tracking', 0)
+
+    # Build popular terms section
+    terms_html = ""
+    for term in popular_terms[:6]:
+        terms_html += f'''
+<tr><td style="padding:8px 12px;background:#F5F3FF;border-radius:8px;margin:4px 0;">
+<span style="font-size:14px;font-weight:600;color:#7C3AED;">{term.get('term', '')}</span>
+<span style="float:right;font-size:12px;color:#666;">{term.get('users_count', 0)} korisnika prati</span>
+</td></tr>
+<tr><td style="height:6px;"></td></tr>
+'''
+
+    # Build best deals section
+    deals_html = ""
+    for deal in best_deals[:5]:
+        discount_pct = deal.get('discount_percent', 0)
+        deals_html += f'''
+<tr><td style="padding:12px;background:#ECFDF5;border-radius:8px;margin-bottom:8px;">
+<table width="100%"><tr>
+<td style="vertical-align:top;">
+<div style="font-size:14px;font-weight:600;color:#1a1a1a;">{deal.get('title', '')[:40]}{'...' if len(deal.get('title', '')) > 40 else ''}</div>
+<div style="font-size:12px;color:#666;margin-top:2px;">{deal.get('store', '')}</div>
+</td>
+<td style="text-align:right;vertical-align:top;white-space:nowrap;">
+<div style="font-size:16px;font-weight:700;color:#10B981;">{deal.get('discount_price', 0):.2f} KM</div>
+<div style="font-size:11px;color:#10B981;font-weight:600;">-{discount_pct}%</div>
+</td>
+</tr></table>
+</td></tr>
+<tr><td style="height:8px;"></td></tr>
+'''
+
+    content = f'''
+<div style="text-align:center;margin-bottom:24px;">
+<div style="font-size:48px;margin-bottom:8px;">🛒</div>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">Ne propustite najbolje ponude!</h1>
+</div>
+
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
+Primijetili smo da još uvijek nemate postavljeno praćenje proizvoda.
+<strong>{total_users} korisnika</strong> već koristi ovu funkciju i svakodnevno prima obavijesti o najboljim cijenama!
+</p>
+
+<!-- Stats Box -->
+<div style="background:linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#E9D5FF;font-weight:500;margin-bottom:4px;">KORISNICI KOJI PRATE PROIZVODE</div>
+<div style="font-size:48px;font-weight:800;color:#ffffff;">{total_users}</div>
+<div style="font-size:14px;color:#E9D5FF;margin-top:8px;">primaju dnevne obavijesti o cijenama</div>
+</div>
+
+<!-- Popular Terms -->
+<p style="margin:24px 0 12px;font-size:14px;font-weight:600;color:#1a1a1a;">Najpopularniji proizvodi koje korisnici prate:</p>
+<table width="100%">{terms_html}</table>
+
+<!-- Best Deals -->
+<p style="margin:24px 0 12px;font-size:14px;font-weight:600;color:#1a1a1a;">Aktualne top ponude:</p>
+<table width="100%">{deals_html}</table>
+
+<!-- CTA -->
+<div style="margin:32px 0;padding:24px;background:#F9FAFB;border-radius:12px;text-align:center;">
+<p style="margin:0 0 16px;font-size:16px;font-weight:600;color:#1a1a1a;">Postavite praćenje u 2 minute!</p>
+<p style="margin:0 0 20px;font-size:14px;color:#666;">
+Samo odaberite proizvode koje redovno kupujete i mi ćemo Vas obavijestiti kada su na akciji.
+</p>
+{get_button("Postavi praćenje proizvoda", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+</div>
+
+<div style="margin:24px 0;padding:16px;background:#FEF3C7;border-radius:8px;text-align:center;">
+<p style="margin:0;font-size:13px;color:#92400E;">
+<strong>Bonus:</strong> Svaki dan kada posjetite Popust.ba dobivate +2 kredita za praćenje proizvoda!
+</p>
+</div>
+
+<p style="margin:24px 0 0;font-size:12px;color:#888;text-align:center;">
+Ovaj email primate jednom mjesečno. Za upravljanje obavještenjima posjetite postavke profila.
+</p>
+'''
+
+    subject = f"🛒 {total_users} korisnika već štedi - pridružite se!"
+    html = get_base_template(content, "#7C3AED")
+    return send_email(user_email, subject, html)
+
+
 def send_new_rating_notification_email(recipient_email: str, recipient_name: str, rating_data: dict, is_business: bool = False) -> bool:
     """
     Send notification when someone receives a new rating.
