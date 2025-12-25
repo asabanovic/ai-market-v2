@@ -238,7 +238,7 @@ def generate_scan_email_html(user_name: str, summary: dict) -> str:
                 <p>&copy; 2025 Popust.ba. Sva prava zadržana.</p>
                 <p style="font-size: 12px; color: #9CA3AF;">
                     Primaš ovaj email jer imaš aktivno praćenje proizvoda na Popust.ba.
-                    <br>Za isključivanje obavijesti, posjetite postavke računa.
+                    <br>Za upravljanje obavještenjima posjetite <a href="{BASE_URL}/profil" style="color:#10B981;">Vaš profil</a>.
                 </p>
             </div>
         </div>

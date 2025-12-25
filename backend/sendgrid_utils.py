@@ -332,7 +332,7 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
 <p style="margin:0;font-size:12px;color:#888;">
 Primate ovaj email jer imate aktivno praćenje proizvoda na Popust.ba.
-Za upravljanje obavještenjima posjetite postavke Vašeg računa.
+<br>Za upravljanje obavještenjima posjetite <a href="{BASE_URL}/profil" style="color:#7C3AED;">Vaš profil</a>.
 </p>
 </div>
 '''
@@ -1158,7 +1158,7 @@ Samo odaberite proizvode koje redovno kupujete i mi ćemo Vas obavijestiti kada 
 </div>
 
 <p style="margin:24px 0 0;font-size:12px;color:#888;text-align:center;">
-Ovaj email primate jednom mjesečno. Za upravljanje obavještenjima posjetite postavke profila.
+Ovaj email primate jednom mjesečno. Za upravljanje obavještenjima posjetite <a href="{BASE_URL}/profil" style="color:#7C3AED;">Vaš profil</a>.
 </p>
 '''
 
