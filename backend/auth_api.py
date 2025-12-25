@@ -645,7 +645,8 @@ def user_profile():
                 'city': user.city,
                 'notification_preferences': user.notification_preferences or 'none',
                 'is_admin': user.is_admin,
-                'is_verified': user.is_verified
+                'is_verified': user.is_verified,
+                'preferences': user.preferences or {}
             }), 200
 
         # PUT - Update user profile
@@ -678,6 +679,25 @@ def user_profile():
                 if prefs not in ['none', 'favorites', 'all']:
                     return jsonify({'error': 'Invalid notification preference'}), 400
                 user.notification_preferences = prefs
+
+            # Handle email preferences
+            if 'email_preferences' in data:
+                from sqlalchemy.orm.attributes import flag_modified
+                email_prefs = data['email_preferences']
+
+                # Initialize preferences if None
+                if user.preferences is None:
+                    user.preferences = {}
+
+                # Update email preferences
+                user.preferences['email_preferences'] = {
+                    'daily_emails': email_prefs.get('daily_emails', True),
+                    'weekly_summary': email_prefs.get('weekly_summary', True),
+                    'monthly_summary': email_prefs.get('monthly_summary', True)
+                }
+
+                # Mark preferences as modified so SQLAlchemy detects JSON change
+                flag_modified(user, 'preferences')
 
             db.session.commit()
 

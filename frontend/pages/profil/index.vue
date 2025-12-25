@@ -253,7 +253,7 @@
             </select>
           </div>
 
-          <!-- Notification Preferences -->
+          <!-- SMS/Viber Notification Preferences -->
           <div class="border border-gray-200 rounded-md p-4 bg-gray-50">
             <label class="flex items-start cursor-pointer">
               <input
@@ -271,6 +271,61 @@
                 </p>
               </div>
             </label>
+          </div>
+
+          <!-- Email Notification Preferences -->
+          <div class="border border-gray-200 rounded-md p-4 bg-gray-50">
+            <div class="mb-4">
+              <h3 class="text-sm font-medium text-gray-900">Email obavijesti</h3>
+              <p class="text-xs text-gray-600 mt-1">Odaberite koje email obavijesti želite primati</p>
+            </div>
+
+            <div class="space-y-3">
+              <!-- Daily emails -->
+              <label class="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="emailPreferences.daily_emails"
+                  class="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-gray-900">Dnevne obavijesti</p>
+                  <p class="text-xs text-gray-600 mt-0.5">
+                    Primajte email kada se pojave novi proizvodi ili nove akcije za artikle koje pratite
+                  </p>
+                </div>
+              </label>
+
+              <!-- Weekly summary -->
+              <label class="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="emailPreferences.weekly_summary"
+                  class="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-gray-900">Sedmični pregled</p>
+                  <p class="text-xs text-gray-600 mt-0.5">
+                    Primajte sedmični pregled najboljih ponuda i promjena cijena vaših praćenih proizvoda
+                  </p>
+                </div>
+              </label>
+
+              <!-- Monthly summary -->
+              <label class="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="emailPreferences.monthly_summary"
+                  class="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-gray-900">Mjesečni pregled</p>
+                  <p class="text-xs text-gray-600 mt-0.5">
+                    Primajte mjesečni pregled popularnih proizvoda i najboljih ponuda
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
           <!-- Admin Badge (if admin) -->
@@ -360,6 +415,19 @@ const originalProfile = ref({
   is_admin: false
 })
 
+// Email notification preferences (all enabled by default)
+const emailPreferences = ref({
+  daily_emails: true,
+  weekly_summary: true,
+  monthly_summary: true
+})
+
+const originalEmailPreferences = ref({
+  daily_emails: true,
+  weekly_summary: true,
+  monthly_summary: true
+})
+
 const cities = ref<string[]>([])
 
 // Check if profile has any changes
@@ -369,7 +437,10 @@ const hasProfileChanges = computed(() => {
     profile.value.last_name !== originalProfile.value.last_name ||
     profile.value.phone !== originalProfile.value.phone ||
     profile.value.city !== originalProfile.value.city ||
-    profile.value.notification_preferences !== originalProfile.value.notification_preferences
+    profile.value.notification_preferences !== originalProfile.value.notification_preferences ||
+    emailPreferences.value.daily_emails !== originalEmailPreferences.value.daily_emails ||
+    emailPreferences.value.weekly_summary !== originalEmailPreferences.value.weekly_summary ||
+    emailPreferences.value.monthly_summary !== originalEmailPreferences.value.monthly_summary
   )
 })
 
@@ -391,6 +462,16 @@ async function loadProfile() {
     }
     profile.value = { ...profileData }
     originalProfile.value = { ...profileData }
+
+    // Load email preferences from user preferences (default all enabled)
+    const emailPrefs = data.preferences?.email_preferences || {}
+    const emailPrefsData = {
+      daily_emails: emailPrefs.daily_emails !== false, // default true
+      weekly_summary: emailPrefs.weekly_summary !== false, // default true
+      monthly_summary: emailPrefs.monthly_summary !== false // default true
+    }
+    emailPreferences.value = { ...emailPrefsData }
+    originalEmailPreferences.value = { ...emailPrefsData }
 
     // Validate phone if it exists
     if (profile.value.phone) {
@@ -471,7 +552,12 @@ async function saveProfile() {
       last_name: profile.value.last_name,
       phone: profile.value.phone,
       city: profile.value.city,
-      notification_preferences: profile.value.notification_preferences
+      notification_preferences: profile.value.notification_preferences,
+      email_preferences: {
+        daily_emails: emailPreferences.value.daily_emails,
+        weekly_summary: emailPreferences.value.weekly_summary,
+        monthly_summary: emailPreferences.value.monthly_summary
+      }
     })
 
     if (response.success) {
@@ -479,6 +565,7 @@ async function saveProfile() {
 
       // Update original profile to match current (so hasProfileChanges becomes false)
       originalProfile.value = { ...profile.value }
+      originalEmailPreferences.value = { ...emailPreferences.value }
 
       // Refresh user data in auth store
       await refreshUser()

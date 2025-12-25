@@ -101,8 +101,17 @@ def get_users_without_tracking() -> list:
     eligible_users = []
     for user in users:
         prefs = user.preferences or {}
-        if prefs.get('email_notifications', True):
-            eligible_users.append(user)
+
+        # Check legacy email_notifications setting
+        if not prefs.get('email_notifications', True):
+            continue
+
+        # Check new monthly_summary preference (default: True)
+        email_prefs = prefs.get('email_preferences', {})
+        if not email_prefs.get('monthly_summary', True):
+            continue
+
+        eligible_users.append(user)
 
     return eligible_users
 

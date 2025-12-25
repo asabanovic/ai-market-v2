@@ -257,8 +257,21 @@ def send_scan_summary_email(user: User, summary: dict) -> bool:
 
     # Check if user has email notifications enabled (default: True)
     prefs = user.preferences or {}
+
+    # Check legacy email_notifications setting
     if not prefs.get('email_notifications', True):
         logger.info(f"User {user.id} has email notifications disabled")
+        return False
+
+    # Check new daily_emails preference (default: True)
+    email_prefs = prefs.get('email_preferences', {})
+    if not email_prefs.get('daily_emails', True):
+        logger.info(f"User {user.id} has daily emails disabled")
+        return False
+
+    # Only send if there are new products or price drops
+    if summary.get('new_products', 0) == 0 and summary.get('new_discounts', 0) == 0:
+        logger.info(f"User {user.id}: no new products or discounts, skipping email")
         return False
 
     user_name = user.first_name or user.email.split('@')[0]
