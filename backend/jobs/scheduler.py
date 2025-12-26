@@ -162,12 +162,12 @@ JOBS = [
     # Generates posts for the next 5 days
     Job("social_media_generate", hour=0, minute=5, func=run_social_media_generator_job),
 
-    # Social media publisher - DISABLED until manual review is complete
+    # Social media publisher - publishes scheduled posts to Facebook
     # Runs at posting times (9am, 12pm, 3pm, 6pm Bosnia time)
-    Job("social_media_publish_9am", hour=8, minute=0, func=run_social_media_publisher_job, enabled=False),
-    Job("social_media_publish_12pm", hour=11, minute=0, func=run_social_media_publisher_job, enabled=False),
-    Job("social_media_publish_3pm", hour=14, minute=0, func=run_social_media_publisher_job, enabled=False),
-    Job("social_media_publish_6pm", hour=17, minute=0, func=run_social_media_publisher_job, enabled=False),
+    Job("social_media_publish_9am", hour=8, minute=0, func=run_social_media_publisher_job, enabled=True),
+    Job("social_media_publish_12pm", hour=11, minute=0, func=run_social_media_publisher_job, enabled=True),
+    Job("social_media_publish_3pm", hour=14, minute=0, func=run_social_media_publisher_job, enabled=True),
+    Job("social_media_publish_6pm", hour=17, minute=0, func=run_social_media_publisher_job, enabled=True),
 ]
 
 
