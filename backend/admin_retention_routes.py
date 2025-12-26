@@ -611,6 +611,19 @@ def trigger_job(job_name):
             thread.start()
             return jsonify({'status': 'started', 'job': job_name})
 
+        elif job_name == 'weekly_summary':
+            from jobs.weekly_summary import run_weekly_summaries
+            # Force=True to bypass Sunday check for manual triggers
+            thread = threading.Thread(target=lambda: run_and_track(lambda: run_weekly_summaries(force=True), job_name))
+            thread.start()
+            return jsonify({'status': 'started', 'job': job_name})
+
+        elif job_name == 'biweekly_reengagement':
+            from jobs.monthly_reengagement import run_reengagement_emails
+            thread = threading.Thread(target=run_and_track, args=(run_reengagement_emails, job_name))
+            thread.start()
+            return jsonify({'status': 'started', 'job': job_name})
+
         else:
             return jsonify({'error': f'Unknown job: {job_name}'}), 404
 

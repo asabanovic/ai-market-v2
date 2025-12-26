@@ -232,12 +232,16 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
     }
 
 
-def run_weekly_summaries():
-    """Send weekly summary emails to all users with tracked products."""
+def run_weekly_summaries(force: bool = False):
+    """Send weekly summary emails to all users with tracked products.
+
+    Args:
+        force: If True, bypass the Sunday check and run immediately.
+    """
     with app.app_context():
-        # Check if it's Sunday
+        # Check if it's Sunday (unless forced)
         now = datetime.utcnow()
-        if now.weekday() != 6:  # 6 = Sunday
+        if not force and now.weekday() != 6:  # 6 = Sunday
             logger.info("Skipping weekly summary - not Sunday")
             return
 
