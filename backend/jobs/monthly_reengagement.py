@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Monthly re-engagement email job for users without tracked products.
+Bi-weekly re-engagement email job for users without tracked products.
 Sends emails to users who haven't set up product tracking, showing
 popular products others are tracking and current best deals.
 
-Schedule: 1st of each month at 8 AM UTC
+Schedule: 1st and 15th of each month at 8 AM UTC
 Command: python jobs/monthly_reengagement.py
 """
 
@@ -126,16 +126,16 @@ def get_total_users_tracking() -> int:
 
 
 def run_reengagement_emails():
-    """Send monthly re-engagement emails."""
+    """Send bi-weekly re-engagement emails (1st and 15th of month)."""
     with app.app_context():
-        # Check if it's the 1st of the month
+        # Check if it's the 1st or 15th of the month
         now = datetime.utcnow()
-        if now.day != 1:
-            logger.info("Skipping reengagement emails - not the 1st of month")
+        if now.day not in [1, 15]:
+            logger.info("Skipping reengagement emails - not the 1st or 15th of month")
             return
 
         # Start tracking this job run
-        job_run = JobRun.start('monthly_reengagement')
+        job_run = JobRun.start('biweekly_reengagement')
 
         try:
             # Get users without tracking
@@ -225,6 +225,6 @@ def run_reengagement_emails():
 
 
 if __name__ == '__main__':
-    logger.info("Starting monthly reengagement email job")
+    logger.info("Starting bi-weekly reengagement email job")
     run_reengagement_emails()
-    logger.info("Monthly reengagement job finished")
+    logger.info("Bi-weekly reengagement job finished")

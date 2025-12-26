@@ -101,11 +101,22 @@ def run_coupon_reminders_job():
     run_coupon_reminders()
 
 
-def run_monthly_reengagement_job():
-    """Run monthly re-engagement emails for users without tracked products (1st of each month)."""
+def run_weekly_summary_job():
+    """Run weekly summary emails for users with tracked products (Sundays)."""
     now = datetime.utcnow()
-    if now.day != 1:
-        logger.info("Skipping monthly reengagement - not the 1st of month")
+    if now.weekday() != 6:  # 6 = Sunday
+        logger.info("Skipping weekly summary - not Sunday")
+        return
+
+    from jobs.weekly_summary import run_weekly_summaries
+    run_weekly_summaries()
+
+
+def run_biweekly_reengagement_job():
+    """Run bi-weekly re-engagement emails for users without tracked products (1st and 15th of each month)."""
+    now = datetime.utcnow()
+    if now.day not in [1, 15]:
+        logger.info("Skipping bi-weekly reengagement - not the 1st or 15th of month")
         return
 
     from jobs.monthly_reengagement import run_reengagement_emails
@@ -117,8 +128,13 @@ JOBS = [
     # Product scan - runs at 6:00 AM UTC daily
     Job("product_scan", hour=6, minute=0, func=run_scan_job),
 
-    # Email summaries - runs at 7:00 AM UTC daily (after scan completes)
+    # Daily email summaries - runs at 7:00 AM UTC daily (after scan completes)
+    # Only sends if there are new products or price drops
     Job("email_summary", hour=7, minute=0, func=run_email_summary_job),
+
+    # Weekly summary - runs at 8:00 AM UTC on Sundays (9 AM Bosnia time)
+    # Comprehensive weekly overview for users with tracked products
+    Job("weekly_summary", hour=8, minute=0, func=run_weekly_summary_job),
 
     # Monthly credits - runs at 0:05 AM UTC on 1st of month
     Job("monthly_credits", hour=0, minute=5, func=run_monthly_credits_job),
@@ -126,8 +142,9 @@ JOBS = [
     # Coupon reminders - runs at 7:00 AM UTC daily (8 AM Bosnia time)
     Job("coupon_reminders", hour=7, minute=0, func=run_coupon_reminders_job),
 
-    # Monthly reengagement emails - runs at 8:00 AM UTC on 1st of month
-    Job("monthly_reengagement", hour=8, minute=0, func=run_monthly_reengagement_job),
+    # Bi-weekly reengagement emails - runs at 8:00 AM UTC on 1st and 15th of month
+    # For users without tracked products, encouraging them to set up tracking
+    Job("biweekly_reengagement", hour=8, minute=0, func=run_biweekly_reengagement_job),
 ]
 
 
