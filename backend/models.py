@@ -1653,3 +1653,51 @@ class EmailNotification(db.Model):
         if email_type:
             query = query.filter_by(email_type=email_type)
         return query.order_by(cls.sent_at.desc()).limit(limit).all()
+
+
+# ==================== SOCIAL MEDIA POSTS ====================
+
+class SocialMediaPost(db.Model):
+    """Scheduled social media posts for Facebook/Instagram"""
+    __tablename__ = 'social_media_posts'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Schedule
+    scheduled_time = db.Column(db.DateTime, nullable=False, index=True)
+    status = db.Column(db.String(20), default='scheduled')  # scheduled, published, failed, cancelled
+
+    # Content
+    content = db.Column(db.Text, nullable=False)  # Post text
+    image_url = db.Column(db.String, nullable=True)  # Product image URL
+
+    # Products snapshot (stored as JSON for historical accuracy)
+    products_data = db.Column(JSON, nullable=False)  # [{id, title, store, base_price, discount_price, discount_pct, image}]
+
+    # Publishing result
+    published_at = db.Column(db.DateTime, nullable=True)
+    facebook_post_id = db.Column(db.String, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+
+    # Tracking
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    __table_args__ = (
+        db.Index('idx_social_posts_scheduled', 'scheduled_time'),
+        db.Index('idx_social_posts_status', 'status'),
+    )
+
+    def to_dict(self):
+        """Convert to dictionary for API response"""
+        return {
+            'id': self.id,
+            'scheduled_time': self.scheduled_time.isoformat() if self.scheduled_time else None,
+            'status': self.status,
+            'content': self.content,
+            'image_url': self.image_url,
+            'products': self.products_data,
+            'published_at': self.published_at.isoformat() if self.published_at else None,
+            'facebook_post_id': self.facebook_post_id,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

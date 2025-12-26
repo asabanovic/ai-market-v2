@@ -123,6 +123,18 @@ def run_biweekly_reengagement_job():
     run_reengagement_emails()
 
 
+def run_social_media_generator_job():
+    """Generate social media posts for the next 5 days."""
+    from jobs.social_media_generator import generate_scheduled_posts
+    generate_scheduled_posts()
+
+
+def run_social_media_publisher_job():
+    """Publish due social media posts to Facebook."""
+    from jobs.social_media_publisher import publish_due_posts
+    publish_due_posts()
+
+
 # Define all scheduled jobs
 JOBS = [
     # Product scan - runs at 6:00 AM UTC daily
@@ -145,6 +157,16 @@ JOBS = [
     # Bi-weekly reengagement emails - runs at 8:00 AM UTC on 1st and 15th of month
     # For users without tracked products, encouraging them to set up tracking
     Job("biweekly_reengagement", hour=8, minute=0, func=run_biweekly_reengagement_job),
+
+    # Social media post generator - runs at 0:05 AM UTC daily
+    # Generates posts for the next 5 days
+    Job("social_media_generate", hour=0, minute=5, func=run_social_media_generator_job),
+
+    # Social media publisher - runs at posting times (9am, 12pm, 3pm, 6pm Bosnia time)
+    Job("social_media_publish_9am", hour=8, minute=0, func=run_social_media_publisher_job),
+    Job("social_media_publish_12pm", hour=11, minute=0, func=run_social_media_publisher_job),
+    Job("social_media_publish_3pm", hour=14, minute=0, func=run_social_media_publisher_job),
+    Job("social_media_publish_6pm", hour=17, minute=0, func=run_social_media_publisher_job),
 ]
 
 

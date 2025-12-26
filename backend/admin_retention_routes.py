@@ -303,12 +303,12 @@ def get_cohort_analysis():
                 func.date(User.created_at) <= week_end
             ).count()
 
-            # Of those, how many returned (have activity after registration date)
+            # Users who returned this week (registered BEFORE this week, active this week)
             returned = User.query.filter(
                 User.is_admin == False,
-                func.date(User.created_at) >= week_start,
-                func.date(User.created_at) <= week_end,
-                User.last_activity_date > func.date(User.created_at)
+                func.date(User.created_at) < week_start,  # Must have registered before this week
+                User.last_activity_date >= week_start,
+                User.last_activity_date <= week_end
             ).count()
 
             cohorts.append({

@@ -8,6 +8,7 @@ from agents_api import agents_api_bp
 from notifications_api import notifications_bp
 from admin_credits_routes import admin_credits_bp
 from admin_retention_routes import admin_retention_bp
+from admin_social_routes import admin_social_bp
 from sendgrid_webhook import sendgrid_webhook_bp
 from coupon_routes import coupon_bp
 from app import csrf
@@ -17,6 +18,7 @@ csrf.exempt(agents_api_bp)
 csrf.exempt(notifications_bp)
 csrf.exempt(admin_credits_bp)
 csrf.exempt(admin_retention_bp)
+csrf.exempt(admin_social_bp)
 csrf.exempt(sendgrid_webhook_bp)
 csrf.exempt(coupon_bp)
 
@@ -25,6 +27,7 @@ app.register_blueprint(agents_api_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(admin_credits_bp)
 app.register_blueprint(admin_retention_bp)
+app.register_blueprint(admin_social_bp)
 app.register_blueprint(sendgrid_webhook_bp)
 app.register_blueprint(coupon_bp)
 
@@ -33,6 +36,7 @@ print("📧 SendGrid Webhook initialized")
 print("🔔 Notifications API initialized")
 print("💰 Admin Credits API initialized")
 print("📊 Admin Retention API initialized")
+print("📱 Social Media API initialized")
 print("🎟️ Exclusive Coupons API initialized")
 
 # Add helper functions to Jinja context after routes import
