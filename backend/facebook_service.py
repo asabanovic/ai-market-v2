@@ -20,9 +20,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Facebook API configuration
-FACEBOOK_PAGE_ID = os.environ.get('FACEBOOK_PAGE_ID', '61584437267769')
+FACEBOOK_PAGE_ID = os.environ.get('FACEBOOK_PAGE_ID', '859938230544333')
 FACEBOOK_PAGE_TOKEN = os.environ.get('FACEBOOK_PAGE_TOKEN')
-FACEBOOK_API_VERSION = 'v18.0'
+FACEBOOK_API_VERSION = 'v21.0'
 FACEBOOK_ENABLED = bool(FACEBOOK_PAGE_TOKEN)
 
 

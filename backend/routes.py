@@ -8291,6 +8291,59 @@ def api_admin_products_analysis():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/products/<int:product_id>', methods=['GET'])
+@csrf.exempt
+def api_admin_get_product(product_id):
+    """Admin endpoint to get a single product."""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Find product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        return jsonify({
+            'id': product.id,
+            'title': product.title,
+            'base_price': float(product.base_price) if product.base_price else None,
+            'discount_price': float(product.discount_price) if product.discount_price else None,
+            'image_path': product.image_path,
+            'category': product.category,
+            'category_group': product.category_group,
+            'brand': product.brand,
+            'product_type': product.product_type,
+            'size_value': float(product.size_value) if product.size_value else None,
+            'size_unit': product.size_unit,
+            'variant': product.variant,
+            'business': {
+                'id': product.business.id,
+                'name': product.business.name
+            } if product.business else None
+        })
+
+    except Exception as e:
+        print(f"Error getting product: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @app.route('/api/admin/products/<int:product_id>', methods=['PUT'])
 @csrf.exempt
 def api_admin_update_product(product_id):

@@ -70,18 +70,23 @@ def get_top_discounts(limit: int = 5, exclude_product_ids: list = None) -> list:
 
 def get_recently_posted_product_ids(hours: int = 48) -> list:
     """
-    Get product IDs that were posted in the last N hours.
+    Get product IDs that were posted recently OR are scheduled for future posts.
+    This prevents duplicating products across posts.
 
     Args:
-        hours: Number of hours to look back
+        hours: Number of hours to look back for published posts
 
     Returns:
         List of product IDs
     """
     cutoff = datetime.utcnow() - timedelta(hours=hours)
 
+    # Get products from recent published posts AND all scheduled posts
     recent_posts = SocialMediaPost.query.filter(
-        SocialMediaPost.created_at >= cutoff
+        db.or_(
+            SocialMediaPost.created_at >= cutoff,  # Recent posts
+            SocialMediaPost.status == 'scheduled'   # All scheduled posts
+        )
     ).all()
 
     product_ids = []
@@ -94,9 +99,24 @@ def get_recently_posted_product_ids(hours: int = 48) -> list:
     return list(set(product_ids))
 
 
+import random
+
+# Hook templates - {savings} = ušteda u KM, {pct} = procenat, {product} = ime proizvoda
+HOOK_TEMPLATES = [
+    "Uštedi {savings} KM na ovim proizvodima!",
+    "{product} je na -{pct}% - ne propusti!",
+    "Znaš li da {product} košta samo {price} KM?",
+    "Ovo moraš vidjeti: {product} UPOLA CIJENE",
+    "Najveći popusti danas: do -{pct}%",
+    "Ako kupuješ {product}, ovo ti treba!",
+    "{pct}% popusta na {product}!",
+    "Uštedi danas: {product} sa {savings} KM popusta",
+]
+
+
 def generate_post_content(products: list) -> str:
     """
-    Generate Bosnian post text for the products.
+    Generate engaging Bosnian post text with hook.
 
     Args:
         products: List of Product objects
@@ -104,24 +124,60 @@ def generate_post_content(products: list) -> str:
     Returns:
         Formatted post text
     """
-    lines = ["Top 5 akcija danas:"]
+    if not products:
+        return ""
+
+    # Get the product with biggest discount for the hook
+    best_product = max(products, key=lambda p: (p.base_price - p.discount_price) / p.base_price)
+    best_pct = round((best_product.base_price - best_product.discount_price) / best_product.base_price * 100)
+    best_savings = best_product.base_price - best_product.discount_price
+
+    # Truncate product name for hook
+    product_name = best_product.title
+    if len(product_name) > 30:
+        product_name = product_name[:27] + "..."
+
+    # Generate hook
+    hook_template = random.choice(HOOK_TEMPLATES)
+    hook = hook_template.format(
+        savings=f"{best_savings:.2f}",
+        pct=best_pct,
+        product=product_name,
+        price=f"{best_product.discount_price:.2f}"
+    )
+
+    lines = [hook]
     lines.append("")
 
-    for i, product in enumerate(products, 1):
-        discount_pct = round((product.base_price - product.discount_price) / product.base_price * 100)
+    # Group products by store
+    stores = {}
+    for product in products:
         store_name = product.business.name if product.business else "Nepoznata trgovina"
+        if store_name not in stores:
+            stores[store_name] = []
+        stores[store_name].append(product)
 
-        # Truncate long titles
-        title = product.title
-        if len(title) > 50:
-            title = title[:47] + "..."
+    for store_name, store_products in stores.items():
+        lines.append(f"[ {store_name.upper()} ]")
+        for product in store_products:
+            discount_pct = round((product.base_price - product.discount_price) / product.base_price * 100)
+            savings = product.base_price - product.discount_price
 
-        lines.append(f"{i}. {title}")
-        lines.append(f"   {product.discount_price:.2f} KM (bilo {product.base_price:.2f} KM) -{discount_pct}%")
-        lines.append(f"   {store_name}")
+            # Truncate long titles
+            title = product.title
+            if len(title) > 40:
+                title = title[:37] + "..."
+
+            lines.append(f"• {title}")
+            lines.append(f"  {product.discount_price:.2f} KM (ušteda {savings:.2f} KM) -{discount_pct}%")
         lines.append("")
 
-    lines.append("Vise akcija na popust.ba")
+    lines.append("---")
+    lines.append("")
+    lines.append("Želiš ovakve akcije direktno u inbox?")
+    lines.append("Registruj se za 10 sekundi i napiši šta kupuješ - mi pratimo cijene umjesto tebe!")
+    lines.append("")
+    lines.append("popust.ba")
 
     return "\n".join(lines)
 
@@ -160,9 +216,20 @@ def products_to_data(products: list) -> list:
     Returns:
         List of dicts with product data
     """
+    base_url = os.environ.get('FRONTEND_URL', 'https://popust.ba')
+
     data = []
     for product in products:
         discount_pct = round((product.base_price - product.discount_price) / product.base_price * 100)
+
+        # Build full image URL
+        image_url = None
+        if product.image_path:
+            if product.image_path.startswith('http'):
+                image_url = product.image_path
+            else:
+                image_url = f"{base_url}{product.image_path}"
+
         data.append({
             'id': product.id,
             'title': product.title,
@@ -170,7 +237,7 @@ def products_to_data(products: list) -> list:
             'base_price': float(product.base_price),
             'discount_price': float(product.discount_price),
             'discount_pct': discount_pct,
-            'image': product.image_path
+            'image_url': image_url
         })
     return data
 
