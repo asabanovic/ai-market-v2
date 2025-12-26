@@ -163,6 +163,11 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
 
     # Process each term
     for term, results in term_results.items():
+        # Filter out low-relevance results (similarity < 0.5) to avoid irrelevant matches
+        relevant_results = [r for r in results if (r.similarity_score or 0) >= 0.5]
+        if relevant_results:
+            results = relevant_results
+
         # Sort by effective price (discount_price if available, else base_price)
         def get_effective_price(r):
             return float(r.discount_price or r.base_price or 999999)

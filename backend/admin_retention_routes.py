@@ -104,10 +104,24 @@ def get_returning_users():
         # Paginate
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        # Get total returning users (for "today" highlight)
+        # Get total returning users (for tab counts)
         today_count = User.query.filter(
             User.is_admin == False,
             User.last_activity_date == today,
+            User.last_activity_date > func.date(User.created_at)
+        ).count()
+
+        week_ago = today - timedelta(days=7)
+        week_count = User.query.filter(
+            User.is_admin == False,
+            User.last_activity_date >= week_ago,
+            User.last_activity_date > func.date(User.created_at)
+        ).count()
+
+        month_ago = today - timedelta(days=30)
+        month_count = User.query.filter(
+            User.is_admin == False,
+            User.last_activity_date >= month_ago,
             User.last_activity_date > func.date(User.created_at)
         ).count()
 
@@ -173,6 +187,8 @@ def get_returning_users():
                 'total_with_activity': total_with_activity,
                 'total_returned': total_returned,
                 'returned_today': today_count,
+                'returned_week': week_count,
+                'returned_month': month_count,
                 'return_rate': round((total_returned / total_users * 100), 1) if total_users > 0 else 0
             }
         })
@@ -271,9 +287,14 @@ def get_cohort_analysis():
 
         cohorts = []
         for i in range(weeks):
-            # Week start (Sunday) and end (Saturday)
-            week_end = today - timedelta(days=today.weekday() + 1 + (i * 7))
-            week_start = week_end - timedelta(days=6)
+            # Calculate Sunday of this week (i=0 = current week, i=1 = last week, etc.)
+            days_since_sunday = (today.weekday() + 1) % 7
+            week_start = today - timedelta(days=days_since_sunday + (i * 7))
+            week_end = week_start + timedelta(days=6)
+
+            # Cap at today for current week (partial week)
+            if week_end > today:
+                week_end = today
 
             # Users registered in this week
             registered = User.query.filter(

@@ -384,7 +384,7 @@
             ]"
           >
             <Icon name="mdi:calendar-week" class="w-4 h-4 mr-1" />
-            Ova nedelja
+            Ova nedelja ({{ stats.returned_week }})
           </button>
           <button
             @click="setFilter('month')"
@@ -396,7 +396,7 @@
             ]"
           >
             <Icon name="mdi:calendar-month" class="w-4 h-4 mr-1" />
-            Ovaj mjesec
+            Ovaj mjesec ({{ stats.returned_month }})
           </button>
           <button
             @click="setFilter('all')"
@@ -408,7 +408,7 @@
             ]"
           >
             <Icon name="mdi:calendar" class="w-4 h-4 mr-1" />
-            Svi
+            Svi ({{ stats.total_returned }})
           </button>
         </div>
       </div>
@@ -629,6 +629,8 @@ const stats = ref({
   total_with_activity: 0,
   total_returned: 0,
   returned_today: 0,
+  returned_week: 0,
+  returned_month: 0,
   return_rate: 0
 })
 const cohorts = ref<any[]>([])
