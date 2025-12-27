@@ -117,21 +117,27 @@
           </div>
 
           <!-- Products - Mobile Horizontal Scroll -->
-          <div v-if="tracked.products.length > 0" class="md:hidden relative">
+          <div v-if="tracked.products.length > 0" class="md:hidden relative overflow-visible">
             <!-- Scroll Arrows -->
             <button
               v-if="tracked.products.length > 1"
               @click="scrollTracked(tracked.id, 'left')"
-              class="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 shadow-lg rounded-full flex items-center justify-center text-gray-600 hover:bg-white hover:text-purple-600 transition-all"
+              class="absolute left-1 top-1/2 -translate-y-1/2 z-50 w-9 h-9 bg-white rounded-full flex items-center justify-center text-purple-600 hover:bg-gray-50 transition-all animate-bounce-horizontal-left border border-purple-200"
+              style="box-shadow: 0 2px 8px rgba(0,0,0,0.15);"
             >
-              <Icon name="mdi:chevron-left" class="w-6 h-6" />
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
             <button
               v-if="tracked.products.length > 1"
               @click="scrollTracked(tracked.id, 'right')"
-              class="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 shadow-lg rounded-full flex items-center justify-center text-gray-600 hover:bg-white hover:text-purple-600 transition-all"
+              class="absolute right-1 top-1/2 -translate-y-1/2 z-50 w-9 h-9 bg-white rounded-full flex items-center justify-center text-purple-600 hover:bg-gray-50 transition-all animate-bounce-horizontal-right border border-purple-200"
+              style="box-shadow: 0 2px 8px rgba(0,0,0,0.15);"
             >
-              <Icon name="mdi:chevron-right" class="w-6 h-6" />
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
             </button>
 
             <!-- Horizontal Scroll Container -->
@@ -683,3 +689,31 @@ onMounted(() => {
   fetchTrackedProducts()
 })
 </script>
+
+<style scoped>
+@keyframes bounce-left {
+  0%, 100% {
+    transform: translateY(-50%) translateX(0);
+  }
+  50% {
+    transform: translateY(-50%) translateX(-6px);
+  }
+}
+
+@keyframes bounce-right {
+  0%, 100% {
+    transform: translateY(-50%) translateX(0);
+  }
+  50% {
+    transform: translateY(-50%) translateX(6px);
+  }
+}
+
+.animate-bounce-horizontal-left {
+  animation: bounce-left 1.5s ease-in-out 3;
+}
+
+.animate-bounce-horizontal-right {
+  animation: bounce-right 1.5s ease-in-out 3;
+}
+</style>
