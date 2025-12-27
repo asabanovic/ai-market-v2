@@ -435,7 +435,8 @@ definePageMeta({
   middleware: ['auth', 'admin']
 })
 
-const { get, post, del } = useApi()
+const api = useApi()
+const { get, post } = api
 
 const loading = ref(true)
 const generating = ref(false)
@@ -556,7 +557,7 @@ async function deletePost(postId: number) {
   if (!confirm('Obriši ovaj zakazani post?')) return
 
   try {
-    await del(`/api/admin/social/posts/${postId}`)
+    await api.del(`/api/admin/social/posts/${postId}`)
     await loadPosts()
   } catch (error) {
     console.error('Failed to delete post:', error)

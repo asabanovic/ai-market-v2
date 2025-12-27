@@ -18,7 +18,7 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db
-from models import User, UserProductImage
+from models import User, UserProductImage, UserTrackedProduct
 from sqlalchemy.orm.attributes import flag_modified
 from openai import OpenAI
 
@@ -113,9 +113,35 @@ Rules:
         return None
 
 
+def trigger_user_scan(user_id: str):
+    """
+    Trigger a product scan for a specific user after adding a new tracked product.
+    This runs the scan immediately so the user sees matching products right away.
+    """
+    try:
+        from jobs.scan_user_products import scan_single_user
+
+        user = User.query.get(user_id)
+        if not user:
+            logger.error(f"User {user_id} not found for scan trigger")
+            return
+
+        logger.info(f"Triggering scan for user {user_id} after product image upload")
+        result = scan_single_user(user)
+
+        if result:
+            total, new_count, discount_count = result
+            logger.info(f"Scan complete for user {user_id}: {total} products, {new_count} new")
+        else:
+            logger.info(f"No products to scan for user {user_id}")
+
+    except Exception as e:
+        logger.error(f"Error triggering scan for user {user_id}: {e}")
+
+
 def add_to_user_preferences(user_id: str, product_name: str) -> bool:
     """
-    Add product name to user's grocery_interests preferences.
+    Add product name to user's grocery_interests preferences and tracked products.
 
     Args:
         user_id: User ID
@@ -130,31 +156,45 @@ def add_to_user_preferences(user_id: str, product_name: str) -> bool:
             logger.error(f"User {user_id} not found")
             return False
 
-        # Initialize preferences if needed
+        product_clean = product_name.strip()
+        product_lower = product_clean.lower()
+
+        # 1. Add to grocery_interests preferences
         if not user.preferences:
             user.preferences = {}
         elif not isinstance(user.preferences, dict):
             user.preferences = {}
 
-        # Get current interests
         interests = user.preferences.get('grocery_interests', [])
         if not isinstance(interests, list):
             interests = []
 
-        # Add new product if not already present (case-insensitive check)
-        product_lower = product_name.lower().strip()
         existing_lower = [i.lower().strip() for i in interests]
-
         if product_lower not in existing_lower:
-            interests.append(product_name.strip())
+            interests.append(product_clean)
             user.preferences['grocery_interests'] = interests
             flag_modified(user, 'preferences')
-            db.session.commit()
-            logger.info(f"Added '{product_name}' to user {user_id} preferences")
-            return True
-        else:
-            logger.info(f"Product '{product_name}' already in user {user_id} preferences")
-            return True
+            logger.info(f"Added '{product_clean}' to user {user_id} preferences")
+
+        # 2. Add to tracked products (for /moji-proizvodi)
+        existing_tracked = UserTrackedProduct.query.filter_by(
+            user_id=user_id,
+            search_term=product_lower
+        ).first()
+
+        if not existing_tracked:
+            tracked = UserTrackedProduct(
+                user_id=user_id,
+                search_term=product_lower,
+                original_text=product_clean,
+                source='product_image',
+                is_active=True
+            )
+            db.session.add(tracked)
+            logger.info(f"Added '{product_clean}' to user {user_id} tracked products")
+
+        db.session.commit()
+        return True
 
     except Exception as e:
         logger.error(f"Error adding to preferences: {e}")
@@ -207,6 +247,9 @@ def process_pending_images():
 
                     # Add to user preferences
                     add_to_user_preferences(image.user_id, product_name)
+
+                    # Trigger a scan for this user to find matching products
+                    trigger_user_scan(image.user_id)
 
                     processed += 1
                     logger.info(f"Successfully processed image {image.id}: {product_name}")
