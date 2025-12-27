@@ -1763,7 +1763,7 @@ def upload_user_product_image():
         def process_in_background(app_context, img_id, usr_id):
             with app_context:
                 try:
-                    from jobs.process_product_images import extract_product_name_from_image, add_to_user_preferences
+                    from jobs.process_product_images import extract_product_name_from_image, add_to_user_preferences, trigger_user_scan
                     from models import UserProductImage
                     from app import db
 
@@ -1785,8 +1785,9 @@ def upload_user_product_image():
                         img.processed_at = datetime.now()
                         db.session.commit()
 
-                        # Add to user preferences
+                        # Add to user preferences and trigger scan
                         add_to_user_preferences(usr_id, result['product_name'])
+                        trigger_user_scan(usr_id)
                         app.logger.info(f"Processed image {img_id}: {result['product_name']}")
                     else:
                         img.status = 'failed'
