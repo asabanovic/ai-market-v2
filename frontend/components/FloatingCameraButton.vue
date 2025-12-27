@@ -11,26 +11,38 @@
       leave-to-class="opacity-0 -translate-y-4"
     >
       <div v-if="isExpanded" class="flex flex-col gap-3 mb-3">
-        <!-- Gallery upload button - same size as main button -->
+        <!-- Gallery upload button with label -->
         <button
           @click.stop="openGallery"
-          class="flex items-center justify-center w-14 h-14 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+          class="flex items-center gap-3 pl-1 pr-4 py-1 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
         >
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+          <div class="w-12 h-12 flex items-center justify-center bg-purple-100 rounded-full">
+            <svg class="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-gray-800 whitespace-nowrap">Iz galerije</span>
         </button>
 
-        <!-- Camera button - same size as main button -->
+        <!-- Camera button with label -->
         <button
           @click.stop="openCamera"
-          class="flex items-center justify-center w-14 h-14 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+          class="flex items-center gap-3 pl-1 pr-4 py-1 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
         >
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
+          <div class="w-12 h-12 flex items-center justify-center bg-purple-100 rounded-full">
+            <svg class="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-gray-800 whitespace-nowrap">Slikaj artikal</span>
         </button>
+
+        <!-- Tracking hint -->
+        <div class="bg-purple-600 text-white text-xs px-3 py-2 rounded-lg shadow-lg max-w-[180px]">
+          <span class="font-medium">Prati artikal</span>
+          <p class="opacity-90 mt-0.5">Dodaj proizvod na listu za praćenje cijena</p>
+        </div>
       </div>
     </transition>
 
