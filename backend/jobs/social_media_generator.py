@@ -22,12 +22,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-POSTS_PER_DAY = 4
+POSTS_PER_DAY = 2
 PRODUCTS_PER_POST = 5
 DAYS_TO_SCHEDULE = 5
 
-# Posting times in UTC (Bosnia is UTC+1, so these are 9am, 12pm, 3pm, 6pm local)
-POST_HOURS_UTC = [8, 11, 14, 17]
+# Posting times in UTC (Bosnia is UTC+1, so these are 12pm and 6pm local)
+POST_HOURS_UTC = [11, 17]
 
 
 def get_top_discounts(limit: int = 5, exclude_product_ids: list = None) -> list:
