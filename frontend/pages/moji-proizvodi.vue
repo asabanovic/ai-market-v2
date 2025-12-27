@@ -46,6 +46,9 @@
         </div>
       </div>
 
+      <!-- My Preferences Section -->
+      <UserPreferencesSection />
+
       <!-- Empty State (no tracking) -->
       <div v-if="!loading && !hasTracking" class="text-center py-12 bg-white rounded-lg shadow-sm">
         <Icon name="mdi:magnify-scan" class="w-24 h-24 text-gray-400 mx-auto mb-4" />
@@ -113,9 +116,46 @@
             </div>
           </div>
 
-          <!-- Products Grid -->
-          <div v-if="tracked.products.length > 0" class="p-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <!-- Products - Mobile Horizontal Scroll -->
+          <div v-if="tracked.products.length > 0" class="md:hidden relative">
+            <!-- Scroll Arrows -->
+            <button
+              v-if="tracked.products.length > 1"
+              @click="scrollTracked(tracked.id, 'left')"
+              class="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 shadow-lg rounded-full flex items-center justify-center text-gray-600 hover:bg-white hover:text-purple-600 transition-all"
+            >
+              <Icon name="mdi:chevron-left" class="w-6 h-6" />
+            </button>
+            <button
+              v-if="tracked.products.length > 1"
+              @click="scrollTracked(tracked.id, 'right')"
+              class="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 shadow-lg rounded-full flex items-center justify-center text-gray-600 hover:bg-white hover:text-purple-600 transition-all"
+            >
+              <Icon name="mdi:chevron-right" class="w-6 h-6" />
+            </button>
+
+            <!-- Horizontal Scroll Container -->
+            <div
+              :ref="(el) => setScrollRef(tracked.id, el)"
+              class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide py-4 gap-4"
+              style="padding-left: calc((100vw - 78vw) / 2); padding-right: calc((100vw - 78vw) / 2);"
+            >
+              <ProductCardMobile
+                v-for="product in tracked.products"
+                :key="'mobile-' + product.id"
+                :product="formatProductForCard(product)"
+              />
+            </div>
+
+            <!-- Swipe hint -->
+            <p v-if="tracked.products.length > 1" class="text-center text-xs text-gray-400 pb-2">
+              ← Prevuci za više →
+            </p>
+          </div>
+
+          <!-- Products - Desktop Grid -->
+          <div v-if="tracked.products.length > 0" class="hidden md:block p-4">
+            <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <div
                 v-for="product in tracked.products.slice(0, showAllProducts[tracked.id] ? undefined : 4)"
                 :key="product.id"
@@ -228,6 +268,13 @@
                     </span>
                     <span v-if="product.discount_price && product.base_price" class="text-xs text-gray-500 line-through">
                       {{ product.base_price.toFixed(2) }} KM
+                    </span>
+                  </div>
+
+                  <!-- Relevance Score -->
+                  <div v-if="product.similarity_score" class="mt-1">
+                    <span class="text-xs text-gray-400">
+                      {{ Math.round(product.similarity_score * 100) }}% podudaranje
                     </span>
                   </div>
                 </NuxtLink>
@@ -370,7 +417,8 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { get, post, del } = useApi()
+const api = useApi()
+const { get, post } = api
 const { handleApiError, showSuccess, showWarning } = useCreditsToast()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
@@ -395,6 +443,46 @@ const addingToList = ref<Record<number, boolean>>({})
 const commentModalProduct = ref<any>(null)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
+
+// Scroll refs for horizontal scroll
+const scrollRefs = ref<Record<number, HTMLElement | null>>({})
+
+function setScrollRef(trackedId: number, el: any) {
+  scrollRefs.value[trackedId] = el as HTMLElement | null
+}
+
+function scrollTracked(trackedId: number, direction: 'left' | 'right') {
+  const container = scrollRefs.value[trackedId]
+  if (!container) return
+
+  const cardWidth = container.offsetWidth * 0.78 // 78vw card width
+  const scrollAmount = direction === 'left' ? -cardWidth : cardWidth
+
+  container.scrollBy({
+    left: scrollAmount,
+    behavior: 'smooth'
+  })
+}
+
+// Format product data for ProductCardMobile component
+function formatProductForCard(product: any) {
+  return {
+    id: product.id,
+    title: product.title,
+    base_price: product.base_price,
+    discount_price: product.discount_price,
+    image_path: product.image_url,
+    product_image_url: product.image_url,
+    business: {
+      id: product.business_id,
+      name: product.business
+    },
+    is_new_today: product.is_new_today,
+    price_dropped_today: product.price_dropped_today,
+    has_discount: !!product.discount_price,
+    similarity_score: product.similarity_score
+  }
+}
 
 async function fetchTrackedProducts() {
   loading.value = true
@@ -436,7 +524,7 @@ async function removeTracked(trackedId: number) {
   if (!confirm('Jeste li sigurni da želite ukloniti ovaj proizvod iz praćenja?')) return
 
   try {
-    const response = await del(`/api/user/tracked-products/${trackedId}`)
+    const response = await api.del(`/api/user/tracked-products/${trackedId}`)
     if (response.success) {
       showSuccess('Praćenje ukinuto')
       trackedProducts.value = trackedProducts.value.filter(t => t.id !== trackedId)

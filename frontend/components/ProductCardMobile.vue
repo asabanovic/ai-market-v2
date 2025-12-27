@@ -120,7 +120,7 @@
       </div>
 
       <!-- Price -->
-      <div class="flex items-baseline gap-2 mb-4">
+      <div class="flex items-baseline gap-2 mb-2">
         <span class="text-2xl font-bold text-gray-900">
           {{ formatPrice(product.discount_price || product.base_price) }} KM
         </span>
@@ -129,6 +129,13 @@
           class="text-base text-gray-400 line-through"
         >
           {{ formatPrice(product.base_price) }} KM
+        </span>
+      </div>
+
+      <!-- Relevance Score -->
+      <div v-if="product.similarity_score" class="mb-3">
+        <span class="text-xs text-gray-400">
+          {{ Math.round(product.similarity_score * 100) }}% podudaranje
         </span>
       </div>
 
