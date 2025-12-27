@@ -1639,3 +1639,183 @@ def admin_send_weekly_summary(user_id):
     except Exception as e:
         app.logger.error(f"Admin weekly summary error: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# ========== USER PRODUCT IMAGES ==========
+
+@auth_api_bp.route('/user/product-images', methods=['GET', 'OPTIONS'])
+@require_jwt_auth
+def get_user_product_images():
+    """Get all product images uploaded by the current user"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    from models import UserProductImage
+
+    images = UserProductImage.query.filter_by(
+        user_id=request.current_user_id
+    ).order_by(UserProductImage.created_at.desc()).all()
+
+    return jsonify({
+        'images': [img.to_dict() for img in images]
+    }), 200
+
+
+@auth_api_bp.route('/user/product-images', methods=['POST', 'OPTIONS'])
+@require_jwt_auth
+def upload_user_product_image():
+    """Upload a product image for the current user"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    import boto3
+    from botocore.exceptions import ClientError
+    from models import UserProductImage
+    import uuid
+    from PIL import Image
+    import io
+
+    # Check if file was uploaded
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Validate file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in allowed_extensions:
+        return jsonify({'error': f'Invalid file type. Allowed: {", ".join(allowed_extensions)}'}), 400
+
+    # Check user's image limit (max 10 images)
+    existing_count = UserProductImage.query.filter_by(
+        user_id=request.current_user_id
+    ).count()
+    if existing_count >= 10:
+        return jsonify({'error': 'Maximum 10 images allowed. Please delete some before uploading more.'}), 400
+
+    try:
+        # Read the image
+        image_bytes = file.read()
+
+        # Create thumbnail (max 640px)
+        img = Image.open(io.BytesIO(image_bytes))
+
+        # Convert to RGB if necessary (for JPEG)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+
+        # Resize if larger than 640px
+        max_size = 640
+        if img.width > max_size or img.height > max_size:
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+        # Save resized image to bytes
+        thumbnail_buffer = io.BytesIO()
+        img.save(thumbnail_buffer, format='JPEG', quality=85)
+        thumbnail_bytes = thumbnail_buffer.getvalue()
+
+        # Generate unique filename
+        unique_id = str(uuid.uuid4())[:8]
+        s3_path = f"popust/user-images/{request.current_user_id}/{unique_id}.jpg"
+
+        # Upload to S3
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            region_name=os.environ.get('AWS_REGION', 'eu-central-1')
+        )
+
+        bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=s3_path,
+            Body=thumbnail_bytes,
+            ContentType='image/jpeg',
+            CacheControl='max-age=31536000'
+        )
+
+        # Build public URL
+        cdn_url = os.environ.get('CDN_URL', f'https://{bucket}.s3.eu-central-1.amazonaws.com')
+        image_url = f"{cdn_url}/{s3_path}"
+
+        # Create database record
+        product_image = UserProductImage(
+            user_id=request.current_user_id,
+            image_url=image_url,
+            thumbnail_url=image_url,  # Same for now since we resize on upload
+            status='pending'
+        )
+        db.session.add(product_image)
+        db.session.commit()
+
+        app.logger.info(f"User {request.current_user_id} uploaded product image {product_image.id}")
+
+        return jsonify({
+            'success': True,
+            'image': product_image.to_dict()
+        }), 201
+
+    except ClientError as e:
+        app.logger.error(f"S3 upload error: {e}")
+        return jsonify({'error': 'Failed to upload image to storage'}), 500
+    except Exception as e:
+        app.logger.error(f"Image upload error: {e}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@auth_api_bp.route('/user/product-images/<int:image_id>', methods=['DELETE', 'OPTIONS'])
+@require_jwt_auth
+def delete_user_product_image(image_id):
+    """Delete a product image"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    import boto3
+    from botocore.exceptions import ClientError
+    from models import UserProductImage
+
+    image = UserProductImage.query.filter_by(
+        id=image_id,
+        user_id=request.current_user_id
+    ).first()
+
+    if not image:
+        return jsonify({'error': 'Image not found'}), 404
+
+    # Try to delete from S3
+    try:
+        # Extract S3 key from URL
+        if image.image_url:
+            # URL format: https://bucket.s3.region.amazonaws.com/path/to/file.jpg
+            # or CDN URL like https://cdn.example.com/path/to/file.jpg
+            url_parts = image.image_url.split('/')
+            # Get everything after the domain
+            s3_path = '/'.join(url_parts[3:]) if len(url_parts) > 3 else None
+
+            if s3_path:
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    region_name=os.environ.get('AWS_REGION', 'eu-central-1')
+                )
+                bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+                s3_client.delete_object(Bucket=bucket, Key=s3_path)
+
+    except ClientError as e:
+        app.logger.warning(f"Failed to delete S3 object: {e}")
+        # Continue with database deletion even if S3 fails
+
+    # Delete from database
+    db.session.delete(image)
+    db.session.commit()
+
+    app.logger.info(f"User {request.current_user_id} deleted product image {image_id}")
+
+    return jsonify({'success': True}), 200

@@ -63,7 +63,7 @@ export const useApi = () => {
         body: JSON.stringify(data),
       }),
 
-    delete: (endpoint: string, options?: RequestInit) =>
+    del: (endpoint: string, options?: RequestInit) =>
       apiFetch(endpoint, { ...options, method: 'DELETE' }),
 
     // For file uploads using FormData

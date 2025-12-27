@@ -1701,3 +1701,57 @@ class SocialMediaPost(db.Model):
             'error_message': self.error_message,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class UserProductImage(db.Model):
+    """User-uploaded product images for tracking/wish list"""
+    __tablename__ = 'user_product_images'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+
+    # Image storage
+    image_url = db.Column(db.String, nullable=False)  # S3 URL
+    thumbnail_url = db.Column(db.String, nullable=True)  # Resized version
+
+    # Processing status: pending, processing, processed, failed
+    status = db.Column(db.String, default='pending', nullable=False)
+
+    # AI extraction results
+    extracted_name = db.Column(db.String, nullable=True)  # Product name from AI
+    extracted_price = db.Column(db.Numeric(10, 2), nullable=True)  # Price if visible
+    extracted_data = db.Column(JSON, nullable=True)  # Full AI response
+
+    # Matched product (if found in our database)
+    matched_product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
+
+    # User can add notes
+    user_notes = db.Column(db.String, nullable=True)
+
+    # Tracking
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    processed_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('product_images', lazy='dynamic'))
+    matched_product = db.relationship('Product', backref=db.backref('user_images', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_user_product_images_user', 'user_id'),
+        db.Index('idx_user_product_images_status', 'status'),
+    )
+
+    def to_dict(self):
+        """Convert to dictionary for API response"""
+        return {
+            'id': self.id,
+            'image_url': self.image_url,
+            'thumbnail_url': self.thumbnail_url,
+            'status': self.status,
+            'extracted_name': self.extracted_name,
+            'extracted_price': float(self.extracted_price) if self.extracted_price else None,
+            'matched_product_id': self.matched_product_id,
+            'user_notes': self.user_notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'processed_at': self.processed_at.isoformat() if self.processed_at else None
+        }

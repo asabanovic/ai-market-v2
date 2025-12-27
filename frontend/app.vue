@@ -41,6 +41,9 @@
 
     <!-- Floating Feedback Button (for logged-in users) -->
     <FloatingFeedbackButton @open-feedback="openFeedbackManually" />
+
+    <!-- Floating Camera Button (for mobile product photo capture) -->
+    <FloatingCameraButton />
   </div>
 </template>
 

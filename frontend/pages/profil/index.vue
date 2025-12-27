@@ -143,6 +143,9 @@
         </div>
       </div>
 
+      <!-- Product Images Section -->
+      <ProductImageUpload class="mb-8" />
+
       <!-- Loading State -->
       <div v-if="isLoading" class="text-center py-12">
         <div class="inline-flex items-center text-purple-600">
