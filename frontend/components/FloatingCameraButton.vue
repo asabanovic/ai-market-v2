@@ -4,41 +4,39 @@
     <!-- Expanded options -->
     <transition
       enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="opacity-0 -translate-x-4"
-      enter-to-class="opacity-100 translate-x-0"
+      enter-from-class="opacity-0 -translate-y-4"
+      enter-to-class="opacity-100 translate-y-0"
       leave-active-class="transition-all duration-150 ease-in"
-      leave-from-class="opacity-100 translate-x-0"
-      leave-to-class="opacity-0 -translate-x-4"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 -translate-y-4"
     >
-      <div v-if="isExpanded" class="flex flex-col gap-2 mb-2">
-        <!-- Gallery upload button -->
+      <div v-if="isExpanded" class="flex flex-col gap-3 mb-3">
+        <!-- Gallery upload button - same size as main button -->
         <button
-          @click="openGallery"
-          class="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+          @click.stop="openGallery"
+          class="flex items-center justify-center w-14 h-14 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
         >
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span class="text-sm font-medium">Galerija</span>
         </button>
 
-        <!-- Camera button -->
+        <!-- Camera button - same size as main button -->
         <button
-          @click="openCamera"
-          class="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+          @click.stop="openCamera"
+          class="flex items-center justify-center w-14 h-14 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
         >
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span class="text-sm font-medium">Kamera</span>
         </button>
       </div>
     </transition>
 
     <!-- Main button -->
     <button
-      @click="toggleExpanded"
+      @click.stop="toggleExpanded"
       class="flex items-center justify-center w-14 h-14 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all"
       :class="{ 'rotate-45': isExpanded }"
     >

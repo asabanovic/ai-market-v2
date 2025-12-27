@@ -1753,7 +1753,65 @@ def upload_user_product_image():
         db.session.add(product_image)
         db.session.commit()
 
-        app.logger.info(f"User {request.current_user_id} uploaded product image {product_image.id}")
+        image_id = product_image.id
+        user_id = request.current_user_id
+
+        app.logger.info(f"User {user_id} uploaded product image {image_id}")
+
+        # Process image in background thread
+        import threading
+        def process_in_background(app_context, img_id, usr_id):
+            with app_context:
+                try:
+                    from jobs.process_product_images import extract_product_name_from_image, add_to_user_preferences
+                    from models import UserProductImage
+                    from app import db
+
+                    img = UserProductImage.query.get(img_id)
+                    if not img:
+                        return
+
+                    img.status = 'processing'
+                    db.session.commit()
+
+                    result = extract_product_name_from_image(img.image_url)
+
+                    if result and result.get('product_name'):
+                        img.extracted_name = result['product_name']
+                        if result.get('price'):
+                            img.extracted_price = result['price']
+                        img.extracted_data = result
+                        img.status = 'processed'
+                        img.processed_at = datetime.now()
+                        db.session.commit()
+
+                        # Add to user preferences
+                        add_to_user_preferences(usr_id, result['product_name'])
+                        app.logger.info(f"Processed image {img_id}: {result['product_name']}")
+                    else:
+                        img.status = 'failed'
+                        img.extracted_data = {'error': 'Could not identify product'}
+                        img.processed_at = datetime.now()
+                        db.session.commit()
+                        app.logger.warning(f"Could not identify product in image {img_id}")
+
+                except Exception as e:
+                    app.logger.error(f"Background processing error for image {img_id}: {e}")
+                    try:
+                        img = UserProductImage.query.get(img_id)
+                        if img:
+                            img.status = 'failed'
+                            img.extracted_data = {'error': str(e)}
+                            db.session.commit()
+                    except:
+                        pass
+
+        thread = threading.Thread(
+            target=process_in_background,
+            args=(app.app_context(), image_id, user_id)
+        )
+        thread.daemon = True
+        thread.start()
 
         return jsonify({
             'success': True,
