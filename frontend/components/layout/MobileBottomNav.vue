@@ -47,16 +47,24 @@
           <span class="text-xs mt-1">Omiljeni</span>
         </NuxtLink>
 
-        <!-- Shopping Lists -->
+        <!-- My Products (tracked) -->
         <NuxtLink
-          to="/liste"
-          class="flex flex-col items-center justify-center flex-1 h-full"
-          :class="isActive('/liste') ? 'text-purple-600' : 'text-gray-500'"
+          to="/moji-proizvodi"
+          class="flex flex-col items-center justify-center flex-1 h-full relative"
+          :class="isActive('/moji-proizvodi') ? 'text-purple-600' : 'text-gray-500'"
         >
-          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-          </svg>
-          <span class="text-xs mt-1">Liste</span>
+          <div class="relative">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span
+              v-if="trackedProductsStore.count > 0"
+              class="absolute -top-2 -right-2 bg-purple-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+            >
+              {{ trackedProductsStore.count > 9 ? '9+' : trackedProductsStore.count }}
+            </span>
+          </div>
+          <span class="text-xs mt-1">Moji</span>
         </NuxtLink>
 
         <!-- Cart -->
@@ -118,11 +126,13 @@
 <script setup lang="ts">
 import { useCartStore } from '~/stores/cart'
 import { useFavoritesStore } from '~/stores/favorites'
+import { useTrackedProductsStore } from '~/stores/trackedProducts'
 
 const route = useRoute()
 const { isAuthenticated } = useAuth()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
+const trackedProductsStore = useTrackedProductsStore()
 
 defineEmits<{
   'toggle-sidebar': []
@@ -150,7 +160,8 @@ onMounted(async () => {
   if (isAuthenticated.value) {
     await Promise.all([
       favoritesStore.fetchFavorites(),
-      cartStore.fetchHeader()
+      cartStore.fetchHeader(),
+      trackedProductsStore.fetchCount()
     ])
 
     if (cartStore.isActive) {

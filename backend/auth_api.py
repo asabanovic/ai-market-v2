@@ -1144,6 +1144,67 @@ def get_search_counts_jwt():
 
 
 # =====================================================
+# VERIFY EMAIL (PUBLIC - NO AUTH REQUIRED)
+# =====================================================
+
+@auth_api_bp.route('/verify-email/<token>', methods=['POST', 'OPTIONS'])
+def verify_email_api(token):
+    """Verify user email via token - public endpoint, no auth required"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        from sendgrid_utils import send_welcome_email
+
+        user = User.query.filter_by(verification_token=token).first()
+
+        if not user:
+            return jsonify({
+                'success': False,
+                'message': 'Link za verifikaciju je nevažeći.'
+            }), 400
+
+        if user.is_verified:
+            return jsonify({
+                'success': True,
+                'message': 'Vaš račun je već verifikovan.'
+            }), 200
+
+        # Check if token has expired
+        if user.verification_token_expires and datetime.now() > user.verification_token_expires:
+            return jsonify({
+                'success': False,
+                'message': 'Link za verifikaciju je istekao. Molimo registrujte se ponovo.'
+            }), 400
+
+        # Verify the user
+        user.is_verified = True
+        user.verification_token = None
+        user.verification_token_expires = None
+        db.session.commit()
+
+        # Send welcome email
+        try:
+            send_welcome_email(user.email, user.first_name)
+        except Exception as e:
+            app.logger.error(f"Failed to send welcome email: {e}")
+
+        app.logger.info(f"User verified via API: {user.email}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Email uspješno verificiran!'
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Email verification error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Došlo je do greške. Pokušajte ponovo.'
+        }), 500
+
+
+# =====================================================
 # RESEND VERIFICATION EMAIL
 # =====================================================
 

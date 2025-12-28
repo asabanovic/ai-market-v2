@@ -418,6 +418,7 @@
 <script setup lang="ts">
 import { useCartStore } from '~/stores/cart'
 import { useFavoritesStore } from '~/stores/favorites'
+import { useTrackedProductsStore } from '~/stores/trackedProducts'
 
 definePageMeta({
   middleware: 'auth'
@@ -425,6 +426,8 @@ definePageMeta({
 
 const api = useApi()
 const { get, post } = api
+const { trackPageView } = useActivityTracking()
+const trackedProductsStore = useTrackedProductsStore()
 const { handleApiError, showSuccess, showWarning } = useCreditsToast()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
@@ -518,6 +521,7 @@ async function addTrackedProduct() {
       showAddModal.value = false
       newProductTerm.value = ''
       await fetchTrackedProducts()
+      trackedProductsStore.setCount(trackedProducts.value.length)
     }
   } catch (error: any) {
     handleApiError(error)
@@ -534,6 +538,7 @@ async function removeTracked(trackedId: number) {
     if (response.success) {
       showSuccess('Praćenje ukinuto')
       trackedProducts.value = trackedProducts.value.filter(t => t.id !== trackedId)
+      trackedProductsStore.setCount(trackedProducts.value.length)
       if (trackedProducts.value.length === 0) {
         hasTracking.value = false
       }
@@ -685,8 +690,15 @@ async function addToShoppingList(product: any) {
   }
 }
 
-onMounted(() => {
-  fetchTrackedProducts()
+onMounted(async () => {
+  // Track page view
+  trackPageView('moji-proizvodi')
+
+  // Fetch products
+  await fetchTrackedProducts()
+
+  // Update the store count for navbar badges
+  trackedProductsStore.setCount(trackedProducts.value.length)
 })
 </script>
 

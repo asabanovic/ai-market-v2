@@ -171,12 +171,12 @@
                       Moj profil
                     </NuxtLink>
                     <NuxtLink
-                      to="/moji-proizvodi"
+                      to="/liste"
                       class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       @click="showProfileDropdown = false"
                     >
-                      <Icon name="mdi:tag-search" class="w-4 h-4 mr-2" />
-                      Moji proizvodi
+                      <Icon name="mdi:clipboard-list" class="w-4 h-4 mr-2" />
+                      Moje liste
                     </NuxtLink>
                     <NuxtLink
                       v-if="user?.is_admin"
@@ -319,9 +319,9 @@
               <Icon name="mdi:account" class="w-4 h-4 inline mr-2" />
               Moj profil
             </NuxtLink>
-            <NuxtLink to="/moji-proizvodi" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
-              <Icon name="mdi:tag-search" class="w-4 h-4 inline mr-2" />
-              Moji proizvodi
+            <NuxtLink to="/liste" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+              <Icon name="mdi:clipboard-list" class="w-4 h-4 inline mr-2" />
+              Moje liste
             </NuxtLink>
             <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
               <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />
