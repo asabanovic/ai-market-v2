@@ -82,7 +82,7 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
     Returns dict with:
     - total_products: Number of tracked terms
     - total_matches: Total products found
-    - total_savings: Potential savings (sum of best discount per term)
+    - total_savings: Potential savings (sum of ALL discounted products)
     - best_deals: Top 3 deals by discount percentage
     - tracked_items: Top 2 products per tracked term
     - price_drops: Products that dropped in price this week
@@ -185,25 +185,27 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
                     'price_change': 0  # Would need historical data to calculate
                 })
 
-        # Best deal per term (for best_deals and savings)
+        # Best deal per term (for best_deals list) and calculate ALL savings
+        best_deal_added = False
         for result in results:
             if result.discount_price and result.base_price and result.discount_price < result.base_price:
                 savings = float(result.base_price - result.discount_price)
                 savings_pct = (savings / float(result.base_price)) * 100
 
-                best_deals.append({
-                    'product': result.product_title or '',
-                    'store': result.business_name or '',
-                    'original_price': float(result.base_price),
-                    'discount_price': float(result.discount_price),
-                    'savings_percent': savings_pct,
-                    'savings_amount': savings
-                })
+                # Add ALL discounted products to total_savings
+                total_savings += savings
 
-                # Add best saving per term to total
-                if result == results[0]:  # First (lowest price) with discount
-                    total_savings += savings
-                break
+                # Only add the best deal (first one, lowest price) to best_deals list
+                if not best_deal_added:
+                    best_deals.append({
+                        'product': result.product_title or '',
+                        'store': result.business_name or '',
+                        'original_price': float(result.base_price),
+                        'discount_price': float(result.discount_price),
+                        'savings_percent': savings_pct,
+                        'savings_amount': savings
+                    })
+                    best_deal_added = True
 
         # Collect price drops and new products
         for result in results:
