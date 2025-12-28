@@ -485,17 +485,11 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 
 {get_button("Pogledajte sve detalje", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
 
-<!-- Engagement hooks -->
-<div style="margin:24px 0;padding:20px;background:#F9FAFB;border-radius:12px;text-align:center;">
-<p style="margin:0 0 16px;font-size:14px;color:#1a1a1a;font-weight:500;">Želite pronaći još povoljnijih ponuda?</p>
-<table style="margin:0 auto;"><tr>
-<td style="padding:0 8px;">
-<a href="{BASE_URL}/pretraga" style="display:inline-block;padding:10px 20px;background:#ffffff;border:1px solid #7C3AED;border-radius:6px;font-size:13px;color:#7C3AED;text-decoration:none;">Pretražite ponude</a>
-</td>
-<td style="padding:0 8px;">
-<a href="{BASE_URL}/favoriti" style="display:inline-block;padding:10px 20px;background:#ffffff;border:1px solid #7C3AED;border-radius:6px;font-size:13px;color:#7C3AED;text-decoration:none;">Moji favoriti</a>
-</td>
-</tr></table>
+<!-- Add more products CTA -->
+<div style="margin:24px 0;padding:20px;background:linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);border-radius:12px;text-align:center;">
+<p style="margin:0 0 8px;font-size:16px;color:#ffffff;font-weight:600;">Pratite {total_products} proizvoda</p>
+<p style="margin:0 0 16px;font-size:13px;color:#E9D5FF;">Dodajte još proizvoda na listu i mi ćemo vas <strong>besplatno</strong> obavijestiti čim budu na akciji!</p>
+<a href="{BASE_URL}/moji-proizvodi" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Dodaj proizvode</a>
 </div>
 
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
@@ -506,7 +500,7 @@ Primate ovaj email jednom sedmično jer imate aktivno praćenje proizvoda na Pop
 </div>
 '''
 
-    subject = f"Sedmični pregled: {total_products} artikala koje pratite | Ušteda do {total_savings:.2f} KM"
+    subject = f"Uštedite {total_savings:.2f} KM na {total_products} artikala koje pratite!"
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
 
