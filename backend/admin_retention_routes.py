@@ -508,7 +508,8 @@ def get_email_notifications():
             user_name = None
             if email.user_id:
                 user = User.query.get(email.user_id)
-                user_name = user.display_name if user else None
+                if user:
+                    user_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
 
             result.append({
                 'id': email.id,
