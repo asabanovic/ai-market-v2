@@ -7,7 +7,7 @@
     <div class="gradient-bg py-4 lg:py-12">
       <div class="mx-auto px-0 lg:px-12 text-center">
         <h1 class="typography-display-responsive text-white mb-4">
-          Recite nam šta kupujete - javimo Vam kad bude na popustu
+          Preplaćujete jer ne znate gdje je danas najjeftinije
         </h1>
         <ClientOnly>
           <template v-if="!user">
