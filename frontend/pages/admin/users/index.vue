@@ -697,26 +697,34 @@
             <p>Nema historije pokretanja</p>
           </div>
 
-          <div v-else class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posao</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pokrenuto</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trajanje</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rezultat</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                <tr v-for="run in jobHistory" :key="run.id" class="hover:bg-gray-50">
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-2">
-                      <Icon :name="getJobIcon(run.job_name)" class="w-5 h-5 text-purple-600" />
-                      <span class="font-medium text-gray-900">{{ getJobLabel(run.job_name) }}</span>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4">
+          <div v-else class="divide-y divide-gray-200">
+            <!-- Grouped by day -->
+            <div v-for="(dayRuns, dayKey) in jobHistoryByDay" :key="dayKey" class="border-b border-gray-100">
+              <!-- Day Header -->
+              <div class="bg-gray-50 px-6 py-3 flex items-center justify-between sticky top-0">
+                <div class="flex items-center gap-2">
+                  <Icon name="mdi:calendar" class="w-5 h-5 text-gray-500" />
+                  <span class="font-semibold text-gray-900">{{ formatDayHeader(dayKey) }}</span>
+                </div>
+                <span class="text-sm text-gray-500">{{ dayRuns.length }} job{{ dayRuns.length !== 1 ? 'ova' : '' }}</span>
+              </div>
+
+              <!-- Jobs for this day -->
+              <div class="divide-y divide-gray-100">
+                <div v-for="run in dayRuns" :key="run.id" class="px-6 py-3 hover:bg-gray-50 flex items-center gap-4">
+                  <!-- Time -->
+                  <div class="w-16 text-sm text-gray-500">
+                    {{ formatTimeOnly(run.started_at) }}
+                  </div>
+
+                  <!-- Job Name -->
+                  <div class="flex items-center gap-2 w-48">
+                    <Icon :name="getJobIcon(run.job_name)" class="w-5 h-5 text-purple-600" />
+                    <span class="font-medium text-gray-900">{{ getJobLabel(run.job_name) }}</span>
+                  </div>
+
+                  <!-- Status -->
+                  <div class="w-24">
                     <span
                       class="px-2 py-1 text-xs rounded-full"
                       :class="{
@@ -725,28 +733,31 @@
                         'bg-yellow-100 text-yellow-800': run.status === 'started'
                       }"
                     >
-                      {{ run.status === 'completed' ? 'Zavrseno' : run.status === 'failed' ? 'Neuspjelo' : 'U toku' }}
+                      {{ run.status === 'completed' ? 'OK' : run.status === 'failed' ? 'Greska' : 'U toku' }}
                     </span>
-                  </td>
-                  <td class="px-6 py-4 text-sm text-gray-500">
-                    {{ formatEmailDate(run.started_at) }}
-                  </td>
-                  <td class="px-6 py-4 text-sm text-gray-500">
+                  </div>
+
+                  <!-- Duration -->
+                  <div class="w-16 text-sm text-gray-500">
                     {{ run.duration_seconds ? `${run.duration_seconds.toFixed(1)}s` : '-' }}
-                  </td>
-                  <td class="px-6 py-4">
-                    <div v-if="run.records_processed !== null" class="text-sm">
-                      <span class="text-green-600">{{ run.records_success }}</span> / {{ run.records_processed }}
+                  </div>
+
+                  <!-- Result -->
+                  <div class="flex-1 text-sm">
+                    <span v-if="run.records_processed !== null">
+                      <span class="text-green-600 font-medium">{{ run.records_success }}</span>
+                      <span class="text-gray-400">/</span>
+                      <span class="text-gray-600">{{ run.records_processed }}</span>
                       <span v-if="run.records_failed > 0" class="text-red-600 ml-1">({{ run.records_failed }} failed)</span>
-                    </div>
-                    <div v-if="run.error_message" class="text-xs text-red-500 mt-1 max-w-xs truncate" :title="run.error_message">
-                      {{ run.error_message }}
-                    </div>
-                    <span v-if="!run.records_processed && !run.error_message" class="text-gray-400">-</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </span>
+                    <span v-else-if="run.error_message" class="text-red-500 truncate" :title="run.error_message">
+                      {{ run.error_message.substring(0, 50) }}...
+                    </span>
+                    <span v-else class="text-gray-400">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1304,9 +1315,65 @@ function getJobLabel(jobName: string): string {
     'product_scan': 'Skeniranje proizvoda',
     'email_summary': 'Email izvjestaji',
     'monthly_credits': 'Mjesecni krediti',
-    'coupon_reminders': 'Podsjetnici za kupone'
+    'coupon_reminders': 'Podsjetnici za kupone',
+    'weekly_summary': 'Sedmicni izvjestaj',
+    'biweekly_reengagement': 'Re-engagement',
+    'social_media_publish': 'Social Media'
   }
   return labels[jobName] || jobName
+}
+
+// Group job history by day
+const jobHistoryByDay = computed(() => {
+  const grouped: Record<string, any[]> = {}
+
+  for (const run of jobHistory.value) {
+    if (!run.started_at) continue
+    const dateKey = run.started_at.split('T')[0] // Get YYYY-MM-DD
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = []
+    }
+    grouped[dateKey].push(run)
+  }
+
+  // Sort keys descending (newest first)
+  const sortedKeys = Object.keys(grouped).sort().reverse()
+  const result: Record<string, any[]> = {}
+  for (const key of sortedKeys) {
+    result[key] = grouped[key]
+  }
+
+  return result
+})
+
+function formatDayHeader(dateStr: string): string {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (dateStr === today.toISOString().split('T')[0]) {
+    return 'Danas'
+  }
+  if (dateStr === yesterday.toISOString().split('T')[0]) {
+    return 'Jucer'
+  }
+
+  return date.toLocaleDateString('sr-Latn-BA', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+}
+
+function formatTimeOnly(dateString: string | null): string {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleTimeString('sr-Latn-BA', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 useSeoMeta({

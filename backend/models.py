@@ -1755,3 +1755,37 @@ class UserProductImage(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'processed_at': self.processed_at.isoformat() if self.processed_at else None
         }
+
+
+class CameraButtonAnalytics(db.Model):
+    """Track user interactions with the floating camera button feature"""
+    __tablename__ = 'camera_button_analytics'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # User info (nullable for anonymous users)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    session_id = db.Column(db.String(64), nullable=True)  # For anonymous tracking
+
+    # Interaction tracking
+    action = db.Column(db.String(50), nullable=False)  # 'button_click', 'expand', 'camera_click', 'gallery_click', 'upload_start', 'upload_complete', 'upload_cancel'
+
+    # Context
+    page_url = db.Column(db.String(500), nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+
+    # For upload_complete actions, reference the uploaded image
+    uploaded_image_id = db.Column(db.Integer, db.ForeignKey('user_product_images.id'), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref='camera_analytics', lazy=True)
+    uploaded_image = db.relationship('UserProductImage', backref='analytics_entry', lazy=True)
+
+    __table_args__ = (
+        db.Index('idx_camera_analytics_user', 'user_id'),
+        db.Index('idx_camera_analytics_action', 'action'),
+        db.Index('idx_camera_analytics_created', 'created_at'),
+        db.Index('idx_camera_analytics_session', 'session_id'),
+    )

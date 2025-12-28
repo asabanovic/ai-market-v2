@@ -151,8 +151,9 @@ interface PreviewImage {
   url: string
 }
 
+const config = useRuntimeConfig()
 const { upload: apiUpload } = useApi()
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, token } = useAuth()
 
 const isExpanded = ref(false)
 const cameraInput = ref<HTMLInputElement | null>(null)
@@ -160,11 +161,41 @@ const galleryInput = ref<HTMLInputElement | null>(null)
 const previewImages = ref<PreviewImage[]>([])
 const isUploading = ref(false)
 
+// Session ID for anonymous tracking
+const sessionId = ref<string>('')
+
+// Track user interactions with the camera button
+async function trackAction(action: string, uploadedImageId?: number) {
+  try {
+    const headers: Record<string, string> = {}
+    if (token.value) {
+      headers['Authorization'] = `Bearer ${token.value}`
+    }
+    await $fetch(`${config.public.apiBase}/api/track/camera-button`, {
+      method: 'POST',
+      headers,
+      body: {
+        action,
+        session_id: sessionId.value,
+        page_url: window.location.href,
+        uploaded_image_id: uploadedImageId
+      }
+    })
+  } catch (e) {
+    // Silently fail - don't disrupt user experience
+    console.debug('Analytics track failed:', e)
+  }
+}
+
 function toggleExpanded() {
   isExpanded.value = !isExpanded.value
+  if (isExpanded.value) {
+    trackAction('expand')
+  }
 }
 
 function openCamera() {
+  trackAction('camera_click')
   if (!isAuthenticated.value) {
     // Redirect to login
     navigateTo('/prijava?redirect=/profil')
@@ -175,6 +206,7 @@ function openCamera() {
 }
 
 function openGallery() {
+  trackAction('gallery_click')
   if (!isAuthenticated.value) {
     navigateTo('/prijava?redirect=/profil')
     return
@@ -204,6 +236,10 @@ function addPreview(file: File) {
     alert('Maksimalno 10 slika odjednom')
     return
   }
+  // Track upload start on first image
+  if (previewImages.value.length === 0) {
+    trackAction('upload_start')
+  }
   const url = URL.createObjectURL(file)
   previewImages.value.push({ file, url })
 }
@@ -213,7 +249,10 @@ function removePreview(index: number) {
   previewImages.value.splice(index, 1)
 }
 
-function cancelUpload() {
+function cancelUpload(trackCancel = true) {
+  if (trackCancel && previewImages.value.length > 0) {
+    trackAction('upload_cancel')
+  }
   previewImages.value.forEach(p => URL.revokeObjectURL(p.url))
   previewImages.value = []
 }
@@ -231,8 +270,11 @@ async function confirmUpload() {
       await apiUpload('/auth/user/product-images', formData)
     }
 
+    // Track successful upload
+    trackAction('upload_complete')
+
     // Success - clear and redirect to profile
-    cancelUpload()
+    cancelUpload(false) // Don't track cancel on success
     navigateTo('/profil')
   } catch (error: any) {
     console.error('Upload failed:', error)
@@ -242,9 +284,12 @@ async function confirmUpload() {
   }
 }
 
-// Close expanded when clicking outside
+// Close expanded when clicking outside + initialize session
 onMounted(() => {
   document.addEventListener('click', handleOutsideClick)
+  // Initialize session ID for analytics
+  sessionId.value = localStorage.getItem('camera_session_id') || crypto.randomUUID()
+  localStorage.setItem('camera_session_id', sessionId.value)
 })
 
 onUnmounted(() => {
