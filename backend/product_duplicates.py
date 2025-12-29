@@ -328,16 +328,40 @@ def merge_products(keep_id: int, merge_ids: List[int], delete_merged: bool = Tru
                     existing.qty += item.qty
                     db.session.delete(item)
 
-            # 4. Transfer product matches
+            # 4. Transfer product matches (handle unique constraint)
             matches_a = ProductMatch.query.filter_by(product_a_id=merge_product.id).all()
             for match in matches_a:
-                if match.product_b_id != keep_id:
-                    match.product_a_id = keep_id
+                if match.product_b_id == keep_id:
+                    # This match is between the products being merged - delete it
+                    db.session.delete(match)
+                else:
+                    # Check if a match already exists between keep_id and product_b_id
+                    existing = ProductMatch.query.filter_by(
+                        product_a_id=keep_id,
+                        product_b_id=match.product_b_id,
+                        match_type=match.match_type
+                    ).first()
+                    if existing:
+                        db.session.delete(match)
+                    else:
+                        match.product_a_id = keep_id
 
             matches_b = ProductMatch.query.filter_by(product_b_id=merge_product.id).all()
             for match in matches_b:
-                if match.product_a_id != keep_id:
-                    match.product_b_id = keep_id
+                if match.product_a_id == keep_id:
+                    # This match is between the products being merged - delete it
+                    db.session.delete(match)
+                else:
+                    # Check if a match already exists between product_a_id and keep_id
+                    existing = ProductMatch.query.filter_by(
+                        product_a_id=match.product_a_id,
+                        product_b_id=keep_id,
+                        match_type=match.match_type
+                    ).first()
+                    if existing:
+                        db.session.delete(match)
+                    else:
+                        match.product_b_id = keep_id
 
             # 5. Update kept product with best data from merged
             # Take image if kept product doesn't have one
