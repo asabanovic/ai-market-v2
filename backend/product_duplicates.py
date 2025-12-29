@@ -14,7 +14,7 @@ from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 
 from app import db
-from models import Product, ProductPriceHistory, Favorite, ShoppingListItem, ProductMatch, ProductEmbedding
+from models import Product, ProductPriceHistory, Favorite, ShoppingListItem, ProductMatch, ProductEmbedding, UserEngagement
 
 
 def normalize_title(title: str) -> str:
@@ -389,7 +389,12 @@ def merge_products(keep_id: int, merge_ids: List[int], delete_merged: bool = Tru
             # 6. Delete embedding for merged product
             ProductEmbedding.query.filter_by(product_id=merge_product.id).delete()
 
-            # 7. Delete or archive the merged product
+            # 7. Transfer or delete user engagements
+            engagements = UserEngagement.query.filter_by(product_id=merge_product.id).all()
+            for engagement in engagements:
+                engagement.product_id = keep_id
+
+            # 8. Delete or archive the merged product
             if delete_merged:
                 db.session.delete(merge_product)
             else:

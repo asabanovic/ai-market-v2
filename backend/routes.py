@@ -3862,18 +3862,36 @@ def bulk_import_products(business_id):
 
         # Second pass: Create or update products with generated tags
         updated_count = 0
+        fuzzy_matched_count = 0
         products_to_vectorize = []  # Track products that need vectorization
+
+        # Pre-load existing products for fuzzy matching
+        from product_duplicates import normalize_title, calculate_title_similarity
+        existing_products = Product.query.filter_by(business_id=business_id).all()
+        existing_by_norm_title = {}
+        for p in existing_products:
+            norm = normalize_title(p.title)
+            if norm not in existing_by_norm_title:
+                existing_by_norm_title[norm] = p
+            # Also index by exact title for fast lookup
+            existing_by_norm_title[p.title] = p
+
         for idx, validated_product in enumerate(validated_products):
             try:
                 product_data = validated_product['data']
                 expires = validated_product['expires']
                 tags = all_tags[idx] if idx < len(all_tags) else [product_data['title'].lower()]
 
-                # Check if product exists by matching title only (allows price updates)
-                existing_product = Product.query.filter_by(
-                    business_id=business_id,
-                    title=product_data['title']
-                ).first()
+                # Check if product exists by exact title first
+                existing_product = existing_by_norm_title.get(product_data['title'])
+
+                # If no exact match, try fuzzy match by normalized title
+                if not existing_product:
+                    incoming_norm = normalize_title(product_data['title'])
+                    existing_product = existing_by_norm_title.get(incoming_norm)
+                    if existing_product:
+                        fuzzy_matched_count += 1
+                        app.logger.info(f"Fuzzy matched: '{product_data['title']}' -> existing '{existing_product.title}'")
 
                 # Extract matching fields from top-level OR from product_metadata
                 metadata = product_data.get('product_metadata', {})
@@ -3982,14 +4000,17 @@ def bulk_import_products(business_id):
             'imported_count': imported_count,
             'created_count': created_count,
             'updated_count': updated_count,
+            'fuzzy_matched_count': fuzzy_matched_count,
             'total_products': len(products_data)
         }
 
+        # Build message with fuzzy match info
+        fuzzy_msg = f", {fuzzy_matched_count} fuzzy spojeno" if fuzzy_matched_count > 0 else ""
         if errors:
             response['errors'] = errors
-            response['message'] = f"Obrađeno {imported_count}/{len(products_data)} proizvoda ({created_count} novo, {updated_count} ažurirano). Neki proizvodi nisu importovani."
+            response['message'] = f"Obrađeno {imported_count}/{len(products_data)} proizvoda ({created_count} novo, {updated_count} ažurirano{fuzzy_msg}). Neki proizvodi nisu importovani."
         else:
-            response['message'] = f"Uspješno obrađeno {imported_count} proizvoda ({created_count} novo, {updated_count} ažurirano)."
+            response['message'] = f"Uspješno obrađeno {imported_count} proizvoda ({created_count} novo, {updated_count} ažurirano{fuzzy_msg})."
 
         return jsonify(response)
 
