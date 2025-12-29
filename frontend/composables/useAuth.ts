@@ -44,6 +44,14 @@ export const useAuth = () => {
   const lastBonusAwarded = useState<BonusAwarded | null>('lastBonusAwarded', () => null)
   const isAuthenticated = computed(() => !!user.value)
 
+  // Token accessor for components that need direct access
+  const token = computed(() => {
+    if (process.client) {
+      return localStorage.getItem('token')
+    }
+    return null
+  })
+
   const login = async (email: string, password: string) => {
     const response = await api.post('/auth/login', { email, password })
 
@@ -117,6 +125,7 @@ export const useAuth = () => {
 
   return {
     user,
+    token,
     isAuthenticated,
     isVerified,
     authReady,
