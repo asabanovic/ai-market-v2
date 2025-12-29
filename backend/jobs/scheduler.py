@@ -48,7 +48,7 @@ class Job:
         if now.hour != self.hour or now.minute != self.minute:
             return False
 
-        # Check if already ran today
+        # Check in-memory cache first (fast path)
         today = now.date()
         last = last_run.get(self.name)
         if last and last.date() == today:
@@ -56,8 +56,56 @@ class Job:
 
         return True
 
+    def try_acquire_lock(self) -> bool:
+        """
+        Try to acquire a database lock for this job today.
+        Returns True if lock acquired (job should run), False if already running/completed.
+        Uses database-level locking to prevent race conditions between multiple scheduler instances.
+        """
+        from models import JobRun
+        from app import db
+        from sqlalchemy import text
+
+        today = datetime.utcnow().date()
+        today_start = datetime(today.year, today.month, today.day)
+
+        try:
+            # Check if job already ran or is running today
+            existing = JobRun.query.filter(
+                JobRun.job_name == self.name,
+                JobRun.started_at >= today_start
+            ).first()
+
+            if existing:
+                logger.info(f"Job {self.name} already ran/running today (status: {existing.status})")
+                return False
+
+            # Create a new job run record to "claim" this execution
+            # Use a unique constraint on (job_name, date) to prevent duplicates
+            job_run = JobRun(
+                job_name=self.name,
+                status='running',
+                started_at=datetime.utcnow()
+            )
+            db.session.add(job_run)
+            db.session.commit()
+
+            logger.info(f"Acquired lock for job {self.name} (run_id: {job_run.id})")
+            return True
+
+        except Exception as e:
+            # If insert fails (e.g., duplicate), another process got the lock
+            db.session.rollback()
+            logger.info(f"Failed to acquire lock for job {self.name}: {e}")
+            return False
+
     def run(self):
-        """Execute the job."""
+        """Execute the job with database locking."""
+        # Try to acquire database lock first
+        if not self.try_acquire_lock():
+            logger.info(f"Skipping job {self.name} - already running/completed by another process")
+            return
+
         try:
             logger.info(f"Starting job: {self.name}")
             start_time = time.time()
@@ -68,8 +116,38 @@ class Job:
             logger.info(f"Completed job: {self.name} in {elapsed:.1f}s")
             last_run[self.name] = datetime.utcnow()
 
+            # Update job run status to completed
+            self._update_job_status('completed', elapsed)
+
         except Exception as e:
             logger.error(f"Job {self.name} failed: {e}", exc_info=True)
+            self._update_job_status('failed', error=str(e))
+
+    def _update_job_status(self, status: str, duration: float = None, error: str = None):
+        """Update the job run record with final status."""
+        from models import JobRun
+        from app import db
+
+        today = datetime.utcnow().date()
+        today_start = datetime(today.year, today.month, today.day)
+
+        try:
+            job_run = JobRun.query.filter(
+                JobRun.job_name == self.name,
+                JobRun.started_at >= today_start,
+                JobRun.status == 'running'
+            ).first()
+
+            if job_run:
+                job_run.status = status
+                job_run.completed_at = datetime.utcnow()
+                if duration:
+                    job_run.duration_seconds = duration
+                if error:
+                    job_run.error_message = error[:1000]  # Truncate if needed
+                db.session.commit()
+        except Exception as e:
+            logger.error(f"Failed to update job status: {e}")
 
 
 def run_scan_job():

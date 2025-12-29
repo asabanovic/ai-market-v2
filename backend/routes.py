@@ -10791,6 +10791,170 @@ def api_admin_get_match_groups():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+# ==================== DUPLICATE DETECTION & MERGE ====================
+
+@app.route('/api/admin/products/duplicates/<int:business_id>', methods=['GET'])
+@csrf.exempt
+def api_admin_find_duplicates(business_id):
+    """Find potential duplicate products within a business based on title similarity"""
+    from auth_api import decode_jwt_token
+    from product_duplicates import find_duplicates_in_business
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    try:
+        # Get similarity threshold from query params (default 0.85)
+        similarity_threshold = request.args.get('threshold', 0.85, type=float)
+
+        # Find duplicates
+        duplicates = find_duplicates_in_business(business_id, similarity_threshold)
+
+        # Get business info
+        business = Business.query.get(business_id)
+        business_name = business.name if business else 'Unknown'
+
+        return jsonify({
+            'business_id': business_id,
+            'business_name': business_name,
+            'duplicates': duplicates,
+            'total_groups': len(duplicates),
+            'total_duplicate_products': sum(len(d['products']) for d in duplicates),
+            'threshold_used': similarity_threshold
+        })
+
+    except Exception as e:
+        app.logger.error(f"Find duplicates error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/products/merge', methods=['POST'])
+@csrf.exempt
+def api_admin_merge_products():
+    """Merge duplicate products into one, preserving price history and references"""
+    from auth_api import decode_jwt_token
+    from product_duplicates import merge_products
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Missing request body'}), 400
+
+        keep_id = data.get('keep_id')
+        merge_ids = data.get('merge_ids', [])
+        delete_merged = data.get('delete_merged', True)
+
+        if not keep_id:
+            return jsonify({'error': 'keep_id is required'}), 400
+        if not merge_ids:
+            return jsonify({'error': 'merge_ids is required (list of product IDs to merge)'}), 400
+
+        # Perform merge
+        result = merge_products(keep_id, merge_ids, delete_merged)
+
+        if result['success']:
+            app.logger.info(f"Admin merged products: keep={keep_id}, merged={merge_ids}, user={user_id}")
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+
+    except Exception as e:
+        app.logger.error(f"Merge products error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/products/duplicates/preview', methods=['POST'])
+@csrf.exempt
+def api_admin_preview_import_duplicates():
+    """Preview potential duplicates before bulk import"""
+    from auth_api import decode_jwt_token
+    from product_duplicates import preview_import_duplicates
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+    except Exception as e:
+        return jsonify({'error': 'Authentication failed'}), 401
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Missing request body'}), 400
+
+        business_id = data.get('business_id')
+        products_data = data.get('products', [])
+
+        if not business_id:
+            return jsonify({'error': 'business_id is required'}), 400
+        if not products_data:
+            return jsonify({'error': 'products array is required'}), 400
+
+        # Preview duplicates
+        preview = preview_import_duplicates(business_id, products_data)
+
+        return jsonify({
+            'business_id': business_id,
+            'products_count': len(products_data),
+            **preview,
+            'has_duplicates': bool(preview['incoming_vs_existing'] or preview['incoming_duplicates'])
+        })
+
+    except Exception as e:
+        app.logger.error(f"Preview import duplicates error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/products/<int:product_id>/related', methods=['GET'])
 @require_jwt_auth
 def api_get_product_related(product_id):
