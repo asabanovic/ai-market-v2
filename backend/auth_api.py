@@ -785,16 +785,93 @@ def update_user_interests():
 
         app.logger.info(f"Interests updated for user: {user.email}, interests: {user.preferences.get('grocery_interests', [])}")
 
+        # Check if user has any tracked products
+        from models import UserTrackedProduct
+        has_tracked_products = UserTrackedProduct.query.filter_by(user_id=user.id).count() > 0
+
+        # If user has grocery interests but no tracked products, trigger extraction
+        processing_started = False
+        if user.preferences.get('grocery_interests') and not has_tracked_products:
+            processing_started = True
+            # Run extraction in background thread
+            import threading
+            def process_preferences(user_id, app_context):
+                with app_context:
+                    try:
+                        from jobs.scan_user_products import extract_tracked_products_for_user, sync_tracked_products, scan_single_user
+                        from models import User
+                        from app import db
+
+                        usr = User.query.get(user_id)
+                        if usr:
+                            app.logger.info(f"Starting preference extraction for user {user_id}")
+                            extracted = extract_tracked_products_for_user(usr)
+                            if extracted:
+                                sync_tracked_products(usr, extracted)
+                                app.logger.info(f"Synced {len(extracted)} tracked products for user {user_id}")
+
+                                # Now run the scan to find matching products
+                                result = scan_single_user(usr)
+                                if result:
+                                    total, new_count, discount_count = result
+                                    app.logger.info(f"Scan complete for user {user_id}: {total} products found")
+                    except Exception as e:
+                        app.logger.error(f"Error processing preferences for user {user_id}: {e}")
+
+            thread = threading.Thread(
+                target=process_preferences,
+                args=(user.id, app.app_context())
+            )
+            thread.start()
+
         return jsonify({
             'success': True,
             'message': 'Interesi uspješno sačuvani',
-            'grocery_interests': user.preferences.get('grocery_interests', []) if user.preferences else []
+            'grocery_interests': user.preferences.get('grocery_interests', []) if user.preferences else [],
+            'processing_started': processing_started
         }), 200
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Update interests error: {e}")
         return jsonify({'error': 'Greška pri spremanju interesa'}), 500
+
+
+@auth_api_bp.route('/user/preferences-status', methods=['GET'])
+@require_jwt_auth
+def get_preferences_status():
+    """Check if user's preferences have been processed into tracked products."""
+    try:
+        user = request.jwt_user
+        from models import UserTrackedProduct, UserProductScan
+        from datetime import date
+
+        # Count tracked products
+        tracked_count = UserTrackedProduct.query.filter_by(user_id=user.id, is_active=True).count()
+
+        # Check if scanned today
+        today_scan = UserProductScan.query.filter_by(
+            user_id=user.id,
+            scan_date=date.today(),
+            status='completed'
+        ).first()
+
+        # Get grocery interests count
+        interests = []
+        if user.preferences and user.preferences.get('grocery_interests'):
+            interests = user.preferences.get('grocery_interests', [])
+
+        return jsonify({
+            'has_interests': len(interests) > 0,
+            'interests_count': len(interests),
+            'tracked_products_count': tracked_count,
+            'is_processed': tracked_count > 0,
+            'scanned_today': today_scan is not None
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Preferences status error: {e}")
+        return jsonify({'error': 'Error checking status'}), 500
 
 
 @auth_api_bp.route('/cities', methods=['GET'])

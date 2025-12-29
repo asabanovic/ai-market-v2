@@ -5,12 +5,12 @@
         <h2 class="text-xl font-semibold text-gray-900">Moje preference</h2>
         <p class="text-sm text-gray-600 mt-1">Proizvodi koje pratimo za vas</p>
       </div>
-      <NuxtLink
-        to="/profil"
+      <button
+        @click="$emit('edit')"
         class="text-purple-600 hover:text-purple-700 text-sm font-medium"
       >
         Uredi
-      </NuxtLink>
+      </button>
     </div>
 
     <div v-if="loading" class="text-center py-4">
@@ -51,6 +51,10 @@
 <script setup lang="ts">
 const props = defineProps<{
   allowRemove?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'edit'): void
 }>()
 
 const { get, put } = useApi()

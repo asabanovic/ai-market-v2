@@ -267,14 +267,22 @@ async function submitForm() {
   error.value = ''
 
   try {
-    await put('/auth/user/interests', {
+    const result = await put('/auth/user/interests', {
       phone: form.value.phone || undefined,
       grocery_interests: allInterests
     })
 
     // Refresh user data to get updated preferences
     await checkAuth()
-    emit('complete')
+
+    // If processing was started, redirect to moji-proizvodi with processing flag
+    if (result.processing_started) {
+      emit('complete')
+      // Navigate to moji-proizvodi with a query param to trigger processing notification
+      navigateTo('/moji-proizvodi?processing=true')
+    } else {
+      emit('complete')
+    }
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Došlo je do greške'
   } finally {

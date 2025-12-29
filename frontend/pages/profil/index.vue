@@ -42,7 +42,15 @@
       </div>
 
       <!-- My Preferences Section (grocery interests) -->
-      <UserPreferencesSection :allow-remove="true" />
+      <UserPreferencesSection :key="preferencesKey" :allow-remove="true" @edit="showInterestPopup = true" />
+
+      <!-- Interest/Preferences Popup -->
+      <InterestPopup
+        :show="showInterestPopup"
+        @close="showInterestPopup = false"
+        @skip="showInterestPopup = false"
+        @complete="handleInterestComplete"
+      />
 
       <!-- Store Preferences Section -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -370,6 +378,15 @@ const isSaving = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
 const isPhoneValid = ref(true)
+
+// Interest popup state
+const showInterestPopup = ref(false)
+const preferencesKey = ref(0)
+
+function handleInterestComplete() {
+  showInterestPopup.value = false
+  preferencesKey.value++ // Force re-render of preferences section
+}
 
 // Store preferences state
 const allStores = ref<any[]>([])

@@ -16,6 +16,56 @@
         </button>
       </div>
 
+      <!-- Processing Preferences Banner -->
+      <div
+        v-if="isProcessingPreferences"
+        class="mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 md:p-5 border border-purple-200"
+      >
+        <div class="flex items-center gap-4">
+          <div class="flex-shrink-0">
+            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center animate-pulse">
+              <Icon name="mdi:cog" class="w-6 h-6 text-purple-600 animate-spin" />
+            </div>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-bold text-purple-900">Analiziramo vaše preferencije...</h3>
+            <p class="text-purple-700 text-sm mt-1">
+              Tražimo proizvode prema vašim interesima. Ovo obično traje 15-30 sekundi.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing Complete Popup -->
+      <Teleport to="body">
+        <Transition name="fade">
+          <div
+            v-if="showProcessingComplete"
+            class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            @click.self="showProcessingComplete = false"
+          >
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-slide-up">
+              <div class="text-center">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Icon name="mdi:check-circle" class="w-10 h-10 text-green-600" />
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2">Pronašli smo proizvode za vas!</h2>
+                <p class="text-gray-600 mb-6">
+                  Na osnovu vaših preferencija, pronašli smo proizvode koji su trenutno na akciji.
+                  Pregledajte ih ispod!
+                </p>
+                <button
+                  @click="showProcessingComplete = false"
+                  class="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Pogledaj proizvode
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- Scan Info Banner -->
       <div
         v-if="latestScan"
@@ -47,7 +97,15 @@
       </div>
 
       <!-- My Preferences Section -->
-      <UserPreferencesSection />
+      <UserPreferencesSection :key="preferencesKey" @edit="showInterestPopup = true" />
+
+      <!-- Interest/Preferences Popup -->
+      <InterestPopup
+        :show="showInterestPopup"
+        @close="showInterestPopup = false"
+        @skip="showInterestPopup = false"
+        @complete="handleInterestComplete"
+      />
 
       <!-- Empty State (no tracking) -->
       <div v-if="!loading && !hasTracking" class="text-center py-12 bg-white rounded-lg shadow-sm">
@@ -424,6 +482,8 @@ definePageMeta({
   middleware: 'auth'
 })
 
+const route = useRoute()
+const router = useRouter()
 const api = useApi()
 const { get, post } = api
 const { trackPageView } = useActivityTracking()
@@ -438,6 +498,15 @@ const latestScan = ref<any>(null)
 const hasTracking = ref(false)
 const showAllProducts = ref<Record<number, boolean>>({})
 const sortOrder = ref<Record<number, string>>({})
+
+// Processing state
+const isProcessingPreferences = ref(false)
+const showProcessingComplete = ref(false)
+const processingPollingInterval = ref<ReturnType<typeof setInterval> | null>(null)
+
+// Interest popup state
+const showInterestPopup = ref(false)
+const preferencesKey = ref(0)
 
 // Add modal
 const showAddModal = ref(false)
@@ -690,15 +759,87 @@ async function addToShoppingList(product: any) {
   }
 }
 
+// Poll for processing status
+async function checkProcessingStatus() {
+  try {
+    const status = await get('/auth/user/preferences-status')
+
+    if (status.tracked_products_count > 0) {
+      // Processing complete - we have tracked products now
+      stopPolling()
+      isProcessingPreferences.value = false
+      showProcessingComplete.value = true
+
+      // Remove query param from URL
+      router.replace({ path: route.path })
+
+      // Force re-render of preferences section
+      preferencesKey.value++
+
+      // Refresh products list
+      await fetchTrackedProducts()
+      trackedProductsStore.setCount(trackedProducts.value.length)
+    }
+  } catch (error) {
+    console.error('Error checking processing status:', error)
+  }
+}
+
+function startPolling() {
+  if (processingPollingInterval.value) return
+
+  // Poll every 3 seconds
+  processingPollingInterval.value = setInterval(checkProcessingStatus, 3000)
+}
+
+function stopPolling() {
+  if (processingPollingInterval.value) {
+    clearInterval(processingPollingInterval.value)
+    processingPollingInterval.value = null
+  }
+}
+
+// Handle interest popup completion - this is called when the InterestPopup emits 'complete'
+// but doesn't redirect (e.g., when editing existing interests)
+function handleInterestComplete() {
+  showInterestPopup.value = false
+  // Force re-render of preferences section
+  preferencesKey.value++
+  // The InterestPopup might redirect to this page with ?processing=true
+  // If not, we should refresh the data
+  fetchTrackedProducts()
+}
+
+// Watch for query param changes (when we're already on this page and navigate to it with ?processing=true)
+watch(() => route.query.processing, (newVal) => {
+  if (newVal === 'true' && !isProcessingPreferences.value) {
+    isProcessingPreferences.value = true
+    startPolling()
+    checkProcessingStatus()
+  }
+})
+
 onMounted(async () => {
   // Track page view
   trackPageView('moji-proizvodi')
+
+  // Check if we're coming from preferences processing
+  if (route.query.processing === 'true') {
+    isProcessingPreferences.value = true
+    startPolling()
+    // Also do an initial check immediately
+    checkProcessingStatus()
+  }
 
   // Fetch products
   await fetchTrackedProducts()
 
   // Update the store count for navbar badges
   trackedProductsStore.setCount(trackedProducts.value.length)
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 </script>
 
@@ -727,5 +868,32 @@ onMounted(async () => {
 
 .animate-bounce-horizontal-right {
   animation: bounce-right 1.5s ease-in-out 3;
+}
+
+/* Fade transition for popup */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide up animation for popup content */
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
