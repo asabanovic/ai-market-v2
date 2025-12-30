@@ -882,7 +882,7 @@ definePageMeta({
   layout: 'default'
 })
 
-const { get, post, delete: del } = useApi()
+const { get, post, del } = useApi()
 const { user } = useAuth()
 
 // Redirect non-admins
