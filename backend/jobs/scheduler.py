@@ -99,29 +99,40 @@ class Job:
             logger.info(f"Failed to acquire lock for job {self.name}: {e}")
             return False
 
-    def run(self):
-        """Execute the job with database locking."""
-        # Try to acquire database lock first
-        if not self.try_acquire_lock():
-            logger.info(f"Skipping job {self.name} - already running/completed by another process")
-            return
+    def run(self, app=None):
+        """Execute the job with database locking.
 
-        try:
-            logger.info(f"Starting job: {self.name}")
-            start_time = time.time()
+        Args:
+            app: Flask app instance for creating app context in threads
+        """
+        # Import app here if not passed (for compatibility)
+        if app is None:
+            from app import app as flask_app
+            app = flask_app
 
-            self.func()
+        # Wrap entire job execution in app context (required for threaded execution)
+        with app.app_context():
+            # Try to acquire database lock first
+            if not self.try_acquire_lock():
+                logger.info(f"Skipping job {self.name} - already running/completed by another process")
+                return
 
-            elapsed = time.time() - start_time
-            logger.info(f"Completed job: {self.name} in {elapsed:.1f}s")
-            last_run[self.name] = datetime.utcnow()
+            try:
+                logger.info(f"Starting job: {self.name}")
+                start_time = time.time()
 
-            # Update job run status to completed
-            self._update_job_status('completed', elapsed)
+                self.func()
 
-        except Exception as e:
-            logger.error(f"Job {self.name} failed: {e}", exc_info=True)
-            self._update_job_status('failed', error=str(e))
+                elapsed = time.time() - start_time
+                logger.info(f"Completed job: {self.name} in {elapsed:.1f}s")
+                last_run[self.name] = datetime.utcnow()
+
+                # Update job run status to completed
+                self._update_job_status('completed', elapsed)
+
+            except Exception as e:
+                logger.error(f"Job {self.name} failed: {e}", exc_info=True)
+                self._update_job_status('failed', error=str(e))
 
     def _update_job_status(self, status: str, duration: float = None, error: str = None):
         """Update the job run record with final status."""
@@ -309,8 +320,12 @@ def get_job_history(job_name: str = None, limit: int = 50):
     } for run in runs]
 
 
-def main():
-    """Main scheduler loop."""
+def main(app):
+    """Main scheduler loop.
+
+    Args:
+        app: Flask app instance to pass to job threads for context
+    """
     logger.info("=" * 60)
     logger.info("Starting unified job scheduler")
     logger.info(f"Registered {len(JOBS)} jobs:")
@@ -328,7 +343,8 @@ def main():
             for job in JOBS:
                 if job.should_run(now):
                     # Run job in a separate thread to not block scheduler
-                    thread = threading.Thread(target=job.run, name=job.name)
+                    # Pass app so thread can create its own app context
+                    thread = threading.Thread(target=job.run, args=(app,), name=job.name)
                     thread.start()
 
             time.sleep(check_interval)
@@ -342,8 +358,8 @@ def main():
 
 
 if __name__ == "__main__":
-    # Import Flask app context
+    # Import Flask app
     from app import app
 
-    with app.app_context():
-        main()
+    # Pass app to main so it can be passed to job threads
+    main(app)
