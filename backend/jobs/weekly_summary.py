@@ -146,6 +146,7 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
     new_products = []
     total_savings = 0
     terms_with_matches = set()
+    hero_deal = None  # Track the single best deal with high confidence (90%+ match)
 
     # Group by tracked term
     term_results = {}
@@ -191,9 +192,23 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
             if result.discount_price and result.base_price and result.discount_price < result.base_price:
                 savings = float(result.base_price - result.discount_price)
                 savings_pct = (savings / float(result.base_price)) * 100
+                similarity = result.similarity_score or 0
 
                 # Add ALL discounted products to total_savings
                 total_savings += savings
+
+                # Track hero_deal: highest absolute savings with 90%+ match
+                if similarity >= 0.9:
+                    if hero_deal is None or savings > hero_deal['savings_amount']:
+                        hero_deal = {
+                            'product': result.product_title or '',
+                            'store': result.business_name or '',
+                            'original_price': float(result.base_price),
+                            'discount_price': float(result.discount_price),
+                            'savings_percent': savings_pct,
+                            'savings_amount': savings,
+                            'similarity_score': similarity
+                        }
 
                 # Only add the best deal (first one, lowest price) to best_deals list
                 if not best_deal_added:
@@ -235,7 +250,8 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
         'tracked_items': tracked_items[:10],
         'price_drops': price_drops[:5],
         'new_products': new_products[:5],
-        'terms_count': len(terms_with_matches)
+        'terms_count': len(terms_with_matches),
+        'hero_deal': hero_deal  # Single best deal with 90%+ match, highest absolute savings
     }
 
 

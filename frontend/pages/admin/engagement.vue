@@ -204,10 +204,22 @@
                 </div>
                 <span class="text-sm text-gray-500">{{ formatDateTime(view.created_at) }}</span>
               </div>
-              <div v-if="view.activity_data" class="mt-1 text-xs text-gray-500">
-                <span v-if="view.activity_data.filters?.category">Kategorija: {{ view.activity_data.filters.category }}</span>
-                <span v-if="view.activity_data.filters?.store" class="ml-2">Trgovina: {{ view.activity_data.filters.store }}</span>
-                <span v-if="view.activity_data.page_number" class="ml-2">Stranica: {{ view.activity_data.page_number }}</span>
+              <div v-if="view.activity_data" class="mt-1 text-xs text-gray-500 flex flex-wrap gap-2">
+                <span v-if="view.activity_data.page && view.activity_data.page > 1" class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                  Stranica {{ view.activity_data.page }}
+                </span>
+                <span v-if="view.activity_data.category" class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
+                  {{ view.activity_data.category }}
+                </span>
+                <span v-if="view.activity_data.stores?.length" class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                  {{ view.activity_data.stores.length }} trgovina
+                </span>
+                <span v-if="view.activity_data.sort && view.activity_data.sort !== 'price_desc'" class="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
+                  {{ getSortLabel(view.activity_data.sort) }}
+                </span>
+                <span v-if="view.activity_data.total_products" class="text-gray-400">
+                  ({{ view.activity_data.total_products }} proizvoda)
+                </span>
               </div>
             </div>
           </div>
@@ -547,6 +559,16 @@ function getTopUserDisplayName(item: any) {
     return item.first_name
   }
   return item.email || 'Nepoznat korisnik'
+}
+
+function getSortLabel(sort: string): string {
+  const labels: Record<string, string> = {
+    'discount_desc': 'Najveći popust',
+    'price_asc': 'Najjeftinije',
+    'price_desc': 'Najskuplje',
+    'newest': 'Najnovije'
+  }
+  return labels[sort] || sort
 }
 
 useSeoMeta({

@@ -227,14 +227,6 @@ const initPage = () => {
     selectedCategory.value = categoryParam
   }
 
-  // Track page view
-  trackPageView('proizvodi', {
-    sort: filters.value.sort,
-    page: currentPage.value,
-    stores: selectedStoreIds.value,
-    category: selectedCategory.value
-  })
-
   loadBusinesses()
   loadProducts()
 }
@@ -366,6 +358,15 @@ async function loadProducts() {
     products.value = data.products || []
     totalPages.value = data.total_pages || 1
     totalProducts.value = data.total || 0
+
+    // Track page view with current filters/pagination
+    trackPageView('proizvodi', {
+      page: currentPage.value,
+      sort: filters.value.sort,
+      stores: selectedStoreIds.value,
+      category: selectedCategory.value,
+      total_products: totalProducts.value
+    })
 
     // Update credits info
     if (data.credits_remaining !== undefined) {

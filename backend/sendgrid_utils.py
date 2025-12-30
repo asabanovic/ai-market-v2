@@ -365,6 +365,7 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
     tracked_items = summary.get('tracked_items', [])
     price_drops = summary.get('price_drops', [])
     new_products = summary.get('new_products', [])
+    hero_deal = summary.get('hero_deal')  # Single best deal with 90%+ match
 
     # Build best deals section
     best_deals_html = ""
@@ -440,10 +441,25 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 </div>
 '''
 
+    # Build hero deal section (prominent single deal with 90%+ match)
+    hero_deal_html = ""
+    if hero_deal:
+        hero_savings = hero_deal.get('savings_amount', 0)
+        hero_deal_html = f'''
+<div style="margin:0 0 24px;padding:20px;background:linear-gradient(135deg, #10B981 0%, #059669 100%);border-radius:12px;text-align:center;">
+<p style="margin:0 0 4px;font-size:12px;color:#D1FAE5;text-transform:uppercase;letter-spacing:1px;">Vaša najveca usteda ove sedmice</p>
+<p style="margin:0 0 8px;font-size:32px;font-weight:700;color:#ffffff;">-{hero_savings:.2f} KM</p>
+<p style="margin:0 0 4px;font-size:14px;color:#ffffff;font-weight:500;">{hero_deal.get('product', '')}</p>
+<p style="margin:0;font-size:12px;color:#A7F3D0;">{hero_deal.get('store', '')} | <span style="text-decoration:line-through;">{hero_deal.get('original_price', 0):.2f} KM</span> <span style="font-weight:600;">{hero_deal.get('discount_price', 0):.2f} KM</span></p>
+</div>
+'''
+
     content = f'''
 <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Sedmični pregled Vaših proizvoda</h1>
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
 <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Pripremili smo detaljan pregled svih proizvoda koje pratite. Evo šta se dogodilo ove sedmice:</p>
+
+{hero_deal_html}
 
 <!-- Stats Overview -->
 <table width="100%" style="margin-bottom:24px;"><tr>
@@ -500,7 +516,12 @@ Primate ovaj email jednom sedmično jer imate aktivno praćenje proizvoda na Pop
 </div>
 '''
 
-    subject = f"Uštedite {total_savings:.2f} KM na {total_products} artikala koje pratite!"
+    # Subject line - feature hero deal if available
+    if hero_deal:
+        hero_savings = hero_deal.get('savings_amount', 0)
+        subject = f"{hero_deal.get('product', '')[:30]} - uštedite {hero_savings:.2f} KM!"
+    else:
+        subject = f"Uštedite {total_savings:.2f} KM na {total_products} artikala koje pratite!"
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
 
