@@ -201,7 +201,7 @@ const canPaginate = ref(true) // Whether user has enough credits for pagination
 
 // Filters
 const filters = ref({
-  sort: 'discount_desc'
+  sort: 'price_desc'
 })
 
 // Initialize page when auth is ready
@@ -212,7 +212,7 @@ const initPage = () => {
     return
   }
 
-  filters.value.sort = (route.query.sort as string) || 'discount_desc'
+  filters.value.sort = (route.query.sort as string) || 'price_desc'
   currentPage.value = parseInt(route.query.page as string) || 1
 
   // Parse store IDs from URL
@@ -255,7 +255,7 @@ watch(authReady, (ready) => {
 
 // Watch for route changes
 watch(() => route.query, () => {
-  filters.value.sort = (route.query.sort as string) || 'discount_desc'
+  filters.value.sort = (route.query.sort as string) || 'price_desc'
   currentPage.value = parseInt(route.query.page as string) || 1
 
   const storeParam = route.query.stores as string
@@ -391,7 +391,7 @@ async function loadProducts() {
 
 function resetFilters() {
   filters.value = {
-    sort: 'discount_desc'
+    sort: 'price_desc'
   }
   selectedStoreIds.value = []
   selectedCategory.value = null
@@ -427,7 +427,7 @@ function updateURL() {
   const query: any = {}
   if (selectedStoreIds.value.length > 0) query.stores = selectedStoreIds.value.join(',')
   if (selectedCategory.value) query.category = selectedCategory.value
-  if (filters.value.sort && filters.value.sort !== 'discount_desc') query.sort = filters.value.sort
+  if (filters.value.sort && filters.value.sort !== 'price_desc') query.sort = filters.value.sort
   if (currentPage.value > 1) query.page = currentPage.value.toString()
 
   router.replace({ query })
