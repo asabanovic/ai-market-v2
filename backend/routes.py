@@ -6489,6 +6489,7 @@ def api_admin_products():
     business_id_filter = request.args.get('business_id', type=int)
     categorization_filter = request.args.get('categorization_filter', type=str)  # all, uncategorized, no_matches, has_matches
     search_query = request.args.get('search', type=str)
+    sort_by = request.args.get('sort_by', type=str)  # default, views_desc, views_asc
 
     # Build base query
     query = db.session.query(Product, Business).join(Business)
@@ -6526,13 +6527,14 @@ def api_admin_products():
 
     query = query.order_by(Business.name, Product.title)
 
-    # Apply pagination at DB level for non-match filters
+    # Apply pagination at DB level for non-match filters and non-view sorting
     # Note: no_matches/has_matches filters need to be applied after match_count is computed
-    if categorization_filter not in ('no_matches', 'has_matches'):
+    # Views sorting also needs all products first to sort by view count
+    if categorization_filter not in ('no_matches', 'has_matches') and sort_by not in ('views_desc', 'views_asc'):
         offset = (page - 1) * per_page
         products = query.offset(offset).limit(per_page).all()
     else:
-        # For match-based filters, we need all products to compute match_count first
+        # For match-based filters or views sorting, we need all products first
         products = query.all()
 
     # Pre-compute match counts for all products with a match_key
@@ -6598,6 +6600,26 @@ def api_admin_products():
         for alt_key, count in alternative_count_query:
             alternative_key_counts[alt_key] = count
 
+    # Pre-compute view counts for all products (total views and unique viewers)
+    from models import ProductView
+    product_ids = [p.id for p, _ in products]
+    view_counts = {}
+    unique_viewer_counts = {}
+
+    if product_ids:
+        # Get total view count per product
+        view_count_query = db.session.query(
+            ProductView.product_id,
+            func.count(ProductView.id).label('total_views'),
+            func.count(func.distinct(ProductView.user_id)).label('unique_viewers')
+        ).filter(
+            ProductView.product_id.in_(product_ids)
+        ).group_by(ProductView.product_id).all()
+
+        for product_id, total_views, unique_viewers in view_count_query:
+            view_counts[product_id] = total_views
+            unique_viewer_counts[product_id] = unique_viewers
+
     # Build flat products list with computed fields
     products_list = []
     for product, business in products:
@@ -6654,11 +6676,19 @@ def api_admin_products():
             'alternative_key': alternative_key,  # product_type:size_value:size_unit for alternative lookup
             'match_count': match_count,  # Number of OTHER products with same match_key (exact clones)
             'sibling_count': sibling_count,  # Number of OTHER products with same brand:product_type (any size)
-            'alternative_count': alternative_count  # Number of OTHER products with same type+size but different brand
+            'alternative_count': alternative_count,  # Number of OTHER products with same type+size but different brand
+            'view_count': view_counts.get(product.id, 0),  # Total product views
+            'unique_viewers': unique_viewer_counts.get(product.id, 0)  # Unique users who viewed
         })
 
-    # For match-based filters, we loaded all products - now paginate in memory
-    if categorization_filter in ('no_matches', 'has_matches'):
+    # Sort products list before pagination if sort_by is specified
+    if sort_by == 'views_desc':
+        products_list.sort(key=lambda x: x['view_count'], reverse=True)
+    elif sort_by == 'views_asc':
+        products_list.sort(key=lambda x: x['view_count'])
+
+    # For match-based filters or views sorting, we need to paginate in memory
+    if categorization_filter in ('no_matches', 'has_matches') or sort_by in ('views_desc', 'views_asc'):
         total_count = len(products_list)  # Update total after filtering
         offset = (page - 1) * per_page
         products_list = products_list[offset:offset + per_page]
@@ -6666,6 +6696,14 @@ def api_admin_products():
     # Get all businesses for dropdown filter (even when filtering)
     all_businesses = Business.query.order_by(Business.name).all()
     businesses_list = [{'id': b.id, 'name': b.name} for b in all_businesses]
+
+    # Calculate stats - total counts for the dashboard widgets
+    total_products_count = Product.query.count()
+    total_businesses_count = Business.query.count()
+
+    # Get total views across all products
+    total_views_count = db.session.query(func.count(ProductView.id)).scalar() or 0
+    total_unique_viewers = db.session.query(func.count(func.distinct(ProductView.user_id))).scalar() or 0
 
     # Calculate pagination info
     total_pages = (total_count + per_page - 1) // per_page
@@ -6678,7 +6716,13 @@ def api_admin_products():
             'total': total_count,
             'total_pages': total_pages
         },
-        'all_businesses': businesses_list  # For dropdown filter
+        'all_businesses': businesses_list,  # For dropdown filter
+        'stats': {
+            'total_products': total_products_count,
+            'total_businesses': total_businesses_count,
+            'total_views': total_views_count,
+            'unique_viewers': total_unique_viewers
+        }
     })
 
 
@@ -8948,6 +8992,7 @@ def api_admin_engagement_stats():
 def api_admin_proizvodi_views():
     """Get paginated proizvodi page views for admin dashboard"""
     from auth_api import decode_jwt_token
+    from models import UserActivity
 
     auth_header = request.headers.get('Authorization')
     if not auth_header:
@@ -11308,6 +11353,92 @@ def get_admin_job_runs():
     except Exception as e:
         app.logger.error(f"Error fetching job runs: {e}")
         return jsonify({'error': 'Failed to fetch job runs'}), 500
+
+
+# Product view tracking endpoint (async/non-blocking)
+@app.route('/api/products/track-views', methods=['POST'])
+@csrf.exempt
+def api_products_track_views():
+    """Track product impressions when products are displayed to users.
+    Accepts an array of product IDs and logs views for the authenticated user.
+    This is designed to be called async from the frontend for non-blocking tracking.
+    """
+    from models import ProductView
+
+    # Get JWT token from header
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'status': 'skipped', 'reason': 'no auth'}), 200
+
+    token = auth_header.split(' ')[1]
+
+    try:
+        import jwt
+        from config import JWT_SECRET_KEY
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+        user_id = payload.get('user_id')
+        user_email = payload.get('email')
+
+        if not user_id:
+            return jsonify({'status': 'skipped', 'reason': 'no user'}), 200
+
+        # Skip tracking for admin user
+        if user_email == 'adnanxteam@gmail.com':
+            return jsonify({'status': 'skipped', 'reason': 'admin'}), 200
+
+    except Exception as e:
+        app.logger.error(f"JWT decode error in track-views: {e}")
+        return jsonify({'status': 'skipped', 'reason': 'invalid token'}), 200
+
+    # Get product IDs from request body
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'skipped', 'reason': 'no data'}), 200
+
+    product_ids = data.get('product_ids', [])
+    if not product_ids or not isinstance(product_ids, list):
+        return jsonify({'status': 'skipped', 'reason': 'no product_ids'}), 200
+
+    # Limit to prevent abuse (max 100 products per request)
+    product_ids = product_ids[:100]
+
+    try:
+        # Verify user exists
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return jsonify({'status': 'skipped', 'reason': 'user not found'}), 200
+
+        # Verify products exist (get only valid IDs)
+        valid_products = Product.query.filter(Product.id.in_(product_ids)).with_entities(Product.id).all()
+        valid_product_ids = [p.id for p in valid_products]
+
+        if not valid_product_ids:
+            return jsonify({'status': 'skipped', 'reason': 'no valid products'}), 200
+
+        # Create view records for each product
+        now = datetime.now()
+        views = []
+        for pid in valid_product_ids:
+            view = ProductView(
+                product_id=pid,
+                user_id=user_id,
+                created_at=now
+            )
+            views.append(view)
+
+        # Bulk insert
+        db.session.bulk_save_objects(views)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'tracked': len(views)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error tracking product views: {e}")
+        return jsonify({'status': 'error', 'reason': str(e)}), 200
 
 
 # Error handlers
