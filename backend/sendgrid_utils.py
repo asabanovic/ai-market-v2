@@ -277,6 +277,8 @@ def send_contact_email(user_name: str, user_email: str, message: str) -> bool:
 
 def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> bool:
     """Send daily product scan summary email"""
+    import random
+
     total = summary.get('total_products', 0)
     new_products = summary.get('new_products', 0)
     new_discounts = summary.get('new_discounts', 0)
@@ -284,7 +286,7 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 
     greeting = f" {user_name}" if user_name else ""
 
-    # Dynamic subject - professional tone
+    # Dynamic subject - professional tone (keeping existing)
     if new_products > 0:
         subject = f"Pronađeno {new_products} novih proizvoda na Vašoj listi"
     elif new_discounts > 0:
@@ -292,47 +294,70 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
     else:
         subject = f"Dnevni pregled - {total} proizvoda pronađeno"
 
-    # Build terms list
+    # Calculate potential savings: use actual discount savings (base_price - discount_price)
+    total_savings = 0.0
+    terms_with_savings = []
+    for term in terms:
+        # Use best_saving from the job (actual discount: base_price - discount_price)
+        saving = term.get('best_saving', 0) or term.get('lowest_actual_saving', 0)
+        if saving > 0:
+            total_savings += saving
+        terms_with_savings.append({**term, 'saving': saving})
+
+    # Sort terms by saving (biggest first)
+    terms_with_savings.sort(key=lambda x: -x.get('saving', 0))
+
+    # Build terms list (reordered by savings)
     terms_html = ""
-    for term in terms[:5]:
+    for term in terms_with_savings[:5]:
         lowest_price = term.get('lowest_price', 0)
         lowest_store = term.get('lowest_store', '')
         new_count = term.get("new_count", 0)
+        saving = term.get('saving', 0)
+
         new_badge = f'<span style="display:inline-block;padding:2px 8px;background:#ECFDF5;color:#10B981;font-size:11px;border-radius:10px;margin-left:8px;">+{new_count} novo</span>' if new_count > 0 else ''
+        saving_badge = f'<span style="display:inline-block;padding:2px 8px;background:#FEF3C7;color:#F59E0B;font-size:11px;border-radius:10px;margin-left:4px;">ušteda {saving:.2f} KM</span>' if saving > 0 else ''
 
         terms_html += f'''
 <tr><td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-<div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">{term.get('search_term', '')}{new_badge}</div>
+<div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">{term.get('search_term', '')}{new_badge}{saving_badge}</div>
 <div style="font-size:13px;color:#666;">Najniža cijena: <strong style="color:#10B981;">{lowest_price:.2f} KM</strong> u trgovini {lowest_store}</div>
 </td></tr>
 '''
 
-    # Badges
-    badges = ""
-    if new_products > 0:
-        badges += f'<span style="display:inline-block;padding:4px 12px;background:#ECFDF5;color:#10B981;font-size:13px;border-radius:12px;margin:0 4px;">{new_products} novih</span>'
-    if new_discounts > 0:
-        badges += f'<span style="display:inline-block;padding:4px 12px;background:#FEF3C7;color:#F59E0B;font-size:13px;border-radius:12px;margin:0 4px;">{new_discounts} sniženih</span>'
+    # Random CTA button text
+    cta_options = [
+        "Provjerite gdje je danas najjeftinije",
+        "Ne preplaćujte – provjerite cijene",
+        "Pogledajte gdje možete uštedjeti"
+    ]
+    cta_text = random.choice(cta_options)
+
+    # Format savings display
+    savings_display = f"do {total_savings:.2f} KM" if total_savings > 0 else "potencijalna ušteda"
 
     content = f'''
-<h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Dnevni pregled Vaših proizvoda</h1>
-<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
-<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Pripremili smo pregled cijena za proizvode koje pratite. Evo najnovijih informacija:</p>
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">💰 Danas ima novih popusta na vašoj listi</h1>
+<p style="margin:0 0 24px;font-size:14px;color:#666;line-height:1.5;">Vi ste nam rekli šta kupujete – mi pratimo cijene svaki dan.</p>
 
-<div style="background:#F5F3FF;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
-<div style="font-size:36px;font-weight:700;color:#7C3AED;">{total}</div>
-<div style="font-size:14px;color:#666;margin-top:4px;">proizvoda pronađeno</div>
-<div style="margin-top:12px;">{badges}</div>
+<div style="background:#ECFDF5;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
+<div style="font-size:14px;color:#059669;margin-bottom:4px;">Potencijalna ušteda danas:</div>
+<div style="font-size:32px;font-weight:700;color:#10B981;">👉 {savings_display}</div>
+<div style="font-size:13px;color:#666;margin-top:8px;">na proizvodima koje već kupujete</div>
 </div>
 
 <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#1a1a1a;">Pregled po kategorijama:</p>
 <table width="100%">{terms_html}</table>
 
-{get_button("Pogledajte sve proizvode", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+<div style="margin:24px 0 16px;padding:12px 16px;background:#FEF3C7;border-radius:8px;border-left:3px solid #F59E0B;">
+<p style="margin:0;font-size:13px;color:#92400E;">⚠️ Cijene se mijenjaju – provjerite prije odlaska u kupovinu.</p>
+</div>
+
+{get_button(cta_text, f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
 <p style="margin:0;font-size:12px;color:#888;">
-Primate ovaj email jer imate aktivno praćenje proizvoda na Popust.ba.
-<br>Za upravljanje obavještenjima posjetite <a href="{BASE_URL}/profil" style="color:#7C3AED;">Vaš profil</a>.
+Vi dobijate ovaj email jer ste aktivirali praćenje proizvoda na Popust.ba.
+<br>Možete upravljati obavijestima u <a href="{BASE_URL}/profil" style="color:#7C3AED;">profilu</a>.
 </p>
 </div>
 '''

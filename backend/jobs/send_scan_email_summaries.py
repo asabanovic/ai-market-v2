@@ -95,16 +95,26 @@ def get_scan_summary_for_user(user_id: int, scan_date: date) -> dict:
         if not products:
             continue
 
-        # Get effective prices (discount or base)
+        # Get effective prices (discount or base) and calculate actual savings
         prices_with_store = []
         for p in products:
             effective_price = p['discount_price'] if p['discount_price'] else p['base_price']
             if effective_price:
+                # Calculate actual discount savings (base_price - discount_price)
+                actual_saving = 0.0
+                if p['discount_price'] and p['base_price']:
+                    actual_saving = float(p['base_price']) - float(p['discount_price'])
+                    if actual_saving < 0:
+                        actual_saving = 0.0
+
                 prices_with_store.append({
                     'price': float(effective_price),
                     'store': p['business'],
                     'title': p['title'],
-                    'is_discounted': p['discount_price'] is not None
+                    'is_discounted': p['discount_price'] is not None,
+                    'base_price': float(p['base_price']) if p['base_price'] else None,
+                    'discount_price': float(p['discount_price']) if p['discount_price'] else None,
+                    'actual_saving': actual_saving
                 })
 
         if not prices_with_store:
@@ -116,6 +126,9 @@ def get_scan_summary_for_user(user_id: int, scan_date: date) -> dict:
         lowest = prices_with_store[0]
         highest = prices_with_store[-1]
 
+        # Find the best saving among all discounted products for this term
+        best_saving = max((p['actual_saving'] for p in prices_with_store if p['actual_saving'] > 0), default=0.0)
+
         terms.append({
             'search_term': term,
             'original_text': data['original_text'],
@@ -126,6 +139,9 @@ def get_scan_summary_for_user(user_id: int, scan_date: date) -> dict:
             'lowest_store': lowest['store'],
             'lowest_product': lowest['title'],
             'lowest_is_discounted': lowest['is_discounted'],
+            'lowest_base_price': lowest.get('base_price'),
+            'lowest_actual_saving': lowest.get('actual_saving', 0),
+            'best_saving': best_saving,  # Best savings for this term
             'highest_price': highest['price'],
             'highest_store': highest['store']
         })
