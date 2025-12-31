@@ -9208,6 +9208,205 @@ def api_admin_user_preferences():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/admin/preferences/analytics', methods=['GET'])
+@csrf.exempt
+def api_admin_preferences_analytics():
+    """Get preferences analytics dashboard data (excludes admin user)"""
+    from auth_api import decode_jwt_token
+    from models import UserTrackedProduct, User
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Admin email to exclude
+        admin_email = 'adnanxteam@gmail.com'
+        admin_to_exclude = User.query.filter_by(email=admin_email).first()
+        exclude_user_id = admin_to_exclude.id if admin_to_exclude else None
+
+        # Base query for tracked products (exclude admin)
+        base_query = UserTrackedProduct.query.filter(UserTrackedProduct.is_active == True)
+        if exclude_user_id:
+            base_query = base_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+
+        # Total tracked products
+        total_tracked = base_query.count()
+
+        # Users with tracked products (exclude admin)
+        users_with_products_query = db.session.query(
+            func.count(func.distinct(UserTrackedProduct.user_id))
+        ).filter(UserTrackedProduct.is_active == True)
+        if exclude_user_id:
+            users_with_products_query = users_with_products_query.filter(
+                UserTrackedProduct.user_id != exclude_user_id
+            )
+        users_with_products = users_with_products_query.scalar() or 0
+
+        # Total users (exclude admin)
+        total_users_query = User.query.filter(User.is_verified == True)
+        if exclude_user_id:
+            total_users_query = total_users_query.filter(User.id != exclude_user_id)
+        total_users = total_users_query.count()
+
+        # Average products per user
+        avg_per_user = round(total_tracked / users_with_products, 1) if users_with_products > 0 else 0
+
+        # Top tracked terms
+        top_terms_query = db.session.query(
+            UserTrackedProduct.search_term,
+            func.count(UserTrackedProduct.id).label('count')
+        ).filter(UserTrackedProduct.is_active == True)
+        if exclude_user_id:
+            top_terms_query = top_terms_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+        top_terms = top_terms_query.group_by(
+            UserTrackedProduct.search_term
+        ).order_by(func.count(UserTrackedProduct.id).desc()).limit(10).all()
+
+        # Distribution by count (how many users have X products)
+        distribution_query = db.session.query(
+            func.count(UserTrackedProduct.id).label('product_count'),
+            func.count(func.distinct(UserTrackedProduct.user_id)).label('user_count')
+        ).filter(UserTrackedProduct.is_active == True)
+        if exclude_user_id:
+            distribution_query = distribution_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+
+        # Per-user product counts for distribution
+        user_counts_subquery = db.session.query(
+            UserTrackedProduct.user_id,
+            func.count(UserTrackedProduct.id).label('count')
+        ).filter(UserTrackedProduct.is_active == True)
+        if exclude_user_id:
+            user_counts_subquery = user_counts_subquery.filter(UserTrackedProduct.user_id != exclude_user_id)
+        user_counts = user_counts_subquery.group_by(UserTrackedProduct.user_id).all()
+
+        # Build distribution buckets
+        distribution = {'1': 0, '2-3': 0, '4-5': 0, '6-10': 0, '10+': 0}
+        for _, count in user_counts:
+            if count == 1:
+                distribution['1'] += 1
+            elif count <= 3:
+                distribution['2-3'] += 1
+            elif count <= 5:
+                distribution['4-5'] += 1
+            elif count <= 10:
+                distribution['6-10'] += 1
+            else:
+                distribution['10+'] += 1
+
+        # Time series: tracked products over time (last 30 days)
+        interval = request.args.get('interval', 'day')
+        if interval == 'day':
+            days_back = 30
+            date_format = '%Y-%m-%d'
+        elif interval == 'week':
+            days_back = 90
+            date_format = '%Y-%W'
+        else:  # month
+            days_back = 365
+            date_format = '%Y-%m'
+
+        start_date = datetime.now() - timedelta(days=days_back)
+
+        # Get cumulative counts per day
+        daily_counts_query = db.session.query(
+            func.date(UserTrackedProduct.created_at).label('date'),
+            func.count(UserTrackedProduct.id).label('count')
+        ).filter(
+            UserTrackedProduct.is_active == True,
+            UserTrackedProduct.created_at >= start_date
+        )
+        if exclude_user_id:
+            daily_counts_query = daily_counts_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+
+        daily_counts = daily_counts_query.group_by(
+            func.date(UserTrackedProduct.created_at)
+        ).order_by(func.date(UserTrackedProduct.created_at)).all()
+
+        # Build time series data
+        labels = []
+        data = []
+        cumulative = 0
+
+        # Get count before start_date for cumulative baseline
+        baseline_query = db.session.query(func.count(UserTrackedProduct.id)).filter(
+            UserTrackedProduct.is_active == True,
+            UserTrackedProduct.created_at < start_date
+        )
+        if exclude_user_id:
+            baseline_query = baseline_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+        cumulative = baseline_query.scalar() or 0
+
+        # Fill in the daily data
+        current_date = start_date
+        daily_dict = {str(d): c for d, c in daily_counts}
+
+        while current_date <= datetime.now():
+            date_str = current_date.strftime('%Y-%m-%d')
+            day_count = daily_dict.get(date_str, 0)
+            cumulative += day_count
+
+            if interval == 'day':
+                labels.append(current_date.strftime('%d.%m'))
+                data.append(cumulative)
+            current_date += timedelta(days=1)
+
+        # New today, this week
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        week_ago = today - timedelta(days=7)
+
+        new_today_query = UserTrackedProduct.query.filter(
+            UserTrackedProduct.is_active == True,
+            UserTrackedProduct.created_at >= today
+        )
+        if exclude_user_id:
+            new_today_query = new_today_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+        new_today = new_today_query.count()
+
+        new_this_week_query = UserTrackedProduct.query.filter(
+            UserTrackedProduct.is_active == True,
+            UserTrackedProduct.created_at >= week_ago
+        )
+        if exclude_user_id:
+            new_this_week_query = new_this_week_query.filter(UserTrackedProduct.user_id != exclude_user_id)
+        new_this_week = new_this_week_query.count()
+
+        return jsonify({
+            'summary': {
+                'total_tracked': total_tracked,
+                'users_with_products': users_with_products,
+                'total_users': total_users,
+                'avg_per_user': avg_per_user,
+                'adoption_rate': round((users_with_products / total_users * 100), 1) if total_users > 0 else 0,
+                'new_today': new_today,
+                'new_this_week': new_this_week
+            },
+            'top_terms': [{'term': t, 'count': c} for t, c in top_terms],
+            'distribution': distribution,
+            'chart': {
+                'labels': labels,
+                'data': data
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting preferences analytics: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== USER PRODUCT TRACKING ====================
 
 @app.route('/api/admin/users/<user_id>/tracked-products', methods=['GET'])

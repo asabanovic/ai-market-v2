@@ -53,6 +53,18 @@
             <Icon name="mdi:cog-sync" class="w-5 h-5 inline mr-2" />
             Job logovi
           </button>
+          <button
+            @click="activeTab = 'preferences'; loadPreferencesAnalytics()"
+            :class="[
+              'py-4 px-1 border-b-2 font-medium text-sm transition-colors',
+              activeTab === 'preferences'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            <Icon name="mdi:heart-outline" class="w-5 h-5 inline mr-2" />
+            Preferencije
+          </button>
         </nav>
       </div>
 
@@ -762,6 +774,165 @@
         </div>
       </div>
       <!-- End Tab Content: Jobs -->
+
+      <!-- Tab Content: Preferences -->
+      <div v-show="activeTab === 'preferences'">
+        <!-- Loading State -->
+        <div v-if="preferencesLoading" class="flex items-center justify-center h-64">
+          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+        </div>
+
+        <div v-else-if="preferencesData">
+          <!-- KPI Summary Cards -->
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Ukupno pracenih</p>
+                  <p class="text-2xl font-bold text-purple-600">{{ preferencesData.summary.total_tracked }}</p>
+                </div>
+                <Icon name="mdi:heart" class="w-8 h-8 text-purple-200" />
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Korisnika sa listom</p>
+                  <p class="text-2xl font-bold text-blue-600">{{ preferencesData.summary.users_with_products }}</p>
+                </div>
+                <Icon name="mdi:account-heart" class="w-8 h-8 text-blue-200" />
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Prosjek po korisniku</p>
+                  <p class="text-2xl font-bold text-green-600">{{ preferencesData.summary.avg_per_user }}</p>
+                </div>
+                <Icon name="mdi:calculator" class="w-8 h-8 text-green-200" />
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Stopa usvajanja</p>
+                  <p class="text-2xl font-bold text-teal-600">{{ preferencesData.summary.adoption_rate }}%</p>
+                </div>
+                <Icon name="mdi:percent" class="w-8 h-8 text-teal-200" />
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Novih danas</p>
+                  <p class="text-2xl font-bold text-orange-600">{{ preferencesData.summary.new_today }}</p>
+                </div>
+                <Icon name="mdi:plus-circle" class="w-8 h-8 text-orange-200" />
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Novih ove sedmice</p>
+                  <p class="text-2xl font-bold text-pink-600">{{ preferencesData.summary.new_this_week }}</p>
+                </div>
+                <Icon name="mdi:calendar-week" class="w-8 h-8 text-pink-200" />
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-gray-500 text-xs">Verifikovanih korisnika</p>
+                  <p class="text-2xl font-bold text-gray-600">{{ preferencesData.summary.total_users }}</p>
+                </div>
+                <Icon name="mdi:account-group" class="w-8 h-8 text-gray-200" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart Section -->
+          <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-semibold text-gray-900">Rast pracenih proizvoda (zadnjih 30 dana)</h3>
+              <button
+                @click="loadPreferencesAnalytics"
+                class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+              >
+                <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': preferencesLoading }" />
+                Osvjezi
+              </button>
+            </div>
+            <div class="h-64">
+              <ClientOnly>
+                <Line v-if="preferencesChartData" :data="preferencesChartData" :options="preferencesChartOptions" />
+              </ClientOnly>
+            </div>
+          </div>
+
+          <!-- Two Column Layout -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Top Tracked Terms -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">Top praceni pojmovi</h3>
+              <div class="space-y-3">
+                <div
+                  v-for="(term, index) in preferencesData.top_terms"
+                  :key="term.term"
+                  class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      :class="index < 3 ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-700'"
+                    >
+                      {{ index + 1 }}
+                    </span>
+                    <span class="font-medium text-gray-900">{{ term.term }}</span>
+                  </div>
+                  <span class="text-sm text-gray-500">{{ term.count }} korisnika</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Distribution -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">Distribucija po broju proizvoda</h3>
+              <div class="space-y-4">
+                <div v-for="(count, bucket) in preferencesData.distribution" :key="bucket" class="flex items-center gap-4">
+                  <span class="w-16 text-sm font-medium text-gray-700">{{ bucket }}</span>
+                  <div class="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
+                    <div
+                      class="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full flex items-center justify-end pr-2"
+                      :style="{ width: `${Math.max(count / maxDistribution * 100, 5)}%` }"
+                    >
+                      <span v-if="count > 0" class="text-xs text-white font-medium">{{ count }}</span>
+                    </div>
+                  </div>
+                  <span class="w-12 text-sm text-gray-500 text-right">{{ count }}</span>
+                </div>
+              </div>
+              <div class="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-500">
+                <p>Koliko korisnika ima koliko pracenih proizvoda</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info Box -->
+          <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <Icon name="mdi:information" class="w-5 h-5 text-blue-600 mt-0.5" />
+              <div class="text-sm text-blue-800">
+                <p class="font-medium mb-1">KPI cilj: Povecati broj pracenih proizvoda po korisniku</p>
+                <p class="text-blue-600">
+                  Trenutno {{ preferencesData.summary.users_with_products }} od {{ preferencesData.summary.total_users }} korisnika ({{ preferencesData.summary.adoption_rate }}%)
+                  prati proizvode. Prosjek je {{ preferencesData.summary.avg_per_user }} proizvoda po korisniku.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Tab Content: Preferences -->
     </div>
 
     <!-- Stores Modal -->
@@ -928,6 +1099,38 @@ const jobsLoading = ref(false)
 const runningJob = ref<string | null>(null)
 const jobMessage = ref('')
 const jobMessageType = ref<'success' | 'error'>('success')
+
+// Preferences analytics state
+const preferencesData = ref<any>(null)
+const preferencesLoading = ref(false)
+const preferencesChartData = ref<any>(null)
+
+const preferencesChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: {
+        precision: 0
+      }
+    }
+  },
+  interaction: {
+    intersect: false,
+    mode: 'index' as const
+  }
+}
+
+const maxDistribution = computed(() => {
+  if (!preferencesData.value?.distribution) return 1
+  return Math.max(...Object.values(preferencesData.value.distribution) as number[]) || 1
+})
 const jobHistory = ref<any[]>([])
 const jobHistoryLoading = ref(false)
 const jobHistoryFilter = ref('')
@@ -1240,6 +1443,32 @@ function formatEmailDate(dateString: string | null) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// Preferences analytics functions
+async function loadPreferencesAnalytics() {
+  preferencesLoading.value = true
+  try {
+    const data = await get('/api/admin/preferences/analytics')
+    preferencesData.value = data
+
+    // Build chart data
+    preferencesChartData.value = {
+      labels: data.chart.labels,
+      datasets: [{
+        label: 'Praceni proizvodi',
+        data: data.chart.data,
+        borderColor: 'rgb(147, 51, 234)',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        tension: 0.3,
+        fill: true
+      }]
+    }
+  } catch (error) {
+    console.error('Error loading preferences analytics:', error)
+  } finally {
+    preferencesLoading.value = false
+  }
 }
 
 // Job functions

@@ -500,6 +500,32 @@ function showDetails() {
   const url = new URL(window.location.href)
   url.searchParams.set('product', props.product.id.toString())
   window.history.pushState({}, '', url.toString())
+
+  // Track individual product view (async, non-blocking)
+  trackSingleProductView(props.product.id)
+}
+
+// Track single product view when modal opens
+function trackSingleProductView(productId: number) {
+  if (!process.client) return
+
+  const token = localStorage.getItem('token')
+  if (!token) return
+
+  try {
+    fetch(`${config.public.apiBase}/api/products/track-views`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ product_ids: [productId] })
+    }).catch(() => {
+      // Silently ignore tracking errors
+    })
+  } catch {
+    // Silently ignore tracking errors
+  }
 }
 
 function closeModal() {

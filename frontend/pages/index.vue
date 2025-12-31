@@ -1357,6 +1357,12 @@ async function performSearch() {
       if (data.is_anonymous) {
         setupScrollFeedbackDetection()
       }
+
+      // Track product impressions from search results (async, non-blocking)
+      if (!data.is_anonymous) {
+        const productsData = data.products || data.results
+        trackSearchProductViews(productsData)
+      }
     }
   } catch (error) {
     console.error('Search error:', error)
@@ -1376,6 +1382,47 @@ function toggleGroup(groupName: string) {
   }
   // Force reactivity update
   expandedGroups.value = new Set(expandedGroups.value)
+}
+
+// Track search result product views asynchronously (non-blocking)
+function trackSearchProductViews(productsData: any) {
+  if (!productsData || !process.client) return
+
+  const token = localStorage.getItem('token')
+  if (!token) return
+
+  // Extract product IDs from grouped or flat results
+  let productIds: number[] = []
+
+  if (isGroupedResults(productsData)) {
+    // Grouped results: iterate through each group
+    for (const groupProducts of Object.values(productsData)) {
+      if (Array.isArray(groupProducts)) {
+        productIds.push(...(groupProducts as any[]).map((p: any) => p.id).filter(Boolean))
+      }
+    }
+  } else if (Array.isArray(productsData)) {
+    // Flat array of products
+    productIds = productsData.map((p: any) => p.id).filter(Boolean)
+  }
+
+  if (productIds.length === 0) return
+
+  try {
+    // Fire and forget - don't await, don't block UI
+    fetch(`${config.public.apiBase}/api/products/track-views`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ product_ids: productIds })
+    }).catch(() => {
+      // Silently ignore tracking errors
+    })
+  } catch {
+    // Silently ignore tracking errors
+  }
 }
 
 function isGroupedResults(products: any): boolean {

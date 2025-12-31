@@ -1108,6 +1108,26 @@ class UserDailyVisit(db.Model):
     )
 
 
+# ProductView - track product impressions (when shown in search results/listings)
+class ProductView(db.Model):
+    __tablename__ = 'product_views'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    product = db.relationship('Product', backref=db.backref('views_log', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('product_views', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_product_views_product_id', 'product_id'),
+        db.Index('idx_product_views_user_id', 'user_id'),
+        db.Index('idx_product_views_created_at', 'created_at'),
+        db.Index('idx_product_views_product_user', 'product_id', 'user_id'),
+    )
+
+
 # UserLogin - dedicated table for login history
 class UserLogin(db.Model):
     __tablename__ = 'user_logins'

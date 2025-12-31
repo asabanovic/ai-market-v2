@@ -173,11 +173,12 @@
 </template>
 
 <script setup lang="ts">
-const { get } = useApi()
+const { get, post } = useApi()
 const { user, authReady } = useAuth()
 const route = useRoute()
 const router = useRouter()
 const { trackPageView, trackFilter, trackPagination } = useActivityTracking()
+const config = useRuntimeConfig()
 
 // State
 const products = ref<any[]>([])
@@ -382,6 +383,12 @@ async function loadProducts() {
     }
 
     updateURL()
+
+    // Track product impressions asynchronously (fire and forget)
+    if (products.value.length > 0) {
+      const productIds = products.value.map((p: any) => p.id)
+      trackProductViews(productIds)
+    }
   } catch (error) {
     console.error('Error loading products:', error)
     products.value = []
@@ -432,6 +439,31 @@ function updateURL() {
   if (currentPage.value > 1) query.page = currentPage.value.toString()
 
   router.replace({ query })
+}
+
+// Track product views asynchronously (non-blocking)
+async function trackProductViews(productIds: number[]) {
+  if (!productIds || productIds.length === 0) return
+  if (!process.client) return
+
+  const token = localStorage.getItem('token')
+  if (!token) return
+
+  try {
+    // Fire and forget - don't await, don't block UI
+    fetch(`${config.public.apiBase}/api/products/track-views`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ product_ids: productIds })
+    }).catch(() => {
+      // Silently ignore tracking errors
+    })
+  } catch {
+    // Silently ignore tracking errors
+  }
 }
 
 useSeoMeta({
