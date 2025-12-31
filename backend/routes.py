@@ -8942,6 +8942,76 @@ def api_admin_engagement_stats():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/api/admin/proizvodi-views', methods=['GET'])
+@csrf.exempt
+def api_admin_proizvodi_views():
+    """Get paginated proizvodi page views for admin dashboard"""
+    from auth_api import decode_jwt_token
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        user_id = payload.get('user_id')
+        user = User.query.filter_by(id=user_id).first()
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+
+        # Pagination params
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 30, type=int)
+        per_page = min(per_page, 100)  # Max 100 per page
+
+        # Get total count
+        total = UserActivity.query.filter(
+            UserActivity.activity_type == 'page_view',
+            UserActivity.page == 'proizvodi'
+        ).count()
+
+        # Get paginated results
+        views_query = db.session.query(
+            UserActivity, User.id.label('uid'), User.email, User.first_name, User.last_name
+        ).join(User, UserActivity.user_id == User.id).filter(
+            UserActivity.activity_type == 'page_view',
+            UserActivity.page == 'proizvodi'
+        ).order_by(UserActivity.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+        views_list = [{
+            'id': a.UserActivity.id,
+            'user_id': a.uid,
+            'user_email': a.email,
+            'user_first_name': a.first_name,
+            'user_last_name': a.last_name,
+            'activity_data': a.UserActivity.activity_data,
+            'created_at': a.UserActivity.created_at.isoformat() if a.UserActivity.created_at else None
+        } for a in views_query]
+
+        total_pages = (total + per_page - 1) // per_page
+
+        return jsonify({
+            'views': views_list,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting proizvodi views: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/admin/shopping-lists', methods=['GET'])
 @csrf.exempt
 def api_admin_shopping_lists():

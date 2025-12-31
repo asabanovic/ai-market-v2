@@ -107,7 +107,7 @@
           <div class="border-b border-gray-200">
             <nav class="-mb-px flex space-x-8">
               <button
-                @click="activeTab = 'proizvodi'"
+                @click="activeTab = 'proizvodi'; loadProizvodiViews()"
                 :class="[
                   activeTab === 'proizvodi'
                     ? 'border-blue-500 text-blue-600'
@@ -115,7 +115,7 @@
                   'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
                 ]"
               >
-                📦 Proizvodi posjete ({{ recentProizvodiViews.length }})
+                📦 Proizvodi posjete ({{ proizvodiViewsTotal }})
               </button>
               <button
                 @click="activeTab = 'votes'"
@@ -191,37 +191,70 @@
         <div class="bg-white rounded-lg border border-gray-200">
           <!-- Proizvodi Views Tab -->
           <div v-if="activeTab === 'proizvodi'" class="divide-y divide-gray-200">
-            <div v-if="recentProizvodiViews.length === 0" class="p-8 text-center text-gray-500">
-              Nema podataka o posjetama stranice Proizvodi
+            <div v-if="isLoadingProizvodiViews" class="p-8 text-center">
+              <div class="inline-flex items-center text-blue-600">
+                <svg class="animate-spin h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Učitavanje...
+              </div>
             </div>
-            <div v-for="view in recentProizvodiViews" :key="view.id" class="p-4 hover:bg-gray-50">
-              <div class="flex items-center justify-between">
-                <div>
-                  <NuxtLink :to="`/admin/users/${view.user_id}`" class="font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
-                    {{ getUserDisplayName(view) }}
-                  </NuxtLink>
-                  <span class="text-gray-500 ml-2">posjetio/la Proizvodi</span>
+            <template v-else>
+              <div v-if="proizvodiViews.length === 0" class="p-8 text-center text-gray-500">
+                Nema podataka o posjetama stranice Proizvodi
+              </div>
+              <div v-for="view in proizvodiViews" :key="view.id" class="p-4 hover:bg-gray-50">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <NuxtLink :to="`/admin/users/${view.user_id}`" class="font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                      {{ getUserDisplayName(view) }}
+                    </NuxtLink>
+                    <span class="text-gray-500 ml-2">posjetio/la Proizvodi</span>
+                  </div>
+                  <span class="text-sm text-gray-500">{{ formatDateTime(view.created_at) }}</span>
                 </div>
-                <span class="text-sm text-gray-500">{{ formatDateTime(view.created_at) }}</span>
+                <div v-if="view.activity_data" class="mt-1 text-xs text-gray-500 flex flex-wrap gap-2">
+                  <span v-if="view.activity_data.page && view.activity_data.page > 1" class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                    Stranica {{ view.activity_data.page }}
+                  </span>
+                  <span v-if="view.activity_data.category" class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
+                    {{ view.activity_data.category }}
+                  </span>
+                  <span v-if="view.activity_data.stores?.length" class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                    {{ view.activity_data.stores.length }} trgovina
+                  </span>
+                  <span v-if="view.activity_data.sort && view.activity_data.sort !== 'price_desc'" class="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
+                    {{ getSortLabel(view.activity_data.sort) }}
+                  </span>
+                  <span v-if="view.activity_data.total_products" class="text-gray-400">
+                    ({{ view.activity_data.total_products }} proizvoda)
+                  </span>
+                </div>
               </div>
-              <div v-if="view.activity_data" class="mt-1 text-xs text-gray-500 flex flex-wrap gap-2">
-                <span v-if="view.activity_data.page && view.activity_data.page > 1" class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
-                  Stranica {{ view.activity_data.page }}
-                </span>
-                <span v-if="view.activity_data.category" class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
-                  {{ view.activity_data.category }}
-                </span>
-                <span v-if="view.activity_data.stores?.length" class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
-                  {{ view.activity_data.stores.length }} trgovina
-                </span>
-                <span v-if="view.activity_data.sort && view.activity_data.sort !== 'price_desc'" class="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
-                  {{ getSortLabel(view.activity_data.sort) }}
-                </span>
-                <span v-if="view.activity_data.total_products" class="text-gray-400">
-                  ({{ view.activity_data.total_products }} proizvoda)
-                </span>
+              <!-- Pagination -->
+              <div v-if="proizvodiViewsTotalPages > 1" class="p-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
+                <div class="text-sm text-gray-600">
+                  Stranica {{ proizvodiViewsPage }} od {{ proizvodiViewsTotalPages }} ({{ proizvodiViewsTotal }} ukupno)
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    @click="proizvodiViewsPage--; loadProizvodiViews()"
+                    :disabled="proizvodiViewsPage <= 1"
+                    class="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ← Prethodna
+                  </button>
+                  <button
+                    @click="proizvodiViewsPage++; loadProizvodiViews()"
+                    :disabled="proizvodiViewsPage >= proizvodiViewsTotalPages"
+                    class="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sljedeća →
+                  </button>
+                </div>
               </div>
-            </div>
+            </template>
           </div>
 
           <!-- Votes Tab -->
@@ -461,9 +494,16 @@ const stats = ref<any>({})
 const recentVotes = ref<any[]>([])
 const recentComments = ref<any[]>([])
 const recentFavorites = ref<any[]>([])
-const recentProizvodiViews = ref<any[]>([])
 const topVoters = ref<any[]>([])
 const topCommenters = ref<any[]>([])
+
+// Proizvodi Views (paginated)
+const proizvodiViews = ref<any[]>([])
+const proizvodiViewsTotal = ref(0)
+const proizvodiViewsPage = ref(1)
+const proizvodiViewsTotalPages = ref(1)
+const isLoadingProizvodiViews = ref(false)
+const proizvodiViewsLoaded = ref(false)
 
 // Shopping Lists
 const shoppingLists = ref<any[]>([])
@@ -480,6 +520,7 @@ const preferencesLoaded = ref(false)
 
 onMounted(async () => {
   await loadEngagementData()
+  await loadProizvodiViews()
 })
 
 async function loadEngagementData() {
@@ -490,13 +531,27 @@ async function loadEngagementData() {
     recentVotes.value = data.recent_votes || []
     recentComments.value = data.recent_comments || []
     recentFavorites.value = data.recent_favorites || []
-    recentProizvodiViews.value = data.recent_proizvodi_views || []
     topVoters.value = data.top_voters || []
     topCommenters.value = data.top_commenters || []
   } catch (error) {
     console.error('Error loading engagement data:', error)
   } finally {
     isLoading.value = false
+  }
+}
+
+async function loadProizvodiViews() {
+  isLoadingProizvodiViews.value = true
+  try {
+    const data = await get(`/api/admin/proizvodi-views?page=${proizvodiViewsPage.value}`)
+    proizvodiViews.value = data.views || []
+    proizvodiViewsTotal.value = data.total || 0
+    proizvodiViewsTotalPages.value = data.total_pages || 1
+    proizvodiViewsLoaded.value = true
+  } catch (error) {
+    console.error('Error loading proizvodi views:', error)
+  } finally {
+    isLoadingProizvodiViews.value = false
   }
 }
 
