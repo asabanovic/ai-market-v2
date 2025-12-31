@@ -88,6 +88,9 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
     - price_drops: Products that dropped in price this week
     - new_products: New products discovered this week
     - terms_count: Number of terms with matches
+    - max_price_diff_percent: Highest % price difference found between stores
+    - best_value_category: Category with highest price spread (best to track)
+    - category_insights: List of categories with their max % differences
     """
     # Get user's tracked products
     tracked_products = UserTrackedProduct.query.filter_by(
@@ -147,6 +150,8 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
     total_savings = 0
     terms_with_matches = set()
     hero_deal = None  # Track the single best deal with high confidence (90%+ match)
+    category_price_spreads = {}  # Track max price spread per category for insights
+    max_price_diff_percent = 0  # Global max % price difference
 
     # Group by tracked term
     term_results = {}
@@ -239,8 +244,37 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
                     'price': float(effective_price) if effective_price else 0
                 })
 
+        # Calculate price spread for this term/category
+        effective_prices = [float(r.discount_price or r.base_price or 0) for r in results if (r.discount_price or r.base_price)]
+        if len(effective_prices) >= 2:
+            min_price = min(effective_prices)
+            max_price = max(effective_prices)
+            if min_price > 0:
+                price_diff_percent = ((max_price - min_price) / min_price) * 100
+                category_price_spreads[term] = {
+                    'term': term,
+                    'min_price': min_price,
+                    'max_price': max_price,
+                    'price_diff_percent': price_diff_percent
+                }
+                if price_diff_percent > max_price_diff_percent:
+                    max_price_diff_percent = price_diff_percent
+
     # Sort best deals by savings percentage
     best_deals.sort(key=lambda x: x['savings_percent'], reverse=True)
+
+    # Find best value category (highest price spread)
+    best_value_category = None
+    category_insights = []
+    if category_price_spreads:
+        sorted_categories = sorted(
+            category_price_spreads.values(),
+            key=lambda x: x['price_diff_percent'],
+            reverse=True
+        )
+        if sorted_categories:
+            best_value_category = sorted_categories[0]['term']
+            category_insights = sorted_categories[:3]  # Top 3 categories by price spread
 
     return {
         'total_products': len(tracked_products),
@@ -251,7 +285,10 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
         'price_drops': price_drops[:5],
         'new_products': new_products[:5],
         'terms_count': len(terms_with_matches),
-        'hero_deal': hero_deal  # Single best deal with 90%+ match, highest absolute savings
+        'hero_deal': hero_deal,  # Single best deal with 90%+ match, highest absolute savings
+        'max_price_diff_percent': max_price_diff_percent,
+        'best_value_category': best_value_category,
+        'category_insights': category_insights
     }
 
 

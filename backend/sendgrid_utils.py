@@ -370,6 +370,13 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
     """
     Send weekly comprehensive summary email with all tracked products.
 
+    Features behavioral psychology:
+    - Savings Framing: >= 10 KM uses direct savings, < 10 KM reframes as "avoided overpaying"
+    - Preference Expansion: Users with <5 categories get soft guidance
+    - Identity Reinforcement: "Smart shopper" messaging
+    - Weekly Conclusion: Answer "Šta se najviše isplatilo pratiti?"
+    - Value-driven CTAs
+
     summary should contain:
     - total_products: int (number of tracked terms)
     - total_matches: int (top N products per term)
@@ -379,6 +386,9 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
     - price_drops: list of products that dropped in price this week
     - new_products: list of newly added products matching user's terms
     - terms_count: int (how many terms had matches)
+    - max_price_diff_percent: float (highest % price difference between stores)
+    - best_value_category: str (category with highest price spread)
+    - category_insights: list of categories with their max % differences
     """
     greeting = f" {user_name}" if user_name else ""
 
@@ -391,6 +401,66 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
     price_drops = summary.get('price_drops', [])
     new_products = summary.get('new_products', [])
     hero_deal = summary.get('hero_deal')  # Single best deal with 90%+ match
+    max_price_diff_percent = summary.get('max_price_diff_percent', 0)
+    best_value_category = summary.get('best_value_category', '')
+    category_insights = summary.get('category_insights', [])
+
+    # === SAVINGS FRAMING LOGIC ===
+    # If savings >= 10 KM: Direct savings language
+    # If savings < 10 KM: Reframe as "avoided overpaying" + percentage emphasis
+    if total_savings >= 10:
+        savings_headline = f"Ove sedmice ste uštedjeli do {total_savings:.2f} KM"
+        savings_box_title = "Potencijalna ušteda"
+        savings_box_value = f"{total_savings:.2f} KM"
+        savings_box_subtitle = "na proizvodima koje pratite"
+    else:
+        # Reframe: emphasize percentage difference and avoiding overpaying
+        if max_price_diff_percent > 0:
+            savings_headline = f"Izbjegli ste preplaćivanje do {max_price_diff_percent:.0f}%"
+            savings_box_title = "Razlika u cijenama"
+            savings_box_value = f"do {max_price_diff_percent:.0f}%"
+            savings_box_subtitle = "između skuplje i jeftinije prodavnice"
+        else:
+            savings_headline = "Pratite cijene kao pametan kupac"
+            savings_box_title = "Proizvoda pratite"
+            savings_box_value = f"{total_products}"
+            savings_box_subtitle = "svaki dan provjeravamo cijene za Vas"
+
+    # === IDENTITY REINFORCEMENT ===
+    # "Smart shopper" line near top
+    identity_line = "Vi ste među pametnim kupcima koji ne preplaćuju."
+
+    # === WEEKLY CONCLUSION ===
+    # Answer: "Šta se ove sedmice najviše isplatilo pratiti?"
+    weekly_conclusion = ""
+    if best_value_category and max_price_diff_percent > 0:
+        weekly_conclusion = f'''
+<div style="margin:24px 0;padding:16px;background:#FEF3C7;border-radius:8px;border-left:3px solid #F59E0B;">
+<p style="margin:0;font-size:14px;color:#92400E;line-height:1.5;">
+<strong>Zaključak sedmice:</strong> Najviše se isplatilo pratiti <strong>"{best_value_category}"</strong> – razlika u cijenama između trgovina iznosi do {max_price_diff_percent:.0f}%.
+</p>
+</div>
+'''
+
+    # === PREFERENCE EXPANSION LOGIC ===
+    # For users with <5 tracked terms, suggest tracking more (soft, encouraging tone)
+    expansion_cta = ""
+    if total_products < 5:
+        expansion_cta = f'''
+<div style="margin:24px 0;padding:20px;background:linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);border-radius:12px;text-align:center;">
+<p style="margin:0 0 8px;font-size:16px;color:#ffffff;font-weight:600;">Pratite {total_products} {'proizvod' if total_products == 1 else 'proizvoda'}</p>
+<p style="margin:0 0 16px;font-size:13px;color:#E9D5FF;">Najveće uštede obično dolaze od artikala koje kupujete svake sedmice. Dodajte još proizvoda koje redovno kupujete.</p>
+<a href="{BASE_URL}/moji-proizvodi" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Dodaj još proizvoda</a>
+</div>
+'''
+    else:
+        expansion_cta = f'''
+<div style="margin:24px 0;padding:20px;background:linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);border-radius:12px;text-align:center;">
+<p style="margin:0 0 8px;font-size:16px;color:#ffffff;font-weight:600;">Pratite {total_products} proizvoda</p>
+<p style="margin:0 0 16px;font-size:13px;color:#E9D5FF;">Nastavite pratiti cijene i mi ćemo Vas <strong>besplatno</strong> obavijestiti čim budu na akciji!</p>
+<a href="{BASE_URL}/moji-proizvodi" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Pogledaj sve</a>
+</div>
+'''
 
     # Build best deals section
     best_deals_html = ""
@@ -472,17 +542,21 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
         hero_savings = hero_deal.get('savings_amount', 0)
         hero_deal_html = f'''
 <div style="margin:0 0 24px;padding:20px;background:linear-gradient(135deg, #10B981 0%, #059669 100%);border-radius:12px;text-align:center;">
-<p style="margin:0 0 4px;font-size:12px;color:#D1FAE5;text-transform:uppercase;letter-spacing:1px;">Vaša najveca usteda ove sedmice</p>
+<p style="margin:0 0 4px;font-size:12px;color:#D1FAE5;text-transform:uppercase;letter-spacing:1px;">Vaša najveća ušteda ove sedmice</p>
 <p style="margin:0 0 8px;font-size:32px;font-weight:700;color:#ffffff;">-{hero_savings:.2f} KM</p>
 <p style="margin:0 0 4px;font-size:14px;color:#ffffff;font-weight:500;">{hero_deal.get('product', '')}</p>
 <p style="margin:0;font-size:12px;color:#A7F3D0;">{hero_deal.get('store', '')} | <span style="text-decoration:line-through;">{hero_deal.get('original_price', 0):.2f} KM</span> <span style="font-weight:600;">{hero_deal.get('discount_price', 0):.2f} KM</span></p>
 </div>
 '''
 
+    # === VALUE-DRIVEN CTA ===
+    main_cta = get_button("Provjerite gdje je sada najjeftinije", f"{BASE_URL}/moji-proizvodi", "#7C3AED")
+
     content = f'''
-<h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Sedmični pregled Vaših proizvoda</h1>
-<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
-<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Pripremili smo detaljan pregled svih proizvoda koje pratite. Evo šta se dogodilo ove sedmice:</p>
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">Sedmični pregled Vaših proizvoda</h1>
+<p style="margin:0 0 4px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
+<p style="margin:0 0 16px;font-size:14px;color:#7C3AED;font-weight:500;">{identity_line}</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">{savings_headline}</p>
 
 {hero_deal_html}
 
@@ -499,10 +573,12 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 </td>
 <td style="width:2%;"></td>
 <td style="width:32%;padding:16px;background:#ECFDF5;border-radius:8px;text-align:center;">
-<div style="font-size:28px;font-weight:700;color:#10B981;">{total_savings:.2f} KM</div>
-<div style="font-size:12px;color:#666;margin-top:4px;">potencijalna ušteda</div>
+<div style="font-size:28px;font-weight:700;color:#10B981;">{savings_box_value}</div>
+<div style="font-size:12px;color:#666;margin-top:4px;">{savings_box_subtitle}</div>
 </td>
 </tr></table>
+
+{weekly_conclusion}
 
 <!-- Best Deals -->
 <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#1a1a1a;">Najbolje ponude ove sedmice:</p>
@@ -524,14 +600,9 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 {tracked_html}
 </table>
 
-{get_button("Pogledajte sve detalje", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+{main_cta}
 
-<!-- Add more products CTA -->
-<div style="margin:24px 0;padding:20px;background:linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);border-radius:12px;text-align:center;">
-<p style="margin:0 0 8px;font-size:16px;color:#ffffff;font-weight:600;">Pratite {total_products} proizvoda</p>
-<p style="margin:0 0 16px;font-size:13px;color:#E9D5FF;">Dodajte još proizvoda na listu i mi ćemo vas <strong>besplatno</strong> obavijestiti čim budu na akciji!</p>
-<a href="{BASE_URL}/moji-proizvodi" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Dodaj proizvode</a>
-</div>
+{expansion_cta}
 
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
 <p style="margin:0;font-size:12px;color:#888;">
@@ -541,12 +612,17 @@ Primate ovaj email jednom sedmično jer imate aktivno praćenje proizvoda na Pop
 </div>
 '''
 
-    # Subject line - feature hero deal if available
+    # Subject line - feature hero deal if available, or use reframed messaging
     if hero_deal:
         hero_savings = hero_deal.get('savings_amount', 0)
         subject = f"{hero_deal.get('product', '')[:30]} - uštedite {hero_savings:.2f} KM!"
+    elif total_savings >= 10:
+        subject = f"Uštedite do {total_savings:.2f} KM na {total_products} artikala koje pratite"
+    elif max_price_diff_percent > 0:
+        subject = f"Razlika u cijenama do {max_price_diff_percent:.0f}% – provjerite gdje je najjeftinije"
     else:
-        subject = f"Uštedite {total_savings:.2f} KM na {total_products} artikala koje pratite!"
+        subject = f"Sedmični pregled: {total_products} artikala koje pratite"
+
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
 
