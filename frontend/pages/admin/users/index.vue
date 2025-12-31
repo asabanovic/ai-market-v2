@@ -505,7 +505,7 @@
                 class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
               >
                 <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': emailsLoading }" />
-                Osvjezi
+                Osvježi
               </button>
             </div>
           </div>
@@ -600,7 +600,7 @@
               class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
             >
               <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': jobsLoading }" />
-              Osvjezi
+              Osvježi
             </button>
           </div>
 
@@ -788,7 +788,7 @@
             <div class="bg-white rounded-lg shadow p-4">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-gray-500 text-xs">Ukupno pracenih</p>
+                  <p class="text-gray-500 text-xs">Ukupno praćenih</p>
                   <p class="text-2xl font-bold text-purple-600">{{ preferencesData.summary.total_tracked }}</p>
                 </div>
                 <Icon name="mdi:heart" class="w-8 h-8 text-purple-200" />
@@ -842,7 +842,7 @@
             <div class="bg-white rounded-lg shadow p-4">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-gray-500 text-xs">Verifikovanih korisnika</p>
+                  <p class="text-gray-500 text-xs">Verificiranih korisnika</p>
                   <p class="text-2xl font-bold text-gray-600">{{ preferencesData.summary.total_users }}</p>
                 </div>
                 <Icon name="mdi:account-group" class="w-8 h-8 text-gray-200" />
@@ -853,13 +853,13 @@
           <!-- Chart Section -->
           <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex items-center justify-between mb-6">
-              <h3 class="text-lg font-semibold text-gray-900">Rast pracenih proizvoda (zadnjih 30 dana)</h3>
+              <h3 class="text-lg font-semibold text-gray-900">Rast praćenih proizvoda (zadnjih 30 dana)</h3>
               <button
                 @click="loadPreferencesAnalytics"
                 class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
               >
                 <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': preferencesLoading }" />
-                Osvjezi
+                Osvježi
               </button>
             </div>
             <div class="h-64">
@@ -873,7 +873,7 @@
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Top Tracked Terms -->
             <div class="bg-white rounded-lg shadow-md p-6">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">Top praceni pojmovi</h3>
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">Top praćeni pojmovi</h3>
               <div class="space-y-3">
                 <div
                   v-for="(term, index) in preferencesData.top_terms"
@@ -912,7 +912,7 @@
                 </div>
               </div>
               <div class="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-500">
-                <p>Koliko korisnika ima koliko pracenih proizvoda</p>
+                <p>Koliko korisnika ima koliko praćenih proizvoda</p>
               </div>
             </div>
           </div>
@@ -922,7 +922,7 @@
             <div class="flex items-start gap-3">
               <Icon name="mdi:information" class="w-5 h-5 text-blue-600 mt-0.5" />
               <div class="text-sm text-blue-800">
-                <p class="font-medium mb-1">KPI cilj: Povecati broj pracenih proizvoda po korisniku</p>
+                <p class="font-medium mb-1">KPI cilj: Povećati broj praćenih proizvoda po korisniku</p>
                 <p class="text-blue-600">
                   Trenutno {{ preferencesData.summary.users_with_products }} od {{ preferencesData.summary.total_users }} korisnika ({{ preferencesData.summary.adoption_rate }}%)
                   prati proizvode. Prosjek je {{ preferencesData.summary.avg_per_user }} proizvoda po korisniku.
@@ -1456,7 +1456,7 @@ async function loadPreferencesAnalytics() {
     preferencesChartData.value = {
       labels: data.chart.labels,
       datasets: [{
-        label: 'Praceni proizvodi',
+        label: 'Praćeni proizvodi',
         data: data.chart.data,
         borderColor: 'rgb(147, 51, 234)',
         backgroundColor: 'rgba(147, 51, 234, 0.1)',
