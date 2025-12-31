@@ -354,7 +354,7 @@
             <select
               v-model="selectedBusinessFilter"
               @change="loadProducts(true)"
-              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900"
             >
               <option :value="null">Svi biznisi</option>
               <option v-for="business in allBusinesses" :key="business.id" :value="business.id">
@@ -367,12 +367,24 @@
             <select
               v-model="categorizationFilter"
               @change="loadProducts(true)"
-              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900"
             >
               <option value="all">Svi proizvodi</option>
               <option value="uncategorized">Nekategorizirani</option>
               <option value="no_matches">Bez matcheva (0)</option>
               <option value="has_matches">Sa matchevima (1+)</option>
+            </select>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700">Sortiraj:</label>
+            <select
+              v-model="sortBy"
+              @change="loadProducts(true)"
+              class="block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900"
+            >
+              <option value="default">Po biznisu</option>
+              <option value="views_desc">Najvise pregleda</option>
+              <option value="views_asc">Najmanje pregleda</option>
             </select>
           </div>
           <div class="flex items-center space-x-2">
@@ -382,7 +394,7 @@
               @input="debouncedSearch"
               type="text"
               placeholder="Brand, tip, naziv..."
-              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900"
             />
           </div>
           <span class="text-sm text-gray-500">
@@ -432,7 +444,7 @@
 
       <template v-else>
         <!-- Summary Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
           <div class="bg-white rounded-lg border border-gray-200 p-6">
             <div class="flex items-center">
               <div class="flex-shrink-0">
@@ -508,6 +520,24 @@
                 <dl>
                   <dt class="text-sm font-medium text-gray-500 truncate">Biznisi</dt>
                   <dd class="text-2xl font-semibold text-gray-900">{{ stats.total_businesses || 0 }}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <svg class="h-8 w-8 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+              </div>
+              <div class="ml-5 w-0 flex-1">
+                <dl>
+                  <dt class="text-sm font-medium text-gray-500 truncate">Pregledi</dt>
+                  <dd class="text-2xl font-semibold text-gray-900">{{ stats.total_views || 0 }}</dd>
+                  <dd class="text-xs text-gray-400">{{ stats.unique_viewers || 0 }} korisnika</dd>
                 </dl>
               </div>
             </div>
@@ -637,6 +667,7 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Velicina</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupa</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
                   </tr>
                 </thead>
@@ -867,6 +898,13 @@
                         {{ formatPrice(product.discount_price) }} KM
                       </div>
                     </td>
+                    <!-- Views -->
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                      <div class="text-gray-900" :title="`${product.unique_viewers || 0} unique viewers`">
+                        {{ product.view_count || 0 }}
+                        <span class="text-gray-400">({{ product.unique_viewers || 0 }})</span>
+                      </div>
+                    </td>
                     <!-- Actions -->
                     <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-1">
                       <!-- Edit button -->
@@ -1014,6 +1052,7 @@ const businessesWithProducts = ref<any[]>([])
 const allBusinesses = ref<Array<{ id: number; name: string }>>([])
 const selectedBusinessFilter = ref<number | null>(null)
 const categorizationFilter = ref<string>('all')
+const sortBy = ref<string>('default')
 const searchQuery = ref<string>('')
 const embeddingStats = ref<any>({})
 
@@ -1196,6 +1235,9 @@ async function loadProducts(resetPage: boolean = false) {
     if (searchQuery.value && searchQuery.value.trim()) {
       params.append('search', searchQuery.value.trim())
     }
+    if (sortBy.value && sortBy.value !== 'default') {
+      params.append('sort_by', sortBy.value)
+    }
     const url = '/api/admin/products?' + params.toString()
     const data = await get(url)
 
@@ -1365,6 +1407,10 @@ async function saveAllChanges() {
 async function loadEmbeddingStatus() {
   try {
     const data = await get('/api/admin/embeddings/stats')
+    // Calculate no_embedding from total_products - with_embeddings
+    if (data && data.with_embeddings !== undefined) {
+      data.no_embedding = (data.total_products || 0) - (data.with_embeddings || 0)
+    }
     embeddingStats.value = data || {}
 
     // Load detailed status for all products
