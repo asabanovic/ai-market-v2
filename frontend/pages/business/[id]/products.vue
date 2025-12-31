@@ -1216,7 +1216,7 @@ definePageMeta({
 
 const route = useRoute()
 const config = useRuntimeConfig()
-const { get, post, delete: deleteApi } = useApi()
+const { get, post, del: deleteApi } = useApi()
 const businessId = computed(() => route.params.id)
 
 // Reactive data
