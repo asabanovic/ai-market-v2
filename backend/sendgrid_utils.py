@@ -665,16 +665,17 @@ Primate ovaj email jednom sedmično jer imate aktivno praćenje proizvoda na Pop
 </div>
 '''
 
-    # Subject line - feature hero deal if available, or use reframed messaging
-    if hero_deal:
+    # Subject line - standardized order: savings first, then hero deal, then fallback
+    # 1. Best (kad ima stvarne uštede) - prioritize showing savings amount
+    if total_savings >= 1:
+        subject = f"Ove sedmice: ušteda {total_savings:.2f} KM na Vašoj listi"
+    # 2. Hero deal with context (product-specific)
+    elif hero_deal:
         hero_savings = hero_deal.get('savings_amount', 0)
-        subject = f"{hero_deal.get('product', '')[:30]} - uštedite {hero_savings:.2f} KM!"
-    elif total_savings >= 10:
-        subject = f"Uštedite do {total_savings:.2f} KM na {total_products} artikala koje pratite"
-    elif max_price_diff_percent > 0:
-        subject = f"Razlika u cijenama do {max_price_diff_percent:.0f}% – provjerite gdje je najjeftinije"
+        subject = f"{hero_deal.get('product', '')[:30]}: sada {hero_savings:.2f} KM jeftinije"
+    # 3. Fallback (bez hype-a)
     else:
-        subject = f"Sedmični pregled: {total_products} artikala koje pratite"
+        subject = f"Sedmični pregled Vaših praćenih proizvoda"
 
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
