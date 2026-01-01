@@ -1481,11 +1481,11 @@ def send_activation_email(user_email: str, user_name: str, example_savings: dict
 '''
 
     content = f'''
-<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">Propuštate uštede!</h1>
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">10 sekundi za {avg_savings:.2f} KM uštede</h1>
 <p style="margin:0 0 24px;font-size:15px;color:#666;line-height:1.6;">Poštovani{greeting},</p>
 
 <p style="margin:0 0 20px;font-size:15px;color:#444;line-height:1.6;">
-Znate li da naši korisnici koji prate artikle uštede u prosjeku <strong>{avg_savings:.2f} KM sedmično</strong>?
+Dodajte 2–3 artikla koje kupujete svake sedmice. <strong>Mi ćemo pratiti cijene umjesto Vas.</strong>
 </p>
 
 <!-- Savings Showcase Box -->
@@ -1499,7 +1499,7 @@ Znate li da naši korisnici koji prate artikle uštede u prosjeku <strong>{avg_s
 <div style="margin:24px 0;">
 <h3 style="margin:0 0 16px;font-size:16px;color:#1a1a1a;">Kako to funkcioniše?</h3>
 <p style="margin:0 0 16px;font-size:14px;color:#666;line-height:1.6;">
-Jednostavno dodate proizvode koje redovno kupujete (npr. "{top_category}"), a mi svaki dan provjeravamo cijene u svim trgovinama i obavještavamo vas kada padne cijena ili se pojavi nova akcija.
+Svaki dan provjeravamo cijene u svim trgovinama. Kad cijena padne — dobijate obavijest.
 </p>
 </div>
 
@@ -1534,6 +1534,12 @@ Primate ovaj email jer ste registrovani na Popust.ba.
 </div>
 '''
 
-    subject = f"Uštedjeli biste {avg_savings:.2f} KM ove sedmice – evo kako"
+    # Subject with low-effort cues - rotate between options
+    subject_options = [
+        f"Uštedjeli biste {avg_savings:.2f} KM ove sedmice (treba 10 sekundi)",
+        f"{avg_savings:.2f} KM potencijalne uštede — dodajte 2 artikla",
+        f"Ovo je najlakša ušteda ove sedmice: {avg_savings:.2f} KM",
+    ]
+    subject = random.choice(subject_options)
     html = get_base_template(content, "#10B981")
     return send_email(user_email, subject, html)
