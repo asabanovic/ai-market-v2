@@ -238,14 +238,7 @@ def api_login():
             app.logger.info("API login failed: Invalid credentials")
             return jsonify({'error': 'Neispravni podaci za prijavu'}), 401
 
-        # Check if user is verified (unless admin)
-        if not user.is_verified and not user.is_admin:
-            return jsonify({
-                'error': 'Molimo vas prvo verifikujte vaš email prije prijave.',
-                'verification_required': True
-            }), 403
-
-        # Generate JWT token
+        # Generate JWT token (allow unverified users - they'll see a banner in the app)
         token = generate_jwt_token(user.id, user.email)
 
         # Prepare user data
@@ -258,6 +251,7 @@ def api_login():
             'phone': user.phone,
             'city': user.city,
             'is_admin': user.is_admin,
+            'is_verified': user.is_verified,
             'onboarding_completed': user.onboarding_completed or False,
             'welcome_guide_seen': user.welcome_guide_seen or False
         }
@@ -376,6 +370,27 @@ def api_register():
 
         app.logger.info(f"Registration data - email: {email}, first_name: '{first_name}', last_name: '{last_name}', name: '{name}'")
 
+        # Extract first-touch attribution data from request
+        attribution = data.get('attribution', {}) or {}
+        first_touch_source = attribution.get('first_touch_source')
+        first_touch_medium = attribution.get('first_touch_medium')
+        first_touch_campaign = attribution.get('first_touch_campaign')
+        first_touch_fbclid = attribution.get('first_touch_fbclid')
+        first_touch_landing_page = attribution.get('first_touch_landing_page')
+        first_touch_referrer = attribution.get('first_touch_referrer')
+
+        # Parse timestamp if provided
+        first_touch_timestamp = None
+        if attribution.get('first_touch_timestamp'):
+            try:
+                from dateutil import parser
+                first_touch_timestamp = parser.parse(attribution.get('first_touch_timestamp'))
+            except Exception:
+                first_touch_timestamp = datetime.now()  # Fallback to now
+
+        if first_touch_source:
+            app.logger.info(f"Attribution data - source: {first_touch_source}, medium: {first_touch_medium}, campaign: {first_touch_campaign}")
+
         # Validate required fields
         if not email or not password:
             return jsonify({'error': 'Email i lozinka su obavezni'}), 400
@@ -404,7 +419,15 @@ def api_register():
             verification_token_expires=token_expires,
             package_id=1,  # Free package
             registration_method='email',
-            referred_by_code=referral_code  # Save who referred this user
+            referred_by_code=referral_code,  # Save who referred this user
+            # First-touch attribution
+            first_touch_source=first_touch_source,
+            first_touch_medium=first_touch_medium,
+            first_touch_campaign=first_touch_campaign,
+            first_touch_fbclid=first_touch_fbclid,
+            first_touch_timestamp=first_touch_timestamp,
+            first_touch_landing_page=first_touch_landing_page,
+            first_touch_referrer=first_touch_referrer
         )
 
         db.session.add(new_user)
@@ -842,9 +865,12 @@ def update_user_interests():
 def get_preferences_status():
     """Check if user's preferences have been processed into tracked products."""
     try:
-        user = request.jwt_user
-        from models import UserTrackedProduct, UserProductScan
+        from models import User, UserTrackedProduct, UserProductScan
         from datetime import date
+
+        user = User.query.get(request.current_user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
 
         # Count tracked products
         tracked_count = UserTrackedProduct.query.filter_by(user_id=user.id, is_active=True).count()

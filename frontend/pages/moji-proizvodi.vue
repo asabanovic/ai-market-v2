@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 class="text-3xl font-bold text-gray-900">Moji Proizvodi</h1>
           <p class="mt-2 text-gray-600">Praćeni proizvodi i pronađene ponude</p>
@@ -14,6 +14,55 @@
           <Icon name="mdi:plus" class="w-5 h-5 mr-2" />
           Dodaj proizvod
         </button>
+      </div>
+
+      <!-- Stats Widget -->
+      <div
+        v-if="!loading && hasTracking && totalStats.productsOnSale > 0"
+        class="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200"
+      >
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <Icon name="mdi:piggy-bank" class="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p class="text-green-800 font-semibold text-sm">Potencijalna ušteda danas</p>
+              <p class="text-green-600 text-xs">Na osnovu trenutnih akcija</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 sm:gap-6">
+            <div class="text-center">
+              <p class="text-2xl font-bold text-green-700">{{ totalStats.totalSavings.toFixed(2) }} <span class="text-sm font-normal">KM</span></p>
+              <p class="text-xs text-green-600">ukupno</p>
+            </div>
+            <div class="text-center">
+              <p class="text-2xl font-bold text-green-700">{{ maxDiscountPercent }}%</p>
+              <p class="text-xs text-green-600">max popust</p>
+            </div>
+            <div class="text-center">
+              <p class="text-2xl font-bold text-green-700">{{ totalStats.productsOnSale }}</p>
+              <p class="text-xs text-green-600">na akciji</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-green-600 text-xs mt-2 border-t border-green-200 pt-2">
+          Cijene se često mijenjaju — mi ih provjeravamo umjesto Vas.
+        </p>
+      </div>
+
+      <!-- No Discounts Info Bar -->
+      <div
+        v-else-if="!loading && hasTracking && totalStats.productsOnSale === 0"
+        class="mb-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-4 border border-gray-200"
+      >
+        <div class="flex items-start gap-3">
+          <span class="text-xl flex-shrink-0">⏳</span>
+          <div>
+            <p class="text-gray-900 font-medium text-sm md:text-base">Danas nema većih popusta, ali pratimo cijene za Vas</p>
+            <p class="text-gray-500 text-xs mt-1">Obavijestit ćemo Vas čim se pojavi dobra ponuda.</p>
+          </div>
+        </div>
       </div>
 
       <!-- Processing Preferences Banner -->
@@ -129,10 +178,10 @@
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
 
-      <!-- Tracked Products List -->
+      <!-- Tracked Products List (sorted by best discount) -->
       <div v-else class="space-y-6">
         <div
-          v-for="tracked in trackedProducts"
+          v-for="tracked in sortedTrackedProducts"
           :key="tracked.id"
           class="bg-white rounded-lg shadow-md overflow-hidden"
         >
@@ -144,7 +193,15 @@
                   <Icon name="mdi:tag-search" class="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <h3 class="text-lg font-semibold text-gray-900">{{ tracked.search_term }}</h3>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-lg font-semibold text-gray-900">{{ tracked.search_term }}</h3>
+                    <button
+                      @click="showAddModal = true; newProductTerm = tracked.search_term + ' '"
+                      class="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                    >
+                      + Dodaj još
+                    </button>
+                  </div>
                   <p v-if="tracked.original_text && tracked.original_text !== tracked.search_term" class="text-sm text-gray-500">
                     iz: {{ tracked.original_text }}
                   </p>
@@ -296,7 +353,14 @@
                   </div>
 
                   <!-- Badges -->
-                  <div class="flex items-center gap-1.5 mb-2">
+                  <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                    <!-- Best Price Label (only for ≥90% match confidence with discount) -->
+                    <span
+                      v-if="product.similarity_score >= 0.90 && product.discount_price && isBestPriceInCategory(tracked, product)"
+                      class="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-medium"
+                    >
+                      Najbolja cijena
+                    </span>
                     <span
                       v-if="product.is_new_today"
                       class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-medium"
@@ -369,11 +433,24 @@
           </div>
 
           <!-- No Products Found -->
-          <div v-else class="p-6 text-center text-gray-500">
-            <Icon name="mdi:package-variant-remove" class="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>Nema pronađenih proizvoda za ovaj pojam.</p>
-            <p class="text-sm mt-1">Pokušajte dodati vaše omiljene radnje u postavkama.</p>
+          <div v-else class="p-6 text-center">
+            <Icon name="mdi:clock-outline" class="w-10 h-10 mx-auto mb-2 text-gray-300" />
+            <p class="text-gray-600 font-medium">Trenutno nema ponuda za "{{ tracked.search_term }}"</p>
+            <p class="text-gray-400 text-sm mt-1">Pratimo cijene — obavijestit ćemo Vas čim se pojavi popust.</p>
+            <button
+              @click="showAddModal = true; newProductTerm = ''"
+              class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
+            >
+              + Dodajte još brendova za više ponuda
+            </button>
           </div>
+        </div>
+
+        <!-- Bottom Nudge -->
+        <div v-if="trackedProducts.length > 0" class="mt-8 text-center py-4 border-t border-gray-100">
+          <p class="text-sm text-gray-400">
+            Što više proizvoda pratite, veća je šansa da uhvatite najbolje popuste.
+          </p>
         </div>
       </div>
 
@@ -443,7 +520,7 @@
                 v-model="newProductTerm"
                 type="text"
                 placeholder="npr. mlijeko, nutella, coca cola..."
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
                 required
                 minlength="2"
               />
@@ -525,6 +602,92 @@ const isSubmittingComment = ref(false)
 // Scroll refs for horizontal scroll
 const scrollRefs = ref<Record<number, HTMLElement | null>>({})
 
+// Computed: max discount percentage across all tracked products
+const maxDiscountPercent = computed(() => {
+  let maxDiscount = 0
+  for (const tracked of trackedProducts.value) {
+    for (const product of tracked.products) {
+      if (product.discount_price && product.base_price && product.base_price > 0) {
+        const discount = Math.round(((product.base_price - product.discount_price) / product.base_price) * 100)
+        if (discount > maxDiscount) {
+          maxDiscount = discount
+        }
+      }
+    }
+  }
+  return maxDiscount
+})
+
+// Computed: total stats for the widget
+const totalStats = computed(() => {
+  let productsOnSale = 0
+  let totalSavings = 0
+
+  for (const tracked of trackedProducts.value) {
+    for (const product of tracked.products) {
+      if (product.discount_price && product.base_price && product.base_price > product.discount_price) {
+        productsOnSale++
+        totalSavings += (product.base_price - product.discount_price)
+      }
+    }
+  }
+
+  return {
+    productsOnSale,
+    totalSavings
+  }
+})
+
+// Computed: sorted tracked products by best discount (descending)
+const sortedTrackedProducts = computed(() => {
+  // Calculate max discount for each tracked category
+  const withMaxDiscount = trackedProducts.value.map(tracked => {
+    let maxDiscount = 0
+    let productsWithDiscount = 0
+
+    for (const product of tracked.products) {
+      if (product.discount_price && product.base_price && product.base_price > 0) {
+        const discount = Math.round(((product.base_price - product.discount_price) / product.base_price) * 100)
+        if (discount > maxDiscount) {
+          maxDiscount = discount
+        }
+        productsWithDiscount++
+      }
+    }
+
+    return {
+      ...tracked,
+      _maxDiscount: maxDiscount,
+      _productsWithDiscount: productsWithDiscount
+    }
+  })
+
+  // Sort by max discount (descending), then by products with discount count
+  return withMaxDiscount.sort((a, b) => {
+    if (b._maxDiscount !== a._maxDiscount) {
+      return b._maxDiscount - a._maxDiscount
+    }
+    return b._productsWithDiscount - a._productsWithDiscount
+  })
+})
+
+// Check if product is the best (lowest) price in its tracked category
+function isBestPriceInCategory(tracked: any, product: any): boolean {
+  if (!product.discount_price) return false
+  const currentPrice = product.discount_price
+
+  // Check against all other products with ≥90% confidence in same category
+  for (const p of tracked.products) {
+    if (p.id === product.id) continue
+    if (p.similarity_score < 0.90) continue
+    const price = p.discount_price || p.base_price
+    if (price && price < currentPrice) {
+      return false
+    }
+  }
+  return true
+}
+
 function setScrollRef(trackedId: number, el: any) {
   scrollRefs.value[trackedId] = el as HTMLElement | null
 }
@@ -586,7 +749,7 @@ async function addTrackedProduct() {
       search_term: newProductTerm.value.trim()
     })
     if (response.success) {
-      showSuccess(response.message || 'Proizvod dodan za praćenje')
+      showSuccess('Proizvod dodan za praćenje')
       showAddModal.value = false
       newProductTerm.value = ''
       await fetchTrackedProducts()
@@ -822,6 +985,11 @@ watch(() => route.query.processing, (newVal) => {
 onMounted(async () => {
   // Track page view
   trackPageView('moji-proizvodi')
+
+  // Mark that user has visited moji-proizvodi (for feedback popup precondition)
+  if (process.client) {
+    localStorage.setItem('visited_moji_proizvodi', 'true')
+  }
 
   // Check if we're coming from preferences processing
   if (route.query.processing === 'true') {

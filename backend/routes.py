@@ -10325,6 +10325,272 @@ def api_user_add_tracked_product():
         return jsonify({'error': str(e)}), 500
 
 
+# ==================== EMAIL VISIT TRACKING ====================
+
+@app.route('/api/user/track-email-visit', methods=['POST'])
+def api_track_email_visit():
+    """Track when a logged-in user returns to the site from an email campaign"""
+    from auth_api import decode_jwt_token
+    from models import UserActivity
+
+    # Check authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = decode_jwt_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+        user_id = payload.get('user_id')
+    except Exception:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    try:
+        data = request.get_json() or {}
+        campaign = data.get('campaign')
+        medium = data.get('medium', 'email')
+        landing_page = data.get('landing_page', '/')
+
+        if not campaign:
+            return jsonify({'error': 'Campaign is required'}), 400
+
+        # Create activity record
+        activity = UserActivity(
+            user_id=user_id,
+            activity_type='email_click',
+            page=landing_page,
+            activity_data={
+                'campaign': campaign,
+                'medium': medium,
+                'source': 'email'
+            }
+        )
+        db.session.add(activity)
+        db.session.commit()
+
+        app.logger.info(f"[Attribution] Email click tracked: user={user_id}, campaign={campaign}")
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error tracking email visit: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/track-event', methods=['POST'])
+def api_user_track_event():
+    """Log user interaction events (lightweight tracking)"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication (optional - allow anonymous tracking too)
+    auth_header = request.headers.get('Authorization')
+    user_id = None
+
+    if auth_header:
+        try:
+            token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+            payload = decode_jwt_token(token)
+            if payload:
+                user_id = payload.get('user_id')
+        except Exception:
+            pass  # Anonymous tracking is OK
+
+    try:
+        data = request.get_json() or {}
+        event = data.get('event', 'unknown')
+        event_data = data.get('data', {})
+        timestamp = data.get('timestamp')
+
+        # Log the event (simple logging for now)
+        app.logger.info(f"[TrackEvent] user={user_id} event={event} data={event_data}")
+
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        app.logger.error(f"Track event error: {e}")
+        return jsonify({'success': True}), 200  # Don't fail - tracking should be silent
+
+
+@app.route('/api/admin/email-analytics')
+def api_admin_email_analytics():
+    """Admin endpoint for email engagement analytics"""
+    from auth_api import decode_jwt_token
+    from models import UserActivity
+    from sqlalchemy import func, cast, Date
+    from datetime import timedelta
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        now = datetime.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today_start - timedelta(days=7)
+        month_start = today_start - timedelta(days=30)
+
+        # Get all email click activities
+        email_clicks = UserActivity.query.filter(
+            UserActivity.activity_type == 'email_click'
+        )
+
+        # Summary stats
+        total_clicks = email_clicks.count()
+        today_clicks = email_clicks.filter(UserActivity.created_at >= today_start).count()
+        week_clicks = email_clicks.filter(UserActivity.created_at >= week_start).count()
+        unique_users_week = db.session.query(func.count(func.distinct(UserActivity.user_id))).filter(
+            UserActivity.activity_type == 'email_click',
+            UserActivity.created_at >= week_start
+        ).scalar() or 0
+
+        # Campaign breakdown
+        campaign_stats = db.session.query(
+            func.json_extract_path_text(UserActivity.activity_data, 'campaign').label('campaign'),
+            func.count(UserActivity.id).label('clicks'),
+            func.count(func.distinct(UserActivity.user_id)).label('unique_users')
+        ).filter(
+            UserActivity.activity_type == 'email_click'
+        ).group_by(
+            func.json_extract_path_text(UserActivity.activity_data, 'campaign')
+        ).order_by(
+            func.count(UserActivity.id).desc()
+        ).all()
+
+        campaigns = [
+            {
+                'campaign': row.campaign or 'unknown',
+                'clicks': row.clicks,
+                'unique_users': row.unique_users
+            }
+            for row in campaign_stats
+        ]
+
+        # Recent clicks with user info (last 50)
+        recent_clicks = db.session.query(
+            UserActivity.id,
+            UserActivity.user_id,
+            UserActivity.page,
+            UserActivity.activity_data,
+            UserActivity.created_at,
+            User.email,
+            User.first_name,
+            User.last_name
+        ).join(
+            User, User.id == UserActivity.user_id
+        ).filter(
+            UserActivity.activity_type == 'email_click'
+        ).order_by(
+            UserActivity.created_at.desc()
+        ).limit(50).all()
+
+        recent = [
+            {
+                'id': row.id,
+                'user_id': row.user_id,
+                'email': row.email,
+                'name': f"{row.first_name or ''} {row.last_name or ''}".strip() or row.email,
+                'campaign': row.activity_data.get('campaign', 'unknown') if row.activity_data else 'unknown',
+                'landing_page': row.page,
+                'timestamp': row.created_at.isoformat() if row.created_at else None
+            }
+            for row in recent_clicks
+        ]
+
+        # Daily clicks for last 14 days
+        daily_stats = db.session.query(
+            cast(UserActivity.created_at, Date).label('date'),
+            func.count(UserActivity.id).label('clicks')
+        ).filter(
+            UserActivity.activity_type == 'email_click',
+            UserActivity.created_at >= today_start - timedelta(days=14)
+        ).group_by(
+            cast(UserActivity.created_at, Date)
+        ).order_by(
+            cast(UserActivity.created_at, Date)
+        ).all()
+
+        daily = [
+            {
+                'date': row.date.isoformat() if row.date else None,
+                'clicks': row.clicks
+            }
+            for row in daily_stats
+        ]
+
+        # First-touch attribution stats (registrations)
+        attribution_stats = db.session.query(
+            User.first_touch_source,
+            func.count(User.id).label('count')
+        ).filter(
+            User.first_touch_source.isnot(None)
+        ).group_by(
+            User.first_touch_source
+        ).order_by(
+            func.count(User.id).desc()
+        ).all()
+
+        first_touch = [
+            {
+                'source': row.first_touch_source,
+                'registrations': row.count
+            }
+            for row in attribution_stats
+        ]
+
+        # Campaign-wise registrations
+        campaign_registrations = db.session.query(
+            User.first_touch_campaign,
+            func.count(User.id).label('count')
+        ).filter(
+            User.first_touch_campaign.isnot(None)
+        ).group_by(
+            User.first_touch_campaign
+        ).order_by(
+            func.count(User.id).desc()
+        ).limit(20).all()
+
+        registration_campaigns = [
+            {
+                'campaign': row.first_touch_campaign,
+                'registrations': row.count
+            }
+            for row in campaign_registrations
+        ]
+
+        return jsonify({
+            'summary': {
+                'total_clicks': total_clicks,
+                'today_clicks': today_clicks,
+                'week_clicks': week_clicks,
+                'unique_users_week': unique_users_week
+            },
+            'campaigns': campaigns,
+            'recent_clicks': recent,
+            'daily_stats': daily,
+            'first_touch_sources': first_touch,
+            'registration_campaigns': registration_campaigns
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in email analytics: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== PRODUCT MATCHING ====================
 
 # Background product matching job tracking

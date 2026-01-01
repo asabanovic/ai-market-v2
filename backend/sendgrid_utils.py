@@ -61,6 +61,54 @@ def generate_verification_token():
     return secrets.token_urlsafe(32)
 
 
+def add_utm_params(url: str, source: str = "email", medium: str = "email", campaign: str = None) -> str:
+    """
+    Add UTM tracking parameters to a URL.
+
+    Args:
+        url: The base URL to add parameters to
+        source: utm_source (e.g., 'email', 'facebook')
+        medium: utm_medium (e.g., 'email', 'social')
+        campaign: utm_campaign (e.g., 'daily_summary', 'weekly_deals')
+
+    Returns:
+        URL with UTM parameters appended
+    """
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+
+    # Add UTM params (don't override if already present)
+    if 'utm_source' not in params:
+        params['utm_source'] = [source]
+    if 'utm_medium' not in params:
+        params['utm_medium'] = [medium]
+    if campaign and 'utm_campaign' not in params:
+        params['utm_campaign'] = [campaign]
+
+    # Flatten params (parse_qs returns lists)
+    flat_params = {k: v[0] if isinstance(v, list) else v for k, v in params.items()}
+
+    new_query = urlencode(flat_params)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+
+def get_tracked_url(path: str, campaign: str) -> str:
+    """
+    Get a fully tracked URL with UTM parameters.
+
+    Args:
+        path: URL path (e.g., '/moji-proizvodi')
+        campaign: Email campaign name (e.g., 'daily_summary', 'price_alert')
+
+    Returns:
+        Full URL with tracking: https://popust.ba/moji-proizvodi?utm_source=email&utm_medium=email&utm_campaign=daily_summary
+    """
+    url = f"{BASE_URL}{path}"
+    return add_utm_params(url, source="email", medium="email", campaign=campaign)
+
+
 def get_base_template(content: str, accent_color: str = "#7C3AED") -> str:
     """Base email template - clean white background with logo"""
     return f'''<!DOCTYPE html>
@@ -93,11 +141,22 @@ def get_base_template(content: str, accent_color: str = "#7C3AED") -> str:
 </html>'''
 
 
-def get_button(text: str, url: str, color: str = "#7C3AED") -> str:
-    """Generate a CTA button"""
+def get_button(text: str, url: str, color: str = "#7C3AED", campaign: str = None) -> str:
+    """
+    Generate a CTA button with optional UTM tracking.
+
+    Args:
+        text: Button text
+        url: Target URL
+        color: Button background color
+        campaign: Optional campaign name for UTM tracking (e.g., 'daily_summary')
+    """
+    # Add UTM params if campaign is specified
+    tracked_url = add_utm_params(url, campaign=campaign) if campaign else url
+
     return f'''<table style="margin:24px auto;"><tr>
 <td style="background-color:{color};border-radius:8px;">
-<a href="{url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{text}</a>
+<a href="{tracked_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{text}</a>
 </td>
 </tr></table>'''
 
@@ -154,7 +213,7 @@ def send_verification_email(user_email: str, user_name: str, verification_token:
 <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Dobro došli na Popust.ba</h1>
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
 <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Zahvaljujemo Vam na registraciji. Da biste aktivirali svoj račun i počeli koristiti sve pogodnosti naše platforme, potrebno je potvrditi Vašu email adresu.</p>
-{get_button("Potvrdi email adresu", verification_url, "#10B981")}
+{get_button("Potvrdi email adresu", verification_url, "#10B981", campaign="verification")}
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;">
 <p style="margin:0;font-size:13px;color:#666;line-height:1.5;">
 <strong>Napomena:</strong> Ovaj link vrijedi 24 sata. Ukoliko niste Vi zatražili registraciju, slobodno zanemarite ovu poruku.
@@ -195,7 +254,7 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
 </td></tr>
 </table>
 
-{get_button("Započnite pretragu", BASE_URL, "#7C3AED")}
+{get_button("Započnite pretragu", BASE_URL, "#7C3AED", campaign="welcome")}
 <p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">Uživajte u pronalaženju najboljih ponuda!</p>
 '''
 
@@ -215,7 +274,7 @@ def send_password_reset_email(user_email: str, user_name: str, reset_token: str,
 <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Zahtjev za promjenu lozinke</h1>
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
 <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">Zaprimili smo Vaš zahtjev za promjenu lozinke. Kliknite na dugme ispod kako biste postavili novu lozinku za Vaš račun:</p>
-{get_button("Postavite novu lozinku", reset_url, "#EF4444")}
+{get_button("Postavite novu lozinku", reset_url, "#EF4444", campaign="password_reset")}
 <div style="margin:24px 0;padding:16px;background:#FEF2F2;border-radius:8px;border-left:3px solid #EF4444;">
 <p style="margin:0;font-size:13px;color:#991B1B;line-height:1.5;">
 <strong>Važna napomena:</strong> Ovaj link vrijedi samo 1 sat iz sigurnosnih razloga. Ukoliko niste Vi zatražili promjenu lozinke, slobodno zanemarite ovu poruku - Vaš račun ostaje siguran.
@@ -257,7 +316,7 @@ def send_invitation_email(email: str, business_name: str, role: str, invitation_
 </table>
 </div>
 
-{get_button("Prihvatite pozivnicu", invitation_url, "#10B981")}
+{get_button("Prihvatite pozivnicu", invitation_url, "#10B981", campaign="business_invitation")}
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;">
 <p style="margin:0;font-size:13px;color:#666;line-height:1.5;">
 <strong>Napomena:</strong> Ova pozivnica vrijedi 7 dana. Ukoliko niste očekivali ovaj poziv ili mislite da se radi o grešci, slobodno zanemarite ovu poruku.
@@ -406,7 +465,7 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 <p style="margin:0;font-size:13px;color:#92400E;">⚠️ Cijene se mijenjaju – provjerite prije odlaska u kupovinu.</p>
 </div>
 
-{get_button(cta_text, f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+{get_button(cta_text, f"{BASE_URL}/moji-proizvodi", "#7C3AED", campaign="daily_summary")}
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
 <p style="margin:0;font-size:12px;color:#888;">
 Vi dobijate ovaj email jer ste aktivirali praćenje proizvoda na Popust.ba.
@@ -503,7 +562,7 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 <div style="margin:24px 0;padding:20px;background:linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);border-radius:12px;text-align:center;">
 <p style="margin:0 0 8px;font-size:16px;color:#ffffff;font-weight:600;">Pratite {total_products} {'proizvod' if total_products == 1 else 'proizvoda'}</p>
 <p style="margin:0 0 16px;font-size:13px;color:#E9D5FF;">Najveće uštede obično dolaze od artikala koje kupujete svake sedmice. Dodajte još proizvoda koje redovno kupujete.</p>
-<a href="{BASE_URL}/moji-proizvodi" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Dodaj još proizvoda</a>
+<a href="{add_utm_params(BASE_URL + '/moji-proizvodi', campaign='weekly_summary')}" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Dodaj još proizvoda</a>
 </div>
 '''
     else:
@@ -511,7 +570,7 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 <div style="margin:24px 0;padding:20px;background:linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);border-radius:12px;text-align:center;">
 <p style="margin:0 0 8px;font-size:16px;color:#ffffff;font-weight:600;">Pratite {total_products} proizvoda</p>
 <p style="margin:0 0 16px;font-size:13px;color:#E9D5FF;">Nastavite pratiti cijene i mi ćemo Vas <strong>besplatno</strong> obavijestiti čim budu na akciji!</p>
-<a href="{BASE_URL}/moji-proizvodi" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Pogledaj sve</a>
+<a href="{add_utm_params(BASE_URL + '/moji-proizvodi', campaign='weekly_summary')}" style="display:inline-block;padding:12px 24px;background:#ffffff;border-radius:8px;font-size:14px;color:#7C3AED;text-decoration:none;font-weight:600;">Pogledaj sve</a>
 </div>
 '''
 
@@ -603,7 +662,7 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 '''
 
     # === VALUE-DRIVEN CTA ===
-    main_cta = get_button("Provjerite gdje je sada najjeftinije", f"{BASE_URL}/moji-proizvodi", "#7C3AED")
+    main_cta = get_button("Provjerite gdje je sada najjeftinije", f"{BASE_URL}/moji-proizvodi", "#7C3AED", campaign="weekly_summary")
 
     content = f'''
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">Sedmični pregled Vaših proizvoda</h1>
@@ -744,7 +803,7 @@ Ovi krediti su dodani na Vaš račun i možete ih odmah koristiti za praćenje p
 </tr></table>
 </div>
 
-{get_button("Iskoristite kredite", f"{BASE_URL}/pretraga", "#10B981")}
+{get_button("Iskoristite kredite", f"{BASE_URL}/pretraga", "#10B981", campaign="bonus_credits")}
 
 <p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
 Hvala Vam što ste dio Popust.ba zajednice!
@@ -872,7 +931,7 @@ def send_coupon_purchase_email(user_email: str, user_name: str, coupon_data: dic
 </p>
 </div>
 
-{get_button("Pogledajte moje kupone", f"{BASE_URL}/profil/kuponi", "#7C3AED")}
+{get_button("Pogledajte moje kupone", f"{BASE_URL}/profil/kuponi", "#7C3AED", campaign="coupon_purchase")}
 
 <p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
 Uživajte u uštedi!
@@ -953,7 +1012,7 @@ Kupac će doći u Vašu trgovinu sa kodom za iskorištavanje.
 Kod možete potvrditi na Vašoj poslovnoj kontrolnoj ploči.
 </p>
 
-{get_button("Otvorite kontrolnu ploču", f"{BASE_URL}/moj-biznis", "#7C3AED")}
+{get_button("Otvorite kontrolnu ploču", f"{BASE_URL}/moj-biznis", "#7C3AED", campaign="coupon_sold")}
 '''
 
     subject = f"💰 Nova prodaja: {article_name} | {business_name}"
@@ -1041,7 +1100,7 @@ Ne zaboravite ga iskoristiti!
 <div style="font-size:28px;font-weight:700;color:#10B981;letter-spacing:4px;font-family:monospace;">{formatted_code}</div>
 </div>
 
-{get_button("Pogledajte detalje kupona", f"{BASE_URL}/profil/kuponi", "#F59E0B")}
+{get_button("Pogledajte detalje kupona", f"{BASE_URL}/profil/kuponi", "#F59E0B", campaign="coupon_reminder")}
 '''
 
     subject = f"⏰ Podsjetnik: Kupon za {article_name} ističe za {days_remaining} dana"
@@ -1134,7 +1193,7 @@ iskoristite kupon danas ili sutra prije isteka.
 <div style="font-size:42px;font-weight:800;color:#ffffff;letter-spacing:8px;font-family:monospace;">{formatted_code}</div>
 </div>
 
-{get_button("Pogledajte kupon", f"{BASE_URL}/profil/kuponi", "#EF4444")}
+{get_button("Pogledajte kupon", f"{BASE_URL}/profil/kuponi", "#EF4444", campaign="coupon_expired")}
 
 <p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
 Požurite dok nije kasno!
@@ -1228,7 +1287,7 @@ Nadamo se da ste zadovoljni uslugom!
 <p style="margin:0 0 16px;font-size:14px;color:#666;">
 Vaša ocjena pomaže drugim korisnicima i poboljšava kvalitet ponuda.
 </p>
-{get_button("Ocijenite iskustvo", f"{BASE_URL}/profil/kuponi", "#7C3AED")}
+{get_button("Ocijenite iskustvo", f"{BASE_URL}/profil/kuponi", "#7C3AED", campaign="coupon_feedback")}
 </div>
 
 <p style="margin:24px 0 0;font-size:13px;color:#888;text-align:center;">
@@ -1323,7 +1382,7 @@ Dovoljno je da napišete 2–3 proizvoda koje kupujete svake sedmice.<br>
 <p style="margin:0 0 20px;font-size:14px;color:#666;">
 Samo odaberite proizvode koje redovno kupujete i mi ćemo Vas obavijestiti kada su na akciji.
 </p>
-{get_button("Postavi praćenje proizvoda", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+{get_button("Postavi praćenje proizvoda", f"{BASE_URL}/moji-proizvodi", "#7C3AED", campaign="reengagement")}
 </div>
 
 <div style="margin:24px 0;padding:16px;background:#FEF3C7;border-radius:8px;text-align:center;">
@@ -1422,7 +1481,7 @@ def send_new_rating_notification_email(recipient_email: str, recipient_name: str
 </table>
 </div>
 
-{get_button("Pogledajte detalje", f"{BASE_URL}/profil/kuponi" if not is_business else f"{BASE_URL}/moj-biznis", "#7C3AED")}
+{get_button("Pogledajte detalje", f"{BASE_URL}/profil/kuponi" if not is_business else f"{BASE_URL}/moj-biznis", "#7C3AED", campaign="coupon_redeemed")}
 '''
 
     subject = f"⭐ Nova ocjena: {rating}/5 | {article_name}"
@@ -1512,7 +1571,7 @@ Svaki dan provjeravamo cijene u svim trgovinama. Kad cijena padne — dobijate o
 </div>
 
 <!-- CTA -->
-{get_button("Dodajte svoje proizvode", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+{get_button("Dodajte svoje proizvode", f"{BASE_URL}/moji-proizvodi", "#7C3AED", campaign="weekly_activation")}
 
 <p style="margin:24px 0;font-size:14px;color:#666;line-height:1.6;text-align:center;">
 U prosjeku naši korisnici prate 10 artikala.<br>

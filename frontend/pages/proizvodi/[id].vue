@@ -1138,6 +1138,11 @@ watch(productData, (newData) => {
 
 // Load price history, votes, comments and related products on mount (client-side only)
 onMounted(async () => {
+  // Mark that user has visited proizvodi (for feedback popup precondition)
+  if (process.client) {
+    localStorage.setItem('visited_proizvodi', 'true')
+  }
+
   isLoading.value = isLoadingProduct.value
 
   try {

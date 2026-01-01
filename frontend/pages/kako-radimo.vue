@@ -255,10 +255,10 @@
           </div>
 
           <div class="bg-white rounded-xl p-6 text-center shadow-md">
-            <div class="text-4xl mb-4">📅</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-3">40 kredita mjesečno</h3>
+            <div class="text-4xl mb-4">🔓</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">Bez ograničenja</h3>
             <p class="text-gray-600">
-              Dobijate 40 kredita svakog mjeseca za praćenje proizvoda (1 kredit = 1 proizvod). Krediti se obnavljaju prvog u mjesecu.
+              Pretražujte i uporedite cijene koliko god želite. Nema limita, nema kredita — potpuno besplatno.
             </p>
           </div>
 
@@ -327,7 +327,7 @@
         <div v-if="!isAuthenticated" class="text-center mt-8">
           <NuxtLink to="/registracija"
              class="bg-green-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition duration-200 inline-block shadow-lg">
-            Registrujte se i dobijte 40 besplatnih kredita
+            Registrujte se besplatno
           </NuxtLink>
         </div>
       </div>
@@ -477,9 +477,9 @@
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
-            <div class="text-3xl mb-4">📅</div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">40 kredita mjesečno</h3>
-            <p class="text-gray-600 text-sm">Pratite do 40 proizvoda mjesečno. Kada uklonite praćenje, kredit vam se vraća!</p>
+            <div class="text-3xl mb-4">🔓</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Bez limita</h3>
+            <p class="text-gray-600 text-sm">Pretražujte i pratite koliko god proizvoda želite — bez ograničenja.</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-md">
@@ -532,7 +532,7 @@
             </summary>
             <p class="text-gray-600 mt-4 text-sm">
               Da! Popust.ba je potpuno besplatna platforma za sve korisnike. Nema skrivenih troškova, pretplata ili naknada.
-              Registrovani korisnici dobijaju 40 besplatnih kredita mjesečno, a mogu zaraditi dodatne kredite kroz program preporuka.
+              Pretražujte i uporedite cijene koliko god želite — bez ograničenja.
             </p>
           </details>
 

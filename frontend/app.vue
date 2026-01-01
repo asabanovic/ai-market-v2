@@ -70,8 +70,16 @@ const showWelcomeGuide = ref(false)
 onMounted(async () => {
   await checkAuth()
 
+  // Check if user has already set preferences (backup check for onboarding)
+  const hasExistingPreferences = () => {
+    if (!user.value) return false
+    const preferences = user.value.preferences as Record<string, any> | null
+    return preferences?.grocery_interests && preferences.grocery_interests.length > 0
+  }
+
   // Show onboarding modal if user is logged in but hasn't completed onboarding
-  if (user.value && !user.value.onboarding_completed) {
+  // AND doesn't already have preferences (safety check)
+  if (user.value && !user.value.onboarding_completed && !hasExistingPreferences()) {
     setTimeout(() => {
       showOnboardingModal.value = true
     }, 1000) // Delay 1 second to let the page load
@@ -105,7 +113,14 @@ onUnmounted(() => {
 
 // Watch user changes to show modal after login
 watch(user, (newUser) => {
-  if (newUser && !newUser.onboarding_completed && !showOnboardingModal.value) {
+  // Check if user has already set preferences (backup check)
+  const hasExistingPreferences = () => {
+    if (!newUser) return false
+    const preferences = newUser.preferences as Record<string, any> | null
+    return preferences?.grocery_interests && preferences.grocery_interests.length > 0
+  }
+
+  if (newUser && !newUser.onboarding_completed && !showOnboardingModal.value && !hasExistingPreferences()) {
     setTimeout(() => {
       showOnboardingModal.value = true
     }, 500)
@@ -194,9 +209,43 @@ function handleWelcomeGuideStarted() {
 
 // ==================== FEEDBACK LOGIC ====================
 
+// Check if user has visited moji-proizvodi
+function hasVisitedMojiProizvodi(): boolean {
+  if (!process.client) return false
+  return localStorage.getItem('visited_moji_proizvodi') === 'true'
+}
+
+// Check if user has visited /proizvodi
+function hasVisitedProizvodi(): boolean {
+  if (!process.client) return false
+  return localStorage.getItem('visited_proizvodi') === 'true'
+}
+
+// Check if user has set preferences
+function hasPreferences(): boolean {
+  if (!user.value) return false
+  const preferences = user.value.preferences as Record<string, any> | null
+  return !!(preferences?.grocery_interests && preferences.grocery_interests.length > 0)
+}
+
 // Check if we should show feedback popup for logged-in users
 async function checkFeedbackStatus() {
   if (!user.value || feedbackChecked.value || hasGivenFeedback.value) return
+
+  // PRECONDITION 1: User must have set preferences
+  if (!hasPreferences()) {
+    return
+  }
+
+  // PRECONDITION 2: User must have visited moji-proizvodi
+  if (!hasVisitedMojiProizvodi()) {
+    return
+  }
+
+  // PRECONDITION 3: User must have visited /proizvodi
+  if (!hasVisitedProizvodi()) {
+    return
+  }
 
   // Check localStorage first
   if (process.client && localStorage.getItem('feedback_submitted')) {

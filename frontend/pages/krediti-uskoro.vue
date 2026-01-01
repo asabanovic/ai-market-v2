@@ -27,8 +27,8 @@
               <div>
                 <h3 class="font-semibold text-blue-900 mb-2">Trenutno stanje:</h3>
                 <p class="text-blue-800">
-                  Svi registrovani korisnici dobijaju <strong class="text-blue-900">40 BESPLATNIH kredita sedmično</strong>.
-                  Svaki proizvod koji pretražite troši 1 kredit. Krediti se automatski obnavljaju svakog ponedjeljka!
+                  Svi registrovani korisnici imaju <strong class="text-blue-900">neograničenu pretragu</strong>.
+                  Pretražujte proizvode koliko god želite, bez ograničenja!
                 </p>
               </div>
             </div>
@@ -134,30 +134,30 @@
           <div>
             <h3 class="font-semibold text-gray-900 mb-2 flex items-center">
               <Icon name="mdi:help-circle" class="w-5 h-5 text-purple-600 mr-2" />
-              Koliko kredita imam trenutno?
+              Ima li ograničenja za pretragu?
             </h3>
             <p class="text-gray-600 text-sm ml-7">
-              Svi korisnici imaju 40 kredita sedmično. Možete vidjeti koliko vam je preostalo nakon svake pretrage, a krediti se obnavljaju svakog ponedjeljka.
+              Ne! Pretraga je potpuno besplatna i neograničena. Pretražujte koliko god želite, bez brige o kreditima.
             </p>
           </div>
 
           <div>
             <h3 class="font-semibold text-gray-900 mb-2 flex items-center">
               <Icon name="mdi:help-circle" class="w-5 h-5 text-purple-600 mr-2" />
-              Kako se troše krediti?
+              Šta mogu raditi na Popust.ba?
             </h3>
             <p class="text-gray-600 text-sm ml-7">
-              Svaki proizvod koji pretražite troši 1 kredit. Na primjer, ako pretražite "brasno, cokolada, mlijeko" (3 proizvoda), potroš ite 3 kredita.
+              Pretražujte proizvode, uporedite cijene, pratite omiljene artikle i kreirajte liste za kupovinu. Sve besplatno.
             </p>
           </div>
 
           <div>
             <h3 class="font-semibold text-gray-900 mb-2 flex items-center">
               <Icon name="mdi:help-circle" class="w-5 h-5 text-purple-600 mr-2" />
-              Kada se obnavljaju krediti?
+              Kako da saznam za popuste?
             </h3>
             <p class="text-gray-600 text-sm ml-7">
-              Krediti se automatski resetuju svakog ponedjeljka. Svi korisnici ponovo dobijaju punih 40 kredita.
+              Dodajte proizvode u "Moji Proizvodi" i obavijestit ćemo Vas emailom kad budu na akciji.
             </p>
           </div>
 

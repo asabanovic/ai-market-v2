@@ -95,6 +95,15 @@ class User(UserMixin, db.Model):
     last_activity_date = db.Column(db.Date, nullable=True)  # Last day user was active
     last_streak_milestone = db.Column(db.Integer, default=0, nullable=False)  # Last milestone rewarded (3, 7, 14, 30, 60)
 
+    # First-touch attribution tracking
+    first_touch_source = db.Column(db.String(100), nullable=True)  # e.g., 'facebook', 'google', 'email', 'direct'
+    first_touch_medium = db.Column(db.String(100), nullable=True)  # e.g., 'cpc', 'social', 'email'
+    first_touch_campaign = db.Column(db.String(255), nullable=True)  # e.g., 'winter_sale_2025'
+    first_touch_fbclid = db.Column(db.String(255), nullable=True)  # Facebook click ID if present
+    first_touch_timestamp = db.Column(db.DateTime, nullable=True)  # When user first landed
+    first_touch_landing_page = db.Column(db.String(500), nullable=True)  # URL path where user first landed
+    first_touch_referrer = db.Column(db.String(500), nullable=True)  # Original referrer URL
+
     # Relationships
     package = db.relationship('Package', backref='users')
     searches = db.relationship('UserSearch', backref='user', lazy='dynamic')

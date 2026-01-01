@@ -234,6 +234,11 @@ const initPage = () => {
 
 // Wait for auth to be ready before initializing
 onMounted(() => {
+  // Mark that user has visited proizvodi (for feedback popup precondition)
+  if (process.client) {
+    localStorage.setItem('visited_proizvodi', 'true')
+  }
+
   if (authReady.value) {
     initPage()
   }

@@ -47,11 +47,11 @@
             </li>
             <li class="flex items-start">
               <Icon name="mdi:check-circle" class="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
-              <span>40 kredita sedmično - obnavljaju se svakog ponedjeljka</span>
+              <span>Neograničena pretraga - pretražujte koliko god želite</span>
             </li>
             <li class="flex items-start">
               <Icon name="mdi:check-circle" class="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
-              <span>Bonus krediti se ne resetuju - ostaju zauvijek!</span>
+              <span>Pratite omiljene proizvode i dobijte obavijesti o popustima</span>
             </li>
           </ul>
         </div>

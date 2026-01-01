@@ -11,7 +11,7 @@
     </main>
     <LayoutFooter />
     <ClientOnly>
-      <NotificationOptInPopup />
+      <!-- NotificationOptInPopup disabled for now -->
       <CreditAnimations />
     </ClientOnly>
   </div>
