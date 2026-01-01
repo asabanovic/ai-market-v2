@@ -2872,10 +2872,10 @@ def forgot_password():
             user.reset_token_expires = token_expires
             db.session.commit()
 
-            # Send password reset email
-            base_url = request.url_root.rstrip('/')
+            # Send password reset email - use frontend URL
+            frontend_url = os.environ.get('FRONTEND_URL', 'https://popust.ba')
             send_password_reset_email(user.email, user.first_name or "User",
-                                      reset_token, base_url)
+                                      reset_token, frontend_url)
 
         # Always show success message for security (don't reveal if email exists)
         success_msg = 'Ako je email registrovan, poslat je link za resetiranje lozinke.'

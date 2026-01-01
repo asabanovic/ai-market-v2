@@ -150,7 +150,8 @@ fi
 
 # Start backend in background
 cd "$BACKEND_DIR"
-PYTHONUNBUFFERED=1
+export PYTHONUNBUFFERED=1
+export FRONTEND_URL="http://localhost:3000"
 nohup /usr/local/bin/python3.11 -u main.py > "$LOG_FILE" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$PROJECT_DIR/.backend.pid"
