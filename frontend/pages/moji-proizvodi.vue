@@ -330,7 +330,7 @@
                     <span class="text-lg font-bold text-purple-600">
                       {{ (product.discount_price || product.base_price)?.toFixed(2) }} KM
                     </span>
-                    <span v-if="product.discount_price && product.base_price" class="text-xs text-gray-500 line-through">
+                    <span v-if="product.discount_price && product.base_price && product.base_price > 0" class="text-xs text-gray-500 line-through">
                       {{ product.base_price.toFixed(2) }} KM
                     </span>
                   </div>

@@ -305,12 +305,18 @@
             >
               <option value="created_at_desc">Najnovije prvo</option>
               <option value="created_at_asc">Najstarije prvo</option>
-              <option value="views_desc">Najvise pregleda</option>
+              <option value="views_desc">Najviše pregleda</option>
               <option value="views_asc">Najmanje pregleda</option>
-              <option value="discount_desc">Najveci popust</option>
+              <option value="discount_desc">Najveći popust</option>
               <option value="discount_asc">Najmanji popust</option>
-              <option value="price_desc">Najvisa cijena</option>
-              <option value="price_asc">Najniza cijena</option>
+              <option value="base_price_desc">Osnovna cijena (najviša)</option>
+              <option value="base_price_asc">Osnovna cijena (najniža)</option>
+              <option value="discount_price_desc">Akcijska cijena (najviša)</option>
+              <option value="discount_price_asc">Akcijska cijena (najniža)</option>
+              <option value="category_asc">Kategorija (A-Z)</option>
+              <option value="category_desc">Kategorija (Z-A)</option>
+              <option value="expires_asc">Istek (najraniji)</option>
+              <option value="expires_desc">Istek (najkasniji)</option>
               <option value="title_asc">Naziv (A-Z)</option>
               <option value="title_desc">Naziv (Z-A)</option>
             </select>
@@ -331,16 +337,98 @@
                 </th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Akcije</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slika</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proizvod</th>
+                <th
+                  @click="toggleSort('title')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Proizvod
+                    <span v-if="sortBy === 'title_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'title_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opis za pretragu</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Embedding Text</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cijena</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategorija</th>
+                <th
+                  @click="toggleSort('base_price')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Osnovna
+                    <span v-if="sortBy === 'base_price_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'base_price_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
+                <th
+                  @click="toggleSort('discount_price')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Akcijska
+                    <span v-if="sortBy === 'discount_price_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'discount_price_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
+                <th
+                  @click="toggleSort('discount')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Popust
+                    <span v-if="sortBy === 'discount_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'discount_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
+                <th
+                  @click="toggleSort('category')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Kategorija
+                    <span v-if="sortBy === 'category_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'category_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tagovi</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dodano</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Istek</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pregledi</th>
+                <th
+                  @click="toggleSort('created_at')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Dodano
+                    <span v-if="sortBy === 'created_at_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'created_at_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
+                <th
+                  @click="toggleSort('expires')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Istek
+                    <span v-if="sortBy === 'expires_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'expires_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
+                <th
+                  @click="toggleSort('views')"
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div class="flex items-center gap-1">
+                    Pregledi
+                    <span v-if="sortBy === 'views_asc'" class="text-indigo-600">↑</span>
+                    <span v-else-if="sortBy === 'views_desc'" class="text-indigo-600">↓</span>
+                    <span v-else class="text-gray-300">↕</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -374,9 +462,6 @@
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">
                   <div class="text-sm font-medium text-gray-900">{{ product.title }}</div>
-                  <div v-if="product.discount_percentage > 0" class="text-xs text-red-600">
-                    -{{ product.discount_percentage }}% popust
-                  </div>
                 </td>
                 <td class="px-4 py-4 max-w-xs">
                   <div class="text-sm text-gray-700 truncate" :title="product.enriched_description">
@@ -414,15 +499,17 @@
                   </div>
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">
-                    <template v-if="product.discount_price">
-                      <span class="font-bold text-red-600">{{ formatPrice(product.discount_price) }} KM</span><br>
-                      <span class="text-gray-500 line-through text-xs">{{ formatPrice(product.base_price) }} KM</span>
-                    </template>
-                    <template v-else>
-                      <span class="font-bold">{{ formatPrice(product.base_price) }} KM</span>
-                    </template>
-                  </div>
+                  <span class="text-sm font-medium text-gray-900">{{ formatPrice(product.base_price) }} KM</span>
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap">
+                  <span v-if="product.discount_price" class="text-sm font-bold text-red-600">{{ formatPrice(product.discount_price) }} KM</span>
+                  <span v-else class="text-sm text-gray-400">-</span>
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap">
+                  <span v-if="product.discount_percentage > 0" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                    -{{ product.discount_percentage }}%
+                  </span>
+                  <span v-else class="text-sm text-gray-400">-</span>
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">
                   <span class="text-sm text-gray-500">{{ product.category || 'N/A' }}</span>
@@ -1270,6 +1357,24 @@ watch(sortBy, () => {
   currentPage.value = 1
   fetchProducts()
 })
+
+// Toggle sort function for clickable column headers
+const toggleSort = (field: string) => {
+  const currentSort = sortBy.value
+  const ascKey = `${field}_asc`
+  const descKey = `${field}_desc`
+
+  if (currentSort === descKey) {
+    // Currently desc -> switch to asc
+    sortBy.value = ascKey
+  } else if (currentSort === ascKey) {
+    // Currently asc -> switch to desc
+    sortBy.value = descKey
+  } else {
+    // Different field or no sort -> default to desc (highest first)
+    sortBy.value = descKey
+  }
+}
 
 // Pagination state
 const currentPage = ref(1)
