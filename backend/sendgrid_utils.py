@@ -1362,3 +1362,112 @@ def send_new_rating_notification_email(recipient_email: str, recipient_name: str
     subject = f"⭐ Nova ocjena: {rating}/5 | {article_name}"
     html = get_base_template(content, "#F59E0B")
     return send_email(recipient_email, subject, html)
+
+
+# =============================================================================
+# ACTIVATION / WIN-BACK EMAIL FOR INACTIVE USERS
+# =============================================================================
+
+def send_activation_email(user_email: str, user_name: str, example_savings: dict = None) -> bool:
+    """
+    Send weekly activation email to users WITHOUT tracked products.
+    Shows example savings they could achieve to encourage feature adoption.
+
+    example_savings should contain real platform data:
+    - avg_weekly_savings: float (average savings across all users)
+    - top_category: str (most popular tracked category)
+    - top_category_savings: float (avg savings in that category)
+    - example_products: list of sample products with savings
+    """
+    greeting = f" {user_name}" if user_name else ""
+
+    # Default example data if not provided (use real platform averages)
+    if not example_savings:
+        example_savings = {
+            'avg_weekly_savings': 12.50,
+            'top_category': 'Mlijeko',
+            'top_category_savings': 0.65,
+            'example_products': [
+                {'name': 'Meggle Mlijeko 2.8% 1L', 'store': 'Bingo', 'saving': 0.65, 'percent': 26},
+                {'name': 'Grand Kafa Gold 200g', 'store': 'Konzum', 'saving': 1.91, 'percent': 21},
+                {'name': 'Nutella 400g', 'store': 'Mercator', 'saving': 2.51, 'percent': 20},
+            ]
+        }
+
+    avg_savings = example_savings.get('avg_weekly_savings', 12.50)
+    top_category = example_savings.get('top_category', 'Mlijeko')
+    example_products = example_savings.get('example_products', [])
+
+    # Build example products table
+    products_html = ""
+    for product in example_products[:3]:
+        products_html += f'''
+<tr>
+<td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
+<div style="font-size:14px;color:#1a1a1a;font-weight:500;">{product['name']}</div>
+<div style="font-size:12px;color:#888;margin-top:2px;">{product['store']}</div>
+</td>
+<td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;">
+<div style="font-size:14px;font-weight:600;color:#10B981;">-{product['saving']:.2f} KM</div>
+<div style="font-size:11px;color:#888;">{product['percent']}% jeftinije</div>
+</td>
+</tr>
+'''
+
+    content = f'''
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">Propuštate uštede!</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#666;line-height:1.6;">Poštovani{greeting},</p>
+
+<p style="margin:0 0 20px;font-size:15px;color:#444;line-height:1.6;">
+Znate li da naši korisnici koji prate artikle uštede u prosjeku <strong>{avg_savings:.2f} KM sedmično</strong>?
+</p>
+
+<!-- Savings Showcase Box -->
+<div style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+<div style="font-size:14px;color:#D1FAE5;margin-bottom:8px;">Prosječna sedmična ušteda</div>
+<div style="font-size:42px;font-weight:800;color:#ffffff;">{avg_savings:.2f} KM</div>
+<div style="font-size:13px;color:#A7F3D0;margin-top:8px;">za korisnike koji prate proizvode</div>
+</div>
+
+<!-- How it works -->
+<div style="margin:24px 0;">
+<h3 style="margin:0 0 16px;font-size:16px;color:#1a1a1a;">Kako to funkcioniše?</h3>
+<p style="margin:0 0 16px;font-size:14px;color:#666;line-height:1.6;">
+Jednostavno dodate proizvode koje redovno kupujete (npr. "{top_category}"), a mi svaki dan provjeravamo cijene u svim trgovinama i obavještavamo vas kada padne cijena ili se pojavi nova akcija.
+</p>
+</div>
+
+<!-- Example savings this week -->
+<div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:24px 0;">
+<h3 style="margin:0 0 16px;font-size:15px;color:#1a1a1a;">Primjer: ove sedmice ste mogli uštedjeti na:</h3>
+<table width="100%" style="border-collapse:collapse;">
+{products_html}
+</table>
+</div>
+
+<!-- CTA -->
+{get_button("Dodajte svoje proizvode", f"{BASE_URL}/moji-proizvodi", "#7C3AED")}
+
+<p style="margin:24px 0;font-size:14px;color:#666;line-height:1.6;text-align:center;">
+U prosjeku naši korisnici prate 10 artikala.<br>
+Mi ćemo vas obavijestiti čim se pojavi bolja cijena!
+</p>
+
+<!-- Suggestion box -->
+<div style="margin:24px 0;padding:16px;background:#FEF3C7;border-radius:8px;border-left:3px solid #F59E0B;">
+<p style="margin:0;font-size:13px;color:#92400E;line-height:1.5;">
+<strong>Prijedlog:</strong> Najpopularnije kategorije za praćenje su mlijeko, kafa, ulje i šećer – proizvodi koje kupujete svake sedmice!
+</p>
+</div>
+
+<div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
+<p style="margin:0;font-size:12px;color:#888;">
+Primate ovaj email jer ste registrovani na Popust.ba.
+<br>Za upravljanje obavještenjima posjetite <a href="{BASE_URL}/profil" style="color:#7C3AED;">Vaš profil</a>.
+</p>
+</div>
+'''
+
+    subject = f"Uštedjeli biste {avg_savings:.2f} KM ove sedmice – evo kako"
+    html = get_base_template(content, "#10B981")
+    return send_email(user_email, subject, html)

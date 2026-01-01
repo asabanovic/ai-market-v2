@@ -212,6 +212,17 @@ def run_biweekly_reengagement_job():
     run_reengagement_emails()
 
 
+def run_weekly_activation_job():
+    """Run weekly activation emails for users WITHOUT tracked products (Sundays)."""
+    now = datetime.utcnow()
+    if now.weekday() != 6:  # 6 = Sunday
+        logger.info("Skipping weekly activation - not Sunday")
+        return
+
+    from jobs.weekly_activation import run_activation_emails
+    run_activation_emails()
+
+
 def run_social_media_generator_job():
     """Generate social media posts for the next 5 days."""
     from jobs.social_media_generator import generate_scheduled_posts
@@ -236,6 +247,10 @@ JOBS = [
     # Weekly summary - runs at 8:00 AM UTC on Sundays (9 AM Bosnia time)
     # Comprehensive weekly overview for users with tracked products
     Job("weekly_summary", hour=8, minute=0, func=run_weekly_summary_job),
+
+    # Weekly activation - runs at 8:30 AM UTC on Sundays (right after weekly_summary)
+    # For users WITHOUT tracked products, showing example savings to encourage adoption
+    Job("weekly_activation", hour=8, minute=30, func=run_weekly_activation_job),
 
     # Monthly credits - runs at 0:05 AM UTC on 1st of month
     Job("monthly_credits", hour=0, minute=5, func=run_monthly_credits_job),
