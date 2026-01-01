@@ -316,13 +316,23 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 
     greeting = f" {user_name}" if user_name else ""
 
-    # Dynamic subject - professional tone with correct grammar
+    # Dynamic subject - implies work done for user, adds personal benefit
     if new_products > 0:
-        product_text = plural_bs(new_products, "novi proizvod", "nova proizvoda", "novih proizvoda")
-        subject = f"Pronađeno {new_products} {product_text} na Vašoj listi"
+        product_text = plural_bs(new_products, "nova ponuda", "nove ponude", "novih ponuda")
+        subject_options = [
+            f"Pronađeno {new_products} {product_text} na Vašoj listi",
+            f"Danas: {new_products} {product_text} za Vas",
+            f"{new_products} {product_text} (provjereno danas)",
+        ]
+        subject = random.choice(subject_options)
     elif new_discounts > 0:
         discount_text = plural_bs(new_discounts, "novo sniženje", "nova sniženja", "novih sniženja")
-        subject = f"{new_discounts} {discount_text} na proizvodima koje pratite"
+        subject_options = [
+            f"{new_discounts} {discount_text} na proizvodima koje pratite",
+            f"Danas: {new_discounts} novih prilika za uštedu",
+            f"Pronašli smo {new_discounts} {discount_text} za Vas",
+        ]
+        subject = random.choice(subject_options)
     else:
         subject = f"Dnevni pregled - {total} proizvoda pronađeno"
 
@@ -338,6 +348,17 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 
     # Sort terms by saving (biggest first)
     terms_with_savings.sort(key=lambda x: -x.get('saving', 0))
+
+    # First paragraph variations - imply work done for user
+    intro_variations = [
+        "Provjerili smo cijene za proizvode koje pratite — evo šta se promijenilo danas:",
+        "Jutros smo pregledali sve trgovine za Vas. Evo šta smo pronašli:",
+        "Upravo smo završili provjeru cijena. Pogledajte današnje rezultate:",
+        "Danas smo za Vas pretražili ponude u svim trgovinama:",
+        "Cijene su provjerene — evo pregleda za proizvode koje pratite:",
+        "Vaša dnevna provjera cijena je završena. Evo rezultata:",
+    ]
+    intro_text = random.choice(intro_variations)
 
     # Build terms list (reordered by savings)
     terms_html = ""
@@ -369,8 +390,8 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
     savings_display = f"do {total_savings:.2f} KM" if total_savings > 0 else "potencijalna ušteda"
 
     content = f'''
-<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">💰 Danas ima novih popusta na vašoj listi</h1>
-<p style="margin:0 0 24px;font-size:14px;color:#666;line-height:1.5;">Vi ste nam rekli šta kupujete – mi pratimo cijene svaki dan.</p>
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">💰 Danas ima novih popusta na Vašoj listi</h1>
+<p style="margin:0 0 24px;font-size:14px;color:#666;line-height:1.5;">{intro_text}</p>
 
 <div style="background:#ECFDF5;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
 <div style="font-size:14px;color:#059669;margin-bottom:4px;">Potencijalna ušteda danas:</div>
