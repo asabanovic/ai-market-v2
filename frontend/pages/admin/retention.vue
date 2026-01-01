@@ -113,6 +113,222 @@
         </div>
       </div>
 
+      <!-- Filter Buttons -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex flex-wrap gap-3">
+          <button
+            @click="setFilter('today')"
+            :class="[
+              'px-4 py-2 rounded-lg font-medium transition-colors',
+              activeFilter === 'today'
+                ? 'bg-green-600 text-white'
+                : 'bg-green-100 text-green-700 hover:bg-green-200'
+            ]"
+          >
+            <Icon name="mdi:calendar-today" class="w-4 h-4 mr-1" />
+            Danas ({{ stats.returned_today }})
+          </button>
+          <button
+            @click="setFilter('week')"
+            :class="[
+              'px-4 py-2 rounded-lg font-medium transition-colors',
+              activeFilter === 'week'
+                ? 'bg-purple-600 text-white'
+                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+            ]"
+          >
+            <Icon name="mdi:calendar-week" class="w-4 h-4 mr-1" />
+            Ova nedelja ({{ stats.returned_week }})
+          </button>
+          <button
+            @click="setFilter('month')"
+            :class="[
+              'px-4 py-2 rounded-lg font-medium transition-colors',
+              activeFilter === 'month'
+                ? 'bg-blue-600 text-white'
+                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            ]"
+          >
+            <Icon name="mdi:calendar-month" class="w-4 h-4 mr-1" />
+            Ovaj mjesec ({{ stats.returned_month }})
+          </button>
+          <button
+            @click="setFilter('all')"
+            :class="[
+              'px-4 py-2 rounded-lg font-medium transition-colors',
+              activeFilter === 'all'
+                ? 'bg-gray-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ]"
+          >
+            <Icon name="mdi:calendar" class="w-4 h-4 mr-1" />
+            Svi ({{ stats.total_returned }})
+          </button>
+        </div>
+      </div>
+
+      <!-- Returning Users Table -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900">Korisnici koji su se vratili</h3>
+        </div>
+
+        <div v-if="loading" class="flex items-center justify-center h-64">
+          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Korisnik</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kontakt</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrovan</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poslednja aktivnost</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktivni dani</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Streak</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr
+                v-for="u in users"
+                :key="u.id"
+                class="hover:bg-gray-50 cursor-pointer"
+                :class="{ 'bg-green-50': u.is_active_today }"
+                @click="openUserProfile(u.id)"
+              >
+                <!-- User -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div
+                      v-if="u.is_active_today"
+                      class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"
+                      title="Aktivan danas"
+                    />
+                    <div>
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ u.name || 'N/A' }}
+                      </div>
+                      <div class="text-sm text-gray-500">{{ u.city || 'N/A' }}</div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Contact -->
+                <td class="px-6 py-4">
+                  <div class="text-sm text-gray-900">
+                    <div v-if="u.email" class="flex items-center gap-2">
+                      <Icon name="mdi:email" class="w-4 h-4 text-gray-400" />
+                      {{ u.email }}
+                    </div>
+                    <div v-if="u.phone" class="flex items-center gap-2 mt-1">
+                      <Icon name="mdi:cellphone" class="w-4 h-4 text-gray-400" />
+                      {{ u.phone }}
+                    </div>
+                  </div>
+                  <span
+                    :class="[
+                      'mt-1 px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full',
+                      u.registration_method === 'phone'
+                        ? 'bg-green-100 text-green-800'
+                        : u.registration_method === 'google'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-blue-100 text-blue-800'
+                    ]"
+                  >
+                    {{ u.registration_method === 'phone' ? 'Telefon' : u.registration_method === 'google' ? 'Google' : 'Email' }}
+                  </span>
+                </td>
+
+                <!-- Registered -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">{{ formatDate(u.registered_at) }}</div>
+                  <div class="text-xs text-gray-500">prije {{ u.days_since_registration }} dana</div>
+                </td>
+
+                <!-- Last Activity -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">{{ formatDateShort(u.last_activity_date) }}</div>
+                  <div v-if="u.first_return_gap_days !== null" class="text-xs text-gray-500">
+                    Vratio se nakon {{ u.first_return_gap_days }} dana
+                  </div>
+                </td>
+
+                <!-- Active Days -->
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                  <span class="text-lg font-semibold text-purple-600">{{ u.unique_active_days }}</span>
+                </td>
+
+                <!-- Streak -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center gap-2">
+                    <span v-if="u.current_streak >= 3" class="text-lg">
+                      {{ u.current_streak >= 7 ? '🔥' : '✨' }}
+                    </span>
+                    <div>
+                      <div class="text-sm font-medium text-gray-900">{{ u.current_streak }} dana</div>
+                      <div class="text-xs text-gray-500">Max: {{ u.longest_streak }}</div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Status -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex flex-col gap-1">
+                    <span
+                      v-if="u.is_active_today"
+                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
+                    >
+                      Online danas
+                    </span>
+                    <span
+                      :class="[
+                        'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full',
+                        u.is_verified
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      ]"
+                    >
+                      {{ u.is_verified ? 'Verifikovan' : 'Nije verifikovan' }}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+
+              <tr v-if="users.length === 0">
+                <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                  Nema korisnika koji su se vratili u odabranom periodu
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="pagination.pages > 1" class="bg-gray-50 px-6 py-4 flex items-center justify-between">
+          <div class="text-sm text-gray-700">
+            Stranica {{ pagination.page }} od {{ pagination.pages }} ({{ pagination.total }} korisnika)
+          </div>
+          <div class="flex gap-2">
+            <button
+              @click="changePage(pagination.page - 1)"
+              :disabled="pagination.page === 1"
+              class="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            >
+              Prethodna
+            </button>
+            <button
+              @click="changePage(pagination.page + 1)"
+              :disabled="pagination.page === pagination.pages"
+              class="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            >
+              Sledeca
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Scheduled Jobs -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <div class="flex items-center justify-between mb-4">
@@ -356,222 +572,6 @@
               </tr>
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <!-- Filter Buttons -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex flex-wrap gap-3">
-          <button
-            @click="setFilter('today')"
-            :class="[
-              'px-4 py-2 rounded-lg font-medium transition-colors',
-              activeFilter === 'today'
-                ? 'bg-green-600 text-white'
-                : 'bg-green-100 text-green-700 hover:bg-green-200'
-            ]"
-          >
-            <Icon name="mdi:calendar-today" class="w-4 h-4 mr-1" />
-            Danas ({{ stats.returned_today }})
-          </button>
-          <button
-            @click="setFilter('week')"
-            :class="[
-              'px-4 py-2 rounded-lg font-medium transition-colors',
-              activeFilter === 'week'
-                ? 'bg-purple-600 text-white'
-                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-            ]"
-          >
-            <Icon name="mdi:calendar-week" class="w-4 h-4 mr-1" />
-            Ova nedelja ({{ stats.returned_week }})
-          </button>
-          <button
-            @click="setFilter('month')"
-            :class="[
-              'px-4 py-2 rounded-lg font-medium transition-colors',
-              activeFilter === 'month'
-                ? 'bg-blue-600 text-white'
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            ]"
-          >
-            <Icon name="mdi:calendar-month" class="w-4 h-4 mr-1" />
-            Ovaj mjesec ({{ stats.returned_month }})
-          </button>
-          <button
-            @click="setFilter('all')"
-            :class="[
-              'px-4 py-2 rounded-lg font-medium transition-colors',
-              activeFilter === 'all'
-                ? 'bg-gray-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            ]"
-          >
-            <Icon name="mdi:calendar" class="w-4 h-4 mr-1" />
-            Svi ({{ stats.total_returned }})
-          </button>
-        </div>
-      </div>
-
-      <!-- Returning Users Table -->
-      <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">Korisnici koji su se vratili</h3>
-        </div>
-
-        <div v-if="loading" class="flex items-center justify-center h-64">
-          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
-        </div>
-
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Korisnik</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kontakt</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrovan</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poslednja aktivnost</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktivni dani</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Streak</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr
-                v-for="u in users"
-                :key="u.id"
-                class="hover:bg-gray-50 cursor-pointer"
-                :class="{ 'bg-green-50': u.is_active_today }"
-                @click="openUserProfile(u.id)"
-              >
-                <!-- User -->
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center">
-                    <div
-                      v-if="u.is_active_today"
-                      class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"
-                      title="Aktivan danas"
-                    />
-                    <div>
-                      <div class="text-sm font-medium text-gray-900">
-                        {{ u.name || 'N/A' }}
-                      </div>
-                      <div class="text-sm text-gray-500">{{ u.city || 'N/A' }}</div>
-                    </div>
-                  </div>
-                </td>
-
-                <!-- Contact -->
-                <td class="px-6 py-4">
-                  <div class="text-sm text-gray-900">
-                    <div v-if="u.email" class="flex items-center gap-2">
-                      <Icon name="mdi:email" class="w-4 h-4 text-gray-400" />
-                      {{ u.email }}
-                    </div>
-                    <div v-if="u.phone" class="flex items-center gap-2 mt-1">
-                      <Icon name="mdi:cellphone" class="w-4 h-4 text-gray-400" />
-                      {{ u.phone }}
-                    </div>
-                  </div>
-                  <span
-                    :class="[
-                      'mt-1 px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full',
-                      u.registration_method === 'phone'
-                        ? 'bg-green-100 text-green-800'
-                        : u.registration_method === 'google'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-blue-100 text-blue-800'
-                    ]"
-                  >
-                    {{ u.registration_method === 'phone' ? 'Telefon' : u.registration_method === 'google' ? 'Google' : 'Email' }}
-                  </span>
-                </td>
-
-                <!-- Registered -->
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">{{ formatDate(u.registered_at) }}</div>
-                  <div class="text-xs text-gray-500">prije {{ u.days_since_registration }} dana</div>
-                </td>
-
-                <!-- Last Activity -->
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">{{ formatDateShort(u.last_activity_date) }}</div>
-                  <div v-if="u.first_return_gap_days !== null" class="text-xs text-gray-500">
-                    Vratio se nakon {{ u.first_return_gap_days }} dana
-                  </div>
-                </td>
-
-                <!-- Active Days -->
-                <td class="px-6 py-4 whitespace-nowrap text-center">
-                  <span class="text-lg font-semibold text-purple-600">{{ u.unique_active_days }}</span>
-                </td>
-
-                <!-- Streak -->
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center gap-2">
-                    <span v-if="u.current_streak >= 3" class="text-lg">
-                      {{ u.current_streak >= 7 ? '🔥' : '✨' }}
-                    </span>
-                    <div>
-                      <div class="text-sm font-medium text-gray-900">{{ u.current_streak }} dana</div>
-                      <div class="text-xs text-gray-500">Max: {{ u.longest_streak }}</div>
-                    </div>
-                  </div>
-                </td>
-
-                <!-- Status -->
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex flex-col gap-1">
-                    <span
-                      v-if="u.is_active_today"
-                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
-                    >
-                      Online danas
-                    </span>
-                    <span
-                      :class="[
-                        'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full',
-                        u.is_verified
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      ]"
-                    >
-                      {{ u.is_verified ? 'Verifikovan' : 'Nije verifikovan' }}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="users.length === 0">
-                <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                  Nema korisnika koji su se vratili u odabranom periodu
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="pagination.pages > 1" class="bg-gray-50 px-6 py-4 flex items-center justify-between">
-          <div class="text-sm text-gray-700">
-            Stranica {{ pagination.page }} od {{ pagination.pages }} ({{ pagination.total }} korisnika)
-          </div>
-          <div class="flex gap-2">
-            <button
-              @click="changePage(pagination.page - 1)"
-              :disabled="pagination.page === 1"
-              class="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-            >
-              Prethodna
-            </button>
-            <button
-              @click="changePage(pagination.page + 1)"
-              :disabled="pagination.page === pagination.pages"
-              class="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-            >
-              Sledeca
-            </button>
-          </div>
         </div>
       </div>
     </div>
