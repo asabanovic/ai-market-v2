@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db
 from models import User, UserProductScan, UserScanResult, UserTrackedProduct, JobRun, EmailNotification
-from sendgrid_utils import send_scan_summary_email as sendgrid_scan_summary
+from sendgrid_utils import send_scan_summary_email as sendgrid_scan_summary, plural_bs
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -199,9 +199,11 @@ def generate_scan_email_html(user_name: str, summary: dict) -> str:
     # Summary badges
     summary_items = []
     if summary['new_products'] > 0:
-        summary_items.append(f"<strong>{summary['new_products']}</strong> novih proizvoda")
+        product_text = plural_bs(summary['new_products'], "novi proizvod", "nova proizvoda", "novih proizvoda")
+        summary_items.append(f"<strong>{summary['new_products']}</strong> {product_text}")
     if summary['new_discounts'] > 0:
-        summary_items.append(f"<strong>{summary['new_discounts']}</strong> novih popusta")
+        discount_text = plural_bs(summary['new_discounts'], "novi popust", "nova popusta", "novih popusta")
+        summary_items.append(f"<strong>{summary['new_discounts']}</strong> {discount_text}")
 
     summary_text = " i ".join(summary_items) if summary_items else "Nema novih promjena"
 
@@ -318,15 +320,41 @@ def run_email_summaries():
 
             logger.info(f"Found {len(completed_scans)} completed scans for today")
 
+            # Get users who already received a daily or weekly email today to prevent duplicates
+            # Skip daily email if user already got weekly email today
+            from datetime import datetime
+            today_start = datetime.combine(today, datetime.min.time())
+            already_emailed_today = set(
+                row[0] for row in db.session.query(EmailNotification.user_id).filter(
+                    EmailNotification.email_type.in_(['daily_scan', 'weekly_scan']),
+                    EmailNotification.status == 'sent',
+                    EmailNotification.sent_at >= today_start
+                ).all() if row[0] is not None
+            )
+            logger.info(f"Found {len(already_emailed_today)} users already emailed today (daily or weekly)")
+
             sent_count = 0
             skipped_count = 0
             failed_count = 0
+            emailed_user_ids = set()  # Track users emailed in this run
 
             processed_count = 0
             for scan in completed_scans:
                 processed_count += 1
                 user = User.query.get(scan.user_id)
                 if not user:
+                    continue
+
+                # Skip if user already received email today (daily or weekly)
+                if user.id in already_emailed_today:
+                    logger.debug(f"User {user.id} already received daily/weekly email today, skipping")
+                    skipped_count += 1
+                    continue
+
+                # Skip if we already emailed this user in this job run
+                if user.id in emailed_user_ids:
+                    logger.debug(f"User {user.id} already processed in this run, skipping")
+                    skipped_count += 1
                     continue
 
                 # Get summary
@@ -338,6 +366,7 @@ def run_email_summaries():
                 # Send email
                 try:
                     if send_scan_summary_email(user, summary):
+                        emailed_user_ids.add(user.id)  # Mark as emailed
                         sent_count += 1
 
                         # Log the email notification

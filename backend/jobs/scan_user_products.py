@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db
 from models import User, UserTrackedProduct, UserProductScan, UserScanResult, JobRun
+from sendgrid_utils import plural_bs
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -351,9 +352,11 @@ def scan_single_user(user):
 
         summary_parts = []
         if new_count > 0:
-            summary_parts.append(f"{new_count} novih proizvoda")
+            product_text = plural_bs(new_count, "novi proizvod", "nova proizvoda", "novih proizvoda")
+            summary_parts.append(f"{new_count} {product_text}")
         if discount_count > 0:
-            summary_parts.append(f"{discount_count} novih popusta")
+            discount_text = plural_bs(discount_count, "novi popust", "nova popusta", "novih popusta")
+            summary_parts.append(f"{discount_count} {discount_text}")
         if not summary_parts:
             summary_parts.append("Bez promjena od jučer")
         scan.summary_text = ", ".join(summary_parts)
