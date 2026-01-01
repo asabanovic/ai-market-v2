@@ -1251,6 +1251,8 @@ def send_reengagement_email(user_email: str, user_name: str, data: dict) -> bool
     - best_deals: list of dicts [{title, store, discount_price, discount_percent}]
     - total_users_tracking: int (how many users are tracking products)
     """
+    import random
+
     greeting = f" {user_name}" if user_name else ""
 
     popular_terms = data.get('popular_terms', [])
@@ -1291,13 +1293,13 @@ def send_reengagement_email(user_email: str, user_name: str, data: dict) -> bool
     content = f'''
 <div style="text-align:center;margin-bottom:24px;">
 <div style="font-size:48px;margin-bottom:8px;">🛒</div>
-<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">Ne propustite najbolje ponude!</h1>
+<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1a1a1a;">Treba Vam samo 10 sekundi</h1>
 </div>
 
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
 <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
-Primijetili smo da još uvijek nemate postavljeno praćenje proizvoda.
-<strong>Mnogi korisnici</strong> već koriste ovu funkciju i svakodnevno primaju obavijesti o najboljim cijenama!
+Dovoljno je da napišete 2–3 proizvoda koje kupujete svake sedmice.<br>
+<strong>Mi ćemo pratiti cijene umjesto Vas.</strong>
 </p>
 
 <!-- Social Proof Box -->
@@ -1335,7 +1337,14 @@ Ovaj email primate jednom mjesečno. Za upravljanje obavještenjima posjetite <a
 </p>
 '''
 
-    subject = "🛒 Ne propustite najbolje ponude - postavite praćenje!"
+    # Action-focused subjects (rotate) - sell the action, not "best deals"
+    subject_options = [
+        "Treba Vam 10 sekundi da ovo postavite 🛒",
+        "Popust.ba još ne zna šta kupujete",
+        "Bez praćenja = bez obavijesti o akcijama",
+        "Postavite praćenje za artikle koje već kupujete",
+    ]
+    subject = random.choice(subject_options)
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
 
