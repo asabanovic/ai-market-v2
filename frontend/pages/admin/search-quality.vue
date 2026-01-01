@@ -206,26 +206,26 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div>
                 <dt class="text-xs text-gray-500">Vrijeme</dt>
-                <dd class="text-sm font-medium">{{ formatDateTime(selectedLog.created_at) }}</dd>
+                <dd class="text-sm font-medium text-gray-900">{{ formatDateTime(selectedLog.created_at) }}</dd>
               </div>
               <div>
                 <dt class="text-xs text-gray-500">Rezultati</dt>
-                <dd class="text-sm font-medium">{{ selectedLog.result_count }} / {{ selectedLog.total_before_filter || 'N/A' }}</dd>
+                <dd class="text-sm font-medium text-gray-900">{{ selectedLog.result_count }} / {{ selectedLog.total_before_filter || 'N/A' }}</dd>
               </div>
               <div>
                 <dt class="text-xs text-gray-500">Similarity Threshold</dt>
-                <dd class="text-sm font-medium">{{ selectedLog.similarity_threshold }}</dd>
+                <dd class="text-sm font-medium text-gray-900">{{ selectedLog.similarity_threshold }}</dd>
               </div>
               <div>
                 <dt class="text-xs text-gray-500">K</dt>
-                <dd class="text-sm font-medium">{{ selectedLog.k }}</dd>
+                <dd class="text-sm font-medium text-gray-900">{{ selectedLog.k }}</dd>
               </div>
             </div>
 
             <!-- Parsed Query -->
             <div v-if="selectedLog.parsed_query" class="mb-6">
               <h4 class="text-sm font-medium text-gray-700 mb-2">Parsed Query</h4>
-              <pre class="bg-gray-50 p-3 rounded text-xs overflow-x-auto">{{ JSON.stringify(selectedLog.parsed_query, null, 2) }}</pre>
+              <pre class="bg-gray-50 p-3 rounded text-xs overflow-x-auto text-gray-800">{{ JSON.stringify(selectedLog.parsed_query, null, 2) }}</pre>
             </div>
 
             <!-- Results Detail -->
@@ -315,9 +315,9 @@
                     :key="change.product_id"
                     class="flex justify-between items-center py-1 px-2 hover:bg-gray-50 text-sm"
                   >
-                    <span class="truncate flex-1">{{ change.title }}</span>
+                    <span class="truncate flex-1 text-gray-800">{{ change.title }}</span>
                     <span class="text-gray-400 mx-2">{{ change.original_score?.toFixed(3) }} -></span>
-                    <span class="font-medium">{{ change.new_score?.toFixed(3) }}</span>
+                    <span class="font-medium text-gray-900">{{ change.new_score?.toFixed(3) }}</span>
                     <span
                       class="ml-2 px-2 py-0.5 rounded text-xs"
                       :class="getScoreChangeClass(change.score_change)"
