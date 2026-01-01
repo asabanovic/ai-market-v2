@@ -26,6 +26,36 @@ BASE_URL = os.environ.get("BASE_URL", "https://popust.ba")
 LOGO_URL = "https://popust.ba/logo.png"
 
 
+def plural_bs(n: int, singular: str, paucal: str, plural: str) -> str:
+    """
+    Return correct Bosnian/Croatian/Serbian plural form based on number.
+
+    Rules:
+    - 1 (or ends in 1, except 11): singular form
+    - 2, 3, 4 (or ends in 2-4, except 12-14): paucal form
+    - 0, 5-9, 11-14 (or ends in 0, 5-9): plural form
+
+    Examples:
+    - plural_bs(1, "nov proizvod", "nova proizvoda", "novih proizvoda") -> "nov proizvod"
+    - plural_bs(2, "nov proizvod", "nova proizvoda", "novih proizvoda") -> "nova proizvoda"
+    - plural_bs(5, "nov proizvod", "nova proizvoda", "novih proizvoda") -> "novih proizvoda"
+    """
+    n = abs(n)
+    last_digit = n % 10
+    last_two_digits = n % 100
+
+    # Special case for teens (11-14) - always plural
+    if 11 <= last_two_digits <= 14:
+        return plural
+
+    if last_digit == 1:
+        return singular
+    elif 2 <= last_digit <= 4:
+        return paucal
+    else:
+        return plural
+
+
 def generate_verification_token():
     """Generate a secure verification token"""
     return secrets.token_urlsafe(32)
@@ -286,11 +316,13 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 
     greeting = f" {user_name}" if user_name else ""
 
-    # Dynamic subject - professional tone (keeping existing)
+    # Dynamic subject - professional tone with correct grammar
     if new_products > 0:
-        subject = f"Pronađeno {new_products} novih proizvoda na Vašoj listi"
+        product_text = plural_bs(new_products, "novi proizvod", "nova proizvoda", "novih proizvoda")
+        subject = f"Pronađeno {new_products} {product_text} na Vašoj listi"
     elif new_discounts > 0:
-        subject = f"{new_discounts} novih sniženja na proizvodima koje pratite"
+        discount_text = plural_bs(new_discounts, "novo sniženje", "nova sniženja", "novih sniženja")
+        subject = f"{new_discounts} {discount_text} na proizvodima koje pratite"
     else:
         subject = f"Dnevni pregled - {total} proizvoda pronađeno"
 
@@ -474,7 +506,7 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 <div style="font-size:12px;color:#666;margin-top:2px;">{deal.get('store', '')}</div>
 </td>
 <td style="text-align:right;vertical-align:top;">
-<div style="font-size:12px;color:#888;text-decoration:line-through;">{deal.get('original_price', 0):.2f} KM</div>
+{'<div style="font-size:12px;color:#888;text-decoration:line-through;">' + f"{deal.get('original_price', 0):.2f} KM</div>" if deal.get('original_price', 0) > 0 else ''}
 <div style="font-size:16px;font-weight:700;color:#10B981;">{deal.get('discount_price', 0):.2f} KM</div>
 <div style="font-size:11px;color:#10B981;">-{savings_pct:.0f}%</div>
 </td>
@@ -545,7 +577,7 @@ def send_weekly_summary_email(user_email: str, user_name: str, summary: dict) ->
 <p style="margin:0 0 4px;font-size:12px;color:#D1FAE5;text-transform:uppercase;letter-spacing:1px;">Vaša najveća ušteda ove sedmice</p>
 <p style="margin:0 0 8px;font-size:32px;font-weight:700;color:#ffffff;">-{hero_savings:.2f} KM</p>
 <p style="margin:0 0 4px;font-size:14px;color:#ffffff;font-weight:500;">{hero_deal.get('product', '')}</p>
-<p style="margin:0;font-size:12px;color:#A7F3D0;">{hero_deal.get('store', '')} | <span style="text-decoration:line-through;">{hero_deal.get('original_price', 0):.2f} KM</span> <span style="font-weight:600;">{hero_deal.get('discount_price', 0):.2f} KM</span></p>
+<p style="margin:0;font-size:12px;color:#A7F3D0;">{hero_deal.get('store', '')} | {'<span style="text-decoration:line-through;">' + f"{hero_deal.get('original_price', 0):.2f} KM</span> " if hero_deal.get('original_price', 0) > 0 else ''}<span style="font-weight:600;">{hero_deal.get('discount_price', 0):.2f} KM</span></p>
 </div>
 '''
 
@@ -733,6 +765,16 @@ def send_coupon_purchase_email(user_email: str, user_name: str, coupon_data: dic
     expires_at = coupon_data.get('expires_at', '')
     valid_days = coupon_data.get('valid_days', 0)
 
+    # Only show original price row if original_price > 0
+    original_price_row = f'''<tr>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
+<span style="font-size:13px;color:#666;">Originalna cijena</span>
+</td>
+<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
+<span style="font-size:14px;color:#888;text-decoration:line-through;">{original_price:.2f} KM</span>
+</td>
+</tr>''' if original_price > 0 else ''
+
     # Format redemption code with spaces for readability
     formatted_code = ' '.join([redemption_code[i:i+2] for i in range(0, len(redemption_code), 2)])
 
@@ -779,14 +821,7 @@ def send_coupon_purchase_email(user_email: str, user_name: str, coupon_data: dic
 <span style="font-size:14px;color:#444;">{business_address}</span>
 </td>
 </tr>
-<tr>
-<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
-<span style="font-size:13px;color:#666;">Originalna cijena</span>
-</td>
-<td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;">
-<span style="font-size:14px;color:#888;text-decoration:line-through;">{original_price:.2f} KM</span>
-</td>
-</tr>
+{original_price_row}
 <tr>
 <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">
 <span style="font-size:13px;color:#666;">Vaša cijena</span>
@@ -1206,7 +1241,7 @@ def send_reengagement_email(user_email: str, user_name: str, data: dict) -> bool
         terms_html += f'''
 <tr><td style="padding:8px 12px;background:#F5F3FF;border-radius:8px;margin:4px 0;">
 <span style="font-size:14px;font-weight:600;color:#7C3AED;">{term.get('term', '')}</span>
-<span style="float:right;font-size:12px;color:#666;">{term.get('users_count', 0)} korisnika prati</span>
+<span style="float:right;font-size:12px;color:#666;">popularno</span>
 </td></tr>
 <tr><td style="height:6px;"></td></tr>
 '''
@@ -1240,14 +1275,14 @@ def send_reengagement_email(user_email: str, user_name: str, data: dict) -> bool
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani{greeting},</p>
 <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
 Primijetili smo da još uvijek nemate postavljeno praćenje proizvoda.
-<strong>{total_users} korisnika</strong> već koristi ovu funkciju i svakodnevno prima obavijesti o najboljim cijenama!
+<strong>Mnogi korisnici</strong> već koriste ovu funkciju i svakodnevno primaju obavijesti o najboljim cijenama!
 </p>
 
-<!-- Stats Box -->
+<!-- Social Proof Box -->
 <div style="background:linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
-<div style="font-size:14px;color:#E9D5FF;font-weight:500;margin-bottom:4px;">KORISNICI KOJI PRATE PROIZVODE</div>
-<div style="font-size:48px;font-weight:800;color:#ffffff;">{total_users}</div>
-<div style="font-size:14px;color:#E9D5FF;margin-top:8px;">primaju dnevne obavijesti o cijenama</div>
+<div style="font-size:14px;color:#E9D5FF;font-weight:500;margin-bottom:4px;">ZAŠTO PRATITI PROIZVODE?</div>
+<div style="font-size:24px;font-weight:700;color:#ffffff;">U prosjeku korisnici uštede 15% na proizvodima koje prate</div>
+<div style="font-size:14px;color:#E9D5FF;margin-top:8px;">primajući dnevne obavijesti o cijenama</div>
 </div>
 
 <!-- Popular Terms -->
@@ -1278,7 +1313,7 @@ Ovaj email primate jednom mjesečno. Za upravljanje obavještenjima posjetite <a
 </p>
 '''
 
-    subject = f"🛒 {total_users} korisnika već štedi - pridružite se!"
+    subject = "🛒 Ne propustite najbolje ponude - postavite praćenje!"
     html = get_base_template(content, "#7C3AED")
     return send_email(user_email, subject, html)
 

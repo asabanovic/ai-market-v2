@@ -182,7 +182,7 @@ def run_reengagement_emails():
                         EmailNotification.log_email(
                             email=user.email,
                             email_type='monthly_reengagement',
-                            subject=f"{total_users_tracking} korisnika vec stedi - pridruzite se!",
+                            subject="Ne propustite najbolje ponude - postavite pracenje!",
                             user_id=user.id,
                             status='sent',
                             extra_data={

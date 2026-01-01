@@ -19,7 +19,7 @@ from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
                           normalize_text_for_search, extract_search_intent, match_products_by_tags, smart_rank_products, generate_bulk_product_tags, generate_enriched_description)
-from sendgrid_utils import send_contact_email, send_welcome_email, send_verification_email, generate_verification_token, send_invitation_email, send_password_reset_email
+from sendgrid_utils import send_contact_email, send_welcome_email, send_verification_email, generate_verification_token, send_invitation_email, send_password_reset_email, plural_bs
 from models import SavingsStatistics
 # Temporarily commenting PDF imports to fix server
 # from pdf_parser import process_pdf_for_business, download_pdf_from_url, normalize_product_title
@@ -1630,6 +1630,14 @@ def api_business_products(business_id):
             'views_asc': Product.views.asc().nullsfirst(),
             'price_desc': Product.discount_price.desc().nullslast(),
             'price_asc': Product.discount_price.asc().nullsfirst(),
+            'base_price_desc': Product.base_price.desc().nullslast(),
+            'base_price_asc': Product.base_price.asc().nullsfirst(),
+            'discount_price_desc': Product.discount_price.desc().nullslast(),
+            'discount_price_asc': Product.discount_price.asc().nullsfirst(),
+            'category_desc': Product.category.desc().nullslast(),
+            'category_asc': Product.category.asc().nullsfirst(),
+            'expires_desc': Product.expires.desc().nullslast(),
+            'expires_asc': Product.expires.asc().nullsfirst(),
             'title_asc': Product.title.asc(),
             'title_desc': Product.title.desc(),
         }
@@ -3686,7 +3694,7 @@ def sync_business_pdf(business_id):
             'pages_processed':
             result['pages_processed'],
             'message':
-            f'Dodano {added_count} novih proizvoda, ažurirano {updated_count}, preskočeno {skipped_count} duplikata'
+            f'Dodano {added_count} {plural_bs(added_count, "novi proizvod", "nova proizvoda", "novih proizvoda")}, ažurirano {updated_count}, preskočeno {skipped_count} duplikata'
         })
 
     except Exception as e:
@@ -9934,9 +9942,11 @@ def run_user_scan_worker(user_id, scan_id, tracked_data, business_ids, yesterday
 
                 summary_parts = []
                 if new_count > 0:
-                    summary_parts.append(f"{new_count} novih proizvoda")
+                    product_text = plural_bs(new_count, "novi proizvod", "nova proizvoda", "novih proizvoda")
+                    summary_parts.append(f"{new_count} {product_text}")
                 if discount_count > 0:
-                    summary_parts.append(f"{discount_count} novih popusta")
+                    discount_text = plural_bs(discount_count, "novi popust", "nova popusta", "novih popusta")
+                    summary_parts.append(f"{discount_count} {discount_text}")
                 if not summary_parts:
                     summary_parts.append("Bez promjena od jučer")
                 scan.summary_text = ", ".join(summary_parts)
