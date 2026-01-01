@@ -213,6 +213,9 @@ def get_camera_button_analytics():
 
             users_data.append(user_data)
 
+        # Count logged-in users before adding anonymous sessions
+        logged_in_user_count = len(users_data)
+
         # Get anonymous sessions with their actions
         anon_session_data = db.session.query(
             CameraButtonAnalytics.session_id,
@@ -275,7 +278,7 @@ def get_camera_button_analytics():
             },
             'summary': {
                 'total_interactions': sum(f['total'] for f in funnel.values()),
-                'unique_logged_in_users': len(users_data),
+                'unique_logged_in_users': logged_in_user_count,
                 'anonymous_sessions': anon_sessions,
                 'days_analyzed': days
             },
