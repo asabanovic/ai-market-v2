@@ -25,3 +25,4 @@ Pillow>=10.0.0
 duckduckgo_search>=6.0.0
 sendgrid>=6.10.0
 pytz==2024.1
+sentry-sdk[flask]>=2.0.0

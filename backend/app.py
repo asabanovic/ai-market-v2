@@ -14,6 +14,31 @@ load_dotenv()
 # Load .env.local to override with local development values (not committed to git)
 load_dotenv('.env.local', override=True)
 
+# ---- Sentry Error Monitoring ----
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+sentry_dsn = os.environ.get("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[
+            FlaskIntegration(),
+            SqlalchemyIntegration(),
+        ],
+        # Set traces_sample_rate to 1.0 to capture 100% of transactions for performance monitoring
+        # Reduce in production if too costly
+        traces_sample_rate=0.1,
+        # Set profiles_sample_rate to profile 10% of sampled transactions
+        profiles_sample_rate=0.1,
+        # Environment name (staging/production)
+        environment=os.environ.get("RAILWAY_ENVIRONMENT", "development"),
+        # Send local variables in stack traces (helps debugging)
+        send_default_pii=False,
+    )
+    logging.info("🔍 Sentry error monitoring enabled")
+
 # ---- LangSmith Tracing Config ----
 # LangSmith will automatically enable tracing if these env vars are set
 # See .env file for configuration
