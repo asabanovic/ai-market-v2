@@ -14,6 +14,9 @@ load_dotenv()
 # Load .env.local to override with local development values (not committed to git)
 load_dotenv('.env.local', override=True)
 
+# Configure logging first so we can see all initialization messages
+logging.basicConfig(level=logging.DEBUG)
+
 # ---- Sentry Error Monitoring ----
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -40,6 +43,7 @@ if sentry_dsn and sentry_environment:
         # Send local variables in stack traces (helps debugging)
         send_default_pii=False,
     )
+    print(f"🔍 Sentry error monitoring enabled (environment: {sentry_environment})")
     logging.info(f"🔍 Sentry error monitoring enabled (environment: {sentry_environment})")
 
 # ---- LangSmith Tracing Config ----
@@ -47,9 +51,6 @@ if sentry_dsn and sentry_environment:
 # See .env file for configuration
 if os.environ.get("LANGSMITH_TRACING") == "true":
     logging.info(f"🔍 LangSmith tracing enabled for project: {os.environ.get('LANGSMITH_PROJECT', 'default')}")
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
 
 class Base(DeclarativeBase):
     pass
