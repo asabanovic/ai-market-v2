@@ -1042,6 +1042,13 @@ def health_check():
     return jsonify({'status': 'healthy', 'service': 'ai-market-backend'}), 200
 
 
+# Sentry test endpoint - triggers an error to verify Sentry is working
+@app.route('/api/sentry-test')
+def sentry_test():
+    # This will raise a ZeroDivisionError to test Sentry
+    1 / 0
+
+
 # Homepage route - API info endpoint
 @app.route('/')
 def index():
