@@ -262,20 +262,27 @@ JOBS = [
     # For users without tracked products, encouraging them to set up tracking
     Job("biweekly_reengagement", hour=8, minute=0, func=run_biweekly_reengagement_job),
 
-    # Social media post generator - runs at 0:05 AM UTC daily
+    # Social media post generator - DISABLED
     # Generates posts for the next 5 days
-    Job("social_media_generate", hour=0, minute=5, func=run_social_media_generator_job),
+    Job("social_media_generate", hour=0, minute=5, func=run_social_media_generator_job, enabled=False),
 
-    # Social media publisher - publishes scheduled posts to Facebook
+    # Social media publisher - DISABLED
     # Runs at posting times (12pm and 6pm Bosnia time)
-    Job("social_media_publish_12pm", hour=11, minute=0, func=run_social_media_publisher_job, enabled=True),
-    Job("social_media_publish_6pm", hour=17, minute=0, func=run_social_media_publisher_job, enabled=True),
+    Job("social_media_publish_12pm", hour=11, minute=0, func=run_social_media_publisher_job, enabled=False),
+    Job("social_media_publish_6pm", hour=17, minute=0, func=run_social_media_publisher_job, enabled=False),
 ]
 
 
 def get_job_status():
     """Get status of all jobs for monitoring."""
     from models import JobRun
+
+    # Jobs that only run on specific days (not daily)
+    WEEKLY_JOBS = {
+        'weekly_summary': 6,  # Sunday (weekday 6)
+        'weekly_activation': 6,  # Sunday (weekday 6)
+    }
+    DAY_NAMES = ['Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota', 'Nedjelja']
 
     status = []
     now = datetime.utcnow()
@@ -284,6 +291,18 @@ def get_job_status():
         next_run = datetime(now.year, now.month, now.day, job.hour, job.minute)
         if next_run <= now:
             next_run += timedelta(days=1)
+
+        # For weekly jobs, calculate when it will actually process
+        runs_on_day = None
+        next_actual_run = None
+        if job.name in WEEKLY_JOBS:
+            run_day = WEEKLY_JOBS[job.name]
+            runs_on_day = DAY_NAMES[run_day]
+            # Calculate next occurrence of that day
+            days_until = (run_day - now.weekday()) % 7
+            if days_until == 0 and (now.hour > job.hour or (now.hour == job.hour and now.minute >= job.minute)):
+                days_until = 7  # Already passed today, next week
+            next_actual_run = datetime(now.year, now.month, now.day, job.hour, job.minute) + timedelta(days=days_until)
 
         # Get last run from database
         last_job_run = JobRun.get_last_run(job.name)
@@ -300,12 +319,30 @@ def get_job_status():
                 'error_message': last_job_run.error_message
             }
 
+        # Get last run that actually processed records (for weekly jobs)
+        last_processed_info = None
+        if job.name in WEEKLY_JOBS:
+            last_processed_run = JobRun.query.filter(
+                JobRun.job_name == job.name,
+                JobRun.records_processed > 0,
+                JobRun.status == 'completed'
+            ).order_by(JobRun.started_at.desc()).first()
+            if last_processed_run:
+                last_processed_info = {
+                    'started_at': last_processed_run.started_at.isoformat() if last_processed_run.started_at else None,
+                    'records_processed': last_processed_run.records_processed,
+                    'records_success': last_processed_run.records_success,
+                }
+
         status.append({
             'name': job.name,
             'enabled': job.enabled,
             'scheduled_time': f"{job.hour:02d}:{job.minute:02d} UTC",
             'last_run': last_run_info,
             'next_run': next_run.isoformat(),
+            'runs_on_day': runs_on_day,
+            'next_actual_run': next_actual_run.isoformat() if next_actual_run else None,
+            'last_processed': last_processed_info,
         })
 
     return status

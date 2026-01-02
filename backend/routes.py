@@ -2133,9 +2133,11 @@ def api_featured_data():
         today = date.today()
 
         # First, try to get products WITH images (cleaner look for homepage)
+        # Only show products with base price > 15 KM for more impactful featured discounts
         featured_products = Product.query.join(Business).filter(
             Product.discount_price.isnot(None),
             Product.discount_price < Product.base_price,
+            Product.base_price > 15,  # Only show higher-value products (> 15 KM)
             Product.image_path.isnot(None),  # Must have an image
             Product.image_path != '',  # Image path not empty
             or_(Product.expires.is_(None), Product.expires >= today)  # Filter out expired products
@@ -2156,6 +2158,7 @@ def api_featured_data():
             additional = Product.query.join(Business).filter(
                 Product.discount_price.isnot(None),
                 Product.discount_price < Product.base_price,
+                Product.base_price > 15,  # Only show higher-value products (> 15 KM)
                 Product.id.notin_(existing_ids) if existing_ids else True,
                 or_(Product.expires.is_(None), Product.expires >= today)
             ).order_by(discount_expr.desc()).limit(6 - len(featured_products)).all()
@@ -9854,6 +9857,7 @@ def run_user_scan_worker(user_id, scan_id, tracked_data, business_ids, yesterday
     """Background worker to run product scan for a user"""
     from models import UserProductScan, UserScanResult
     from semantic_search import semantic_search_with_context
+    from preference_config import PREFERENCE_MATCH_THRESHOLD
     import logging
 
     logger = logging.getLogger(__name__)
@@ -9864,12 +9868,9 @@ def run_user_scan_worker(user_id, scan_id, tracked_data, business_ids, yesterday
             new_count = 0
             discount_count = 0
 
-            # Minimum combined score (vector similarity + text bonus + context bonus) to include
-            # Products matching user's favorites context get additional boost
-            # - Text match: +0.3 to +0.5 bonus
-            # - Context match (similar to favorites): +0.0 to +0.2 bonus
-            # So 0.5 threshold filters out irrelevant products
-            MIN_COMBINED_SCORE = 0.5
+            # Minimum combined score from centralized config
+            # See preference_config.py for details on score components
+            MIN_COMBINED_SCORE = PREFERENCE_MATCH_THRESHOLD
 
             for tracked_id, search_term in tracked_data:
                 try:

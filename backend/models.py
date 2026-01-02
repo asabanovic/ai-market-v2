@@ -1033,6 +1033,12 @@ class SearchLog(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     query = db.Column(db.String, nullable=False, index=True)
 
+    # User who performed the search (null for anonymous searches)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+    # Selected stores (business_ids) when searching
+    selected_stores = db.Column(JSON, nullable=True)  # Array of business_ids
+
     # Search parameters used
     similarity_threshold = db.Column(db.Float, nullable=True)
     k = db.Column(db.Integer, nullable=True)
@@ -1042,7 +1048,7 @@ class SearchLog(db.Model):
     total_before_filter = db.Column(db.Integer, nullable=True)
 
     # Detailed results with scores (JSON array)
-    # Each item: {product_id, title, similarity, vector_score, text_score, rank}
+    # Each item: {product_id, title, similarity, vector_score, text_score, rank, price, store_name}
     results_detail = db.Column(JSON, nullable=True)
 
     # Parsed query info from LLM (if any)
@@ -1050,9 +1056,13 @@ class SearchLog(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.now)
 
+    # Relationship to user
+    user = db.relationship('User', backref=db.backref('search_logs', lazy='dynamic'))
+
     __table_args__ = (
         db.Index('idx_search_logs_query', 'query'),
         db.Index('idx_search_logs_created_at', 'created_at'),
+        db.Index('idx_search_logs_user_id', 'user_id'),
     )
 
 

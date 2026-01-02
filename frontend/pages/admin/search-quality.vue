@@ -202,6 +202,69 @@
           </div>
 
           <div class="p-6">
+            <!-- User Info Section -->
+            <div v-if="selectedLog.user" class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+              <h4 class="text-sm font-medium text-indigo-800 mb-3 flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Korisnik
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <dt class="text-xs text-indigo-600">Ime</dt>
+                  <dd class="text-sm font-medium text-gray-900">{{ selectedLog.user.name }}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-indigo-600">Email</dt>
+                  <dd class="text-sm font-medium text-gray-900">{{ selectedLog.user.email || '-' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-indigo-600">Lokacija</dt>
+                  <dd class="text-sm font-medium text-gray-900">{{ selectedLog.user.city || 'Nije postavljeno' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-indigo-600">Metoda registracije</dt>
+                  <dd class="text-sm font-medium text-gray-900">{{ selectedLog.user.registration_method || '-' }}</dd>
+                </div>
+              </div>
+              <div v-if="selectedLog.user.preferences" class="mt-3">
+                <dt class="text-xs text-indigo-600 mb-1">Preference</dt>
+                <dd class="text-xs bg-white p-2 rounded text-gray-700 font-mono">{{ JSON.stringify(selectedLog.user.preferences) }}</dd>
+              </div>
+            </div>
+            <div v-else class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <p class="text-sm text-gray-500 flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Anonimna pretraga (nije prijavljeni korisnik)
+              </p>
+            </div>
+
+            <!-- Selected Stores -->
+            <div v-if="selectedLog.stores && selectedLog.stores.length > 0" class="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+              <h4 class="text-sm font-medium text-green-800 mb-2 flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Odabrane trgovine
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <span v-for="store in selectedLog.stores" :key="store.id" class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  {{ store.name }}
+                </span>
+              </div>
+            </div>
+            <div v-else class="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <p class="text-sm text-gray-500 flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Sve trgovine (nije bio filter)
+              </p>
+            </div>
+
             <!-- Meta Info -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div>
@@ -238,6 +301,8 @@
                       <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Rank</th>
                       <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Slika</th>
                       <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Proizvod</th>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Trgovina</th>
+                      <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Cijena</th>
                       <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Grupa</th>
                       <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Final Score</th>
                       <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Vector</th>
@@ -263,6 +328,19 @@
                       <td class="px-3 py-2">
                         <div class="max-w-xs truncate text-gray-900 font-medium">{{ result.title }}</div>
                         <div class="text-xs text-gray-400">ID: {{ result.product_id }}</div>
+                      </td>
+                      <td class="px-3 py-2">
+                        <span v-if="result.store_name" class="text-sm text-gray-700">{{ result.store_name }}</span>
+                        <span v-else class="text-gray-400">-</span>
+                      </td>
+                      <td class="px-3 py-2">
+                        <div v-if="result.price" class="flex flex-col">
+                          <span class="text-sm font-medium text-green-700">{{ result.price?.toFixed(2) }} KM</span>
+                          <span v-if="result.old_price && result.old_price > result.price" class="text-xs text-gray-400 line-through">
+                            {{ result.old_price?.toFixed(2) }} KM
+                          </span>
+                        </div>
+                        <span v-else class="text-gray-400">-</span>
                       </td>
                       <td class="px-3 py-2 text-gray-500">{{ result.group || '-' }}</td>
                       <td class="px-3 py-2">

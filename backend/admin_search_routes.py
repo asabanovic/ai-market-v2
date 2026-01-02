@@ -7,9 +7,35 @@ import logging
 from datetime import datetime
 
 from app import db
-from models import SearchLog, User
+from models import SearchLog, User, Business
 from agent_search import run_agent_search, format_agent_products
 from auth_api import decode_jwt_token
+
+
+def get_store_names(business_ids):
+    """Get store names for a list of business IDs."""
+    if not business_ids:
+        return []
+    businesses = Business.query.filter(Business.id.in_(business_ids)).all()
+    return [{'id': b.id, 'name': b.name} for b in businesses]
+
+
+def get_user_info(user_id):
+    """Get user info for a search log."""
+    if not user_id:
+        return None
+    user = User.query.get(user_id)
+    if not user:
+        return None
+    return {
+        'id': user.id,
+        'email': user.email,
+        'name': f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email,
+        'city': user.city,
+        'preferences': user.preferences,
+        'registration_method': user.registration_method,
+        'phone': user.phone[:4] + '***' if user.phone else None,  # Partially mask phone
+    }
 
 admin_search_bp = Blueprint('admin_search', __name__, url_prefix='/api/admin/search')
 
@@ -84,9 +110,17 @@ def get_search_logs():
 
         logs = []
         for log in pagination.items:
+            # Get user and store info
+            user_info = get_user_info(log.user_id)
+            store_info = get_store_names(log.selected_stores) if log.selected_stores else None
+
             logs.append({
                 'id': log.id,
                 'query': log.query,
+                'user_id': log.user_id,
+                'user': user_info,
+                'selected_stores': log.selected_stores,
+                'stores': store_info,
                 'similarity_threshold': log.similarity_threshold,
                 'k': log.k,
                 'result_count': log.result_count,
@@ -120,9 +154,17 @@ def get_search_log(log_id):
         if not log:
             return jsonify({'error': 'Log not found'}), 404
 
+        # Get user and store info
+        user_info = get_user_info(log.user_id)
+        store_info = get_store_names(log.selected_stores) if log.selected_stores else None
+
         return jsonify({
             'id': log.id,
             'query': log.query,
+            'user_id': log.user_id,
+            'user': user_info,
+            'selected_stores': log.selected_stores,
+            'stores': store_info,
             'similarity_threshold': log.similarity_threshold,
             'k': log.k,
             'result_count': log.result_count,

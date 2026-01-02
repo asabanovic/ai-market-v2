@@ -349,7 +349,7 @@ def log_search(user_id, query, results, user_ip=None, only_discounted=False):
         db.session.rollback()
 
 
-def log_search_quality(query, results, metadata, search_items=None):
+def log_search_quality(query, results, metadata, search_items=None, user_id=None, business_ids=None):
     """Log search results to SearchLog table for quality evaluation.
 
     Args:
@@ -357,11 +357,13 @@ def log_search_quality(query, results, metadata, search_items=None):
         results: List of product results
         metadata: Search metadata including params
         search_items: Parsed query items from LLM (if any)
+        user_id: ID of the user who performed the search (optional)
+        business_ids: List of business IDs (stores) selected for the search (optional)
     """
     try:
         search_params = metadata.get("search_params", {})
 
-        # Build results detail with scores
+        # Build results detail with scores and price/store info
         results_detail = []
         rank = 1
 
@@ -378,6 +380,10 @@ def log_search_quality(query, results, metadata, search_items=None):
                         "vector_score": product.get("vector_score", 0),
                         "text_score": product.get("text_score", 0),
                         "rank": rank,
+                        "price": product.get("price"),
+                        "old_price": product.get("old_price"),
+                        "store_name": product.get("store_name"),
+                        "business_id": product.get("business_id"),
                     })
                     rank += 1
         else:
@@ -391,12 +397,18 @@ def log_search_quality(query, results, metadata, search_items=None):
                     "vector_score": product.get("vector_score", 0),
                     "text_score": product.get("text_score", 0),
                     "rank": rank,
+                    "price": product.get("price"),
+                    "old_price": product.get("old_price"),
+                    "store_name": product.get("store_name"),
+                    "business_id": product.get("business_id"),
                 })
                 rank += 1
 
         # Create log entry
         log_entry = SearchLog(
             query=query,
+            user_id=user_id,
+            selected_stores=business_ids,
             similarity_threshold=search_params.get("similarity_threshold"),
             k=search_params.get("k"),
             result_count=metadata.get("result_count", len(results_detail)),
@@ -407,7 +419,7 @@ def log_search_quality(query, results, metadata, search_items=None):
 
         db.session.add(log_entry)
         db.session.commit()
-        current_app.logger.info(f"Logged search quality: '{query}' with {len(results_detail)} results")
+        current_app.logger.info(f"Logged search quality: '{query}' with {len(results_detail)} results (user: {user_id})")
 
     except Exception as e:
         current_app.logger.error(f"Failed to log search quality: {e}")
@@ -568,7 +580,7 @@ def unified_search():
 
         # Log search for quality evaluation (detailed scores)
         search_items = result.get("search_items")  # Parsed query items from LLM
-        log_search_quality(query, output.results, output.metadata, search_items)
+        log_search_quality(query, output.results, output.metadata, search_items, user_id=user_id, business_ids=business_ids)
 
         # Record anonymous search (first time only)
         if is_anonymous and user_ip:

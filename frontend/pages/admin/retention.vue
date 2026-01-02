@@ -376,6 +376,18 @@
               <div class="flex items-center gap-1">
                 <Icon name="mdi:clock-outline" class="w-4 h-4" />
                 Zakazano: {{ job.scheduled_time }}
+                <span v-if="job.runs_on_day" class="text-purple-600 font-medium">(samo {{ job.runs_on_day }})</span>
+              </div>
+              <!-- Weekly job: Show next actual run -->
+              <div v-if="job.next_actual_run" class="flex items-center gap-1 mt-1 text-blue-600">
+                <Icon name="mdi:calendar-clock" class="w-4 h-4" />
+                Sljedeći put: {{ formatDateTime(job.next_actual_run) }}
+              </div>
+              <!-- Weekly job: Show last processed (not just started) -->
+              <div v-if="job.last_processed" class="flex items-center gap-1 mt-1 text-green-600">
+                <Icon name="mdi:check-all" class="w-4 h-4" />
+                Posljednje procesiranje: {{ formatDateTime(job.last_processed.started_at) }}
+                <span class="text-gray-500">({{ job.last_processed.records_success }}/{{ job.last_processed.records_processed }})</span>
               </div>
               <div v-if="job.last_run" class="mt-2 space-y-1">
                 <div class="flex items-center gap-1">
@@ -385,8 +397,9 @@
                     :class="job.last_run.status === 'completed' ? 'text-green-600' : job.last_run.status === 'failed' ? 'text-red-600' : 'text-yellow-600 animate-spin'"
                   />
                   {{ formatDateTime(job.last_run.started_at) }}
+                  <span v-if="job.runs_on_day && (!job.last_run.records_processed || job.last_run.records_processed === 0)" class="text-gray-400 text-xs">(preskočeno)</span>
                 </div>
-                <div v-if="job.last_run.records_processed !== null" class="text-xs pl-5">
+                <div v-if="job.last_run.records_processed !== null && job.last_run.records_processed > 0" class="text-xs pl-5">
                   {{ job.last_run.records_success }}/{{ job.last_run.records_processed }} uspjesno
                   <span v-if="job.last_run.duration_seconds" class="text-gray-400">({{ job.last_run.duration_seconds.toFixed(1) }}s)</span>
                 </div>

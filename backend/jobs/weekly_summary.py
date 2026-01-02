@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app import app, db
 from models import User, UserProductScan, UserScanResult, UserTrackedProduct, JobRun, EmailNotification
 from sendgrid_utils import send_weekly_summary_email
+from preference_config import PREFERENCE_MATCH_THRESHOLD
 from sqlalchemy import func, distinct
 import logging
 
@@ -169,8 +170,8 @@ def get_weekly_summary_for_user(user_id: int) -> dict:
 
     # Process each term
     for term, results in term_results.items():
-        # Filter out low-relevance results (similarity < 0.5) to avoid irrelevant matches
-        relevant_results = [r for r in results if (r.similarity_score or 0) >= 0.5]
+        # Filter out low-relevance results using centralized threshold
+        relevant_results = [r for r in results if (r.similarity_score or 0) >= PREFERENCE_MATCH_THRESHOLD]
         if relevant_results:
             results = relevant_results
 

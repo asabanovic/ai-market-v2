@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app import app, db
 from models import User, UserTrackedProduct, UserProductScan, UserScanResult, JobRun
 from sendgrid_utils import plural_bs
+from preference_config import PREFERENCE_MATCH_THRESHOLD
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -278,12 +279,9 @@ def scan_single_user(user):
         new_count = 0
         discount_count = 0
 
-        # Minimum combined score (vector similarity + text bonus + context bonus) to include
-        # Products matching user's favorites context get additional boost
-        # - Text match: +0.3 to +0.5 bonus
-        # - Context match (similar to favorites): +0.0 to +0.2 bonus
-        # So 0.5 threshold filters out irrelevant products
-        MIN_COMBINED_SCORE = 0.5
+        # Minimum combined score from centralized config
+        # See preference_config.py for details on score components
+        MIN_COMBINED_SCORE = PREFERENCE_MATCH_THRESHOLD
 
         for tracked in tracked_products:
             try:
