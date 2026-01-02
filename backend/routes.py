@@ -11850,8 +11850,8 @@ def api_products_track_views():
 
     try:
         import jwt
-        from config import JWT_SECRET_KEY
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+        from auth_api import JWT_SECRET, JWT_ALGORITHM
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get('user_id')
         user_email = payload.get('email')
 
