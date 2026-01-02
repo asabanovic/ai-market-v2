@@ -127,18 +127,18 @@
               <h3 class="font-bold text-gray-900">Posljednje skeniranje: {{ formatDate(latestScan.date) }}</h3>
             </div>
             <p class="text-gray-600 text-sm mt-1">
-              {{ latestScan.summary || `Pronađeno ${latestScan.total_products} proizvoda` }}
+              {{ latestScan.summary || `Pronađeno ${latestScan.total_products} ${pluralBs(latestScan.total_products, 'proizvod', 'proizvoda', 'proizvoda')}` }}
             </p>
           </div>
           <div class="flex items-center gap-4">
             <div v-if="latestScan.new_products > 0" class="flex items-center gap-1.5">
               <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-sm font-medium">
-                {{ latestScan.new_products }} novih
+                {{ latestScan.new_products }} {{ pluralBs(latestScan.new_products, 'novi', 'nova', 'novih') }}
               </span>
             </div>
             <div v-if="latestScan.new_discounts > 0" class="flex items-center gap-1.5">
               <span class="bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full text-sm font-medium">
-                {{ latestScan.new_discounts }} sniženih
+                {{ latestScan.new_discounts }} {{ pluralBs(latestScan.new_discounts, 'snižen', 'snižena', 'sniženih') }}
               </span>
             </div>
           </div>
@@ -554,6 +554,8 @@
 import { useCartStore } from '~/stores/cart'
 import { useFavoritesStore } from '~/stores/favorites'
 import { useTrackedProductsStore } from '~/stores/trackedProducts'
+
+const { pluralBs } = usePluralBs()
 
 definePageMeta({
   middleware: 'auth'
