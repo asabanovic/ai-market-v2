@@ -64,13 +64,20 @@ def extract_tracked_products_for_user(user):
 
     system_prompt = """You extract normalized product search terms from user preferences.
 
-For each item, extract the core product name suitable for semantic search.
+For each item:
+1. FIX TYPOS: Correct misspellings (e.g., "toletni" → "toaletni", missing letters)
+2. ADD DIACRITICS: Add proper Bosnian diacritics (č, ć, š, ž, đ)
+3. EXTRACT core product name suitable for semantic search
+
 Examples:
+- "toletni papir" → "toaletni papir" (fix missing 'a')
+- "osvjezvac" → "osvježivač" (fix missing 'i', add diacritics)
 - "Ariel deterdžent za veš" → "ariel deterdžent"
 - "svježe mlijeko" → "mlijeko"
 - "coca cola zero" → "coca cola zero"
 - "voće i povrće" → split into "voće", "povrće"
 - "jeftina hrana" → skip (too generic)
+- "cokolada" → "čokolada" (add diacritics)
 
 Return JSON array of objects with: search_term, original_text, source
 Only include specific, searchable product terms. Skip generic terms like "hrana", "namirnice", "jeftino"."""

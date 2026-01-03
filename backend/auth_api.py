@@ -1,6 +1,7 @@
 # JWT-based authentication API for frontend
 import jwt
 import os
+import unicodedata
 from datetime import datetime, timedelta, date
 from flask import Blueprint, request, jsonify
 from werkzeug.security import check_password_hash
@@ -8,6 +9,97 @@ from functools import wraps
 from app import app, db
 from models import User, UserDailyVisit
 from constants import BOSNIAN_CITIES
+
+
+def normalize_search_term(term: str) -> str:
+    """
+    Normalize a search term by removing diacritics and lowercasing.
+    This handles Bosnian/Croatian characters like č, ć, š, ž, đ.
+    Example: "osvježivač" -> "osvjezivac"
+    """
+    if not term:
+        return ""
+    # Normalize to NFKD form (decompose characters)
+    nfkd = unicodedata.normalize('NFKD', term)
+    # Remove combining characters (diacritical marks)
+    ascii_text = ''.join(c for c in nfkd if not unicodedata.combining(c))
+    return ascii_text.lower().strip()
+
+
+def correct_bosnian_text(term: str) -> str:
+    """
+    Correct user input: fix typos AND add proper Bosnian diacritics using LLM.
+    Example: "toletni papir" -> "toaletni papir", "osvjezvac" -> "osvježivač"
+    """
+    if not term or len(term.strip()) < 2:
+        return term.strip() if term else term
+
+    term = term.strip()
+
+    try:
+        from openai import OpenAI
+        import os
+
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are a Bosnian/Croatian/Serbian language expert. Your task is to correct user input by:
+1. Fixing typos and misspellings (missing letters, wrong letters)
+2. Adding proper diacritics (č, ć, š, ž, đ) where needed
+
+RULES:
+1. Fix common typos like missing letters: "toletni" → "toaletni", "osvjezvac" → "osvježivač"
+2. Add diacritics where appropriate:
+   - "c" can become "č" or "ć"
+   - "s" can become "š"
+   - "z" can become "ž"
+   - "d" can become "đ"
+3. Keep multi-word phrases together (e.g., "toletni papir" → "toaletni papir")
+4. If the input is already correct, return it unchanged
+5. Keep the original case (lowercase stays lowercase)
+
+EXAMPLES:
+"toletni papir" → "toaletni papir" (missing 'a')
+"osvjezivac" → "osvježivač"
+"osvjezvac" → "osvježivač" (typo - missing i)
+"cokolada" → "čokolada"
+"secer" → "šećer"
+"sampon" → "šampon"
+"deterdzent" → "deterdžent"
+"caj" → "čaj"
+"sunka" → "šunka"
+"cevapi" → "ćevapi"
+"brasno" → "brašno"
+"riza" → "riža"
+"toaletni papir" → "toaletni papir" (already correct)
+
+Return ONLY the corrected text, nothing else."""
+                },
+                {
+                    "role": "user",
+                    "content": term
+                }
+            ],
+            temperature=0.1,
+            max_tokens=50
+        )
+
+        corrected = response.choices[0].message.content.strip()
+
+        # Validate: result should be similar length (not a long explanation)
+        if len(corrected) > len(term) * 2 or len(corrected) < len(term) // 2:
+            return term  # LLM returned something weird, use original
+
+        return corrected
+
+    except Exception as e:
+        # If LLM fails, return original term
+        app.logger.warning(f"Diacritic correction failed for '{term}': {e}")
+        return term
 
 
 # Streak milestone bonuses: {days: bonus_credits}
@@ -788,6 +880,7 @@ def update_user_interests():
                 user.phone = phone
 
         # Update grocery interests
+        removed_interests = []
         if 'grocery_interests' in data:
             interests = data['grocery_interests']
             if isinstance(interests, list):
@@ -797,8 +890,16 @@ def update_user_interests():
                 elif not isinstance(user.preferences, dict):
                     user.preferences = {}
 
-                # Clean and deduplicate interests
+                # Get old interests for comparison
+                old_interests = set(i.strip().lower() for i in user.preferences.get('grocery_interests', []) if i and i.strip())
+
+                # Clean and deduplicate interests (typo correction handled by extraction LLM)
                 clean_interests = list(set([i.strip() for i in interests if i and i.strip()]))
+                new_interests = set(i.strip().lower() for i in clean_interests)
+
+                # Find removed interests
+                removed_interests = list(old_interests - new_interests)
+
                 user.preferences['grocery_interests'] = clean_interests
 
                 # Mark preferences as modified for SQLAlchemy to detect the change
@@ -808,50 +909,92 @@ def update_user_interests():
 
         app.logger.info(f"Interests updated for user: {user.email}, interests: {user.preferences.get('grocery_interests', [])}")
 
-        # Check if user has any tracked products
-        from models import UserTrackedProduct
-        has_tracked_products = UserTrackedProduct.query.filter_by(user_id=user.id).count() > 0
+        # Import tracked products model
+        from models import UserTrackedProduct, UserScanResult
 
-        # If user has grocery interests but no tracked products, trigger extraction
-        processing_started = False
-        if user.preferences.get('grocery_interests') and not has_tracked_products:
-            processing_started = True
-            # Run extraction in background thread
-            import threading
-            def process_preferences(user_id, app_context):
-                with app_context:
-                    try:
-                        from jobs.scan_user_products import extract_tracked_products_for_user, sync_tracked_products, scan_single_user
-                        from models import User
-                        from app import db
+        # Delete tracked products for removed interests
+        deleted_count = 0
+        if removed_interests:
+            for removed in removed_interests:
+                # Find tracked products matching the removed interest
+                tracked_to_delete = UserTrackedProduct.query.filter_by(
+                    user_id=user.id
+                ).filter(
+                    db.func.lower(UserTrackedProduct.search_term) == removed.lower()
+                ).all()
 
-                        usr = User.query.get(user_id)
-                        if usr:
-                            app.logger.info(f"Starting preference extraction for user {user_id}")
-                            extracted = extract_tracked_products_for_user(usr)
-                            if extracted:
-                                sync_tracked_products(usr, extracted)
-                                app.logger.info(f"Synced {len(extracted)} tracked products for user {user_id}")
+                for tracked in tracked_to_delete:
+                    # Delete associated scan results first (foreign key constraint)
+                    UserScanResult.query.filter_by(tracked_product_id=tracked.id).delete()
+                    db.session.delete(tracked)
+                    deleted_count += 1
 
-                                # Now run the scan to find matching products
-                                result = scan_single_user(usr)
-                                if result:
-                                    total, new_count, discount_count = result
-                                    app.logger.info(f"Scan complete for user {user_id}: {total} products found")
-                    except Exception as e:
-                        app.logger.error(f"Error processing preferences for user {user_id}: {e}")
+            if deleted_count > 0:
+                db.session.commit()
+                app.logger.info(f"Deleted {deleted_count} tracked products for removed interests: {removed_interests}")
 
-            thread = threading.Thread(
-                target=process_preferences,
-                args=(user.id, app.app_context())
-            )
-            thread.start()
+        # Get existing tracked product search terms (normalized to handle diacritics)
+        existing_tracked = UserTrackedProduct.query.filter_by(user_id=user.id).all()
+        existing_terms = set(normalize_search_term(t.search_term) for t in existing_tracked if t.search_term)
+
+        # Find NEW interests that don't have tracked products yet
+        new_grocery_interests = user.preferences.get('grocery_interests', []) if user.preferences else []
+        new_interests_to_process = []
+        seen_normalized = set(existing_terms)  # Start with existing to check against them
+        for interest in new_grocery_interests:
+            # Use normalized comparison to handle diacritics (osvjezivac == osvježivač)
+            normalized = normalize_search_term(interest)
+            if interest and normalized not in seen_normalized:
+                new_interests_to_process.append(interest.strip())
+                seen_normalized.add(normalized)  # Prevent duplicates within the input batch
+
+        # ALWAYS run a scan when preferences are updated (user triggered, so no email)
+        # This ensures products are refreshed even when editing existing interests
+        processing_started = True
+        all_interests = new_grocery_interests  # All current interests
+        app.logger.info(f"Processing preferences for user {user.id}, interests: {all_interests}")
+
+        # Run extraction in background thread
+        import threading
+        def process_preferences(user_id, app_context):
+            with app_context:
+                try:
+                    from jobs.scan_user_products import extract_tracked_products_for_user, sync_tracked_products, scan_single_user
+                    from models import User, UserTrackedProduct
+                    from app import db
+
+                    usr = User.query.get(user_id)
+                    if usr:
+                        app.logger.info(f"Starting preference extraction for user {user_id}")
+
+                        # Use LLM extraction to fix typos, add diacritics, and normalize
+                        extracted = extract_tracked_products_for_user(usr)
+                        if extracted:
+                            app.logger.info(f"Extracted {len(extracted)} products for user {user_id}")
+                            sync_tracked_products(usr, extracted)
+
+                        # Always run the scan to find/refresh matching products
+                        result = scan_single_user(usr)
+                        if result:
+                            total, new_count, discount_count = result
+                            app.logger.info(f"Scan complete for user {user_id}: {total} products found")
+                except Exception as e:
+                    app.logger.error(f"Error processing preferences for user {user_id}: {e}")
+                    import traceback
+                    app.logger.error(traceback.format_exc())
+
+        thread = threading.Thread(
+            target=process_preferences,
+            args=(user.id, app.app_context())
+        )
+        thread.start()
 
         return jsonify({
             'success': True,
             'message': 'Interesi uspješno sačuvani',
             'grocery_interests': user.preferences.get('grocery_interests', []) if user.preferences else [],
-            'processing_started': processing_started
+            'processing_started': processing_started,
+            'deleted_tracked_count': deleted_count
         }), 200
 
     except Exception as e:

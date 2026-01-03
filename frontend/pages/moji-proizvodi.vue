@@ -146,7 +146,7 @@
       </div>
 
       <!-- My Preferences Section -->
-      <UserPreferencesSection :key="preferencesKey" @edit="showInterestPopup = true" />
+      <UserPreferencesSection :key="preferencesKey" allow-remove @edit="openEditPreferences" @preference-removed="handlePreferenceRemoved" />
 
       <!-- Interest/Preferences Popup -->
       <InterestPopup
@@ -208,7 +208,15 @@
                 </div>
               </div>
               <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500">{{ tracked.products.length }} pronađeno</span>
+                <!-- Show spinner if searching, otherwise show count -->
+                <span v-if="isSearching(tracked.search_term)" class="text-sm text-purple-600 flex items-center gap-1.5">
+                  <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Tražim...
+                </span>
+                <span v-else class="text-sm text-gray-500">{{ tracked.products.length }} pronađeno</span>
                 <!-- Sort Dropdown -->
                 <select
                   v-if="tracked.products.length > 1"
@@ -221,11 +229,13 @@
                   <option value="price_desc">Cijena: najviša</option>
                 </select>
                 <button
-                  @click="removeTracked(tracked.id)"
-                  class="text-gray-400 hover:text-red-500 transition-colors"
+                  @click="confirmRemoveTracked(tracked)"
+                  class="p-1.5 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors"
                   title="Ukloni praćenje"
                 >
-                  <Icon name="mdi:close" class="w-5 h-5" />
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -280,7 +290,8 @@
               <div
                 v-for="product in tracked.products.slice(0, showAllProducts[tracked.id] ? undefined : 4)"
                 :key="product.id"
-                class="group bg-gray-50 rounded-lg overflow-hidden hover:bg-gray-100 transition-colors relative flex flex-col"
+                class="group rounded-lg overflow-hidden transition-colors relative flex flex-col"
+                :class="product.discount_price ? 'bg-green-50/70 hover:bg-green-100/70' : 'bg-gray-50 hover:bg-gray-100'"
               >
                 <!-- Social Interaction Header -->
                 <div class="bg-gradient-to-b from-black/70 via-black/40 to-transparent px-2 py-2 absolute top-0 left-0 right-0 z-10">
@@ -432,17 +443,31 @@
             </div>
           </div>
 
-          <!-- No Products Found -->
+          <!-- No Products Found / Searching -->
           <div v-else class="p-6 text-center">
-            <Icon name="mdi:clock-outline" class="w-10 h-10 mx-auto mb-2 text-gray-300" />
-            <p class="text-gray-600 font-medium">Trenutno nema ponuda za "{{ tracked.search_term }}"</p>
-            <p class="text-gray-400 text-sm mt-1">Pratimo cijene — obavijestit ćemo Vas čim se pojavi popust.</p>
-            <button
-              @click="showAddModal = true; newProductTerm = ''"
-              class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
-            >
-              + Dodajte još brendova za više ponuda
-            </button>
+            <!-- Show searching animation if currently searching -->
+            <template v-if="isSearching(tracked.search_term)">
+              <div class="flex flex-col items-center justify-center py-4">
+                <div class="w-12 h-12 mb-3 relative">
+                  <div class="w-12 h-12 rounded-full border-4 border-purple-200"></div>
+                  <div class="w-12 h-12 rounded-full border-4 border-purple-600 border-t-transparent absolute top-0 left-0 animate-spin"></div>
+                </div>
+                <p class="text-purple-700 font-medium">Tražim ponude za "{{ tracked.search_term }}"</p>
+                <p class="text-gray-500 text-sm mt-1">Provjeravamo sve radnje, ovo traje do 30 sekundi...</p>
+              </div>
+            </template>
+            <!-- Show empty state if not searching -->
+            <template v-else>
+              <Icon name="mdi:clock-outline" class="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <p class="text-gray-600 font-medium">Trenutno nema ponuda za "{{ tracked.search_term }}"</p>
+              <p class="text-gray-400 text-sm mt-1">Pratimo cijene — obavijestit ćemo Vas čim se pojavi popust.</p>
+              <button
+                @click="showAddModal = true; newProductTerm = ''"
+                class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
+                + Dodajte još brendova za više ponuda
+              </button>
+            </template>
           </div>
         </div>
 
@@ -451,6 +476,43 @@
           <p class="text-sm text-gray-400">
             Što više proizvoda pratite, veća je šansa da uhvatite najbolje popuste.
           </p>
+        </div>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div
+        v-if="deleteConfirmTracked"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        @click.self="deleteConfirmTracked = null"
+      >
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+          <div class="flex items-center justify-center mb-4">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+              <Icon name="mdi:trash-can-outline" class="w-6 h-6 text-red-600" />
+            </div>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">Ukloni praćenje?</h3>
+          <p class="text-sm text-gray-600 text-center mb-1">
+            {{ deleteConfirmTracked.search_term }}
+          </p>
+          <p class="text-xs text-gray-500 text-center mb-6">
+            Ova akcija će ukloniti proizvod iz praćenja i izbrisati historiju cijena.
+          </p>
+          <div class="flex gap-3">
+            <button
+              @click="deleteConfirmTracked = null"
+              class="flex-1 px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+            >
+              Odustani
+            </button>
+            <button
+              @click="removeTracked(deleteConfirmTracked.id)"
+              :disabled="isRemovingTracked"
+              class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              {{ isRemovingTracked ? 'Brišem...' : 'Ukloni' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -556,6 +618,7 @@ import { useFavoritesStore } from '~/stores/favorites'
 import { useTrackedProductsStore } from '~/stores/trackedProducts'
 
 const { pluralBs } = usePluralBs()
+const { checkAuth } = useAuth()
 
 definePageMeta({
   middleware: 'auth'
@@ -600,6 +663,13 @@ const addingToList = ref<Record<number, boolean>>({})
 const commentModalProduct = ref<any>(null)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
+
+// Delete confirmation modal
+const deleteConfirmTracked = ref<any>(null)
+const isRemovingTracked = ref(false)
+
+// Track which terms are being searched (for loading state)
+const searchingTerms = ref<Set<string>>(new Set())
 
 // Scroll refs for horizontal scroll
 const scrollRefs = ref<Record<number, HTMLElement | null>>({})
@@ -745,17 +815,28 @@ async function fetchTrackedProducts() {
 async function addTrackedProduct() {
   if (!newProductTerm.value.trim()) return
 
+  const termToAdd = newProductTerm.value.trim()
+
   isAdding.value = true
   try {
     const response = await post('/api/user/tracked-products', {
-      search_term: newProductTerm.value.trim()
+      search_term: termToAdd
     })
     if (response.success) {
       showSuccess('Proizvod dodan za praćenje')
       showAddModal.value = false
       newProductTerm.value = ''
+
+      // Mark as searching
+      searchingTerms.value.add(termToAdd.toLowerCase())
+
+      // Refresh the list
       await fetchTrackedProducts()
       trackedProductsStore.setCount(trackedProducts.value.length)
+
+      // Start polling for results
+      isProcessingPreferences.value = true
+      startPolling()
     }
   } catch (error: any) {
     handleApiError(error)
@@ -764,8 +845,12 @@ async function addTrackedProduct() {
   }
 }
 
+function confirmRemoveTracked(tracked: any) {
+  deleteConfirmTracked.value = tracked
+}
+
 async function removeTracked(trackedId: number) {
-  if (!confirm('Jeste li sigurni da želite ukloniti ovaj proizvod iz praćenja?')) return
+  isRemovingTracked.value = true
 
   try {
     const response = await api.del(`/api/user/tracked-products/${trackedId}`)
@@ -776,9 +861,17 @@ async function removeTracked(trackedId: number) {
       if (trackedProducts.value.length === 0) {
         hasTracking.value = false
       }
+      deleteConfirmTracked.value = null
+
+      // If preference was also removed, refresh the preferences section
+      if (response.preference_removed) {
+        preferencesKey.value++
+      }
     }
   } catch (error) {
     handleApiError(error)
+  } finally {
+    isRemovingTracked.value = false
   }
 }
 
@@ -929,21 +1022,49 @@ async function checkProcessingStatus() {
   try {
     const status = await get('/auth/user/preferences-status')
 
-    if (status.tracked_products_count > 0) {
-      // Processing complete - we have tracked products now
-      stopPolling()
-      isProcessingPreferences.value = false
-      showProcessingComplete.value = true
+    // Check if scan is complete (scanned_today) or if we have tracked products
+    const scanComplete = status.scanned_today === true
 
-      // Remove query param from URL
-      router.replace({ path: route.path })
-
-      // Force re-render of preferences section
-      preferencesKey.value++
-
-      // Refresh products list
+    // For new users, check tracked_products_count
+    // For existing users with new terms, check if scan is complete
+    if (status.tracked_products_count > 0 && (scanComplete || searchingTerms.value.size === 0)) {
+      // Fetch updated products
       await fetchTrackedProducts()
-      trackedProductsStore.setCount(trackedProducts.value.length)
+
+      // Check if any of the searching terms now have products
+      let allTermsHaveResults = true
+      for (const term of searchingTerms.value) {
+        const tracked = trackedProducts.value.find(
+          (t: any) => t.search_term.toLowerCase() === term
+        )
+        if (!tracked || tracked.products.length === 0) {
+          allTermsHaveResults = false
+          break
+        }
+      }
+
+      // If scan is complete OR all searching terms have results, we're done
+      if (scanComplete || allTermsHaveResults || searchingTerms.value.size === 0) {
+        // Processing complete
+        stopPolling()
+        isProcessingPreferences.value = false
+
+        // Clear searching terms
+        searchingTerms.value.clear()
+
+        // Show success popup only if we found products
+        if (trackedProducts.value.some((t: any) => t.products.length > 0)) {
+          showProcessingComplete.value = true
+        }
+
+        // Remove query param from URL
+        router.replace({ path: route.path })
+
+        // Force re-render of preferences section
+        preferencesKey.value++
+
+        trackedProductsStore.setCount(trackedProducts.value.length)
+      }
     }
   } catch (error) {
     console.error('Error checking processing status:', error)
@@ -964,15 +1085,52 @@ function stopPolling() {
   }
 }
 
+// Check if a tracked term is being searched
+function isSearching(searchTerm: string): boolean {
+  return searchingTerms.value.has(searchTerm.toLowerCase())
+}
+
+// Open edit preferences popup - refresh user data first to get latest preferences
+async function openEditPreferences() {
+  await checkAuth()  // Refresh user data to get latest preferences
+  showInterestPopup.value = true
+}
+
 // Handle interest popup completion - this is called when the InterestPopup emits 'complete'
 // but doesn't redirect (e.g., when editing existing interests)
-function handleInterestComplete() {
+async function handleInterestComplete(data?: { processing_started?: boolean }) {
   showInterestPopup.value = false
   // Force re-render of preferences section
   preferencesKey.value++
-  // The InterestPopup might redirect to this page with ?processing=true
-  // If not, we should refresh the data
-  fetchTrackedProducts()
+
+  // If new interests are being processed, start polling
+  if (data?.processing_started) {
+    isProcessingPreferences.value = true
+
+    // Fetch the tracked products first to get the new terms
+    await fetchTrackedProducts()
+
+    // Mark all tracked products with 0 products as "searching"
+    for (const tracked of trackedProducts.value) {
+      if (tracked.products.length === 0) {
+        searchingTerms.value.add(tracked.search_term.toLowerCase())
+      }
+    }
+
+    // Start polling for completion
+    startPolling()
+    checkProcessingStatus()
+  } else {
+    // Just refresh the data
+    fetchTrackedProducts()
+  }
+}
+
+async function handlePreferenceRemoved(deletedCount: number) {
+  // Refresh tracked products list since some were deleted
+  await fetchTrackedProducts()
+  // Update the store count
+  trackedProductsStore.setCount(trackedProducts.value.length)
 }
 
 // Watch for query param changes (when we're already on this page and navigate to it with ?processing=true)
