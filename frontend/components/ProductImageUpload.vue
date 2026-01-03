@@ -189,6 +189,7 @@ interface PendingUpload {
 }
 
 const { get, del, upload: apiUpload } = useApi()
+const { isNative, takePhoto } = useCamera()
 
 const maxImages = 10
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -224,8 +225,22 @@ function openFileDialog() {
   fileInput.value?.click()
 }
 
-function openCamera() {
-  cameraInput.value?.click()
+async function openCamera() {
+  // Use native camera on mobile (with back camera), fallback to HTML input on web
+  if (isNative) {
+    try {
+      const photo = await takePhoto()
+      if (photo) {
+        uploadFiles([photo.file])
+      }
+    } catch (error) {
+      console.error('Camera error:', error)
+      errorMessage.value = 'Greška pri otvaranju kamere'
+    }
+  } else {
+    // Web fallback - use HTML input
+    cameraInput.value?.click()
+  }
 }
 
 function handleFileSelect(event: Event) {

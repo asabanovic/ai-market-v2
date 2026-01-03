@@ -62,6 +62,7 @@
     </button>
 
     <!-- Hidden inputs -->
+    <!-- capture="environment" = back camera for photographing products -->
     <input
       ref="cameraInput"
       type="file"
@@ -154,6 +155,7 @@ interface PreviewImage {
 const config = useRuntimeConfig()
 const { upload: apiUpload } = useApi()
 const { isAuthenticated, token } = useAuth()
+const { isNative, takePhoto, pickFromGallery } = useCamera()
 
 const isExpanded = ref(false)
 const cameraInput = ref<HTMLInputElement | null>(null)
@@ -194,25 +196,57 @@ function toggleExpanded() {
   }
 }
 
-function openCamera() {
+async function openCamera() {
   trackAction('camera_click')
   if (!isAuthenticated.value) {
     // Redirect to login
     navigateTo('/prijava?redirect=/profil')
     return
   }
-  cameraInput.value?.click()
+
   isExpanded.value = false
+
+  // Use native camera on mobile (with back camera), fallback to HTML input on web
+  if (isNative) {
+    try {
+      const photo = await takePhoto()
+      if (photo) {
+        addPreview(photo.file)
+      }
+    } catch (error) {
+      console.error('Camera error:', error)
+      alert('Greška pri otvaranju kamere')
+    }
+  } else {
+    // Web fallback - use HTML input
+    cameraInput.value?.click()
+  }
 }
 
-function openGallery() {
+async function openGallery() {
   trackAction('gallery_click')
   if (!isAuthenticated.value) {
     navigateTo('/prijava?redirect=/profil')
     return
   }
-  galleryInput.value?.click()
+
   isExpanded.value = false
+
+  // Use native gallery on mobile, fallback to HTML input on web
+  if (isNative) {
+    try {
+      const photo = await pickFromGallery()
+      if (photo) {
+        addPreview(photo.file)
+      }
+    } catch (error) {
+      console.error('Gallery error:', error)
+      alert('Greška pri otvaranju galerije')
+    }
+  } else {
+    // Web fallback - use HTML input
+    galleryInput.value?.click()
+  }
 }
 
 function handleCapture(event: Event) {
