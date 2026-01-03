@@ -1,7 +1,7 @@
 <template>
   <div
     class="product-card-mobile flex flex-col relative snap-center"
-    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-50/70' : 'bg-white']"
+    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-200 ring-2 ring-green-500' : 'bg-white']"
   >
     <!-- Teaser Blur Overlay (Anonymous Users) -->
     <div

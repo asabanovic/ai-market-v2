@@ -1,7 +1,7 @@
 <template>
   <div
     class="overflow-hidden flex relative py-3 px-4"
-    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-50/70' : 'bg-white']"
+    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-200 ring-2 ring-green-500' : 'bg-white']"
     @click="showDetails"
   >
     <!-- Teaser Blur Overlay (Anonymous Users) -->

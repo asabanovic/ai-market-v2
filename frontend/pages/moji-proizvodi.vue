@@ -43,14 +43,9 @@
         class="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200"
       >
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Icon name="mdi:piggy-bank" class="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p class="text-green-800 font-semibold text-sm">Potencijalna ušteda danas</p>
-              <p class="text-green-600 text-xs">Na osnovu trenutnih akcija</p>
-            </div>
+          <div>
+            <p class="text-green-800 font-semibold text-sm">Potencijalna ušteda danas</p>
+            <p class="text-green-600 text-xs">Na osnovu trenutnih akcija</p>
           </div>
           <div class="flex items-center gap-4 sm:gap-6">
             <div class="text-center">

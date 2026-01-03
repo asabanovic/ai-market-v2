@@ -622,6 +622,18 @@ def update_phone():
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
+        # Check if phone is already the same (no change needed)
+        if user.phone == phone:
+            return jsonify({
+                'success': True,
+                'message': 'Broj telefona je uspješno sačuvan'
+            }), 200
+
+        # Check if another user already has this phone number
+        existing_user = User.query.filter(User.phone == phone, User.id != user.id).first()
+        if existing_user:
+            return jsonify({'error': 'Ovaj broj telefona je već u upotrebi'}), 400
+
         # Update phone number
         user.phone = phone
         db.session.commit()
@@ -636,6 +648,9 @@ def update_phone():
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Update phone error: {e}")
+        # Handle unique constraint violation specifically
+        if 'UniqueViolation' in str(type(e).__name__) or 'unique constraint' in str(e).lower():
+            return jsonify({'error': 'Ovaj broj telefona je već u upotrebi'}), 400
         return jsonify({'error': 'Greška pri čuvanju broja telefona'}), 500
 
 
