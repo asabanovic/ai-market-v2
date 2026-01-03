@@ -1,10 +1,14 @@
 """Database utilities for agents."""
 
+import logging
+import re
 from datetime import date
 from typing import List, Dict, Any, Optional, Callable
 from sqlalchemy import text
 from agents.common.llm_utils import get_embedding_model
 
+
+logger = logging.getLogger(__name__)
 
 # Hybrid search weights (can be tuned)
 VECTOR_WEIGHT = 0.6  # Semantic similarity weight
@@ -13,6 +17,76 @@ TEXT_WEIGHT = 0.4    # Trigram/lexical similarity weight
 # Minimum thresholds for including a result
 MIN_VECTOR_SCORE = 0.25  # Minimum semantic similarity
 MIN_TEXT_SCORE = 0.10    # Minimum trigram similarity (lowered for short brand names)
+
+# ==================== SIZE BOOSTING (TESTING) ====================
+# Size boost when product matches the extracted size from query
+# Uses feature flag 'size_extraction_search' to enable/disable
+SIZE_MATCH_BOOST = 0.15
+
+
+def is_size_extraction_enabled() -> bool:
+    """Check if size extraction feature is enabled via feature flag."""
+    try:
+        from models import FeatureFlag
+        return FeatureFlag.is_enabled('size_extraction_search', default=False)
+    except Exception as e:
+        logger.warning(f"Could not check feature flag: {e}")
+        return False
+
+
+def calculate_size_boost(product: dict, size_value: Optional[str], size_unit: Optional[str]) -> float:
+    """
+    Calculate boost for a product based on size match.
+
+    Args:
+        product: Product dict with 'title' and optionally 'size_value', 'size_unit'
+        size_value: Target size value (e.g., '500')
+        size_unit: Target size unit (e.g., 'g', 'ml', 'l', 'kg', 'kom')
+
+    Returns:
+        Boost value (0.0 to SIZE_MATCH_BOOST)
+    """
+    if not size_value or not size_unit:
+        return 0.0
+
+    target_value = size_value
+    target_unit = size_unit.lower()
+
+    # First check product's structured size fields (if available)
+    product_size_value = product.get('size_value')
+    product_size_unit = product.get('size_unit')
+
+    if product_size_value and product_size_unit:
+        # Normalize units for comparison
+        p_unit = product_size_unit.lower()
+        if p_unit == 'litra':
+            p_unit = 'l'
+        if p_unit == 'komada':
+            p_unit = 'kom'
+
+        # Exact match on structured fields
+        if str(product_size_value) == target_value and p_unit == target_unit:
+            return SIZE_MATCH_BOOST
+
+    # Fallback: check product title for size pattern
+    title = product.get('title', '').lower()
+
+    # Look for the exact size in the title
+    pattern = rf'{re.escape(target_value)}\s*{re.escape(target_unit)}'
+    if re.search(pattern, title, re.IGNORECASE):
+        return SIZE_MATCH_BOOST
+
+    # Also check without decimal (500.0 -> 500)
+    try:
+        if '.' in target_value:
+            int_value = str(int(float(target_value)))
+            pattern = rf'{re.escape(int_value)}\s*{re.escape(target_unit)}'
+            if re.search(pattern, title, re.IGNORECASE):
+                return SIZE_MATCH_BOOST
+    except ValueError:
+        pass
+
+    return 0.0
 
 
 def search_by_vector(
@@ -97,6 +171,8 @@ def search_by_vector(
                 p.expires,
                 p.image_path,
                 p.business_id,
+                p.size_value,
+                p.size_unit,
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
@@ -148,6 +224,8 @@ def search_by_vector(
                 p.expires,
                 p.image_path,
                 p.business_id,
+                p.size_value,
+                p.size_unit,
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
@@ -195,6 +273,9 @@ def search_by_vector(
             "city": row.city,
             "expires": expires,
             "image_path": row.image_path,
+            # Size fields for size-based boosting
+            "size_value": str(row.size_value) if row.size_value else None,
+            "size_unit": row.size_unit,
             # Use final_score as the primary similarity metric
             "similarity": float(row.final_score),
             # Also expose component scores for debugging
@@ -275,7 +356,8 @@ async def search_by_vector_grouped(
 
     Args:
         db_session: SQLAlchemy database session.
-        search_items: List of search item dicts with 'original', 'query', and 'expanded_query'.
+        search_items: List of search item dicts with 'original', 'query', 'embedding_text',
+                      'size_value', and 'size_unit' (from LLM parser).
         embedding_model: Name of the embedding model to use.
         k: Number of results to return per item.
         filter_fn: Optional custom filter function.
@@ -289,8 +371,13 @@ async def search_by_vector_grouped(
     embed_fn = get_embedding_model(embedding_model)
     grouped_results = {}
 
+    # Check if size extraction feature is enabled
+    size_extraction_enabled = is_size_extraction_enabled()
+    if size_extraction_enabled:
+        logger.info("[SIZE_EXTRACTION] Feature enabled for grouped search")
+
     for item in search_items:
-        # Use embedding_text for vector search (optimized for semantic matching)
+        # Use embedding_text for vector search (optimized for semantic matching, WITHOUT size)
         # Falls back to normalized_query then query then original
         query_text = item.get("embedding_text") or item.get("normalized_query") or item.get("query") or item.get("original", "")
 
@@ -304,7 +391,14 @@ async def search_by_vector_grouped(
         # Prefer the original user input for better brand/exact matching
         original_text = item.get("original", query_text)
 
-        # Generate embedding for this item (using normalized lowercase)
+        # Get size info from LLM parser (if available)
+        size_value = item.get("size_value")
+        size_unit = item.get("size_unit")
+
+        if size_extraction_enabled and size_value and size_unit:
+            logger.info(f"[SIZE_EXTRACTION] Item '{display_name}': embedding='{query_text}', size={size_value}{size_unit}")
+
+        # Generate embedding for this item (using normalized lowercase, WITHOUT size)
         query_vector = embed_fn(query_text_normalized)
 
         # Search for this specific item with hybrid scoring
@@ -319,6 +413,24 @@ async def search_by_vector_grouped(
             query_text=original_text,  # Pass original text for trigram matching
             only_discounted=only_discounted,
         )
+
+        # ==================== SIZE BOOST RE-RANKING (TESTING) ====================
+        # If size extraction is enabled and we have size info from LLM parser,
+        # boost products that match the extracted size and re-sort
+        if size_extraction_enabled and size_value and size_unit:
+            logger.info(f"[SIZE_EXTRACTION] Applying size boost for {size_value}{size_unit}")
+            for product in results:
+                boost = calculate_size_boost(product, size_value, size_unit)
+                if boost > 0:
+                    product['size_boost'] = boost
+                    product['similarity'] = product.get('similarity', 0) + boost
+                    logger.debug(f"[SIZE_EXTRACTION] Boosted '{product.get('title', '')[:40]}' by {boost}")
+                else:
+                    product['size_boost'] = 0.0
+
+            # Re-sort by adjusted similarity score
+            results.sort(key=lambda x: x.get('similarity', 0), reverse=True)
+            logger.info(f"[SIZE_EXTRACTION] Re-ranked {len(results)} products after size boost")
 
         grouped_results[display_name] = results
 

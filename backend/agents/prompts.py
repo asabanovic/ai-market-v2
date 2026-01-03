@@ -71,7 +71,9 @@ Tvoj zadatak:
 1. Razbiti korisnikov tekst na pojedinačne proizvode (ako ih ima više)
 2. Za svaki proizvod vratiti:
    - normalized_query: normalizovana verzija za tekst pretragu (ispravljen pravopis, proširene skraćenice)
-   - embedding_text: proširena verzija optimizovana za embedding pretragu
+   - embedding_text: proširena verzija optimizovana za embedding pretragu BEZ VELIČINE/KOLIČINE
+   - size_value: ekstraktovana numerička vrijednost veličine/količine (ako postoji)
+   - size_unit: normalizovana jedinica (samo jedna od: g, ml, l, kg, kom)
 
 PRAVILA ZA NORMALIZACIJU (normalized_query):
 - Ispravi očigledne pravopisne greške ako si siguran
@@ -82,20 +84,32 @@ PRAVILA ZA NORMALIZACIJU (normalized_query):
 - NE širi u cijele kategorije (nema "pića i napici" ako je korisnik samo upisao "cola")
 
 PRAVILA ZA EMBEDDING (embedding_text):
-- Kreni od normalized_query
+- UKLONI veličinu/količinu iz upita za embedding (npr. "kafa 500g" → "kafa")
+- Veličina se koristi za naknadno filtriranje, NE za embedding pretragu
+- Kreni od normalized_query, ali UKLONI brojeve i jedinice (g, ml, l, kg, kom, komada, litra, itd.)
 - KRATKO dodaj samo generički tip proizvoda ako je očigledno (npr. "kafa" → "kafa napitak")
 - DRŽI GA VRLO KRATKIM: max 10-15 riječi
 - NE nagađaj brendove ili kategorije ako nisi siguran
-- NE širi nepoznate termine - ako ne znaš šta je, ostavi kako jeste
-- Ako je upit već specifičan brend/proizvod, NE dodaj ništa - samo ponovi normalized_query
+
+PRAVILA ZA EKSTRAKCIJU VELIČINE (size_value, size_unit):
+- Ekstraktuj veličinu/količinu iz upita
+- NORMALIZUJ jedinice: "litra" → "l", "grama" → "g", "kilogram" → "kg", "komada" → "kom", "miligrama" → "ml"
+- KONVERTUJ neformalne izraze:
+  - "pola kile" → size_value: "500", size_unit: "g"
+  - "pola litre" → size_value: "500", size_unit: "ml"
+  - "četvrt kile" → size_value: "250", size_unit: "g"
+- Ako nema veličine, postavi null za oba polja
+- DOZVOLJENE JEDINICE: g, ml, l, kg, kom (samo ove!)
 
 FORMAT ODGOVORA:
 Vrati isključivo JSON array objekata sa poljima:
 {
   "original": "što je korisnik upisao",
   "corrected": "ispravljeni naziv za prikaz korisniku",
-  "normalized_query": "normalizovana verzija za pretragu",
-  "embedding_text": "proširena verzija za embedding"
+  "normalized_query": "normalizovana verzija za pretragu (sa veličinom)",
+  "embedding_text": "verzija za embedding BEZ veličine",
+  "size_value": "numerička vrijednost" | null,
+  "size_unit": "g" | "ml" | "l" | "kg" | "kom" | null
 }
 
 Ako korisnik napiše više proizvoda odvojenih zarezima ili sa "i", vrati array sa više objekata.
@@ -103,22 +117,26 @@ Ne objašnjavaj ništa, samo JSON.
 
 PRIMJERI:
 
+Korisnik: kafa 500g
+Odgovor:
+[{
+  "original": "kafa 500g",
+  "corrected": "kafa 500 g",
+  "normalized_query": "kafa 500 g",
+  "embedding_text": "kafa",
+  "size_value": "500",
+  "size_unit": "g"
+}]
+
 Korisnik: nes kafa
 Odgovor:
 [{
   "original": "nes kafa",
   "corrected": "nescafe kafa",
   "normalized_query": "nescafe kafa",
-  "embedding_text": "nescafe kafa"
-}]
-
-Korisnik: poli
-Odgovor:
-[{
-  "original": "poli",
-  "corrected": "poli",
-  "normalized_query": "poli",
-  "embedding_text": "poli"
+  "embedding_text": "nescafe kafa",
+  "size_value": null,
+  "size_unit": null
 }]
 
 Korisnik: coca cola 2l
@@ -127,7 +145,20 @@ Odgovor:
   "original": "coca cola 2l",
   "corrected": "coca cola 2 l",
   "normalized_query": "coca cola 2 l",
-  "embedding_text": "coca cola 2 l"
+  "embedding_text": "coca cola",
+  "size_value": "2",
+  "size_unit": "l"
+}]
+
+Korisnik: mlijeko pola litre
+Odgovor:
+[{
+  "original": "mlijeko pola litre",
+  "corrected": "mlijeko 0.5 l",
+  "normalized_query": "mlijeko 0.5 l",
+  "embedding_text": "mlijeko",
+  "size_value": "500",
+  "size_unit": "ml"
 }]
 
 Korisnik: mlijeko i jaja
@@ -136,20 +167,26 @@ Odgovor:
   "original": "mlijeko",
   "corrected": "mlijeko",
   "normalized_query": "mlijeko",
-  "embedding_text": "mlijeko"
+  "embedding_text": "mlijeko",
+  "size_value": null,
+  "size_unit": null
 }, {
   "original": "jaja",
   "corrected": "jaja",
   "normalized_query": "jaja",
-  "embedding_text": "jaja"
+  "embedding_text": "jaja",
+  "size_value": null,
+  "size_unit": null
 }]
 
-Korisnik: cokloada milka
+Korisnik: milka čokolada 300 grama
 Odgovor:
 [{
-  "original": "cokloada milka",
-  "corrected": "čokolada milka",
-  "normalized_query": "milka čokolada",
-  "embedding_text": "milka čokolada"
+  "original": "milka čokolada 300 grama",
+  "corrected": "milka čokolada 300 g",
+  "normalized_query": "milka čokolada 300 g",
+  "embedding_text": "milka čokolada",
+  "size_value": "300",
+  "size_unit": "g"
 }]
 """

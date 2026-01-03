@@ -42,9 +42,29 @@ def semantic_search(
         List of product dictionaries with similarity scores
     """
     try:
+        # ==================== SIZE EXTRACTION (TESTING) ====================
+        # When enabled via feature flag 'size_extraction_search':
+        # 1. Extract size from query (e.g., "Kafa 500g" -> core="Kafa", size="500g")
+        # 2. Search using only core term (avoids matching unrelated 500g products)
+        # 3. Re-rank results: products matching size get a boost
+        #
+        # PREVIOUS BEHAVIOR (when flag is disabled):
+        # The full query including size is used for embedding, which can cause
+        # unrelated products with matching size to rank higher than relevant products.
+        # Example: "Kafa 500g" would return Feta sir 500g, Kvasac 500g, etc.
+        size_extraction_enabled = is_size_extraction_enabled()
+        size_info = None
+        original_query = query
+
+        if size_extraction_enabled:
+            core_query, size_info = extract_size_from_query(query)
+            if size_info:
+                logger.info(f"[SIZE_EXTRACTION] Enabled - using core query '{core_query}' instead of '{query}'")
+                query = core_query  # Use core query for embedding
+
         # Generate query embedding (normalize to lowercase for case-insensitive search)
         query_normalized = query.lower() if query else query
-        logger.info(f"Generating embedding for query: {query} (normalized: {query_normalized})")
+        logger.info(f"Generating embedding for query: {original_query} (normalized: {query_normalized})")
         query_response = openai_client.embeddings.create(
             model="text-embedding-3-small",
             input=query_normalized
@@ -83,6 +103,8 @@ def semantic_search(
                 p.product_url,
                 p.views,
                 p.enriched_description,
+                p.size_value,
+                p.size_unit,
                 b.id as business_id,
                 b.name as business_name,
                 b.logo_path as business_logo,
@@ -160,6 +182,8 @@ def semantic_search(
                 'product_url': row.product_url,
                 'views': row.views,
                 'enriched_description': row.enriched_description,
+                'size_value': str(row.size_value) if row.size_value else None,
+                'size_unit': row.size_unit,
                 'business': {
                     'id': row.business_id,
                     'name': row.business_name,
@@ -193,7 +217,26 @@ def semantic_search(
 
             products.append(product)
 
-        logger.info(f"Found {len(products)} products for query: {query}")
+        # ==================== SIZE BOOST RE-RANKING (TESTING) ====================
+        # If size extraction is enabled and we found a size in the query,
+        # boost products that match the extracted size and re-sort
+        if size_extraction_enabled and size_info:
+            logger.info(f"[SIZE_EXTRACTION] Applying size boost for {size_info['original']}")
+            for product in products:
+                size_boost = calculate_size_boost(product, size_info)
+                if size_boost > 0:
+                    product['size_boost'] = size_boost
+                    product['similarity_score'] = product['similarity_score'] + size_boost
+                    product['_score'] = product['similarity_score']
+                    logger.debug(f"[SIZE_EXTRACTION] Boosted '{product['title'][:40]}' by {size_boost}")
+                else:
+                    product['size_boost'] = 0.0
+
+            # Re-sort by adjusted score
+            products.sort(key=lambda x: x['similarity_score'], reverse=True)
+            logger.info(f"[SIZE_EXTRACTION] Re-ranked {len(products)} products after size boost")
+
+        logger.info(f"Found {len(products)} products for query: {original_query}")
         return products
 
     except Exception as e:
@@ -427,3 +470,132 @@ def parse_price_filter_from_query(query: str) -> tuple[Optional[float], Optional
         return (float(m.group(1)), float(m.group(3)))
 
     return (None, None)
+
+
+# ==================== SIZE EXTRACTION (TESTING) ====================
+# Feature flag: 'size_extraction_search'
+# This feature extracts size/weight from search queries and uses it as a re-ranking
+# bonus instead of including it in the vector embedding search.
+# Example: "Kafa 500g" -> searches for "Kafa", then boosts results with 500g
+
+# Size boost when product matches the extracted size
+SIZE_MATCH_BOOST = 0.15
+
+def extract_size_from_query(query: str) -> tuple[str, Optional[dict]]:
+    """
+    Extract size/weight information from search query.
+
+    Args:
+        query: User's search query (e.g., "Kafa 500g", "Mlijeko 1l")
+
+    Returns:
+        Tuple of (core_query, size_info) where size_info is:
+        - None if no size found
+        - Dict with 'value', 'unit', 'original' if size found
+
+    Examples:
+        "Kafa 500g" -> ("Kafa", {'value': '500', 'unit': 'g', 'original': '500g'})
+        "Mlijeko 1.5l" -> ("Mlijeko", {'value': '1.5', 'unit': 'l', 'original': '1.5l'})
+        "Piletina" -> ("Piletina", None)
+    """
+    import re
+
+    # Pattern to match size/weight: number followed by unit
+    # Units: g, kg, ml, l, litra, mg, kom, komada
+    size_pattern = r'(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l|litra|mg|kom|komada)\b'
+
+    match = re.search(size_pattern, query, re.IGNORECASE)
+
+    if match:
+        value = match.group(1).replace(',', '.')
+        unit = match.group(2).lower()
+        original = match.group(0)
+
+        # Normalize units
+        if unit == 'litra':
+            unit = 'l'
+        if unit == 'komada':
+            unit = 'kom'
+
+        # Remove the size from query to get core term
+        core_query = re.sub(size_pattern, '', query, flags=re.IGNORECASE).strip()
+        # Clean up extra spaces
+        core_query = re.sub(r'\s+', ' ', core_query).strip()
+
+        size_info = {
+            'value': value,
+            'unit': unit,
+            'original': original
+        }
+
+        logger.info(f"[SIZE_EXTRACTION] Query '{query}' -> core='{core_query}', size={size_info}")
+        return (core_query, size_info)
+
+    return (query, None)
+
+
+def calculate_size_boost(product: dict, size_info: dict) -> float:
+    """
+    Calculate boost for a product based on size match.
+
+    Args:
+        product: Product dict with 'title' and optionally 'size_value', 'size_unit'
+        size_info: Extracted size info with 'value' and 'unit'
+
+    Returns:
+        Boost value (0.0 to SIZE_MATCH_BOOST)
+    """
+    import re
+
+    if not size_info:
+        return 0.0
+
+    target_value = size_info['value']
+    target_unit = size_info['unit']
+
+    # First check product's structured size fields (if available)
+    product_size_value = product.get('size_value')
+    product_size_unit = product.get('size_unit')
+
+    if product_size_value and product_size_unit:
+        # Normalize units for comparison
+        p_unit = product_size_unit.lower()
+        if p_unit == 'litra':
+            p_unit = 'l'
+        if p_unit == 'komada':
+            p_unit = 'kom'
+
+        # Exact match on structured fields
+        if str(product_size_value) == target_value and p_unit == target_unit:
+            return SIZE_MATCH_BOOST
+
+    # Fallback: check product title for size pattern
+    title = product.get('title', '').lower()
+
+    # Look for the exact size in the title
+    # Pattern: value + optional space + unit
+    pattern = rf'{re.escape(target_value)}\s*{re.escape(target_unit)}'
+    if re.search(pattern, title, re.IGNORECASE):
+        return SIZE_MATCH_BOOST
+
+    # Also check without decimal (500.0 -> 500)
+    try:
+        if '.' in target_value:
+            int_value = str(int(float(target_value)))
+            pattern = rf'{re.escape(int_value)}\s*{re.escape(target_unit)}'
+            if re.search(pattern, title, re.IGNORECASE):
+                return SIZE_MATCH_BOOST
+    except ValueError:
+        pass
+
+    return 0.0
+
+
+def is_size_extraction_enabled() -> bool:
+    """Check if size extraction feature is enabled via feature flag."""
+    try:
+        from models import FeatureFlag
+        return FeatureFlag.is_enabled('size_extraction_search', default=False)
+    except Exception as e:
+        logger.warning(f"Could not check feature flag: {e}")
+        return False
