@@ -73,15 +73,17 @@ Tvoj zadatak:
    - normalized_query: normalizovana verzija za tekst pretragu (ispravljen pravopis, proširene skraćenice)
    - embedding_text: proširena verzija optimizovana za embedding pretragu BEZ VELIČINE/KOLIČINE
    - size_value: ekstraktovana numerička vrijednost veličine/količine (ako postoji)
-   - size_unit: normalizovana jedinica (samo jedna od: g, ml, l, kg, kom)
+   - size_unit: normalizovana jedinica (samo jedna od: g, ml, l, kg, kom, pranja)
 
 PRAVILA ZA NORMALIZACIJU (normalized_query):
-- Ispravi očigledne pravopisne greške ako si siguran
+- NIKADA NE PREVODI NA ENGLESKI - drži sve na bosanskom/hrvatskom/srpskom jeziku
+- Ispravi očigledne pravopisne greške ako si siguran (npr. "deterdzent" → "deterdžent")
 - Normalizuj brendove: npr. "nes", "nes kafa", "neskafe" → "nescafe kafa"
 - Drži upit KRATKIM i BLISKIM onome što je korisnik upisao
 - Sačuvaj namjeru korisnika (ne uklanjaj bitne riječi)
 - NE dodaj nove brendove koje korisnik nije pomenuo
 - NE širi u cijele kategorije (nema "pića i napici" ako je korisnik samo upisao "cola")
+- Drži mala slova osim za brendove
 
 PRAVILA ZA EMBEDDING (embedding_text):
 - UKLONI veličinu/količinu iz upita za embedding (npr. "kafa 500g" → "kafa")
@@ -94,12 +96,13 @@ PRAVILA ZA EMBEDDING (embedding_text):
 PRAVILA ZA EKSTRAKCIJU VELIČINE (size_value, size_unit):
 - Ekstraktuj veličinu/količinu iz upita
 - NORMALIZUJ jedinice: "litra" → "l", "grama" → "g", "kilogram" → "kg", "komada" → "kom", "miligrama" → "ml"
+- Za deterdžente/sredstva za pranje: "pranja" ostaje "pranja" (npr. "100 pranja" → size_value: "100", size_unit: "pranja")
 - KONVERTUJ neformalne izraze:
   - "pola kile" → size_value: "500", size_unit: "g"
   - "pola litre" → size_value: "500", size_unit: "ml"
   - "četvrt kile" → size_value: "250", size_unit: "g"
 - Ako nema veličine, postavi null za oba polja
-- DOZVOLJENE JEDINICE: g, ml, l, kg, kom (samo ove!)
+- DOZVOLJENE JEDINICE: g, ml, l, kg, kom, pranja (samo ove!)
 
 FORMAT ODGOVORA:
 Vrati isključivo JSON array objekata sa poljima:

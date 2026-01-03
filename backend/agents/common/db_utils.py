@@ -68,6 +68,15 @@ def calculate_size_boost(product: dict, size_value: Optional[str], size_unit: Op
         if str(product_size_value) == target_value and p_unit == target_unit:
             return SIZE_MATCH_BOOST
 
+    # Special handling for "pranja" (washes) - search in title
+    if target_unit == 'pranja':
+        title = product.get('title', '').lower()
+        # Look for patterns like "100 pranja" or "100pranja"
+        pattern = rf'{re.escape(target_value)}\s*pranja'
+        if re.search(pattern, title, re.IGNORECASE):
+            return SIZE_MATCH_BOOST
+        return 0.0
+
     # Fallback: check product title for size pattern
     title = product.get('title', '').lower()
 
