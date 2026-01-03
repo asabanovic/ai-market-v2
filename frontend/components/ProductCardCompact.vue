@@ -1,7 +1,7 @@
 <template>
   <div
-    class="bg-white overflow-hidden flex relative py-3 px-4"
-    :class="[product.is_teaser ? 'opacity-90' : '']"
+    class="overflow-hidden flex relative py-3 px-4"
+    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-50/70' : 'bg-white']"
     @click="showDetails"
   >
     <!-- Teaser Blur Overlay (Anonymous Users) -->
@@ -128,6 +128,15 @@ const imageError = ref(false)
 const isAddingToList = ref(false)
 
 const isLoggedIn = computed(() => !!user.value)
+
+const hasActiveDiscount = computed(() => {
+  if (props.product.has_discount !== undefined) {
+    return props.product.has_discount
+  }
+  return props.product.discount_price &&
+         props.product.base_price > 0 &&
+         props.product.discount_price < props.product.base_price
+})
 
 const discountPercentage = computed(() => {
   if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {

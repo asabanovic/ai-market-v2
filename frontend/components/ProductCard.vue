@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[product.is_teaser ? 'opacity-90' : '']">
+  <div class="rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-50/70 ring-1 ring-green-200' : 'bg-white']">
     <!-- Teaser Blur Overlay (Anonymous Users) -->
     <div
       v-if="product.is_teaser"

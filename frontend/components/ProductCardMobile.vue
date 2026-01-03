@@ -1,7 +1,7 @@
 <template>
   <div
-    class="product-card-mobile bg-white flex flex-col relative snap-center"
-    :class="[product.is_teaser ? 'opacity-90' : '']"
+    class="product-card-mobile flex flex-col relative snap-center"
+    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-50/70' : 'bg-white']"
   >
     <!-- Teaser Blur Overlay (Anonymous Users) -->
     <div
@@ -193,6 +193,15 @@ const imageError = ref(false)
 const isAddingToList = ref(false)
 
 const isLoggedIn = computed(() => !!user.value)
+
+const hasActiveDiscount = computed(() => {
+  if (props.product.has_discount !== undefined) {
+    return props.product.has_discount
+  }
+  return props.product.discount_price &&
+         props.product.base_price > 0 &&
+         props.product.discount_price < props.product.base_price
+})
 
 const discountPercentage = computed(() => {
   if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
