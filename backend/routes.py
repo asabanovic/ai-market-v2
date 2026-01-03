@@ -5212,7 +5212,11 @@ def admin_dashboard():
     total_users = db.session.query(User).count()
     total_businesses = db.session.query(Business).count()
     total_products = db.session.query(Product).count()
-    total_searches = db.session.query(UserSearch).count()
+    # Exclude admin searches from counts
+    admin_ids = db.session.query(User.id).filter(User.is_admin == True)
+    total_searches = db.session.query(UserSearch).filter(
+        db.or_(UserSearch.user_id == None, ~UserSearch.user_id.in_(admin_ids))
+    ).count()
 
     # Get recent activity
     recent_users = db.session.query(User).order_by(
@@ -5240,8 +5244,9 @@ def admin_dashboard():
              < end_today)).count()
 
     today_searches = db.session.query(UserSearch).filter(
-        and_(UserSearch.created_at >= start_today, UserSearch.created_at
-             < end_today)).count()
+        and_(UserSearch.created_at >= start_today, UserSearch.created_at < end_today),
+        db.or_(UserSearch.user_id == None, ~UserSearch.user_id.in_(admin_ids))
+    ).count()
 
     # Get monthly statistics
     this_month = datetime.now().replace(day=1)
@@ -5249,7 +5254,9 @@ def admin_dashboard():
         User.created_at >= this_month).count()
 
     monthly_searches = db.session.query(UserSearch).filter(
-        UserSearch.created_at >= this_month).count()
+        UserSearch.created_at >= this_month,
+        db.or_(UserSearch.user_id == None, ~UserSearch.user_id.in_(admin_ids))
+    ).count()
 
     stats = {
         'total_users': total_users,
@@ -5502,7 +5509,11 @@ def api_admin_stats():
         total_users = db.session.query(User).count()
         total_businesses = db.session.query(Business).count()
         total_products = db.session.query(Product).count()
-        total_searches = db.session.query(UserSearch).count()
+        # Exclude admin searches from counts
+        admin_ids = db.session.query(User.id).filter(User.is_admin == True)
+        total_searches = db.session.query(UserSearch).filter(
+            db.or_(UserSearch.user_id == None, ~UserSearch.user_id.in_(admin_ids))
+        ).count()
 
         # Get embedding statistics
         from models import ProductEmbedding, ProductReport
@@ -5527,7 +5538,9 @@ def api_admin_stats():
             and_(User.created_at >= start_today, User.created_at < end_today)).count()
 
         today_searches = db.session.query(UserSearch).filter(
-            and_(UserSearch.created_at >= start_today, UserSearch.created_at < end_today)).count()
+            and_(UserSearch.created_at >= start_today, UserSearch.created_at < end_today),
+            db.or_(UserSearch.user_id == None, ~UserSearch.user_id.in_(admin_ids))
+        ).count()
 
         # Get monthly statistics
         this_month = datetime.now().replace(day=1)
@@ -5535,7 +5548,9 @@ def api_admin_stats():
             User.created_at >= this_month).count()
 
         monthly_searches = db.session.query(UserSearch).filter(
-            UserSearch.created_at >= this_month).count()
+            UserSearch.created_at >= this_month,
+            db.or_(UserSearch.user_id == None, ~UserSearch.user_id.in_(admin_ids))
+        ).count()
 
         # Get recent users
         recent_users = db.session.query(User).order_by(
