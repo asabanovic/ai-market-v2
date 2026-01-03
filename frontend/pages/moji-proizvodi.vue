@@ -1,5 +1,26 @@
 <template>
   <div class="min-h-screen bg-gray-50 py-8">
+    <!-- Sticky Interest Navigation (Mobile Only) -->
+    <div
+      v-if="!loading && sortedTrackedProducts.length > 1"
+      class="sticky top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-md md:hidden -mx-4 -mt-8 mb-4"
+    >
+      <div ref="navScrollContainer" class="flex overflow-x-auto scrollbar-hide gap-2.5 px-4 py-3">
+        <button
+          v-for="tracked in sortedTrackedProducts"
+          :key="'nav-' + tracked.id"
+          :ref="(el) => setNavChipRef(tracked.id, el)"
+          @click="scrollToSection(tracked.id)"
+          class="flex-shrink-0 px-4 py-2 rounded-full text-base font-medium transition-all whitespace-nowrap shadow-sm"
+          :class="activeSection === tracked.id
+            ? 'bg-purple-600 text-white shadow-purple-200'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+        >
+          {{ tracked.search_term }}
+        </button>
+      </div>
+    </div>
+
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -183,54 +204,54 @@
         <div
           v-for="tracked in sortedTrackedProducts"
           :key="tracked.id"
+          :ref="(el) => setSectionRef(tracked.id, el)"
+          :data-section-id="tracked.id"
           class="bg-white rounded-lg shadow-md overflow-hidden"
         >
           <!-- Tracked Term Header -->
-          <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+          <div class="bg-purple-600 px-4 md:px-6 py-3 md:py-4 border-b border-purple-700">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Icon name="mdi:tag-search" class="w-5 h-5 text-purple-600" />
-                </div>
                 <div>
                   <div class="flex items-center gap-2">
-                    <h3 class="text-lg font-semibold text-gray-900">{{ tracked.search_term }}</h3>
+                    <h3 class="text-base md:text-lg font-semibold text-white">{{ tracked.search_term }}</h3>
+                    <!-- + Dodaj još - hidden on mobile -->
                     <button
                       @click="showAddModal = true; newProductTerm = tracked.search_term + ' '"
-                      class="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                      class="hidden md:inline text-xs text-white/80 hover:text-white font-medium"
                     >
                       + Dodaj još
                     </button>
                   </div>
-                  <p v-if="tracked.original_text && tracked.original_text !== tracked.search_term" class="text-sm text-gray-500">
+                  <p v-if="tracked.original_text && tracked.original_text !== tracked.search_term" class="text-sm text-white/70 hidden md:block">
                     iz: {{ tracked.original_text }}
                   </p>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2 md:gap-3">
                 <!-- Show spinner if searching, otherwise show count -->
-                <span v-if="isSearching(tracked.search_term)" class="text-sm text-purple-600 flex items-center gap-1.5">
+                <span v-if="isSearching(tracked.search_term)" class="text-sm text-white flex items-center gap-1.5">
                   <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Tražim...
+                  <span class="hidden md:inline">Tražim...</span>
                 </span>
-                <span v-else class="text-sm text-gray-500">{{ tracked.products.length }} pronađeno</span>
-                <!-- Sort Dropdown -->
+                <span v-else class="text-sm text-white/80">{{ tracked.products.length }} <span class="hidden md:inline">pronađeno</span></span>
+                <!-- Sort Dropdown - hidden on mobile -->
                 <select
                   v-if="tracked.products.length > 1"
                   v-model="sortOrder[tracked.id]"
                   @change="sortProducts(tracked)"
-                  class="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  class="hidden md:block text-sm border border-white/30 rounded-md px-2 py-1 bg-white/10 text-white focus:outline-none focus:ring-1 focus:ring-white/50"
                 >
-                  <option value="">Sortiraj</option>
-                  <option value="price_asc">Cijena: najniža</option>
-                  <option value="price_desc">Cijena: najviša</option>
+                  <option value="" class="text-gray-900">Sortiraj</option>
+                  <option value="price_asc" class="text-gray-900">Cijena: najniža</option>
+                  <option value="price_desc" class="text-gray-900">Cijena: najviša</option>
                 </select>
                 <button
                   @click="confirmRemoveTracked(tracked)"
-                  class="p-1.5 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors"
+                  class="p-1.5 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
                   title="Ukloni praćenje"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -537,7 +558,7 @@
             v-model="commentText"
             rows="3"
             maxlength="280"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-gray-900 bg-white"
             placeholder="Vaš komentar... (min 5 karaktera)"
           />
           <p class="text-xs text-gray-500 mt-1 mb-4">{{ commentText.length }}/280</p>
@@ -674,6 +695,15 @@ const searchingTerms = ref<Set<string>>(new Set())
 // Scroll refs for horizontal scroll
 const scrollRefs = ref<Record<number, HTMLElement | null>>({})
 
+// Section refs for floating navigation
+const sectionRefs = ref<Record<number, HTMLElement | null>>({})
+const activeSection = ref<number | null>(null)
+const intersectionObserver = ref<IntersectionObserver | null>(null)
+
+// Navigation chip refs for auto-scrolling
+const navScrollContainer = ref<HTMLElement | null>(null)
+const navChipRefs = ref<Record<number, HTMLElement | null>>({})
+
 // Computed: max discount percentage across all tracked products
 const maxDiscountPercent = computed(() => {
   let maxDiscount = 0
@@ -762,6 +792,99 @@ function isBestPriceInCategory(tracked: any, product: any): boolean {
 
 function setScrollRef(trackedId: number, el: any) {
   scrollRefs.value[trackedId] = el as HTMLElement | null
+}
+
+// Set section ref for floating navigation
+function setSectionRef(trackedId: number, el: any) {
+  sectionRefs.value[trackedId] = el as HTMLElement | null
+}
+
+// Set nav chip ref for auto-scrolling
+function setNavChipRef(trackedId: number, el: any) {
+  navChipRefs.value[trackedId] = el as HTMLElement | null
+}
+
+// Scroll the navigation bar to keep active chip in view
+function scrollNavToActiveChip(chipId: number) {
+  const chip = navChipRefs.value[chipId]
+  const container = navScrollContainer.value
+  if (!chip || !container) return
+
+  // Calculate if chip is outside visible area
+  const chipRect = chip.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+
+  // If chip is to the left of visible area
+  if (chipRect.left < containerRect.left) {
+    const scrollAmount = chip.offsetLeft - 12 // 12px padding
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' })
+  }
+  // If chip is to the right of visible area
+  else if (chipRect.right > containerRect.right) {
+    const scrollAmount = chip.offsetLeft - container.offsetWidth + chip.offsetWidth + 12
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' })
+  }
+}
+
+// Scroll to a section when clicking on nav chip
+function scrollToSection(trackedId: number) {
+  const section = sectionRefs.value[trackedId]
+  if (section) {
+    // Account for sticky nav height (~60px) + some padding
+    const offset = 70
+    const elementPosition = section.getBoundingClientRect().top + window.scrollY
+    window.scrollTo({
+      top: elementPosition - offset,
+      behavior: 'smooth'
+    })
+  }
+}
+
+// Get count of products with discount for a tracked item
+function getDiscountCount(tracked: any): number {
+  return tracked.products.filter((p: any) =>
+    p.discount_price && p.base_price && p.discount_price < p.base_price
+  ).length
+}
+
+// Setup intersection observer for section visibility
+function setupIntersectionObserver() {
+  if (!process.client) return
+
+  // Disconnect existing observer
+  if (intersectionObserver.value) {
+    intersectionObserver.value.disconnect()
+  }
+
+  intersectionObserver.value = new IntersectionObserver(
+    (entries) => {
+      // Find the most visible section
+      let mostVisible: { id: number; ratio: number } | null = null
+
+      entries.forEach((entry) => {
+        const sectionId = parseInt(entry.target.getAttribute('data-section-id') || '0')
+        if (entry.isIntersecting && (!mostVisible || entry.intersectionRatio > mostVisible.ratio)) {
+          mostVisible = { id: sectionId, ratio: entry.intersectionRatio }
+        }
+      })
+
+      if (mostVisible) {
+        activeSection.value = mostVisible.id
+      }
+    },
+    {
+      // Account for sticky header (~60px)
+      rootMargin: '-70px 0px -50% 0px',
+      threshold: [0, 0.25, 0.5, 0.75, 1]
+    }
+  )
+
+  // Observe all sections
+  Object.values(sectionRefs.value).forEach((el) => {
+    if (el) {
+      intersectionObserver.value?.observe(el)
+    }
+  })
 }
 
 function scrollTracked(trackedId: number, direction: 'left' | 'right') {
@@ -1142,6 +1265,20 @@ watch(() => route.query.processing, (newVal) => {
   }
 })
 
+// Watch for tracked products changes to re-setup intersection observer
+watch(trackedProducts, () => {
+  nextTick(() => {
+    setupIntersectionObserver()
+  })
+}, { deep: true })
+
+// Watch for active section changes to scroll navigation
+watch(activeSection, (newSection) => {
+  if (newSection) {
+    scrollNavToActiveChip(newSection)
+  }
+})
+
 onMounted(async () => {
   // Track page view
   trackPageView('moji-proizvodi')
@@ -1164,10 +1301,23 @@ onMounted(async () => {
 
   // Update the store count for navbar badges
   trackedProductsStore.setCount(trackedProducts.value.length)
+
+  // Setup intersection observer after a tick to ensure refs are set
+  nextTick(() => {
+    setupIntersectionObserver()
+    // Set initial active section to first one
+    if (sortedTrackedProducts.value.length > 0) {
+      activeSection.value = sortedTrackedProducts.value[0].id
+    }
+  })
 })
 
 onUnmounted(() => {
   stopPolling()
+  // Clean up intersection observer
+  if (intersectionObserver.value) {
+    intersectionObserver.value.disconnect()
+  }
 })
 </script>
 
@@ -1223,5 +1373,14 @@ onUnmounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Hide scrollbar for floating nav */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 </style>
