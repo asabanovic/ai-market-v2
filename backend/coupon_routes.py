@@ -30,6 +30,26 @@ logger = logging.getLogger(__name__)
 coupon_bp = Blueprint('coupons', __name__)
 
 
+def slugify_title(title: str) -> str:
+    """Convert title to URL-friendly slug for S3 filenames"""
+    import re
+    import unicodedata
+    # Normalize unicode characters
+    slug = unicodedata.normalize('NFKD', title)
+    # Convert to lowercase
+    slug = slug.lower()
+    # Replace special Bosnian characters with ASCII equivalents
+    replacements = {'č': 'c', 'ć': 'c', 'š': 's', 'ž': 'z', 'đ': 'd'}
+    for char, replacement in replacements.items():
+        slug = slug.replace(char, replacement)
+    # Remove non-alphanumeric characters except spaces and hyphens
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    # Replace spaces and multiple hyphens with single hyphen
+    slug = re.sub(r'[-\s]+', '-', slug).strip('-')
+    # Limit length
+    return slug[:50]
+
+
 def jwt_required(f):
     """Decorator to require authentication via JWT token (for regular users)"""
     @wraps(f)
@@ -1670,7 +1690,7 @@ def upload_cover_image(business_id):
     file.save(filepath)
 
     # Update business cover image path
-    business.cover_image_path = f'/static/uploads/business_covers/{filename}'
+    business.cover_image_path = f'uploads/business_covers/{filename}'
     db.session.commit()
 
     return jsonify({
@@ -1717,10 +1737,588 @@ def upload_coupon_image(coupon_id):
     file.save(filepath)
 
     # Update coupon image path
-    coupon.image_path = f'/static/uploads/coupon_images/{filename}'
+    coupon.image_path = f'uploads/coupon_images/{filename}'
     db.session.commit()
 
     return jsonify({
         'success': True,
         'image_path': coupon.image_path
+    })
+
+
+# ==================== BUSINESS PRODUCT MANAGEMENT ENDPOINTS ====================
+
+@coupon_bp.route('/api/business/<int:business_id>/products', methods=['GET'])
+@jwt_required
+def get_business_products(business_id):
+    """Get all products for a business (owner/staff only)"""
+    from models import Product
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Get pagination params
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    search = request.args.get('search', '').strip()
+    show_discounted = request.args.get('discounted', 'all')  # 'all', 'yes', 'no'
+
+    query = Product.query.filter(Product.business_id == business_id)
+
+    if search:
+        query = query.filter(Product.title.ilike(f'%{search}%'))
+
+    if show_discounted == 'yes':
+        query = query.filter(Product.discount_price.isnot(None), Product.discount_price < Product.base_price)
+    elif show_discounted == 'no':
+        query = query.filter(db.or_(Product.discount_price.is_(None), Product.discount_price >= Product.base_price))
+
+    query = query.order_by(Product.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    products = []
+    for p in pagination.items:
+        products.append({
+            'id': p.id,
+            'title': p.title,
+            'base_price': p.base_price,
+            'discount_price': p.discount_price,
+            'has_discount': p.has_discount,
+            'expires': p.expires.isoformat() if p.expires else None,
+            'category': p.category,
+            'category_group': p.category_group,
+            'image_path': p.image_path,
+            'views': p.views,
+            'created_at': p.created_at.isoformat() if p.created_at else None,
+            'brand': p.brand,
+            'product_type': p.product_type,
+            'size_value': p.size_value,
+            'size_unit': p.size_unit,
+            'variant': p.variant
+        })
+
+    return jsonify({
+        'products': products,
+        'business': {
+            'id': business.id,
+            'name': business.name
+        },
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': pagination.total,
+            'pages': pagination.pages
+        }
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products', methods=['POST'])
+@jwt_required
+def create_business_product(business_id):
+    """Create a new product for a business (staff or higher)"""
+    from models import Product
+    from datetime import date
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Validate required fields
+    if not data.get('title'):
+        return jsonify({'error': 'Naziv proizvoda je obavezan'}), 400
+    if not data.get('base_price') or data['base_price'] <= 0:
+        return jsonify({'error': 'Cijena mora biti veća od 0'}), 400
+
+    # Parse expiry date if provided
+    expires = None
+    if data.get('expires'):
+        try:
+            expires = date.fromisoformat(data['expires'])
+        except ValueError:
+            return jsonify({'error': 'Neispravan format datuma isteka'}), 400
+
+    # Validate discount price
+    discount_price = data.get('discount_price')
+    if discount_price is not None:
+        if discount_price <= 0:
+            return jsonify({'error': 'Cijena na popustu mora biti veća od 0'}), 400
+        if discount_price >= data['base_price']:
+            return jsonify({'error': 'Cijena na popustu mora biti manja od osnovne cijene'}), 400
+
+    product = Product(
+        business_id=business_id,
+        city=business.city,
+        title=data['title'],
+        base_price=data['base_price'],
+        discount_price=discount_price,
+        expires=expires,
+        category=data.get('category'),
+        category_group=data.get('category_group'),
+        tags=data.get('tags'),
+        enriched_description=data.get('description'),
+        brand=data.get('brand'),
+        product_type=data.get('product_type'),
+        size_value=data.get('size_value'),
+        size_unit=data.get('size_unit'),
+        variant=data.get('variant')
+    )
+
+    db.session.add(product)
+    db.session.commit()
+
+    logger.info(f"Product {product.id} created by user {current_user.id} for business {business_id}")
+
+    # Handle image_base64 if provided - upload directly to S3
+    image_path = None
+    if data.get('image_base64'):
+        try:
+            import base64
+            from image_search import upload_to_s3
+
+            image_data = base64.b64decode(data['image_base64'])
+            # Create slugified filename from product title
+            title_slug = slugify_title(product.title)
+            s3_path = f"popust/business-products/{business_id}/{product.id}-{title_slug}.jpg"
+            uploaded_path = upload_to_s3(image_data, s3_path, 'image/jpeg')
+
+            if uploaded_path:
+                product.image_path = uploaded_path
+                db.session.commit()
+                image_path = uploaded_path
+                logger.info(f"Product {product.id} image uploaded to S3: {uploaded_path}")
+        except Exception as e:
+            logger.error(f"Failed to upload image for product {product.id}: {e}")
+
+    return jsonify({
+        'success': True,
+        'product': {
+            'id': product.id,
+            'title': product.title,
+            'base_price': product.base_price,
+            'discount_price': product.discount_price,
+            'image_path': image_path
+        }
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/<int:product_id>', methods=['GET'])
+@jwt_required
+def get_business_product(business_id, product_id):
+    """Get a single product details"""
+    from models import Product
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    product = Product.query.filter_by(id=product_id, business_id=business_id).first()
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    return jsonify({
+        'product': {
+            'id': product.id,
+            'title': product.title,
+            'base_price': product.base_price,
+            'discount_price': product.discount_price,
+            'has_discount': product.has_discount,
+            'expires': product.expires.isoformat() if product.expires else None,
+            'category': product.category,
+            'category_group': product.category_group,
+            'image_path': product.image_path,
+            'views': product.views,
+            'created_at': product.created_at.isoformat() if product.created_at else None
+        }
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/<int:product_id>', methods=['PUT'])
+@jwt_required
+def update_business_product(business_id, product_id):
+    """Update a product (staff, manager, or owner)"""
+    from models import Product, ProductPriceHistory
+    from datetime import date
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    product = Product.query.filter_by(id=product_id, business_id=business_id).first()
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Capture old prices before update for price history
+    old_base_price = product.base_price
+    old_discount_price = product.discount_price
+
+    # Update fields if provided
+    if 'title' in data:
+        if not data['title']:
+            return jsonify({'error': 'Naziv proizvoda je obavezan'}), 400
+        product.title = data['title']
+
+    if 'base_price' in data:
+        if data['base_price'] <= 0:
+            return jsonify({'error': 'Cijena mora biti veća od 0'}), 400
+        product.base_price = data['base_price']
+
+    if 'discount_price' in data:
+        if data['discount_price'] is not None:
+            if data['discount_price'] <= 0:
+                return jsonify({'error': 'Cijena na popustu mora biti veća od 0'}), 400
+            if data['discount_price'] >= (data.get('base_price') or product.base_price):
+                return jsonify({'error': 'Cijena na popustu mora biti manja od osnovne cijene'}), 400
+        product.discount_price = data['discount_price']
+
+    if 'expires' in data:
+        if data['expires']:
+            try:
+                product.expires = date.fromisoformat(data['expires'])
+            except ValueError:
+                return jsonify({'error': 'Neispravan format datuma isteka'}), 400
+        else:
+            product.expires = None
+
+    if 'category' in data:
+        product.category = data['category']
+
+    if 'category_group' in data:
+        product.category_group = data['category_group']
+
+    # Update product meta fields
+    if 'brand' in data:
+        product.brand = data['brand']
+    if 'product_type' in data:
+        product.product_type = data['product_type']
+    if 'size_value' in data:
+        product.size_value = data['size_value']
+    if 'size_unit' in data:
+        product.size_unit = data['size_unit']
+    if 'variant' in data:
+        product.variant = data['variant']
+
+    # Record price history if price changed
+    price_changed = (product.base_price != old_base_price or product.discount_price != old_discount_price)
+    if price_changed:
+        price_history = ProductPriceHistory(
+            product_id=product.id,
+            base_price=product.base_price,
+            discount_price=product.discount_price
+        )
+        db.session.add(price_history)
+        logger.info(f"Price history recorded for product {product_id}: base={product.base_price}, discount={product.discount_price}")
+
+    db.session.commit()
+
+    logger.info(f"Product {product_id} updated by user {current_user.id}")
+
+    return jsonify({
+        'success': True,
+        'product': {
+            'id': product.id,
+            'title': product.title,
+            'base_price': product.base_price,
+            'discount_price': product.discount_price
+        }
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/<int:product_id>', methods=['DELETE'])
+@jwt_required
+def delete_business_product(business_id, product_id):
+    """Delete a product (any business member)"""
+    from models import Product
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    product = Product.query.filter_by(id=product_id, business_id=business_id).first()
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    product_title = product.title
+    db.session.delete(product)
+    db.session.commit()
+
+    logger.info(f"Product {product_id} ({product_title}) deleted by user {current_user.id}")
+
+    return jsonify({
+        'success': True,
+        'message': f'Proizvod "{product_title}" je obrisan'
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/<int:product_id>/image', methods=['POST'])
+@jwt_required
+def upload_business_product_image(business_id, product_id):
+    """Upload image for a business product"""
+    import os
+    from werkzeug.utils import secure_filename
+    from models import Product
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    product = Product.query.filter_by(id=product_id, business_id=business_id).first()
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Validate file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'webp'}
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in allowed_extensions:
+        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, webp'}), 400
+
+    # Create filename and save path
+    filename = secure_filename(f"product_{product_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}")
+    upload_dir = os.path.join(os.path.dirname(__file__), 'static', 'uploads', 'product_images')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    filepath = os.path.join(upload_dir, filename)
+    file.save(filepath)
+
+    # Keep original image path if not set
+    if not product.original_image_path:
+        product.original_image_path = product.image_path
+
+    # Update product image path
+    product.image_path = f'uploads/product_images/{filename}'
+    db.session.commit()
+
+    logger.info(f"Product {product_id} image uploaded by user {current_user.id}")
+
+    return jsonify({
+        'success': True,
+        'image_path': product.image_path
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/<int:product_id>/suggest-images', methods=['GET'])
+@jwt_required
+def business_product_suggest_images(business_id, product_id):
+    """AI-powered image search for a business product"""
+    from models import Product
+    from image_search import search_duckduckgo_images
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    product = Product.query.filter_by(id=product_id, business_id=business_id).first()
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    # Get attempt number for query variation
+    attempt = request.args.get('attempt', 1, type=int)
+
+    # Build search query using product title
+    search_query = product.title
+    if product.brand and product.brand.lower() != 'unknown':
+        search_query = f"{product.brand} {product.title}"
+
+    # Vary the query based on attempt number
+    if attempt == 2:
+        search_query += " product"
+    elif attempt == 3:
+        search_query += " packaging"
+    elif attempt >= 4:
+        search_query = f"{product.title} Bosnia"
+
+    try:
+        images = search_duckduckgo_images(search_query, num_results=8)
+        logger.info(f"Business product {product_id} image suggestions: found {len(images)} images for query '{search_query}'")
+        return jsonify({'images': images})
+    except Exception as e:
+        logger.error(f"Error searching images for business product {product_id}: {e}")
+        return jsonify({'images': [], 'error': str(e)})
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/<int:product_id>/set-image', methods=['POST'])
+@jwt_required
+def business_product_set_image(business_id, product_id):
+    """Set product image from a URL - downloads and uploads to S3"""
+    from models import Product
+    from image_search import upload_to_s3
+    import requests as http_requests
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    product = Product.query.filter_by(id=product_id, business_id=business_id).first()
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+
+    data = request.get_json()
+    if not data or 'image_url' not in data:
+        return jsonify({'error': 'image_url is required'}), 400
+
+    image_url = data['image_url']
+
+    # Keep original image path if not set
+    if not product.original_image_path and product.image_path:
+        product.original_image_path = image_url
+
+    # Download image from external URL and upload to S3
+    try:
+        logger.info(f"Downloading image from {image_url} for product {product_id}")
+
+        # Download the image
+        response = http_requests.get(image_url, timeout=30, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        response.raise_for_status()
+
+        image_data = response.content
+
+        # Create slugified filename from product title
+        title_slug = slugify_title(product.title)
+        s3_path = f"popust/business-products/{business_id}/{product_id}-{title_slug}.jpg"
+
+        # Upload to S3
+        uploaded_path = upload_to_s3(image_data, s3_path, 'image/jpeg')
+
+        if uploaded_path:
+            product.image_path = uploaded_path
+            db.session.commit()
+            logger.info(f"Business product {product_id} image uploaded to S3: {uploaded_path}")
+
+            return jsonify({
+                'success': True,
+                'image_path': product.image_path
+            })
+        else:
+            logger.error(f"Failed to upload image to S3 for product {product_id}")
+            return jsonify({'error': 'Failed to upload image to S3'}), 500
+
+    except http_requests.RequestException as e:
+        logger.error(f"Failed to download image from {image_url}: {e}")
+        return jsonify({'error': f'Failed to download image: {str(e)}'}), 500
+    except Exception as e:
+        logger.error(f"Error setting image for product {product_id}: {e}")
+        return jsonify({'error': f'Error processing image: {str(e)}'}), 500
+
+
+@coupon_bp.route('/api/business/<int:business_id>/products/bulk-ai-upload', methods=['POST'])
+@jwt_required
+def bulk_ai_product_upload(business_id):
+    """
+    Process multiple product images with AI to extract product data.
+    Accepts up to 10 images, resizes them to max 600px, and returns extracted product info.
+    """
+    import os
+    import io
+    import base64
+    from PIL import Image
+    from openai_utils import extract_product_from_image
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    if 'files' not in request.files:
+        return jsonify({'error': 'No files provided'}), 400
+
+    files = request.files.getlist('files')
+    if len(files) == 0:
+        return jsonify({'error': 'No files selected'}), 400
+    if len(files) > 10:
+        return jsonify({'error': 'Maximum 10 images allowed'}), 400
+
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'webp'}
+    results = []
+
+    for idx, file in enumerate(files):
+        try:
+            ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            if ext not in allowed_extensions:
+                results.append({
+                    'index': idx,
+                    'filename': file.filename,
+                    'success': False,
+                    'error': 'Invalid file type'
+                })
+                continue
+
+            # Read and resize image to max 600px
+            img = Image.open(file)
+
+            # Convert to RGB if necessary (for PNG with transparency)
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+
+            # Resize to max 600px while maintaining aspect ratio
+            max_size = 600
+            if img.width > max_size or img.height > max_size:
+                if img.width > img.height:
+                    new_width = max_size
+                    new_height = int((max_size / img.width) * img.height)
+                else:
+                    new_height = max_size
+                    new_width = int((max_size / img.height) * img.width)
+                img = img.resize((new_width, new_height), Image.LANCZOS)
+
+            # Convert to base64
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=85)
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+
+            # Extract product info using AI
+            extracted_data = extract_product_from_image(image_base64)
+
+            results.append({
+                'index': idx,
+                'filename': file.filename,
+                'success': True,
+                'data': extracted_data,
+                'image_base64': image_base64
+            })
+
+        except Exception as e:
+            logger.error(f"Error processing image {file.filename}: {e}")
+            results.append({
+                'index': idx,
+                'filename': file.filename,
+                'success': False,
+                'error': str(e)
+            })
+
+    logger.info(f"Bulk AI upload for business {business_id}: processed {len(files)} images")
+
+    return jsonify({
+        'success': True,
+        'results': results,
+        'processed': len([r for r in results if r.get('success')]),
+        'failed': len([r for r in results if not r.get('success')])
     })

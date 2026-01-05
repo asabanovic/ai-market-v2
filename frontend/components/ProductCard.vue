@@ -485,6 +485,10 @@ function getImageUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
   }
+  // Handle paths that already include /static or static/
+  if (path.startsWith('/static/') || path.startsWith('static/')) {
+    return `${config.public.apiBase}${path.startsWith('/') ? '' : '/'}${path}`
+  }
   return `${config.public.apiBase}/static/${path}`
 }
 
