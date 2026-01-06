@@ -153,16 +153,29 @@ def get_users_to_scan_round_robin():
     """
     Get the next batch of users to scan using round-robin.
     Prioritizes users who haven't been scanned today, ordered by last scan date.
+
+    Includes users who have:
+    - preferences with grocery_interests or typical_products
+    - OR tracked products from any source (including camera_scan)
     """
     today = date.today()
+
+    # Get user IDs who have active tracked products (from any source including camera_scan)
+    users_with_tracked = set(
+        row[0] for row in db.session.query(UserTrackedProduct.user_id).filter(
+            UserTrackedProduct.is_active == True
+        ).distinct().all()
+    )
 
     # Get all users with preferences
     all_users_with_prefs = User.query.filter(
         User.preferences.isnot(None)
     ).all()
 
-    # Filter to users who have actual grocery data
+    # Filter to users who have actual grocery data OR tracked products
     eligible_users = []
+    checked_user_ids = set()
+
     for user in all_users_with_prefs:
         prefs = user.preferences or {}
         if prefs.get('grocery_interests') or prefs.get('typical_products'):
@@ -174,6 +187,20 @@ def get_users_to_scan_round_robin():
             ).first()
             if not today_scan:
                 eligible_users.append(user)
+                checked_user_ids.add(user.id)
+
+    # Also include users with tracked products who weren't already added
+    for user_id in users_with_tracked:
+        if user_id not in checked_user_ids:
+            user = User.query.get(user_id)
+            if user:
+                today_scan = UserProductScan.query.filter_by(
+                    user_id=user.id,
+                    scan_date=today,
+                    status='completed'
+                ).first()
+                if not today_scan:
+                    eligible_users.append(user)
 
     # Sort by last scan date (oldest first for fair round-robin)
     def get_last_scan_date(user):

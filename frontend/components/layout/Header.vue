@@ -179,6 +179,15 @@
                       Moje liste
                     </NuxtLink>
                     <NuxtLink
+                      v-if="user?.has_business"
+                      to="/moj-biznis"
+                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <Icon name="mdi:store" class="w-4 h-4 mr-2" />
+                      Moj Biznis
+                    </NuxtLink>
+                    <NuxtLink
                       v-if="user?.is_admin"
                       to="/admin"
                       class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -322,6 +331,10 @@
             <NuxtLink to="/liste" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
               <Icon name="mdi:clipboard-list" class="w-4 h-4 inline mr-2" />
               Moje liste
+            </NuxtLink>
+            <NuxtLink v-if="user?.has_business" to="/moj-biznis" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+              <Icon name="mdi:store" class="w-4 h-4 inline mr-2" />
+              Moj Biznis
             </NuxtLink>
             <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
               <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />

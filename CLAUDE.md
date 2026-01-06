@@ -112,3 +112,16 @@ RAILWAY_ENVIRONMENT=staging railway redeploy --service backend
 ```
 
 See `RAILWAY_DEPLOY.md` for more deployment instructions.
+
+## UI/UX Rules
+
+### Text Contrast - CRITICAL
+**NEVER use light/white text on white or light backgrounds.** Always ensure sufficient contrast:
+- On white/light backgrounds: use `text-gray-900`, `text-gray-800`, `text-gray-700`, or `text-gray-600`
+- On dark backgrounds: use `text-white` or `text-gray-100`
+- For secondary text on light backgrounds: use `text-gray-600` or `text-gray-500` (NOT text-gray-400 or lighter)
+- For placeholders: `placeholder-gray-400` is acceptable
+
+Examples:
+- WRONG: `<span class="text-white">Text</span>` on a white card
+- CORRECT: `<span class="text-gray-900">Text</span>` on a white card

@@ -46,8 +46,8 @@ const existingInterests = computed(() => {
   return []
 })
 
-function handleComplete() {
-  emit('complete')
+function handleComplete(data?: { processing_started?: boolean }) {
+  emit('complete', data)
 }
 
 function handleSkip() {

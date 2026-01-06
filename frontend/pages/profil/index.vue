@@ -41,6 +41,43 @@
 
       </div>
 
+      <!-- Install App Banner -->
+      <div v-if="showInstallOption" class="bg-gradient-to-r from-violet-500 to-purple-600 rounded-lg shadow-md p-6 mb-8 text-white">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="bg-white/20 p-3 rounded-lg">
+              <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold">Instalirajte Aplikaciju</h3>
+              <p class="text-sm text-white/80">
+                {{ pwa.state.isIOS ? 'Dodajte na pocetni ekran za brzi pristup' : 'Instalirajte aplikaciju za brzi pristup bez browsera' }}
+              </p>
+            </div>
+          </div>
+          <button
+            @click="handleInstallClick"
+            class="bg-white text-purple-600 px-5 py-2.5 rounded-lg font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Instaliraj
+          </button>
+        </div>
+        <!-- iOS Instructions (shown when clicked on iOS) -->
+        <div v-if="showIOSInstructions" class="mt-4 pt-4 border-t border-white/20">
+          <p class="text-sm font-medium mb-2">Kako instalirati:</p>
+          <ol class="text-sm text-white/80 space-y-1">
+            <li>1. Dodirnite ikonu za dijeljenje na dnu ekrana</li>
+            <li>2. Skrolajte dolje i dodirnite "Dodaj na pocetni ekran"</li>
+            <li>3. Dodirnite "Dodaj" u gornjem desnom uglu</li>
+          </ol>
+        </div>
+      </div>
+
       <!-- My Preferences Section (grocery interests) -->
       <UserPreferencesSection :key="preferencesKey" :allow-remove="true" @edit="showInterestPopup = true" />
 
@@ -372,6 +409,22 @@ definePageMeta({
 
 const { get, put } = useApi()
 const { refreshUser } = useAuth()
+const pwa = usePwaInstall()
+
+// PWA install state
+const showIOSInstructions = ref(false)
+const showInstallOption = computed(() => {
+  // Show if not installed and (iOS or can install on Android/Desktop)
+  return !pwa.state.isInstalled && !pwa.state.isStandalone && (pwa.state.isIOS || pwa.state.canInstall)
+})
+
+async function handleInstallClick() {
+  if (pwa.state.isIOS) {
+    showIOSInstructions.value = !showIOSInstructions.value
+  } else {
+    await pwa.promptInstall()
+  }
+}
 
 const isLoading = ref(true)
 const isSaving = ref(false)

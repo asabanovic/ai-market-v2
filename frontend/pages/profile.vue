@@ -167,6 +167,28 @@
         </div>
       </div>
 
+      <!-- Organization Section -->
+      <div v-if="hasOrganization" class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Icon name="mdi:store" class="w-7 h-7 text-purple-600" />
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">{{ organizationName }}</h2>
+              <p class="text-gray-600">Upravljajte proizvodima vaše organizacije</p>
+            </div>
+          </div>
+          <NuxtLink
+            to="/moja-organizacija"
+            class="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Icon name="mdi:arrow-right" class="w-4 h-4" />
+            Otvori
+          </NuxtLink>
+        </div>
+      </div>
+
       <!-- Store Preferences -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <div class="flex justify-between items-center mb-6">
@@ -588,6 +610,10 @@ const hasStoreChanges = computed(() => {
 
 // Engagement history
 const engagements = ref<any[]>([])
+
+// Organization
+const hasOrganization = ref(false)
+const organizationName = ref('')
 const engagementsPagination = ref<any>(null)
 const loadingEngagements = ref(false)
 const totalCreditsEarned = computed(() => {
@@ -599,7 +625,21 @@ onMounted(async () => {
   await loadProfileData()
   await loadStorePreferences()
   await loadEngagements(1)
+  await checkOrganizationMembership()
 })
+
+async function checkOrganizationMembership() {
+  try {
+    const data = await get('/api/my-organization')
+    if (data.organization) {
+      hasOrganization.value = true
+      organizationName.value = data.organization.name
+    }
+  } catch (error: any) {
+    // 404 means user is not a member of any organization - that's fine
+    hasOrganization.value = false
+  }
+}
 
 async function loadCities() {
   try {

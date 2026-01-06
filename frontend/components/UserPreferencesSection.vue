@@ -55,6 +55,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'edit'): void
+  (e: 'preference-removed', deleted_count: number): void
 }>()
 
 const { get, put } = useApi()
@@ -81,10 +82,16 @@ async function removePreference(pref: string) {
 
   try {
     const updatedPreferences = preferences.value.filter(p => p !== pref)
-    await put('/auth/user/interests', {
+    const response = await put('/auth/user/interests', {
       grocery_interests: updatedPreferences
     })
     preferences.value = updatedPreferences
+
+    // Emit event so parent can refresh tracked products
+    const deletedCount = response?.deleted_tracked_count || 0
+    if (deletedCount > 0) {
+      emit('preference-removed', deletedCount)
+    }
   } catch (error) {
     console.error('Error removing preference:', error)
   } finally {

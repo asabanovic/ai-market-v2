@@ -285,19 +285,39 @@ async function handleSubmit() {
       phone_provided: !!phone.value.trim()
     })
 
+    // If onboarding, also mark onboarding as completed
+    if (props.source === 'onboarding') {
+      try {
+        await post('/auth/user/onboarding', {
+          phone: phone.value || '',
+          typical_products: allInterests.join(', ')
+        })
+      } catch (err) {
+        // Ignore errors - interests were saved successfully
+        console.error('Error marking onboarding complete:', err)
+      }
+    }
+
     // Refresh user data
     await checkAuth()
 
-    emit('complete')
-
-    // Navigate to moji-proizvodi to show value immediately (only for onboarding)
-    if (props.source === 'onboarding') {
-      if (result.processing_started) {
+    // If processing started (new interests added), handle navigation/polling
+    if (result.processing_started) {
+      if (props.source === 'onboarding') {
+        // Onboarding: navigate to moji-proizvodi with processing flag
         navigateTo('/moji-proizvodi?processing=true')
       } else {
+        // Profile editing: emit complete with processing flag so parent can poll
+        emit('complete', { processing_started: true })
+        return
+      }
+    } else {
+      if (props.source === 'onboarding') {
         navigateTo('/moji-proizvodi')
       }
     }
+
+    emit('complete', { processing_started: false })
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Došlo je do greške prilikom čuvanja'
   } finally {

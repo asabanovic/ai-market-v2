@@ -1615,3 +1615,132 @@ def check_query_relevance(query):
 
     # If no keywords found, it's probably not relevant
     return False
+
+
+def extract_product_from_image(image_base64: str) -> dict:
+    """
+    Use GPT-4o Vision to extract product information from a product image.
+
+    Args:
+        image_base64: Base64 encoded image data (without data URL prefix)
+
+    Returns:
+        dict with title, base_price, discount_price, brand, category, tags, description, etc.
+    """
+    system_prompt = """You are a product information extractor for a Bosnian grocery/retail marketplace.
+Analyze the product image and extract COMPREHENSIVE product information for database storage AND product matching.
+
+Extract the following information:
+- title: Full product name in Bosnian (preserve diacritics: ć, č, š, ž, đ)
+- brand: Brand name if visible (e.g., "Milka", "Nivea", "Persil", "Meggle")
+- base_price: Regular price in KM if visible on price tag
+- discount_price: Sale price in KM if visible (null if not on sale)
+- weight_volume: Weight or volume as string (e.g., "1L", "500g", "250ml", "1kg")
+- category: Product category - MUST be one of:
+  ["Meso", "Namirnice", "Voće/Povrće", "Pića", "Mliječni proizvodi", "Higijena", "Čišćenje", "Auto", "Bebe", "Tehnika", "Ostalo"]
+
+PRODUCT MATCHING FIELDS (critical for clone/sibling detection):
+- product_type: Normalized generic product type in Bosnian, lowercase. Examples:
+  * "mlijeko", "jogurt", "sir", "maslac", "pavlaka" (dairy)
+  * "čokolada", "keks", "bomboni", "grickalice" (sweets)
+  * "deterdžent", "omekšivač", "sredstvo za čišćenje" (cleaning)
+  * "šampon", "gel za tuširanje", "sapun", "pasta za zube" (hygiene)
+  * "piletina", "govedina", "svinjetina", "riba" (meat)
+  * "sok", "voda", "pivo", "energetsko piće" (drinks)
+- size_value: Numeric size value only (e.g., 1, 0.5, 500, 250, 100)
+- size_unit: Size unit only - MUST be one of: "kg", "g", "l", "ml", "kom"
+- variant: Product variant/differentiator if any (e.g., "3.2%", "bez laktoze", "light", "s lješnicima", "gorka", "original")
+
+SEARCH & SEO FIELDS:
+- tags: Array of 10-15 search tags (lowercase, no diacritics) for matching. Include:
+  * Brand name, product type, category, use cases, variants, English equivalents
+- description: SEO-friendly description (2-3 sentences)
+
+IMPORTANT RULES:
+- Prices in Bosnia use KM (Konvertibilna Marka)
+- If you see crossed-out price, that's base_price; highlighted price is discount_price
+- ALWAYS extract product_type, size_value, size_unit for product matching
+- Normalize sizes: 1000ml = 1l, 1000g = 1kg
+- Tags must be lowercase without diacritics (čokolada → cokolada)
+- Return ONLY valid JSON, no markdown
+
+Return JSON format:
+{
+    "title": "Milka čokolada s lješnicima 100g",
+    "brand": "Milka",
+    "base_price": 3.50,
+    "discount_price": 2.99,
+    "weight_volume": "100g",
+    "product_type": "čokolada",
+    "size_value": 100,
+    "size_unit": "g",
+    "variant": "s lješnicima",
+    "category": "Namirnice",
+    "tags": ["milka", "cokolada", "slatkis", "hrana", "desert", "grickalica", "slatko", "uzina", "chocolate", "ljesnik", "hazelnut", "mljecna cokolada"],
+    "description": "Milka čokolada s lješnicima je kremasta mliječna čokolada sa dodatkom hrskave lješnikove krokante. Idealna za užinu, desert ili poklon. Popularan slatkiš za sve generacije.",
+    "confidence": "high" | "medium" | "low"
+}"""
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",  # Use gpt-4o for vision tasks
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Extract product information from this image."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}",
+                                "detail": "low"  # Use low detail to save tokens
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=700
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        # Clean up markdown if present
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        content = content.strip()
+
+        result = json.loads(content)
+        return result
+
+    except json.JSONDecodeError as e:
+        return {
+            "title": "Nepoznat proizvod",
+            "brand": None,
+            "base_price": None,
+            "discount_price": None,
+            "weight_volume": None,
+            "product_type": None,
+            "size_value": None,
+            "size_unit": None,
+            "variant": None,
+            "description": None,
+            "confidence": "low",
+            "error": f"Failed to parse response: {str(e)}"
+        }
+    except Exception as e:
+        return {
+            "title": "Greška",
+            "brand": None,
+            "base_price": None,
+            "discount_price": None,
+            "weight_volume": None,
+            "description": None,
+            "confidence": "low",
+            "error": str(e)
+        }

@@ -397,6 +397,13 @@ def api_verify():
                 next_milestone_bonus = bonus
                 break
 
+        # Check if user has any active business memberships
+        from models import BusinessMembership
+        has_business = BusinessMembership.query.filter(
+            BusinessMembership.user_id == user.id,
+            BusinessMembership.is_active == True
+        ).first() is not None
+
         user_data = {
             'id': user.id,
             'email': user.email,
@@ -411,6 +418,7 @@ def api_verify():
             'welcome_guide_seen': user.welcome_guide_seen or False,
             'preferences': user.preferences or {},
             'first_search_reward_claimed': user.first_search_reward_claimed or False,
+            'has_business': has_business,
             # Streak info
             'current_streak': current_streak,
             'longest_streak': user.longest_streak or 0,
@@ -919,6 +927,11 @@ def update_user_interests():
 
                 # Mark preferences as modified for SQLAlchemy to detect the change
                 flag_modified(user, 'preferences')
+
+                # If user has interests, mark onboarding as completed
+                # This ensures users with interests are never shown the onboarding modal again
+                if clean_interests:
+                    user.onboarding_completed = True
 
         db.session.commit()
 
