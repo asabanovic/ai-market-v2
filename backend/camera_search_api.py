@@ -143,7 +143,7 @@ def camera_search():
     Expected: multipart/form-data with 'image' file
     Or: JSON with 'image_base64' field
     """
-    from models import db, UserInterest, User
+    from models import db, UserTrackedProduct, User
 
     # Get current user from request (set by require_jwt_auth decorator)
     current_user = User.query.filter_by(telegram_id=request.current_user_id).first()
@@ -208,26 +208,28 @@ def camera_search():
                 }
             })
 
-        # Auto-add to interests if product identified with high confidence
+        # Auto-add to tracked products if product identified with high confidence
         interest_added = False
         if vision_result.get('confidence') in ['high', 'medium'] and vision_result.get('title'):
-            # Check if interest already exists
+            # Check if tracked product already exists
             search_term = vision_result.get('title', '')[:100]
-            existing = UserInterest.query.filter_by(
+            existing = UserTrackedProduct.query.filter_by(
                 user_id=current_user.id,
-                interest=search_term
+                search_term=search_term
             ).first()
 
             if not existing and search_term:
-                new_interest = UserInterest(
+                new_tracked = UserTrackedProduct(
                     user_id=current_user.id,
-                    interest=search_term,
-                    source='camera_scan'
+                    search_term=search_term,
+                    original_text=vision_result.get('title'),
+                    source='camera_scan',
+                    is_active=True
                 )
-                db.session.add(new_interest)
+                db.session.add(new_tracked)
                 db.session.commit()
                 interest_added = True
-                logger.info(f"Added camera interest '{search_term}' for user {current_user.id}")
+                logger.info(f"Added camera tracked product '{search_term}' for user {current_user.id}")
 
         return jsonify({
             'success': True,
