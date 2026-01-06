@@ -44,6 +44,9 @@
 
     <!-- Floating Camera Button (for mobile product photo capture) -->
     <FloatingCameraButton />
+
+    <!-- PWA Install Banner -->
+    <PwaInstallBanner />
   </div>
 </template>
 

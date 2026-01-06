@@ -1828,3 +1828,40 @@ class CameraButtonAnalytics(db.Model):
         db.Index('idx_camera_analytics_created', 'created_at'),
         db.Index('idx_camera_analytics_session', 'session_id'),
     )
+
+
+class PwaInstallAnalytics(db.Model):
+    """Track PWA install prompts and installations"""
+    __tablename__ = 'pwa_install_analytics'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # User info (nullable for anonymous users)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    session_id = db.Column(db.String(64), nullable=True)  # For anonymous tracking
+
+    # Event tracking
+    # 'prompt_shown' - beforeinstallprompt fired
+    # 'prompt_accepted' - user clicked install
+    # 'prompt_dismissed' - user dismissed prompt
+    # 'installed' - appinstalled event fired
+    # 'standalone_launch' - app opened in standalone mode
+    event = db.Column(db.String(50), nullable=False)
+
+    # Context
+    page_url = db.Column(db.String(500), nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+    platform = db.Column(db.String(50), nullable=True)  # 'android', 'ios', 'desktop'
+    browser = db.Column(db.String(100), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref='pwa_analytics', lazy=True)
+
+    __table_args__ = (
+        db.Index('idx_pwa_analytics_user', 'user_id'),
+        db.Index('idx_pwa_analytics_event', 'event'),
+        db.Index('idx_pwa_analytics_created', 'created_at'),
+        db.Index('idx_pwa_analytics_session', 'session_id'),
+    )
