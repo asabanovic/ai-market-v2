@@ -258,7 +258,7 @@ onMounted(() => {
 async function trackCameraAction(action: string) {
   try {
     const apiBase = config.public.apiBase || 'http://localhost:5001'
-    await fetch(`${apiBase}/api/analytics/camera-button`, {
+    await fetch(`${apiBase}/api/track/camera-button`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
