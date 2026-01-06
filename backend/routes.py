@@ -27,6 +27,9 @@ from models import SavingsStatistics
 # Import admin embedding blueprint
 from admin_embedding_routes import admin_embedding_bp
 from admin_search_routes import admin_search_bp
+from admin_business_routes import admin_business_bp
+from organization_api import organization_bp
+from public_business_api import public_business_bp
 
 # Import JWT-based auth API blueprint
 from auth_api import auth_api_bp, require_jwt_auth, generate_jwt_token
@@ -43,6 +46,9 @@ from referral_api import referral_api_bp
 
 # Import engagement API blueprint
 from engagement_api import engagement_bp
+
+# Import camera search API blueprint
+from camera_search_api import camera_search_bp
 
 # Import activity tracking API blueprint
 from activity_api import activity_api_bp
@@ -69,6 +75,10 @@ app.register_blueprint(referral_api_bp)
 
 # Register engagement API blueprint
 app.register_blueprint(engagement_bp)
+
+# Register camera search API blueprint
+app.register_blueprint(camera_search_bp)
+csrf.exempt(camera_search_bp)
 
 # Register activity tracking API blueprint
 app.register_blueprint(activity_api_bp)
@@ -194,9 +204,19 @@ else:
     google_bp = None
     app.logger.warning("Google OAuth credentials not found. Google login will not be available.")
 
-# Register admin embedding blueprint
+# Register admin blueprints
 app.register_blueprint(admin_embedding_bp)
 app.register_blueprint(admin_search_bp)
+app.register_blueprint(admin_business_bp)
+csrf.exempt(admin_business_bp)
+
+# Register organization API (for business members)
+app.register_blueprint(organization_bp)
+csrf.exempt(organization_bp)
+
+# Register public business API (public store pages)
+app.register_blueprint(public_business_bp)
+csrf.exempt(public_business_bp)
 
 # Handle CORS preflight requests globally
 @app.before_request
@@ -10205,8 +10225,9 @@ def api_user_tracked_products():
 def api_user_delete_tracked_product(tracked_id):
     """Delete a tracked product for the current user and refund credit"""
     from auth_api import decode_jwt_token
-    from models import UserTrackedProduct
+    from models import UserTrackedProduct, UserScanResult
     from credits_service_monthly import MonthlyCreditsService
+    from sqlalchemy.orm.attributes import flag_modified
 
     # Check authentication
     auth_header = request.headers.get('Authorization')
@@ -10231,8 +10252,28 @@ def api_user_delete_tracked_product(tracked_id):
         if not tracked:
             return jsonify({'error': 'Tracked product not found'}), 404
 
-        # Soft delete by deactivating
-        tracked.is_active = False
+        # Store search_term before deletion for syncing preferences
+        search_term = tracked.search_term.lower() if tracked.search_term else None
+
+        # Delete associated scan results first (foreign key constraint)
+        UserScanResult.query.filter_by(tracked_product_id=tracked.id).delete()
+
+        # Hard delete the tracked product (not soft delete)
+        db.session.delete(tracked)
+
+        # Sync: Also remove matching preference from grocery_interests
+        preference_removed = False
+        if search_term:
+            user = User.query.get(user_id)
+            if user and user.preferences and user.preferences.get('grocery_interests'):
+                old_interests = user.preferences.get('grocery_interests', [])
+                # Remove preferences that match (case-insensitive)
+                new_interests = [i for i in old_interests if i.strip().lower() != search_term]
+                if len(new_interests) < len(old_interests):
+                    user.preferences['grocery_interests'] = new_interests
+                    flag_modified(user, 'preferences')
+                    preference_removed = True
+                    app.logger.info(f"Removed preference '{search_term}' for user {user_id}")
 
         # Refund 1 credit when removing tracked product
         try:
@@ -10246,7 +10287,8 @@ def api_user_delete_tracked_product(tracked_id):
 
         return jsonify({
             'success': True,
-            'message': 'Praćenje ukinuto' + (' (+1 kredit vraćen)' if credit_refunded else '')
+            'message': 'Praćenje ukinuto' + (' (+1 kredit vraćen)' if credit_refunded else ''),
+            'preference_removed': preference_removed
         })
 
     except Exception as e:

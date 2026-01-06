@@ -11,7 +11,7 @@
       leave-to-class="opacity-0 -translate-y-4"
     >
       <div v-if="isExpanded" class="flex flex-col gap-3 mb-3">
-        <!-- Gallery upload button with label -->
+        <!-- Gallery upload button -->
         <button
           @click.stop="openGallery"
           class="flex items-center gap-3 pl-1 pr-4 py-1 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
@@ -24,7 +24,7 @@
           <span class="text-sm font-medium text-gray-800 whitespace-nowrap">Iz galerije</span>
         </button>
 
-        <!-- Camera button with label -->
+        <!-- Camera button -->
         <button
           @click.stop="openCamera"
           class="flex items-center gap-3 pl-1 pr-4 py-1 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
@@ -35,307 +35,337 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <span class="text-sm font-medium text-gray-800 whitespace-nowrap">Slikaj artikal</span>
+          <span class="text-sm font-medium text-gray-800 whitespace-nowrap">Slikaj uživo</span>
         </button>
-
-        <!-- Tracking hint -->
-        <div class="bg-purple-600 text-white text-xs px-3 py-2 rounded-lg shadow-lg max-w-[180px]">
-          <span class="font-medium">Prati artikal</span>
-          <p class="opacity-90 mt-0.5">Dodaj proizvod na listu za praćenje cijena</p>
-        </div>
       </div>
     </transition>
 
     <!-- Main button -->
     <button
       @click.stop="toggleExpanded"
-      class="flex items-center justify-center w-14 h-14 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all"
-      :class="{ 'rotate-45': isExpanded }"
+      class="flex items-center gap-2 pl-1 pr-4 py-1 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all"
     >
-      <svg v-if="!isExpanded" class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-      <svg v-else class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
+      <div class="w-12 h-12 flex items-center justify-center bg-purple-500 rounded-full">
+        <svg v-if="!isExpanded" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <svg v-else class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+      <span class="text-sm font-medium whitespace-nowrap">Traži slikom</span>
     </button>
 
-    <!-- Hidden inputs -->
-    <!-- capture="environment" = back camera for photographing products -->
+    <!-- Hidden file inputs -->
     <input
       ref="cameraInput"
       type="file"
       accept="image/*"
       capture="environment"
       class="hidden"
-      @change="handleCapture"
+      @change="handleFileSelect"
     />
     <input
       ref="galleryInput"
       type="file"
       accept="image/*"
-      multiple
       class="hidden"
-      @change="handleGallerySelect"
+      @change="handleFileSelect"
     />
   </div>
 
-  <!-- Upload preview modal -->
+  <!-- Results Modal -->
   <Teleport to="body">
-    <transition
-      enter-active-class="transition-opacity duration-200"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition-opacity duration-150"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
+    <div
+      v-if="showModal"
+      class="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
+      @click.self="closeModal"
     >
-      <div v-if="previewImages.length > 0" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden">
-          <div class="p-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-900">Potvrdi upload</h3>
-            <p class="text-sm text-gray-600">{{ previewImages.length }} slika za upload</p>
+      <div class="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            {{ isLoading ? 'Analiziram...' : 'Rezultati pretrage' }}
+          </h3>
+          <button
+            @click="closeModal"
+            class="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Content -->
+        <div class="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <!-- Loading State -->
+          <div v-if="isLoading" class="flex flex-col items-center py-8">
+            <div class="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-600 dark:text-gray-400">AI analizira sliku...</p>
           </div>
 
-          <!-- Image previews -->
-          <div class="p-4 overflow-y-auto max-h-[50vh]">
-            <div class="grid grid-cols-2 gap-3">
-              <div
-                v-for="(preview, index) in previewImages"
-                :key="index"
-                class="relative aspect-square bg-gray-100 rounded-lg overflow-hidden"
-              >
-                <img :src="preview.url" class="w-full h-full object-cover" alt="Preview" />
-                <button
-                  @click="removePreview(index)"
-                  class="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full"
-                >
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          <!-- Error State -->
+          <div v-else-if="error" class="text-center py-8">
+            <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-red-600 dark:text-red-400">{{ error }}</p>
+            <button
+              @click="closeModal"
+              class="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+            >
+              Zatvori
+            </button>
+          </div>
+
+          <!-- Results -->
+          <div v-else-if="result">
+            <!-- Identified Product Info -->
+            <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 mb-4">
+              <div class="flex items-start gap-3">
+                <svg class="w-6 h-6 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    {{ result.identified_product?.title || 'Proizvod prepoznat' }}
+                  </p>
+                  <p v-if="result.identified_product?.brand" class="text-sm text-gray-600 dark:text-gray-400">
+                    Brend: {{ result.identified_product.brand }}
+                  </p>
+                  <p v-if="result.interest_added" class="text-sm text-green-600 dark:text-green-400 mt-1">
+                    Dodano na listu interesa
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Actions -->
-          <div class="p-4 border-t flex gap-3">
-            <button
-              @click="cancelUpload"
-              class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              :disabled="isUploading"
-            >
-              Odustani
-            </button>
-            <button
-              @click="confirmUpload"
-              class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-              :disabled="isUploading"
-            >
-              <span v-if="isUploading" class="flex items-center justify-center gap-2">
-                <div class="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                Učitava se...
-              </span>
-              <span v-else>Potvrdi ({{ previewImages.length }})</span>
-            </button>
+            <!-- Products Found -->
+            <div v-if="result.products?.length > 0">
+              <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Pronađeno {{ result.products.length }} proizvoda:
+              </h4>
+              <div class="space-y-3">
+                <div
+                  v-for="product in result.products"
+                  :key="product.id"
+                  class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  @click="goToProduct(product)"
+                >
+                  <img
+                    v-if="product.image_path"
+                    :src="getProductImageUrl(product.image_path)"
+                    :alt="product.title"
+                    class="w-14 h-14 object-cover rounded-lg"
+                  />
+                  <div v-else class="w-14 h-14 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-gray-900 dark:text-white truncate">{{ product.title }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ product.business?.name }}</p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span v-if="product.has_discount" class="text-sm line-through text-gray-400">
+                        {{ formatPrice(product.base_price) }}
+                      </span>
+                      <span :class="product.has_discount ? 'text-red-600 font-bold' : 'text-gray-900 dark:text-white'">
+                        {{ formatPrice(product.discount_price || product.base_price) }}
+                      </span>
+                    </div>
+                  </div>
+                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- No Products Found -->
+            <div v-else class="text-center py-4">
+              <p class="text-gray-600 dark:text-gray-400">
+                Nismo pronašli ovaj proizvod u bazi. Dodali smo ga na vašu listu interesa i obavijestit ćemo vas kada bude dostupan na akciji.
+              </p>
+            </div>
           </div>
         </div>
+
+        <!-- Footer -->
+        <div v-if="result && !isLoading" class="p-4 border-t dark:border-gray-700">
+          <button
+            @click="closeModal"
+            class="w-full py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+          >
+            Zatvori
+          </button>
+        </div>
       </div>
-    </transition>
+    </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-interface PreviewImage {
-  file: File
-  url: string
+interface Product {
+  id: number
+  title: string
+  brand: string | null
+  base_price: number | null
+  discount_price: number | null
+  image_path: string | null
+  has_discount: boolean
+  business: {
+    id: number
+    name: string
+  }
+}
+
+interface CameraSearchResult {
+  success: boolean
+  identified_product: {
+    title: string | null
+    brand: string | null
+    product_type: string | null
+    confidence: string
+  }
+  products: Product[]
+  interest_added: boolean
+  search_terms: string[]
 }
 
 const config = useRuntimeConfig()
-const { upload: apiUpload } = useApi()
+const router = useRouter()
 const { isAuthenticated, token } = useAuth()
-const { isNative, takePhoto, pickFromGallery } = useCamera()
 
-const isExpanded = ref(false)
 const cameraInput = ref<HTMLInputElement | null>(null)
 const galleryInput = ref<HTMLInputElement | null>(null)
-const previewImages = ref<PreviewImage[]>([])
-const isUploading = ref(false)
-
-// Session ID for anonymous tracking
-const sessionId = ref<string>('')
-
-// Track user interactions with the camera button
-async function trackAction(action: string, uploadedImageId?: number) {
-  try {
-    const headers: Record<string, string> = {}
-    if (token.value) {
-      headers['Authorization'] = `Bearer ${token.value}`
-    }
-    await $fetch(`${config.public.apiBase}/api/track/camera-button`, {
-      method: 'POST',
-      headers,
-      body: {
-        action,
-        session_id: sessionId.value,
-        page_url: window.location.href,
-        uploaded_image_id: uploadedImageId
-      }
-    })
-  } catch (e) {
-    // Silently fail - don't disrupt user experience
-    console.debug('Analytics track failed:', e)
-  }
-}
+const showModal = ref(false)
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+const result = ref<CameraSearchResult | null>(null)
+const isExpanded = ref(false)
 
 function toggleExpanded() {
   isExpanded.value = !isExpanded.value
-  if (isExpanded.value) {
-    trackAction('expand')
-  }
 }
 
-async function openCamera() {
-  trackAction('camera_click')
+function openCamera() {
   if (!isAuthenticated.value) {
-    // Redirect to login
-    navigateTo('/prijava?redirect=/profil')
+    navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
   }
-
   isExpanded.value = false
-
-  // Use native camera on mobile (with back camera), fallback to HTML input on web
-  if (isNative) {
-    try {
-      const photo = await takePhoto()
-      if (photo) {
-        addPreview(photo.file)
-      }
-    } catch (error) {
-      console.error('Camera error:', error)
-      alert('Greška pri otvaranju kamere')
-    }
-  } else {
-    // Web fallback - use HTML input
-    cameraInput.value?.click()
-  }
+  cameraInput.value?.click()
 }
 
-async function openGallery() {
-  trackAction('gallery_click')
+function openGallery() {
   if (!isAuthenticated.value) {
-    navigateTo('/prijava?redirect=/profil')
+    navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
   }
-
   isExpanded.value = false
-
-  // Use native gallery on mobile, fallback to HTML input on web
-  if (isNative) {
-    try {
-      const photo = await pickFromGallery()
-      if (photo) {
-        addPreview(photo.file)
-      }
-    } catch (error) {
-      console.error('Gallery error:', error)
-      alert('Greška pri otvaranju galerije')
-    }
-  } else {
-    // Web fallback - use HTML input
-    galleryInput.value?.click()
-  }
+  galleryInput.value?.click()
 }
 
-function handleCapture(event: Event) {
-  const input = event.target as HTMLInputElement
-  if (input.files && input.files[0]) {
-    addPreview(input.files[0])
-  }
-  input.value = ''
-}
-
-function handleGallerySelect(event: Event) {
-  const input = event.target as HTMLInputElement
-  if (input.files) {
-    Array.from(input.files).forEach(file => addPreview(file))
-  }
-  input.value = ''
-}
-
-function addPreview(file: File) {
-  if (previewImages.value.length >= 10) {
-    alert('Maksimalno 10 slika odjednom')
-    return
-  }
-  // Track upload start on first image
-  if (previewImages.value.length === 0) {
-    trackAction('upload_start')
-  }
-  const url = URL.createObjectURL(file)
-  previewImages.value.push({ file, url })
-}
-
-function removePreview(index: number) {
-  URL.revokeObjectURL(previewImages.value[index].url)
-  previewImages.value.splice(index, 1)
-}
-
-function cancelUpload(trackCancel = true) {
-  if (trackCancel && previewImages.value.length > 0) {
-    trackAction('upload_cancel')
-  }
-  previewImages.value.forEach(p => URL.revokeObjectURL(p.url))
-  previewImages.value = []
-}
-
-async function confirmUpload() {
-  if (previewImages.value.length === 0) return
-
-  isUploading.value = true
-
-  try {
-    for (const preview of previewImages.value) {
-      const formData = new FormData()
-      formData.append('image', preview.file)
-
-      await apiUpload('/auth/user/product-images', formData)
-    }
-
-    // Track successful upload
-    trackAction('upload_complete')
-
-    // Success - clear and redirect to profile
-    cancelUpload(false) // Don't track cancel on success
-    navigateTo('/profil')
-  } catch (error: any) {
-    console.error('Upload failed:', error)
-    alert(error.message || 'Greška pri uploadu')
-  } finally {
-    isUploading.value = false
-  }
-}
-
-// Close expanded when clicking outside + initialize session
+// Close expanded menu when clicking outside
 onMounted(() => {
   document.addEventListener('click', handleOutsideClick)
-  // Initialize session ID for analytics
-  sessionId.value = localStorage.getItem('camera_session_id') || crypto.randomUUID()
-  localStorage.setItem('camera_session_id', sessionId.value)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleOutsideClick)
-  // Clean up URLs
-  previewImages.value.forEach(p => URL.revokeObjectURL(p.url))
 })
 
-function handleOutsideClick(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  if (isExpanded.value && !target.closest('.fixed.left-4')) {
-    isExpanded.value = false
+function handleOutsideClick() {
+  isExpanded.value = false
+}
+
+async function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) return
+
+  // Reset state
+  showModal.value = true
+  isLoading.value = true
+  error.value = null
+  result.value = null
+
+  try {
+    // Convert to base64
+    const base64 = await fileToBase64(file)
+
+    // Call API
+    const apiBase = config.public.apiBase || 'http://localhost:5001'
+    const response = await fetch(`${apiBase}/api/camera/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.value}`
+      },
+      body: JSON.stringify({
+        image_base64: base64
+      })
+    })
+
+    if (!response.ok) {
+      const data = await response.json()
+      throw new Error(data.error || 'Greška pri pretrazi')
+    }
+
+    result.value = await response.json()
+  } catch (err: any) {
+    error.value = err.message || 'Došlo je do greške'
+  } finally {
+    isLoading.value = false
+    // Reset file input
+    if (input) input.value = ''
   }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      // Remove data URL prefix
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function closeModal() {
+  showModal.value = false
+  result.value = null
+  error.value = null
+}
+
+function getProductImageUrl(imagePath: string | null): string {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http')) return imagePath
+  const apiBase = config.public.apiBase || 'http://localhost:5001'
+  if (imagePath.startsWith('/static/')) {
+    return `${apiBase}${imagePath}`
+  }
+  if (imagePath.startsWith('uploads/')) {
+    return `${apiBase}/static/${imagePath}`
+  }
+  return `https://popust-ba.s3.eu-central-1.amazonaws.com/${imagePath}`
+}
+
+function formatPrice(price: number | null): string {
+  if (price === null) return ''
+  return price.toFixed(2) + ' KM'
+}
+
+function goToProduct(product: Product) {
+  closeModal()
+  router.push(`/proizvod/${product.id}`)
 }
 </script>
