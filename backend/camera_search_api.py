@@ -146,7 +146,8 @@ def camera_search():
     from models import db, UserTrackedProduct, User
 
     # Get current user from request (set by require_jwt_auth decorator)
-    current_user = User.query.filter_by(telegram_id=request.current_user_id).first()
+    # The JWT stores the user's id directly, not telegram_id
+    current_user = User.query.get(request.current_user_id)
     if not current_user:
         return jsonify({'error': 'User not found'}), 404
 

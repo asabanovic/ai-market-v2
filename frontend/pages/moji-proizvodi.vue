@@ -52,6 +52,15 @@
             <li>3. Dodirnite "Dodaj"</li>
           </ol>
         </div>
+        <!-- Android/Chrome Instructions -->
+        <div v-if="showAndroidInstructions" class="mt-3 pt-3 border-t border-white/20 text-sm">
+          <p class="font-medium mb-1">Kako instalirati:</p>
+          <ol class="text-white/80 space-y-0.5 text-xs">
+            <li>1. Dodirnite tri tacke (meni) u gornjem desnom uglu</li>
+            <li>2. Odaberite "Instaliraj aplikaciju" ili "Dodaj na pocetni ekran"</li>
+            <li>3. Potvrdite instalaciju</li>
+          </ol>
+        </div>
       </div>
 
       <!-- Header -->
@@ -671,6 +680,7 @@ const pwa = usePwaInstall()
 
 // PWA install state
 const showIOSInstructions = ref(false)
+const showAndroidInstructions = ref(false)
 const showInstallOption = computed(() => {
   // Always show on this page unless already installed
   return !pwa.state.isInstalled && !pwa.state.isStandalone
@@ -679,8 +689,18 @@ const showInstallOption = computed(() => {
 async function handleInstallClick() {
   if (pwa.state.isIOS) {
     showIOSInstructions.value = !showIOSInstructions.value
+    showAndroidInstructions.value = false
+  } else if (pwa.state.canInstall) {
+    // Native install prompt available
+    const success = await pwa.promptInstall()
+    if (!success) {
+      // Prompt was dismissed or failed, show manual instructions
+      showAndroidInstructions.value = true
+    }
   } else {
-    await pwa.promptInstall()
+    // No native prompt, show manual instructions
+    showAndroidInstructions.value = !showAndroidInstructions.value
+    showIOSInstructions.value = false
   }
 }
 
