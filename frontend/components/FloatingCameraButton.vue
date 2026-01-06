@@ -247,8 +247,39 @@ const error = ref<string | null>(null)
 const result = ref<CameraSearchResult | null>(null)
 const isExpanded = ref(false)
 
+// Generate or get session ID for analytics
+const sessionId = ref<string>('')
+onMounted(() => {
+  sessionId.value = localStorage.getItem('camera_session_id') || `cam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  localStorage.setItem('camera_session_id', sessionId.value)
+})
+
+// Track camera button actions for analytics
+async function trackCameraAction(action: string) {
+  try {
+    const apiBase = config.public.apiBase || 'http://localhost:5001'
+    await fetch(`${apiBase}/api/analytics/camera-button`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token.value ? { 'Authorization': `Bearer ${token.value}` } : {})
+      },
+      body: JSON.stringify({
+        action,
+        session_id: sessionId.value,
+        page_url: window.location.pathname
+      })
+    })
+  } catch (e) {
+    // Silently fail - analytics shouldn't break the app
+  }
+}
+
 function toggleExpanded() {
   isExpanded.value = !isExpanded.value
+  if (isExpanded.value) {
+    trackCameraAction('expand')
+  }
 }
 
 function openCamera() {
@@ -256,6 +287,7 @@ function openCamera() {
     navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
   }
+  trackCameraAction('camera_click')
   isExpanded.value = false
   cameraInput.value?.click()
 }
@@ -265,6 +297,7 @@ function openGallery() {
     navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
   }
+  trackCameraAction('gallery_click')
   isExpanded.value = false
   galleryInput.value?.click()
 }
@@ -287,6 +320,9 @@ async function handleFileSelect(event: Event) {
   const file = input.files?.[0]
 
   if (!file) return
+
+  // Track upload start
+  trackCameraAction('upload_start')
 
   // Reset state
   showModal.value = true
@@ -317,6 +353,8 @@ async function handleFileSelect(event: Event) {
     }
 
     result.value = await response.json()
+    // Track successful upload/search
+    trackCameraAction('upload_complete')
   } catch (err: any) {
     error.value = err.message || 'Došlo je do greške'
   } finally {
