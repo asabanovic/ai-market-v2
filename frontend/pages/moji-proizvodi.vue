@@ -22,6 +22,38 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Install App Banner -->
+      <div v-if="showInstallOption" class="mb-4 bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-4 text-white">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="bg-white/20 p-2 rounded-lg flex-shrink-0">
+              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-sm sm:text-base">Instalirajte Aplikaciju</h3>
+              <p class="text-xs text-white/80 hidden sm:block">Brzi pristup popustima bez browsera</p>
+            </div>
+          </div>
+          <button
+            @click="handleInstallClick"
+            class="bg-white text-purple-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors flex-shrink-0"
+          >
+            Instaliraj
+          </button>
+        </div>
+        <!-- iOS Instructions -->
+        <div v-if="showIOSInstructions" class="mt-3 pt-3 border-t border-white/20 text-sm">
+          <p class="font-medium mb-1">Kako instalirati:</p>
+          <ol class="text-white/80 space-y-0.5 text-xs">
+            <li>1. Dodirnite ikonu za dijeljenje</li>
+            <li>2. "Dodaj na pocetni ekran"</li>
+            <li>3. Dodirnite "Dodaj"</li>
+          </ol>
+        </div>
+      </div>
+
       <!-- Header -->
       <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -635,6 +667,22 @@ import { useTrackedProductsStore } from '~/stores/trackedProducts'
 
 const { pluralBs } = usePluralBs()
 const { checkAuth } = useAuth()
+const pwa = usePwaInstall()
+
+// PWA install state
+const showIOSInstructions = ref(false)
+const showInstallOption = computed(() => {
+  // Always show on this page unless already installed
+  return !pwa.state.isInstalled && !pwa.state.isStandalone
+})
+
+async function handleInstallClick() {
+  if (pwa.state.isIOS) {
+    showIOSInstructions.value = !showIOSInstructions.value
+  } else {
+    await pwa.promptInstall()
+  }
+}
 
 definePageMeta({
   middleware: 'auth'
