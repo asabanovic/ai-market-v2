@@ -86,7 +86,7 @@
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ isLoading ? 'Analiziram...' : 'Rezultati pretrage' }}
+            {{ isLoading ? 'Tražim...' : 'Rezultati pretrage' }}
           </h3>
           <button
             @click="closeModal"
@@ -103,7 +103,7 @@
           <!-- Loading State -->
           <div v-if="isLoading" class="flex flex-col items-center py-8">
             <div class="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p class="text-gray-600 dark:text-gray-400">AI analizira sliku...</p>
+            <p class="text-gray-600 dark:text-gray-400 text-center px-4">{{ currentJoke }}</p>
           </div>
 
           <!-- Error State -->
@@ -247,6 +247,83 @@ const error = ref<string | null>(null)
 const result = ref<CameraSearchResult | null>(null)
 const isExpanded = ref(false)
 
+// Fun jokes to show during loading
+const jokes = [
+  'Učitavam sve svoje filmove o hrani...',
+  'Konsultujem svoju baku o cijenama...',
+  'Pretražujem sve kataloge od 1995...',
+  'Pitam komšiju da li je ovo na akciji...',
+  'Provjeravam da li je ovo skuplje od aviona...',
+  'Računam koliko ćevapa možeš kupiti za ovu cijenu...',
+  'Guglam "kako prepoznati dobar popust"...',
+  'Pijem kafu dok razmišljam...',
+  'Gledam gdje je Mujo kupio jeftinije...',
+  'Provjeravam cijene na pijaci za svaki slučaj...',
+  // 40 more jokes
+  'Zovem mamu da pita komšinicu...',
+  'Preračunavam cijene u burek jedinice...',
+  'Provjeravam koliko bi ovo koštalo u Jugoslaviji...',
+  'Pitam tatu, ali on kaže "pitaj mamu"...',
+  'Tražim kupon koji sam izrezao 2003. godine...',
+  'Računam koliko kafa mogu kupiti za ovu cijenu...',
+  'Provjeravam da li ima jeftinije u Austriji...',
+  'Pitam Hasu šta misli o ovoj cijeni...',
+  'Gledam da li je ovo skuplje od goriva...',
+  'Čekam da mi se učita internet iz 1999...',
+  'Listam staru enciklopediju cijena...',
+  'Pitam djeda kako su oni kupovali bez akcija...',
+  'Uspoređujem sa cijenama iz Avazovog kataloga...',
+  'Tražim po svim ladicama stare račune...',
+  'Provjeravam da li ovo mogu platiti u ratama do 2050...',
+  'Računam koliko sati moram raditi za ovo...',
+  'Gledam gdje je Suljo našao jeftinije...',
+  'Provjeravam cijene na svim kontinentima...',
+  'Zovem rođaka iz Njemačke da uporedi...',
+  'Računam u starim njemačkim markama...',
+  'Pretražujem arhive svih kataloga ikada...',
+  'Pitam prodavačicu da li zna za bolju cijenu...',
+  'Provjeravam mjesečeve faze za najbolju kupovinu...',
+  'Konsultujem horoskop za finansijske odluke...',
+  'Tražim onaj letak koji sam bacio prošle sedmice...',
+  'Računam koliko bureka mogu kupiti za ovo...',
+  'Zovem call centar, ali sam 47. u redu...',
+  'Provjeravam da li je skuplje od kvadrata stana...',
+  'Gledam recenzije od 1987. godine...',
+  'Pitam Google, ali i on razmišlja...',
+  'Uspoređujem sa cijenom moje prve plaće...',
+  'Provjeravam da li je ovo legalno skupo...',
+  'Tražim alternativu na OLX-u...',
+  'Računam koliko sendviča mogu napraviti za ovo...',
+  'Zovem prijatelja koji "poznaje nekog"...',
+  'Provjeravam da li je jeftinije napraviti sam...',
+  'Čekam da istekne akcija pa da se kajem...',
+  'Analiziram tržište kao pravi ekonomista...',
+  'Pravim Excel tabelu za usporedbu cijena...',
+  'Pitam ChatGPT za drugo mišljenje...'
+]
+
+const jokeIndex = ref(0)
+const jokeInterval = ref<NodeJS.Timeout | null>(null)
+
+const currentJoke = computed(() => jokes[jokeIndex.value])
+
+// Start/stop joke cycling when loading changes
+watch(isLoading, (loading) => {
+  if (loading) {
+    // Start with random joke
+    jokeIndex.value = Math.floor(Math.random() * jokes.length)
+    // Cycle every 2.5 seconds
+    jokeInterval.value = setInterval(() => {
+      jokeIndex.value = (jokeIndex.value + 1) % jokes.length
+    }, 2500)
+  } else {
+    if (jokeInterval.value) {
+      clearInterval(jokeInterval.value)
+      jokeInterval.value = null
+    }
+  }
+})
+
 // Generate or get session ID for analytics
 const sessionId = ref<string>('')
 onMounted(() => {
@@ -309,6 +386,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleOutsideClick)
+  // Clean up joke interval
+  if (jokeInterval.value) {
+    clearInterval(jokeInterval.value)
+  }
 })
 
 function handleOutsideClick() {
@@ -404,6 +485,6 @@ function formatPrice(price: number | null): string {
 
 function goToProduct(product: Product) {
   closeModal()
-  router.push(`/proizvod/${product.id}`)
+  router.push(`/proizvodi/${product.id}`)
 }
 </script>
