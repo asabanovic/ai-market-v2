@@ -1,8 +1,5 @@
 <template>
   <div class="flex items-center gap-4">
-    <!-- Camera Search -->
-    <CameraSearch />
-
     <!-- Notifications Bell -->
     <NotificationBell />
 
