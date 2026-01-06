@@ -136,14 +136,19 @@ def search_products_by_vision_result(vision_result: dict, user_city: str = None,
 
 @camera_search_bp.route('/search', methods=['POST'])
 @require_jwt_auth
-def camera_search(current_user):
+def camera_search():
     """
     Search for products using a camera photo
 
     Expected: multipart/form-data with 'image' file
     Or: JSON with 'image_base64' field
     """
-    from models import db, UserInterest
+    from models import db, UserInterest, User
+
+    # Get current user from request (set by require_jwt_auth decorator)
+    current_user = User.query.filter_by(telegram_id=request.current_user_id).first()
+    if not current_user:
+        return jsonify({'error': 'User not found'}), 404
 
     try:
         # Get image data
