@@ -2213,3 +2213,81 @@ def delete_user_product_image(image_id):
     app.logger.info(f"User {request.current_user_id} deleted product image {image_id}")
 
     return jsonify({'success': True}), 200
+
+
+# =====================================================
+# MAGIC LINK AUTHENTICATION
+# =====================================================
+
+@auth_api_bp.route('/magic-link/<token>', methods=['POST', 'OPTIONS'])
+def validate_magic_link(token):
+    """
+    Validate a magic link token and return a JWT session token.
+
+    This enables one-click login from email links when users open
+    emails in embedded browsers (Gmail, Outlook) that don't have
+    their existing session.
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        from models import EmailAuthToken
+
+        # Validate and consume the magic link token
+        user = EmailAuthToken.validate_and_consume(token)
+
+        if not user:
+            app.logger.warning(f"Magic link validation failed for token: {token[:20]}...")
+            return jsonify({
+                'success': False,
+                'error': 'Link je nevažeći ili je istekao.'
+            }), 400
+
+        # Generate JWT token for the user
+        jwt_token = generate_jwt_token(user.id, user.email)
+
+        # Prepare user data (same format as /verify endpoint)
+        user_data = {
+            'id': user.id,
+            'email': user.email,
+            'name': f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': user.phone,
+            'city': user.city,
+            'is_admin': user.is_admin,
+            'is_verified': user.is_verified,
+            'onboarding_completed': user.onboarding_completed or False,
+            'welcome_guide_seen': user.welcome_guide_seen or False,
+            'preferences': user.preferences or {}
+        }
+
+        # Track daily visit
+        track_daily_visit(user.id)
+
+        # Log the login event
+        try:
+            from activity_api import log_user_login
+            ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+            if ip_address:
+                ip_address = ip_address.split(',')[0].strip()
+            user_agent = request.headers.get('User-Agent', '')
+            log_user_login(user.id, 'magic_link', ip_address, user_agent)
+        except Exception as login_track_error:
+            app.logger.warning(f"Failed to track magic link login: {login_track_error}")
+
+        app.logger.info(f"Magic link login successful for user: {user.email}")
+
+        return jsonify({
+            'success': True,
+            'token': jwt_token,
+            'user': user_data
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Magic link validation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Došlo je do greške. Pokušajte ponovo.'
+        }), 500

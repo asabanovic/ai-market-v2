@@ -89,7 +89,7 @@
 
 <script setup lang="ts">
 const pwa = usePwaInstall()
-const { isLoggedIn } = useAuth()
+const { isAuthenticated } = useAuth()
 const showBanner = ref(false)
 
 const iosInstructions = computed(() => pwa.getIOSInstructions())
@@ -97,7 +97,7 @@ const iosInstructions = computed(() => pwa.getIOSInstructions())
 // Show banner after delay if conditions are met (only for logged in users)
 onMounted(() => {
   setTimeout(() => {
-    if (isLoggedIn.value && pwa.shouldShowPrompt()) {
+    if (isAuthenticated.value && pwa.shouldShowPrompt()) {
       showBanner.value = true
     }
   }, 3000) // Show after 3 seconds

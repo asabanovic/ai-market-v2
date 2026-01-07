@@ -1865,3 +1865,100 @@ class PwaInstallAnalytics(db.Model):
         db.Index('idx_pwa_analytics_created', 'created_at'),
         db.Index('idx_pwa_analytics_session', 'session_id'),
     )
+
+
+class EmailAuthToken(db.Model):
+    """Magic link tokens for email-based auto-login.
+
+    When sending emails, we generate a unique token per user that allows
+    one-click login when clicked from email clients that don't have the
+    user's session (e.g., Gmail's embedded browser).
+    """
+    __tablename__ = 'email_auth_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+
+    # Token validity
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)  # Set when token is consumed
+
+    # Context - which email campaign generated this token
+    email_type = db.Column(db.String(50), nullable=True)  # 'daily_summary', 'weekly_summary', etc.
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('email_auth_tokens', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_email_auth_token', 'token'),
+        db.Index('idx_email_auth_user', 'user_id'),
+        db.Index('idx_email_auth_expires', 'expires_at'),
+    )
+
+    @classmethod
+    def generate_for_user(cls, user_id, email_type=None, hours_valid=72):
+        """Generate a new magic link token for a user.
+
+        Args:
+            user_id: The user's ID
+            email_type: Optional - the type of email (for analytics)
+            hours_valid: How long the token is valid (default 72 hours)
+
+        Returns:
+            The token string (to be included in email links)
+        """
+        from datetime import timedelta
+
+        token = secrets.token_urlsafe(32)  # 43 chars, URL-safe
+        expires_at = datetime.now() + timedelta(hours=hours_valid)
+
+        email_token = cls(
+            user_id=user_id,
+            token=token,
+            expires_at=expires_at,
+            email_type=email_type
+        )
+        db.session.add(email_token)
+        db.session.commit()
+
+        return token
+
+    @classmethod
+    def validate_and_consume(cls, token):
+        """Validate a token and mark it as used.
+
+        Args:
+            token: The token string from the URL
+
+        Returns:
+            User object if valid, None if invalid/expired/used
+        """
+        email_token = cls.query.filter_by(token=token).first()
+
+        if not email_token:
+            return None
+
+        # Check if already used
+        if email_token.used_at:
+            return None
+
+        # Check if expired
+        if datetime.now() > email_token.expires_at:
+            return None
+
+        # Mark as used
+        email_token.used_at = datetime.now()
+        db.session.commit()
+
+        return email_token.user
+
+    @classmethod
+    def cleanup_expired(cls, days_old=7):
+        """Delete expired tokens older than specified days."""
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(days=days_old)
+        cls.query.filter(cls.expires_at < cutoff).delete()
+        db.session.commit()

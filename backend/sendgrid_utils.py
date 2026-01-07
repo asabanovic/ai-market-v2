@@ -109,6 +109,56 @@ def get_tracked_url(path: str, campaign: str) -> str:
     return add_utm_params(url, source="email", medium="email", campaign=campaign)
 
 
+def get_magic_link_url(path: str, user_id: str, campaign: str) -> str:
+    """
+    Get a URL with magic link token for auto-login from emails.
+
+    This enables one-click access when users open emails in embedded
+    browsers (Gmail, Outlook) that don't share the main browser's session.
+
+    Args:
+        path: URL path (e.g., '/moji-proizvodi')
+        user_id: User's ID to generate token for
+        campaign: Email campaign name (e.g., 'daily_summary')
+
+    Returns:
+        Full URL with auth_token and UTM params:
+        https://popust.ba/moji-proizvodi?auth_token=xxx&utm_source=email&utm_medium=email&utm_campaign=daily_summary
+    """
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+    try:
+        # Import here to avoid circular imports
+        from models import EmailAuthToken
+
+        # Generate magic link token for this user
+        token = EmailAuthToken.generate_for_user(user_id, email_type=campaign)
+
+        # Build URL with auth_token
+        url = f"{BASE_URL}{path}"
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+
+        # Add auth_token
+        params['auth_token'] = [token]
+
+        # Add UTM params
+        params['utm_source'] = ['email']
+        params['utm_medium'] = ['email']
+        params['utm_campaign'] = [campaign]
+
+        # Flatten params
+        flat_params = {k: v[0] if isinstance(v, list) else v for k, v in params.items()}
+        new_query = urlencode(flat_params)
+
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+    except Exception as e:
+        logger.warning(f"Failed to generate magic link for user {user_id}: {e}")
+        # Fallback to regular tracked URL without magic link
+        return get_tracked_url(path, campaign)
+
+
 def get_base_template(content: str, accent_color: str = "#7C3AED") -> str:
     """Base email template - clean white background with logo"""
     return f'''<!DOCTYPE html>
@@ -364,8 +414,8 @@ def send_contact_email(user_name: str, user_email: str, message: str) -> bool:
     return send_email(admin_email, subject, html)
 
 
-def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> bool:
-    """Send daily product scan summary email"""
+def send_scan_summary_email(user_email: str, user_name: str, summary: dict, user_id: str = None) -> bool:
+    """Send daily product scan summary email with optional magic link authentication"""
     import random
 
     total = summary.get('total_products', 0)
@@ -448,6 +498,14 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
     # Format savings display
     savings_display = f"do {total_savings:.2f} KM" if total_savings > 0 else "potencijalna ušteda"
 
+    # Generate magic link URLs for auto-login when user_id is provided
+    if user_id:
+        moji_proizvodi_url = get_magic_link_url('/moji-proizvodi', user_id, 'daily_summary')
+        profil_url = get_magic_link_url('/profil', user_id, 'daily_summary')
+    else:
+        moji_proizvodi_url = add_utm_params(f"{BASE_URL}/moji-proizvodi", campaign='daily_summary')
+        profil_url = add_utm_params(f"{BASE_URL}/profil", campaign='daily_summary')
+
     content = f'''
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#1a1a1a;">💰 Danas ima novih popusta na Vašoj listi</h1>
 <p style="margin:0 0 24px;font-size:14px;color:#666;line-height:1.5;">{intro_text}</p>
@@ -465,11 +523,11 @@ def send_scan_summary_email(user_email: str, user_name: str, summary: dict) -> b
 <p style="margin:0;font-size:13px;color:#92400E;">⚠️ Cijene se mijenjaju – provjerite prije odlaska u kupovinu.</p>
 </div>
 
-{get_button(cta_text, f"{BASE_URL}/moji-proizvodi", "#7C3AED", campaign="daily_summary")}
+{get_button(cta_text, moji_proizvodi_url, "#7C3AED")}
 <div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;text-align:center;">
 <p style="margin:0;font-size:12px;color:#888;">
 Vi dobijate ovaj email jer ste aktivirali praćenje proizvoda na Popust.ba.
-<br>Možete upravljati obavijestima u <a href="{BASE_URL}/profil" style="color:#7C3AED;">profilu</a>.
+<br>Možete upravljati obavijestima u <a href="{profil_url}" style="color:#7C3AED;">profilu</a>.
 </p>
 </div>
 '''
