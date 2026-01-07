@@ -6308,7 +6308,8 @@ def api_admin_user_profile(user_id):
         from models import SearchLog
 
         # Get from SearchLog (includes camera searches with images)
-        search_logs = SearchLog.query.filter_by(user_id=user_id).order_by(
+        # Note: Use db.session.query() because SearchLog has a 'query' column that shadows .query
+        search_logs = db.session.query(SearchLog).filter_by(user_id=user_id).order_by(
             SearchLog.created_at.desc()
         ).limit(20).all()
 
