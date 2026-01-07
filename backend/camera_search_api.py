@@ -10,6 +10,7 @@ from image_search import upload_to_s3
 from datetime import datetime
 import json
 import threading
+import time
 
 camera_search_bp = Blueprint('camera_search', __name__, url_prefix='/api/camera')
 
@@ -91,6 +92,7 @@ Be specific with search_terms - include brand variations, common misspellings, a
 For Bosnian products, include both Latin and local names."""
 
     try:
+        api_start = time.time()
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",  # Using mini for faster response
             messages=[
@@ -111,6 +113,8 @@ For Bosnian products, include both Latin and local names."""
             ],
             max_tokens=500
         )
+        api_time = time.time() - api_start
+        logger.info(f"[TIMING] Vision API call took {api_time:.2f}s")
 
         content = response.choices[0].message.content.strip()
 
@@ -204,8 +208,11 @@ def camera_search():
         return jsonify({'error': 'User not found'}), 404
 
     try:
+        total_start = time.time()
+
         # Get image data
         image_base64 = None
+        image_size_kb = 0
 
         if request.content_type and 'multipart/form-data' in request.content_type:
             # Handle file upload
@@ -218,6 +225,7 @@ def camera_search():
 
             # Read and encode
             image_data = file.read()
+            image_size_kb = len(image_data) / 1024
             image_base64 = base64.b64encode(image_data).decode('utf-8')
         else:
             # Handle JSON with base64
@@ -229,9 +237,10 @@ def camera_search():
             # Remove data URL prefix if present
             if ',' in image_base64:
                 image_base64 = image_base64.split(',')[1]
+            image_size_kb = len(base64.b64decode(image_base64)) / 1024
 
         # Analyze image with Vision API
-        logger.info(f"Camera search for user {current_user.id}")
+        logger.info(f"[TIMING] Camera search START for user {current_user.id}, image size: {image_size_kb:.1f}KB")
         vision_result = analyze_product_image(image_base64)
 
         if vision_result.get('error'):
@@ -241,8 +250,11 @@ def camera_search():
             }), 400
 
         # Search products
+        db_start = time.time()
         user_city = current_user.city if current_user else None
         products = search_products_by_vision_result(vision_result, user_city)
+        db_time = time.time() - db_start
+        logger.info(f"[TIMING] Product DB search took {db_time:.2f}s, found {len(products)} products")
 
         # Format results
         product_results = []
@@ -292,6 +304,9 @@ def camera_search():
                 interest_added = True
                 logger.info(f"Added camera tracked product '{search_term}' for user {current_user.id}")
 
+        total_time = time.time() - total_start
+        logger.info(f"[TIMING] Camera search COMPLETE for user {current_user.id} - TOTAL: {total_time:.2f}s, results: {len(product_results)}")
+
         return jsonify({
             'success': True,
             'identified_product': {
@@ -302,7 +317,10 @@ def camera_search():
             },
             'products': product_results,
             'interest_added': interest_added,
-            'search_terms': vision_result.get('search_terms', [])
+            'search_terms': vision_result.get('search_terms', []),
+            'timing': {
+                'total_seconds': round(total_time, 2)
+            }
         })
 
     except Exception as e:
