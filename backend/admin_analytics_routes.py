@@ -404,7 +404,16 @@ def get_camera_button_analytics():
                 'uploaded_images': []
             }
 
-            # Get camera search images from SearchLog
+            # Get uploaded images from UserProductImage (original source)
+            images = UserProductImage.query.filter_by(
+                user_id=row.user_id
+            ).order_by(
+                UserProductImage.created_at.desc()
+            ).limit(10).all()
+
+            user_data['uploaded_images'] = [img.to_dict() for img in images]
+
+            # Also get camera search images from SearchLog (new source)
             # Note: Use db.session.query() because SearchLog has a 'query' column that shadows .query
             camera_searches = db.session.query(SearchLog).filter(
                 SearchLog.user_id == row.user_id,
@@ -414,19 +423,22 @@ def get_camera_button_analytics():
                 SearchLog.created_at.desc()
             ).limit(10).all()
 
-            user_data['uploaded_images'] = [{
-                'id': s.id,
-                'image_url': s.image_path,
-                'thumbnail_url': s.image_path,
-                'created_at': s.created_at.isoformat() if s.created_at else None,
-                'extracted_name': s.vision_result.get('title') if s.vision_result else s.query,
-                'extracted_price': None,
-                'status': f"{s.result_count} rezultata",
-                'vision_result': s.vision_result
-            } for s in camera_searches]
+            # Add camera searches to uploaded_images
+            for s in camera_searches:
+                user_data['uploaded_images'].append({
+                    'id': f'search_{s.id}',
+                    'image_url': s.image_path,
+                    'thumbnail_url': s.image_path,
+                    'created_at': s.created_at.isoformat() if s.created_at else None,
+                    'extracted_name': s.vision_result.get('title') if s.vision_result else s.query,
+                    'extracted_price': None,
+                    'status': f"{s.result_count} rezultata",
+                    'vision_result': s.vision_result,
+                    'source': 'camera_search'
+                })
 
-            # Mark as completed if they have camera searches
-            if camera_searches:
+            # Mark as completed if they have any images
+            if user_data['uploaded_images']:
                 user_data['completed_upload'] = True
 
             users_data.append(user_data)
