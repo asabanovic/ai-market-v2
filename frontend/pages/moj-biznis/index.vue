@@ -74,6 +74,24 @@
 
         <!-- Tab: Products -->
         <div v-if="activeTab === 'products'" class="space-y-6">
+          <!-- Subscriber Stats Widget with Chart -->
+          <div class="bg-white rounded-xl shadow-lg p-5">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">Pratitelji prodavnice</h3>
+                <p class="text-sm text-gray-500">Korisnici koji prate vaše akcije</p>
+              </div>
+              <div class="text-right">
+                <div class="text-3xl font-bold text-purple-600">{{ subscriberCount }}</div>
+                <div class="text-xs text-gray-500">ukupno pratitelja</div>
+              </div>
+            </div>
+            <!-- Line Chart -->
+            <div class="h-48">
+              <Line v-if="subscriberChartData" :data="subscriberChartData" :options="subscriberChartOptions" />
+            </div>
+          </div>
+
           <!-- Product Stats Widgets -->
           <div v-if="products.length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <!-- Total Products -->
@@ -1089,6 +1107,21 @@
 </template>
 
 <script setup lang="ts">
+import { Line } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+
 definePageMeta({
   middleware: ['auth']
 })
@@ -1104,6 +1137,56 @@ const businessStats = ref({
   total_sold: 0,
   pending_redemptions: 0
 })
+const subscriberCount = ref(0)
+const subscriberGrowthData = ref<{date: string, total: number}[]>([])
+
+// Chart configuration
+const subscriberChartData = computed(() => {
+  if (!subscriberGrowthData.value.length) return null
+
+  return {
+    labels: subscriberGrowthData.value.map(d => {
+      const date = new Date(d.date)
+      return `${date.getDate()}.${date.getMonth() + 1}`
+    }),
+    datasets: [{
+      label: 'Pratitelji',
+      data: subscriberGrowthData.value.map(d => d.total),
+      borderColor: '#7C3AED',
+      backgroundColor: 'rgba(124, 58, 237, 0.1)',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 2,
+      pointHoverRadius: 5
+    }]
+  }
+})
+
+const subscriberChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#1f2937',
+      titleColor: '#fff',
+      bodyColor: '#fff',
+      padding: 12,
+      displayColors: false
+    }
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { color: '#9CA3AF', font: { size: 11 } }
+    },
+    y: {
+      beginAtZero: true,
+      grid: { color: '#F3F4F6' },
+      ticks: { color: '#9CA3AF', font: { size: 11 }, precision: 0 }
+    }
+  }
+}
 
 const activeTab = ref('products')
 const tabs = [
@@ -1243,6 +1326,15 @@ async function loadData() {
 
     // Load products (default tab)
     await loadProducts()
+
+    // Load subscriber count and growth data
+    try {
+      const subRes = await get(`/api/business/${business.value.id}/subscriber-count`)
+      subscriberCount.value = subRes.subscriber_count || 0
+      subscriberGrowthData.value = subRes.growth_data || []
+    } catch (e) {
+      console.error('Error loading subscriber count:', e)
+    }
 
     // Load coupons
     const couponsRes = await get(`/api/business/${business.value.id}/coupons`)
@@ -1563,10 +1655,12 @@ async function selectSuggestedImage(imageUrl: string, idx: number) {
   settingImageIndex.value = idx
 
   try {
-    await post(`/api/business/${businessId}/products/${productId}/set-image`, { image_url: imageUrl })
+    const response = await post(`/api/business/${businessId}/products/${productId}/set-image`, { image_url: imageUrl })
 
-    // Update the editing product and reload products list
-    editingProduct.value.image_path = imageUrl
+    // Update the editing product with the S3 path returned by backend
+    if (response.image_path) {
+      editingProduct.value.image_path = response.image_path
+    }
     await loadProducts()
 
     // Clear suggestions after successful set

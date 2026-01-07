@@ -1244,12 +1244,41 @@ def user_store_preferences():
             # Update preferred stores (accept both field names for compatibility)
             store_ids = data.get('preferred_stores') or data.get('preferred_store_ids')
             if store_ids is not None:
+                # Get current stores before update
+                old_store_ids = set(user.preferences.get('preferred_stores', []))
+
                 # Validate that all IDs are valid businesses
                 if store_ids:
                     valid_ids = [b.id for b in Business.query.filter(Business.id.in_(store_ids), Business.status == 'active').all()]
                     user.preferences['preferred_stores'] = valid_ids
                 else:
+                    valid_ids = []
                     user.preferences['preferred_stores'] = []
+
+                # Track new follows for analytics
+                new_store_ids = set(valid_ids)
+                newly_followed = new_store_ids - old_store_ids
+                unfollowed = old_store_ids - new_store_ids
+
+                # Log follow events
+                from models import UserActivity
+                for store_id in newly_followed:
+                    activity = UserActivity(
+                        user_id=user.id,
+                        activity_type='store_follow',
+                        page='store_preferences',
+                        activity_data={'business_id': store_id}
+                    )
+                    db.session.add(activity)
+
+                for store_id in unfollowed:
+                    activity = UserActivity(
+                        user_id=user.id,
+                        activity_type='store_unfollow',
+                        page='store_preferences',
+                        activity_data={'business_id': store_id}
+                    )
+                    db.session.add(activity)
 
             # Update last seen store ID (for new store popup tracking)
             if 'last_seen_store_id' in data:

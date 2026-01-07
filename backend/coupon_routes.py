@@ -1983,9 +1983,14 @@ def update_business_product(business_id, product_id):
         if data['discount_price'] is not None:
             if data['discount_price'] <= 0:
                 return jsonify({'error': 'Cijena na popustu mora biti veća od 0'}), 400
-            if data['discount_price'] >= (data.get('base_price') or product.base_price):
-                return jsonify({'error': 'Cijena na popustu mora biti manja od osnovne cijene'}), 400
-        product.discount_price = data['discount_price']
+            base = data.get('base_price') or product.base_price
+            # If discount_price equals base_price, treat as "no discount"
+            if data['discount_price'] >= base:
+                product.discount_price = None
+            else:
+                product.discount_price = data['discount_price']
+        else:
+            product.discount_price = None
 
     if 'expires' in data:
         if data['expires']:
@@ -2321,4 +2326,71 @@ def bulk_ai_product_upload(business_id):
         'results': results,
         'processed': len([r for r in results if r.get('success')]),
         'failed': len([r for r in results if not r.get('success')])
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/subscriber-count', methods=['GET'])
+@jwt_required
+def get_business_subscriber_count(business_id):
+    """Get subscriber count and growth data for a business"""
+    from models import User, UserActivity
+    from sqlalchemy import func, text
+    from datetime import datetime, timedelta
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Count current subscribers using PostgreSQL JSON containment (cast to jsonb)
+    current_count = db.session.query(func.count(User.id)).filter(
+        User.preferences.isnot(None),
+        text(f"(preferences::jsonb)->'preferred_stores' @> '[{business_id}]'::jsonb")
+    ).scalar() or 0
+
+    # Get growth data from activity logs (store_follow events) for last 30 days
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+
+    daily_follows = db.session.query(
+        func.date(UserActivity.created_at).label('date'),
+        func.count(UserActivity.id).label('count')
+    ).filter(
+        UserActivity.activity_type == 'store_follow',
+        UserActivity.activity_data.op('->>')('business_id') == str(business_id),
+        UserActivity.created_at >= thirty_days_ago
+    ).group_by(
+        func.date(UserActivity.created_at)
+    ).order_by(
+        func.date(UserActivity.created_at)
+    ).all()
+
+    # Build growth data array with all dates
+    growth_data = []
+    current_date = thirty_days_ago.date()
+    today = datetime.now().date()
+    follow_dict = {str(row.date): row.count for row in daily_follows}
+
+    # Calculate cumulative - start with estimated base
+    total_recorded = sum(follow_dict.values())
+    base = max(0, current_count - total_recorded)
+    cumulative = base
+
+    while current_date <= today:
+        date_str = str(current_date)
+        new_follows = follow_dict.get(date_str, 0)
+        cumulative += new_follows
+        growth_data.append({
+            'date': date_str,
+            'total': cumulative,
+            'new': new_follows
+        })
+        current_date += timedelta(days=1)
+
+    return jsonify({
+        'success': True,
+        'subscriber_count': current_count,
+        'growth_data': growth_data
     })
