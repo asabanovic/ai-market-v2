@@ -106,6 +106,7 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vrijeme</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Upit</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rezultati</th>
@@ -114,13 +115,45 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50">
+              <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50" :class="log.search_type === 'camera' ? 'bg-purple-50' : ''">
+                <!-- Search Type with Image -->
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <div v-if="log.search_type === 'camera' && log.image_path" class="flex-shrink-0">
+                      <img
+                        :src="getS3ImageUrl(log.image_path)"
+                        :alt="log.query"
+                        class="w-12 h-12 object-cover rounded-lg border border-purple-200 cursor-pointer hover:opacity-90"
+                        @click="openImageModal(log.image_path)"
+                      />
+                    </div>
+                    <span
+                      :class="log.search_type === 'camera' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                      class="px-2 py-1 rounded-full text-xs font-medium"
+                    >
+                      <svg v-if="log.search_type === 'camera'" class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <svg v-else class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      {{ log.search_type === 'camera' ? 'Kamera' : 'Tekst' }}
+                    </span>
+                  </div>
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                   {{ formatDateTime(log.created_at) }}
                 </td>
                 <td class="px-4 py-3">
                   <div class="text-sm font-medium text-gray-900">{{ log.query }}</div>
-                  <div v-if="log.parsed_query" class="text-xs text-gray-500 mt-1">
+                  <div v-if="log.search_type === 'camera' && log.vision_result" class="text-xs text-gray-500 mt-1">
+                    <span v-if="log.vision_result.brand" class="mr-2">Brend: {{ log.vision_result.brand }}</span>
+                    <span v-if="log.vision_result.confidence" :class="log.vision_result.confidence === 'high' ? 'text-green-600' : log.vision_result.confidence === 'medium' ? 'text-yellow-600' : 'text-red-600'">
+                      ({{ log.vision_result.confidence }})
+                    </span>
+                  </div>
+                  <div v-else-if="log.parsed_query" class="text-xs text-gray-500 mt-1">
                     Parsed: {{ JSON.stringify(log.parsed_query).substring(0, 50) }}...
                   </div>
                 </td>
@@ -161,6 +194,16 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Image Modal -->
+        <div v-if="imageModalUrl" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click="imageModalUrl = null">
+          <img :src="imageModalUrl" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl" @click.stop />
+          <button @click="imageModalUrl = null" class="absolute top-4 right-4 text-white hover:text-gray-300">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <!-- Pagination -->
@@ -427,6 +470,7 @@ const pagination = ref<any>(null)
 const selectedLog = ref<any>(null)
 const comparisonResults = ref<any>(null)
 const rerunning = ref<number | null>(null)
+const imageModalUrl = ref<string | null>(null)
 
 // Filters
 const queryFilter = ref('')
@@ -522,6 +566,16 @@ function getAvgScore(results: any[]) {
   if (!results || results.length === 0) return 0
   const sum = results.reduce((acc, r) => acc + (r.similarity || 0), 0)
   return sum / results.length
+}
+
+function getS3ImageUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return `https://aipijaca.s3.eu-central-1.amazonaws.com/${path}`
+}
+
+function openImageModal(imagePath: string) {
+  imageModalUrl.value = getS3ImageUrl(imagePath)
 }
 
 useSeoMeta({

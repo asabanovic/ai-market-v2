@@ -1036,6 +1036,15 @@ class SearchLog(db.Model):
     # User who performed the search (null for anonymous searches)
     user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
+    # Search type: 'text' (default) or 'camera'
+    search_type = db.Column(db.String(20), nullable=True, default='text')
+
+    # Image path for camera searches (S3 path)
+    image_path = db.Column(db.String(500), nullable=True)
+
+    # Vision analysis result for camera searches
+    vision_result = db.Column(JSON, nullable=True)
+
     # Selected stores (business_ids) when searching
     selected_stores = db.Column(JSON, nullable=True)  # Array of business_ids
 
@@ -1063,6 +1072,7 @@ class SearchLog(db.Model):
         db.Index('idx_search_logs_query', 'query'),
         db.Index('idx_search_logs_created_at', 'created_at'),
         db.Index('idx_search_logs_user_id', 'user_id'),
+        db.Index('idx_search_logs_search_type', 'search_type'),
     )
 
 

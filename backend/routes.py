@@ -6301,16 +6301,39 @@ def api_admin_user_profile(user_id):
 
         credit_breakdown = {action: int(total) for action, total in credit_by_action}
 
-        # Recent searches (last 20)
-        recent_search_list = db.session.query(UserSearch).filter_by(user_id=user_id).order_by(
-            UserSearch.created_at.desc()
+        # Recent searches (last 20) - include both UserSearch and SearchLog (for camera searches)
+        from models import SearchLog
+
+        # Get from SearchLog (includes camera searches with images)
+        search_logs = SearchLog.query.filter_by(user_id=user_id).order_by(
+            SearchLog.created_at.desc()
         ).limit(20).all()
 
         searches_data = [{
             'id': s.id,
             'query': s.query,
+            'search_type': s.search_type or 'text',
+            'image_path': s.image_path,
+            'vision_result': s.vision_result,
+            'result_count': s.result_count,
             'created_at': s.created_at.isoformat()
-        } for s in recent_search_list]
+        } for s in search_logs]
+
+        # If no SearchLog entries, fall back to UserSearch for legacy data
+        if not searches_data:
+            recent_search_list = db.session.query(UserSearch).filter_by(user_id=user_id).order_by(
+                UserSearch.created_at.desc()
+            ).limit(20).all()
+
+            searches_data = [{
+                'id': s.id,
+                'query': s.query,
+                'search_type': 'text',
+                'image_path': None,
+                'vision_result': None,
+                'result_count': None,
+                'created_at': s.created_at.isoformat()
+            } for s in recent_search_list]
 
         # Recent engagements (last 20)
         recent_engagement_list = UserEngagement.query.filter_by(user_id=user_id).order_by(

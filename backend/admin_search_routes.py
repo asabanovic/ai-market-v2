@@ -127,6 +127,9 @@ def get_search_logs():
                 'total_before_filter': log.total_before_filter,
                 'results_detail': log.results_detail,
                 'parsed_query': log.parsed_query,
+                'search_type': log.search_type or 'text',
+                'image_path': log.image_path,
+                'vision_result': log.vision_result,
                 'created_at': log.created_at.isoformat() if log.created_at else None,
             })
 
@@ -171,6 +174,9 @@ def get_search_log(log_id):
             'total_before_filter': log.total_before_filter,
             'results_detail': log.results_detail,
             'parsed_query': log.parsed_query,
+            'search_type': log.search_type or 'text',
+            'image_path': log.image_path,
+            'vision_result': log.vision_result,
             'created_at': log.created_at.isoformat() if log.created_at else None,
         })
 

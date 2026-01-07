@@ -6,6 +6,8 @@ import base64
 import logging
 from auth_api import require_jwt_auth
 from openai_utils import openai_client
+from image_search import upload_to_s3
+from datetime import datetime
 import json
 
 camera_search_bp = Blueprint('camera_search', __name__, url_prefix='/api/camera')
@@ -208,6 +210,43 @@ def camera_search():
                     'name': p.business.name if p.business else 'Nepoznat'
                 }
             })
+
+        # Upload image to S3 for search quality tracking
+        image_s3_path = None
+        try:
+            image_bytes = base64.b64decode(image_base64)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            s3_path = f"popust/camera-searches/{current_user.id}/{timestamp}.jpg"
+            image_s3_path = upload_to_s3(image_bytes, s3_path, 'image/jpeg')
+            if image_s3_path:
+                logger.info(f"Camera search image uploaded to S3: {image_s3_path}")
+        except Exception as e:
+            logger.error(f"Failed to upload camera search image to S3: {e}")
+
+        # Log the search to SearchLog for quality tracking
+        from models import SearchLog
+        try:
+            search_query = vision_result.get('title') or ' '.join(vision_result.get('search_terms', []))
+            search_log = SearchLog(
+                query=search_query[:500] if search_query else 'camera_search',
+                user_id=current_user.id,
+                search_type='camera',
+                image_path=image_s3_path,
+                vision_result=vision_result,
+                result_count=len(product_results),
+                results_detail=[{
+                    'product_id': p['id'],
+                    'title': p['title'],
+                    'price': p.get('discount_price') or p.get('base_price'),
+                    'store_name': p['business']['name'] if p.get('business') else None
+                } for p in product_results[:10]]  # Store top 10 results
+            )
+            db.session.add(search_log)
+            db.session.commit()
+            logger.info(f"Camera search logged for user {current_user.id}, query: {search_query[:50]}")
+        except Exception as e:
+            logger.error(f"Failed to log camera search: {e}")
+            db.session.rollback()
 
         # Auto-add to tracked products if product identified with high confidence
         interest_added = False

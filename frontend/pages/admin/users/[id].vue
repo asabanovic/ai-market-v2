@@ -303,22 +303,79 @@
             <!-- Searches Tab -->
             <div v-if="activeTab === 'searches'">
               <h3 class="text-lg font-medium text-gray-900 mb-4">Posljednje pretrage</h3>
-              <div class="space-y-2">
+              <div class="space-y-3">
                 <div
                   v-for="search in recentSearches"
                   :key="search.id"
-                  class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  class="p-4 bg-gray-50 rounded-lg"
+                  :class="search.search_type === 'camera' ? 'border-2 border-purple-200 bg-purple-50' : ''"
                 >
-                  <div class="flex items-center gap-3">
-                    <Icon name="mdi:magnify" class="w-5 h-5 text-gray-400" />
-                    <span class="text-gray-900">{{ search.query }}</span>
+                  <div class="flex items-start gap-4">
+                    <!-- Camera search image -->
+                    <div v-if="search.search_type === 'camera' && search.image_path" class="flex-shrink-0">
+                      <img
+                        :src="getS3ImageUrl(search.image_path)"
+                        :alt="search.query"
+                        class="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90"
+                        @click="openImageModal(search.image_path)"
+                      />
+                    </div>
+                    <div v-else-if="search.search_type === 'camera'" class="flex-shrink-0 w-20 h-20 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Icon name="mdi:camera" class="w-8 h-8 text-purple-400" />
+                    </div>
+                    <div v-else class="flex-shrink-0 w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <Icon name="mdi:magnify" class="w-5 h-5 text-gray-400" />
+                    </div>
+
+                    <!-- Search details -->
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span v-if="search.search_type === 'camera'" class="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
+                          <Icon name="mdi:camera" class="w-3 h-3 inline mr-1" />
+                          Kamera
+                        </span>
+                        <span v-else class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                          <Icon name="mdi:magnify" class="w-3 h-3 inline mr-1" />
+                          Tekst
+                        </span>
+                        <span class="text-xs text-gray-500">{{ search.result_count || 0 }} rezultata</span>
+                      </div>
+                      <p class="text-gray-900 font-medium truncate">{{ search.query }}</p>
+                      <!-- Vision result for camera searches -->
+                      <div v-if="search.search_type === 'camera' && search.vision_result" class="mt-2 text-xs text-gray-500">
+                        <span v-if="search.vision_result.brand" class="mr-3">
+                          <strong>Brend:</strong> {{ search.vision_result.brand }}
+                        </span>
+                        <span v-if="search.vision_result.product_type" class="mr-3">
+                          <strong>Tip:</strong> {{ search.vision_result.product_type }}
+                        </span>
+                        <span v-if="search.vision_result.confidence">
+                          <strong>Pouzdanost:</strong>
+                          <span :class="search.vision_result.confidence === 'high' ? 'text-green-600' : search.vision_result.confidence === 'medium' ? 'text-yellow-600' : 'text-red-600'">
+                            {{ search.vision_result.confidence }}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Timestamp -->
+                    <div class="flex-shrink-0 text-right">
+                      <span class="text-sm text-gray-500">{{ formatDateTime(search.created_at) }}</span>
+                    </div>
                   </div>
-                  <span class="text-sm text-gray-500">{{ formatDateTime(search.created_at) }}</span>
                 </div>
                 <div v-if="!recentSearches.length" class="text-center py-8 text-gray-500">
                   Nema pretraga
                 </div>
               </div>
+            </div>
+
+            <!-- Image Modal -->
+            <div v-if="imageModalUrl" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click="imageModalUrl = null">
+              <img :src="imageModalUrl" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl" @click.stop />
+              <button @click="imageModalUrl = null" class="absolute top-4 right-4 text-white hover:text-gray-300">
+                <Icon name="mdi:close" class="w-8 h-8" />
+              </button>
             </div>
 
             <!-- Engagements Tab -->
@@ -635,6 +692,9 @@ const isRunningScan = ref(false)
 const newTrackingTerm = ref('')
 const expandedGroups = ref<Set<number>>(new Set())
 
+// Image modal
+const imageModalUrl = ref<string | null>(null)
+
 const tabs = [
   { id: 'activity', label: 'Aktivnost', icon: 'mdi:chart-line' },
   { id: 'credits', label: 'Krediti', icon: 'mdi:currency-usd' },
@@ -790,6 +850,16 @@ function getImageUrl(path: string): string {
   if (!path) return ''
   if (path.startsWith('http')) return path
   return `${config.public.apiBase}/static/${path}`
+}
+
+function getS3ImageUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return `https://aipijaca.s3.eu-central-1.amazonaws.com/${path}`
+}
+
+function openImageModal(imagePath: string) {
+  imageModalUrl.value = getS3ImageUrl(imagePath)
 }
 
 // ===== TRACKING FUNCTIONS =====

@@ -110,7 +110,14 @@
               <tbody class="bg-white divide-y divide-gray-200">
                 <tr v-for="user in data.users" :key="user.user_id" class="hover:bg-gray-50">
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">{{ user.name || 'N/A' }}</div>
+                    <NuxtLink
+                      v-if="user.user_id"
+                      :to="`/admin/users/${user.user_id}`"
+                      class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline"
+                    >
+                      {{ user.name || 'N/A' }}
+                    </NuxtLink>
+                    <div v-else class="text-sm font-medium text-gray-900">{{ user.name || 'N/A' }}</div>
                     <div class="text-xs text-gray-500">{{ user.email }}</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
@@ -322,6 +329,10 @@ function getActionBadgeClass(action: string): string {
 function getImageUrl(path: string): string {
   if (!path) return ''
   if (path.startsWith('http')) return path
+  // Camera search images are stored in S3
+  if (path.startsWith('popust/')) {
+    return `https://aipijaca.s3.eu-central-1.amazonaws.com/${path}`
+  }
   return `${config.public.apiBase}/static/${path}`
 }
 

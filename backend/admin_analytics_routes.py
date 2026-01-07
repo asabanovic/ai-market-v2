@@ -326,7 +326,7 @@ def get_camera_button_analytics():
     - per_page: Items per page (default: 50)
     """
     from app import db
-    from models import CameraButtonAnalytics, User, UserProductImage
+    from models import CameraButtonAnalytics, User, UserProductImage, SearchLog
 
     try:
         days = request.args.get('days', 30, type=int)
@@ -394,15 +394,29 @@ def get_camera_button_analytics():
                 'uploaded_images': []
             }
 
-            # Get uploaded images for this user
-            if user_data['completed_upload']:
-                images = UserProductImage.query.filter_by(
-                    user_id=row.user_id
-                ).order_by(
-                    UserProductImage.created_at.desc()
-                ).limit(10).all()
+            # Get camera search images from SearchLog
+            camera_searches = SearchLog.query.filter(
+                SearchLog.user_id == row.user_id,
+                SearchLog.search_type == 'camera',
+                SearchLog.image_path.isnot(None)
+            ).order_by(
+                SearchLog.created_at.desc()
+            ).limit(10).all()
 
-                user_data['uploaded_images'] = [img.to_dict() for img in images]
+            user_data['uploaded_images'] = [{
+                'id': s.id,
+                'image_url': s.image_path,
+                'thumbnail_url': s.image_path,
+                'created_at': s.created_at.isoformat() if s.created_at else None,
+                'extracted_name': s.vision_result.get('title') if s.vision_result else s.query,
+                'extracted_price': None,
+                'status': f"{s.result_count} rezultata",
+                'vision_result': s.vision_result
+            } for s in camera_searches]
+
+            # Mark as completed if they have camera searches
+            if camera_searches:
+                user_data['completed_upload'] = True
 
             users_data.append(user_data)
 
