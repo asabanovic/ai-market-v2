@@ -415,9 +415,10 @@ def get_camera_button_analytics():
 
             # Also get camera search images from SearchLog (new source)
             # Note: Use db.session.query() because SearchLog has a 'query' column that shadows .query
+            # Check for both search_type='camera' AND image_path (for new entries)
+            # OR entries with image_path that might not have search_type set yet
             camera_searches = db.session.query(SearchLog).filter(
                 SearchLog.user_id == row.user_id,
-                SearchLog.search_type == 'camera',
                 SearchLog.image_path.isnot(None)
             ).order_by(
                 SearchLog.created_at.desc()
