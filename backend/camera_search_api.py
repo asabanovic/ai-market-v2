@@ -9,10 +9,60 @@ from openai_utils import openai_client
 from image_search import upload_to_s3
 from datetime import datetime
 import json
+import threading
 
 camera_search_bp = Blueprint('camera_search', __name__, url_prefix='/api/camera')
 
 logger = logging.getLogger(__name__)
+
+
+def log_camera_search_background(user_id: int, image_base64: str, vision_result: dict, product_results: list):
+    """Background task to upload image to S3 and log search - doesn't block response"""
+    from flask import current_app
+    from models import db, SearchLog
+
+    try:
+        # Import app for application context
+        from app import app
+
+        with app.app_context():
+            # Upload image to S3
+            image_s3_path = None
+            try:
+                image_bytes = base64.b64decode(image_base64)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                s3_path = f"popust/camera-searches/{user_id}/{timestamp}.jpg"
+                image_s3_path = upload_to_s3(image_bytes, s3_path, 'image/jpeg')
+                if image_s3_path:
+                    logger.info(f"Camera search image uploaded to S3: {image_s3_path}")
+            except Exception as e:
+                logger.error(f"Failed to upload camera search image to S3: {e}")
+
+            # Log to SearchLog
+            try:
+                search_query = vision_result.get('title') or ' '.join(vision_result.get('search_terms', []))
+                search_log = SearchLog(
+                    query=search_query[:500] if search_query else 'camera_search',
+                    user_id=user_id,
+                    search_type='camera',
+                    image_path=image_s3_path,
+                    vision_result=vision_result,
+                    result_count=len(product_results),
+                    results_detail=[{
+                        'product_id': p['id'],
+                        'title': p['title'],
+                        'price': p.get('discount_price') or p.get('base_price'),
+                        'store_name': p['business']['name'] if p.get('business') else None
+                    } for p in product_results[:10]]
+                )
+                db.session.add(search_log)
+                db.session.commit()
+                logger.info(f"Camera search logged for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to log camera search: {e}")
+                db.session.rollback()
+    except Exception as e:
+        logger.error(f"Background camera search logging failed: {e}")
 
 
 def analyze_product_image(image_base64: str) -> dict:
@@ -42,7 +92,7 @@ For Bosnian products, include both Latin and local names."""
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",  # Using mini for faster response
             messages=[
                 {"role": "system", "content": system_prompt},
                 {
@@ -211,42 +261,13 @@ def camera_search():
                 }
             })
 
-        # Upload image to S3 for search quality tracking
-        image_s3_path = None
-        try:
-            image_bytes = base64.b64decode(image_base64)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            s3_path = f"popust/camera-searches/{current_user.id}/{timestamp}.jpg"
-            image_s3_path = upload_to_s3(image_bytes, s3_path, 'image/jpeg')
-            if image_s3_path:
-                logger.info(f"Camera search image uploaded to S3: {image_s3_path}")
-        except Exception as e:
-            logger.error(f"Failed to upload camera search image to S3: {e}")
-
-        # Log the search to SearchLog for quality tracking
-        from models import SearchLog
-        try:
-            search_query = vision_result.get('title') or ' '.join(vision_result.get('search_terms', []))
-            search_log = SearchLog(
-                query=search_query[:500] if search_query else 'camera_search',
-                user_id=current_user.id,
-                search_type='camera',
-                image_path=image_s3_path,
-                vision_result=vision_result,
-                result_count=len(product_results),
-                results_detail=[{
-                    'product_id': p['id'],
-                    'title': p['title'],
-                    'price': p.get('discount_price') or p.get('base_price'),
-                    'store_name': p['business']['name'] if p.get('business') else None
-                } for p in product_results[:10]]  # Store top 10 results
-            )
-            db.session.add(search_log)
-            db.session.commit()
-            logger.info(f"Camera search logged for user {current_user.id}, query: {search_query[:50]}")
-        except Exception as e:
-            logger.error(f"Failed to log camera search: {e}")
-            db.session.rollback()
+        # Log search and upload image in background thread (non-blocking for faster response)
+        thread = threading.Thread(
+            target=log_camera_search_background,
+            args=(current_user.id, image_base64, vision_result, product_results)
+        )
+        thread.daemon = True
+        thread.start()
 
         # Auto-add to tracked products if product identified with high confidence
         interest_added = False
