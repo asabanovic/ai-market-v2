@@ -154,15 +154,33 @@ def track_daily_visit(user_id: str):
             visit.page_views = (visit.page_views or 1) + 1
         else:
             # Create new visit for today - this is first activity of the day!
-            visit = UserDailyVisit(
-                user_id=user_id,
-                visit_date=today,
-                first_seen=datetime.now(),
-                last_seen=datetime.now(),
-                page_views=1,
-                daily_bonus_claimed=False
-            )
-            db.session.add(visit)
+            # Use try/except to handle race condition (concurrent requests)
+            try:
+                visit = UserDailyVisit(
+                    user_id=user_id,
+                    visit_date=today,
+                    first_seen=datetime.now(),
+                    last_seen=datetime.now(),
+                    page_views=1,
+                    daily_bonus_claimed=False
+                )
+                db.session.add(visit)
+                db.session.flush()  # Try to insert now to catch constraint violation
+            except Exception as insert_error:
+                # Race condition - another request already created the record
+                db.session.rollback()
+                # Re-fetch user and visit after rollback
+                user = User.query.get(user_id)
+                visit = UserDailyVisit.query.filter_by(
+                    user_id=user_id,
+                    visit_date=today
+                ).first()
+                if visit:
+                    visit.last_seen = datetime.now()
+                    visit.page_views = (visit.page_views or 1) + 1
+                else:
+                    # Something else went wrong
+                    raise insert_error
 
         # Award daily bonus if not claimed yet today
         if not visit.daily_bonus_claimed:

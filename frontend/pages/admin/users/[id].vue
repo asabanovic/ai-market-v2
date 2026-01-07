@@ -56,6 +56,10 @@
                 <span :class="userData.is_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" class="px-2 py-1 text-xs font-medium rounded-full">
                   {{ userData.is_verified ? 'Verifikovan' : 'Nije verifikovan' }}
                 </span>
+                <span v-if="userData.is_pwa_user" class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+                  PWA ({{ userData.pwa_access_count }}x)
+                </span>
               </div>
 
               <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">

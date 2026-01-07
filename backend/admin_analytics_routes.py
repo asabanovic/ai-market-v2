@@ -141,7 +141,7 @@ def track_pwa_install():
     }
     """
     from app import db
-    from models import PwaInstallAnalytics
+    from models import PwaInstallAnalytics, User
 
     try:
         data = request.get_json() or {}
@@ -167,6 +167,16 @@ def track_pwa_install():
         )
 
         db.session.add(analytics)
+
+        # Update user's PWA status when they launch from standalone mode
+        if user_id and event == 'standalone_launch':
+            user = User.query.get(user_id)
+            if user:
+                user.is_pwa_user = True
+                user.last_pwa_access = datetime.now()
+                user.pwa_access_count = (user.pwa_access_count or 0) + 1
+                logger.info(f"Updated PWA status for user {user_id}, access count: {user.pwa_access_count}")
+
         db.session.commit()
 
         return jsonify({'success': True, 'id': analytics.id}), 201

@@ -104,6 +104,11 @@ class User(UserMixin, db.Model):
     first_touch_landing_page = db.Column(db.String(500), nullable=True)  # URL path where user first landed
     first_touch_referrer = db.Column(db.String(500), nullable=True)  # Original referrer URL
 
+    # PWA tracking - track users who access via installed PWA
+    is_pwa_user = db.Column(db.Boolean, default=False, nullable=False)  # True if ever accessed via PWA
+    last_pwa_access = db.Column(db.DateTime, nullable=True)  # Last time accessed from PWA
+    pwa_access_count = db.Column(db.Integer, default=0, nullable=False)  # Number of PWA sessions
+
     # Relationships
     package = db.relationship('Package', backref='users')
     searches = db.relationship('UserSearch', backref='user', lazy='dynamic')
