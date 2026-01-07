@@ -140,54 +140,34 @@ For Bosnian products, include both Latin and local names."""
 
 
 def search_products_by_vision_result(vision_result: dict, user_city: str = None, limit: int = 10):
-    """Search products database using vision analysis results"""
-    from models import Product, Business
-    from sqlalchemy import or_, func
+    """Search products using semantic search (same as homepage) for better results"""
+    from agent_search import run_agent_search, format_agent_products
 
-    search_terms = vision_result.get('search_terms', [])
+    # Build search query from vision result
     title = vision_result.get('title', '')
     brand = vision_result.get('brand', '')
-    product_type = vision_result.get('product_type', '')
 
-    # Build search query
-    if title:
-        search_terms.append(title)
-    if brand:
-        search_terms.append(brand)
-    if product_type:
-        search_terms.append(product_type)
+    # Combine title and brand for better search
+    search_query = title
+    if brand and brand.lower() not in title.lower():
+        search_query = f"{brand} {title}"
 
-    if not search_terms:
+    if not search_query or not search_query.strip():
         return []
 
-    # Create search conditions
-    conditions = []
-    for term in search_terms[:5]:  # Limit to 5 terms for performance
-        term_lower = term.lower().strip()
-        if len(term_lower) >= 2:
-            conditions.append(func.lower(Product.title).contains(term_lower))
-            conditions.append(func.lower(Product.brand).contains(term_lower))
+    logger.info(f"[TIMING] Camera semantic search query: {search_query}")
 
-    if not conditions:
-        return []
-
-    # Query products
-    query = Product.query.join(Business).filter(
-        Business.status == 'active',
-        or_(*conditions)
+    # Use the same agent search as homepage for semantic matching
+    agent_result = run_agent_search(
+        query=search_query,
+        k=limit,
     )
 
-    # Filter by city if provided
-    if user_city:
-        query = query.filter(Business.city == user_city)
+    # Format products to match expected structure
+    raw_products = agent_result.get("products", [])
+    formatted_products = format_agent_products(raw_products)
 
-    # Order by discount availability
-    products = query.order_by(
-        Product.discount_price.isnot(None).desc(),
-        Product.id.desc()
-    ).limit(limit).all()
-
-    return products
+    return formatted_products
 
 
 @camera_search_bp.route('/search', methods=['POST'])
@@ -249,29 +229,12 @@ def camera_search():
                 'details': vision_result.get('error')
             }), 400
 
-        # Search products
+        # Search products using semantic search (same as homepage)
         db_start = time.time()
         user_city = current_user.city if current_user else None
-        products = search_products_by_vision_result(vision_result, user_city)
+        product_results = search_products_by_vision_result(vision_result, user_city)
         db_time = time.time() - db_start
-        logger.info(f"[TIMING] Product DB search took {db_time:.2f}s, found {len(products)} products")
-
-        # Format results
-        product_results = []
-        for p in products:
-            product_results.append({
-                'id': p.id,
-                'title': p.title,
-                'brand': p.brand,
-                'base_price': float(p.base_price) if p.base_price else None,
-                'discount_price': float(p.discount_price) if p.discount_price else None,
-                'image_path': p.image_path,
-                'has_discount': p.discount_price and p.base_price and p.discount_price < p.base_price,
-                'business': {
-                    'id': p.business_id,
-                    'name': p.business.name if p.business else 'Nepoznat'
-                }
-            })
+        logger.info(f"[TIMING] Semantic search took {db_time:.2f}s, found {len(product_results)} products")
 
         # Log search and upload image in background thread (non-blocking for faster response)
         thread = threading.Thread(

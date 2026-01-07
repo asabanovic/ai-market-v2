@@ -114,20 +114,33 @@
                 </div>
               </div>
 
-              <!-- Products Found - Horizontal Scroll -->
+              <!-- Products Found -->
               <div v-if="result.products?.length > 0" class="mt-4">
                 <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 px-4 mb-3">
                   Pronadeno {{ result.products.length }} proizvoda:
                 </h4>
 
-                <!-- Horizontal Scroll Container -->
-                <div class="overflow-x-auto scrollbar-hide">
-                  <div class="flex gap-3 px-4 pb-2 snap-x snap-mandatory">
-                    <ProductCardMobile
-                      v-for="product in result.products"
-                      :key="product.id"
-                      :product="product"
-                    />
+                <!-- Featured First Product - Full Width -->
+                <div class="px-4 mb-4">
+                  <ProductCardMobile
+                    :product="result.products[0]"
+                    class="!w-full !max-w-none !min-w-0"
+                  />
+                </div>
+
+                <!-- More Results - Horizontal Scroll -->
+                <div v-if="result.products.length > 1" class="mt-2">
+                  <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 px-4 mb-2">
+                    Slični proizvodi ({{ result.products.length - 1 }}):
+                  </h5>
+                  <div class="overflow-x-auto scrollbar-hide">
+                    <div class="flex gap-3 px-4 pb-2 snap-x snap-mandatory">
+                      <ProductCardMobile
+                        v-for="product in result.products.slice(1)"
+                        :key="product.id"
+                        :product="product"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
