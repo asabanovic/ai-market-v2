@@ -1521,7 +1521,7 @@ function getProductImageUrl(imagePath: string | null): string {
   if (imagePath.startsWith('uploads/')) {
     return `${apiBase}/static/${imagePath}`
   }
-  return `https://popust-ba.s3.eu-central-1.amazonaws.com/${imagePath}`
+  return `https://aipijaca.s3.eu-central-1.amazonaws.com/${imagePath}`
 }
 
 // AI Upload functions
