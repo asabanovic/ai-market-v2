@@ -144,6 +144,35 @@
         Akcija do {{ formatShortDate(product.expires) }}
       </div>
 
+      <!-- Recently Expired Discount - FOMO message -->
+      <div
+        v-else-if="recentlyExpiredDiscount"
+        class="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg px-3 py-2 mb-3"
+      >
+        <p class="text-xs text-orange-800 font-medium">Popust istekao prije {{ daysAgoText }}</p>
+        <button
+          v-if="isLoggedIn && !isTracking"
+          @click.stop="trackProductForDiscounts"
+          :disabled="isAddingToTracked"
+          class="text-xs text-orange-600 hover:text-orange-800 underline mt-1 flex items-center gap-1 disabled:opacity-50"
+        >
+          <Icon name="mdi:bell-plus" class="w-3 h-3" />
+          Prati da ne propustis sljedeci
+        </button>
+        <NuxtLink
+          v-else-if="!isLoggedIn"
+          to="/registracija"
+          class="text-xs text-orange-600 hover:text-orange-800 underline mt-1 block"
+          @click.stop
+        >
+          Registruj se za obavjestenja
+        </NuxtLink>
+        <span v-else-if="isTracking" class="text-xs text-green-600 flex items-center gap-1 mt-1">
+          <Icon name="mdi:bell-check" class="w-3 h-3" />
+          Pratite ovaj proizvod
+        </span>
+      </div>
+
       <!-- Action Buttons -->
       <div class="mt-auto space-y-2">
         <!-- Add to List (logged in only) -->
@@ -178,11 +207,14 @@
 
 <script setup lang="ts">
 import { useCartStore } from '~/stores/cart'
+import { useFavoritesStore } from '~/stores/favorites'
 
 const config = useRuntimeConfig()
 const cartStore = useCartStore()
-const { handleApiError, showSuccess } = useCreditsToast()
+const favoritesStore = useFavoritesStore()
+const { handleApiError, showSuccess, showWarning } = useCreditsToast()
 const { user } = useAuth()
+const { post } = useApi()
 
 const props = defineProps<{
   product: any
@@ -191,6 +223,8 @@ const props = defineProps<{
 const showModal = ref(false)
 const imageError = ref(false)
 const isAddingToList = ref(false)
+const isAddingToTracked = ref(false)
+const isTracking = ref(false)
 
 const isLoggedIn = computed(() => !!user.value)
 
@@ -214,6 +248,51 @@ const discountPercentage = computed(() => {
 const cloneCount = computed(() => props.product.match_counts?.clones || 0)
 const siblingCount = computed(() => props.product.match_counts?.siblings || 0)
 const brandVariantCount = computed(() => props.product.match_counts?.brand_variants || 0)
+
+// Check if product is in user's favorites
+const isFavorited = computed(() => {
+  if (!isLoggedIn.value) return false
+  return favoritesStore.isFavorited(props.product.id)
+})
+
+// Check if discount expired within last 10 days
+const recentlyExpiredDiscount = computed(() => {
+  if (!props.product.expires || props.product.has_discount) return false
+
+  const now = new Date()
+  let expiresDate = props.product.expires
+  if (typeof expiresDate === 'string' && expiresDate.includes('T')) {
+    expiresDate = expiresDate.split('T')[0]
+  }
+  const expiry = new Date(expiresDate + 'T23:59:59')
+
+  if (isNaN(expiry.getTime())) return false
+
+  const diff = now.getTime() - expiry.getTime()
+  const daysDiff = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  // Show if expired within last 10 days
+  return daysDiff >= 0 && daysDiff <= 10
+})
+
+// Days ago text for FOMO message
+const daysAgoText = computed(() => {
+  if (!props.product.expires) return ''
+
+  const now = new Date()
+  let expiresDate = props.product.expires
+  if (typeof expiresDate === 'string' && expiresDate.includes('T')) {
+    expiresDate = expiresDate.split('T')[0]
+  }
+  const expiry = new Date(expiresDate + 'T23:59:59')
+  const diff = now.getTime() - expiry.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) return 'danas'
+  if (days === 1) return '1 dan'
+  if (days < 5) return `${days} dana`
+  return `${days} dana`
+})
 
 const businessLogo = computed(() => {
   const logo = props.product.business?.logo || props.product.business?.logo_path
@@ -281,6 +360,38 @@ async function addToShoppingList() {
     console.error('Error adding to shopping list:', error)
   } finally {
     isAddingToList.value = false
+  }
+}
+
+// Track product for discount notifications
+async function trackProductForDiscounts() {
+  if (!isLoggedIn.value || isAddingToTracked.value) return
+
+  isAddingToTracked.value = true
+
+  try {
+    const response = await post('/api/user/tracked-products', {
+      search_term: props.product.title,
+      original_text: props.product.title
+    })
+
+    if (response.success || response.id) {
+      isTracking.value = true
+      showSuccess('Pratimo ovaj proizvod! Obavijestit cemo vas o sljedecem popustu.')
+    }
+  } catch (error: any) {
+    console.error('Error tracking product:', error)
+    if (error.status === 409) {
+      // Already tracking
+      isTracking.value = true
+      showSuccess('Vec pratite ovaj proizvod.')
+    } else if (error.status === 402) {
+      showWarning('Nemate dovoljno kredita za pracenje proizvoda.')
+    } else {
+      handleApiError(error)
+    }
+  } finally {
+    isAddingToTracked.value = false
   }
 }
 </script>

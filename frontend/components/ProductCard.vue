@@ -201,7 +201,7 @@
         </span>
       </div>
 
-      <!-- Countdown Timer OR Price History (same row, consistent height) -->
+      <!-- Countdown Timer OR Price History OR Recently Expired (same row, consistent height) -->
       <div class="mb-2 min-h-[1.5rem] flex items-center justify-center">
         <!-- Show countdown for products with active discount -->
         <div
@@ -213,6 +213,35 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{{ countdownText }}</span>
+        </div>
+        <!-- Recently Expired Discount - FOMO message -->
+        <div
+          v-else-if="recentlyExpiredDiscount"
+          class="w-full bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-md px-2 py-1.5 text-xs"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-orange-800 font-medium">Popust istekao prije {{ daysAgoText }}</span>
+            <button
+              v-if="isLoggedIn && !isTracking"
+              @click.stop="trackProductForDiscounts"
+              :disabled="isAddingToTracked"
+              class="text-orange-600 hover:text-orange-800 underline flex items-center gap-0.5 disabled:opacity-50"
+            >
+              <Icon name="mdi:bell-plus" class="w-3 h-3" />
+              Prati
+            </button>
+            <NuxtLink
+              v-else-if="!isLoggedIn"
+              to="/registracija"
+              class="text-orange-600 hover:text-orange-800 underline"
+              @click.stop
+            >
+              Prati
+            </NuxtLink>
+            <span v-else-if="isTracking" class="text-green-600 flex items-center gap-0.5">
+              <Icon name="mdi:bell-check" class="w-3 h-3" />
+            </span>
+          </div>
         </div>
         <!-- Show price history for products without active discount -->
         <div
@@ -229,9 +258,10 @@
               Obavijesti me
             </button>
             <button
-              v-else-if="!isFavorited"
-              @click.stop="toggleFavorite"
-              class="text-purple-600 hover:text-purple-800 underline flex items-center gap-0.5"
+              v-else-if="!isTracking"
+              @click.stop="trackProductForDiscounts"
+              :disabled="isAddingToTracked"
+              class="text-purple-600 hover:text-purple-800 underline flex items-center gap-0.5 disabled:opacity-50"
             >
               <Icon name="mdi:bell-plus" class="w-3 h-3" />
               Prati
@@ -308,6 +338,8 @@ const props = defineProps<{
 const showModal = ref(false)
 const imageError = ref(false)
 const isAddingToList = ref(false)
+const isAddingToTracked = ref(false)
+const isTracking = ref(false)
 
 // Engagement state
 const upvotes = ref(0)
@@ -387,6 +419,44 @@ const showSavingsCTA = computed(() => {
 // Get count of price history entries (for the badge)
 const priceHistoryCount = computed(() => {
   return props.product.price_history?.history_count || 0
+})
+
+// Check if discount expired within last 10 days (for FOMO message)
+const recentlyExpiredDiscount = computed(() => {
+  if (!props.product.expires || props.product.has_discount) return false
+
+  const now = new Date()
+  let expiresDate = props.product.expires
+  if (typeof expiresDate === 'string' && expiresDate.includes('T')) {
+    expiresDate = expiresDate.split('T')[0]
+  }
+  const expiry = new Date(expiresDate + 'T23:59:59')
+
+  if (isNaN(expiry.getTime())) return false
+
+  const diff = now.getTime() - expiry.getTime()
+  const daysDiff = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  // Show if expired within last 10 days
+  return daysDiff >= 0 && daysDiff <= 10
+})
+
+// Days ago text for FOMO message
+const daysAgoText = computed(() => {
+  if (!props.product.expires) return ''
+
+  const now = new Date()
+  let expiresDate = props.product.expires
+  if (typeof expiresDate === 'string' && expiresDate.includes('T')) {
+    expiresDate = expiresDate.split('T')[0]
+  }
+  const expiry = new Date(expiresDate + 'T23:59:59')
+  const diff = now.getTime() - expiry.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) return 'danas'
+  if (days === 1) return '1 dan'
+  return `${days} dana`
 })
 
 // Check if product has any matches (clones, siblings, or brand variants)
@@ -666,6 +736,38 @@ async function submitQuickComment() {
     }
   } finally {
     isSubmittingComment.value = false
+  }
+}
+
+// Track product for discount notifications
+async function trackProductForDiscounts() {
+  if (!isLoggedIn.value || isAddingToTracked.value) return
+
+  isAddingToTracked.value = true
+
+  try {
+    const response = await post('/api/user/tracked-products', {
+      search_term: props.product.title,
+      original_text: props.product.title
+    })
+
+    if (response.success || response.id) {
+      isTracking.value = true
+      showSuccess('Pratimo ovaj proizvod! Obavijestit cemo vas o sljedecem popustu.')
+    }
+  } catch (error: any) {
+    console.error('Error tracking product:', error)
+    if (error.status === 409) {
+      // Already tracking
+      isTracking.value = true
+      showSuccess('Vec pratite ovaj proizvod.')
+    } else if (error.status === 402) {
+      showWarning('Nemate dovoljno kredita za pracenje proizvoda.')
+    } else {
+      handleApiError(error)
+    }
+  } finally {
+    isAddingToTracked.value = false
   }
 }
 
