@@ -114,35 +114,28 @@
                 </div>
               </div>
 
-              <!-- Products Found -->
+              <!-- Products Found - Horizontal Scroll like moji-proizvodi -->
               <div v-if="result.products?.length > 0" class="mt-4">
                 <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 px-4 mb-3">
                   Pronadeno {{ result.products.length }} proizvoda:
                 </h4>
 
-                <!-- Featured First Product - Full Width -->
-                <div class="px-4 mb-4">
+                <!-- Horizontal Scroll Container - matches moji-proizvodi style -->
+                <div
+                  class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide py-4 gap-4"
+                  style="padding-left: calc((100vw - 78vw) / 2); padding-right: calc((100vw - 78vw) / 2);"
+                >
                   <ProductCardMobile
-                    :product="result.products[0]"
-                    class="!w-full !max-w-none !min-w-0"
+                    v-for="product in result.products"
+                    :key="product.id"
+                    :product="formatProductForCard(product)"
                   />
                 </div>
 
-                <!-- More Results - Horizontal Scroll -->
-                <div v-if="result.products.length > 1" class="mt-2">
-                  <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 px-4 mb-2">
-                    Slični proizvodi ({{ result.products.length - 1 }}):
-                  </h5>
-                  <div class="overflow-x-auto scrollbar-hide">
-                    <div class="flex gap-3 px-4 pb-2 snap-x snap-mandatory">
-                      <ProductCardMobile
-                        v-for="product in result.products.slice(1)"
-                        :key="product.id"
-                        :product="product"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <!-- Swipe hint -->
+                <p v-if="result.products.length > 1" class="text-center text-xs text-gray-400 pb-2">
+                  ← Prevuci za više →
+                </p>
               </div>
 
               <!-- No Products Found -->
@@ -451,6 +444,24 @@ function closeModal() {
   if (capturedImageUrl.value) {
     URL.revokeObjectURL(capturedImageUrl.value)
     capturedImageUrl.value = null
+  }
+}
+
+// Format product data for ProductCardMobile component (matches moji-proizvodi)
+function formatProductForCard(product: any) {
+  return {
+    id: product.id,
+    title: product.title,
+    base_price: product.base_price,
+    discount_price: product.discount_price,
+    image_path: product.image_path || product.image_url,
+    product_image_url: product.image_path || product.image_url,
+    business: product.business || {
+      id: null,
+      name: 'Nepoznato'
+    },
+    has_discount: product.has_discount || (product.discount_price && product.discount_price < product.base_price),
+    similarity_score: product.similarity_score || product._score
   }
 }
 

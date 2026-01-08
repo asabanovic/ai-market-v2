@@ -167,6 +167,19 @@ def search_products_by_vision_result(vision_result: dict, user_city: str = None,
     raw_products = agent_result.get("products", [])
     formatted_products = format_agent_products(raw_products)
 
+    # Transform for ProductCardMobile compatibility (add image_path, has_discount)
+    for p in formatted_products:
+        # ProductCardMobile expects image_path, agent_search returns image_url
+        if 'image_url' in p and 'image_path' not in p:
+            p['image_path'] = p['image_url']
+        # Add has_discount flag
+        if 'has_discount' not in p:
+            p['has_discount'] = bool(
+                p.get('discount_price') and
+                p.get('base_price') and
+                p['discount_price'] < p['base_price']
+            )
+
     return formatted_products
 
 
@@ -246,6 +259,7 @@ def camera_search():
 
         # Auto-add to tracked products if product identified with high confidence
         interest_added = False
+        already_tracked = False
         if vision_result.get('confidence') in ['high', 'medium'] and vision_result.get('title'):
             # Check if tracked product already exists
             search_term = vision_result.get('title', '')[:100]
@@ -254,7 +268,10 @@ def camera_search():
                 search_term=search_term
             ).first()
 
-            if not existing and search_term:
+            if existing:
+                already_tracked = True
+                logger.info(f"Camera tracked product '{search_term}' already exists for user {current_user.id}")
+            elif search_term:
                 new_tracked = UserTrackedProduct(
                     user_id=current_user.id,
                     search_term=search_term,
@@ -280,6 +297,7 @@ def camera_search():
             },
             'products': product_results,
             'interest_added': interest_added,
+            'already_tracked': already_tracked,
             'search_terms': vision_result.get('search_terms', []),
             'timing': {
                 'total_seconds': round(total_time, 2)

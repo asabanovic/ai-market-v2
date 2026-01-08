@@ -82,7 +82,7 @@
       class="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
       @click.self="closeModal"
     >
-      <div class="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl">
+      <div class="bg-white dark:bg-gray-800 rounded-xl max-w-[95vw] sm:max-w-2xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -99,7 +99,7 @@
         </div>
 
         <!-- Content -->
-        <div class="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div class="p-4 overflow-y-auto max-h-[calc(95vh-140px)]">
           <!-- Loading State -->
           <div v-if="isLoading" class="flex flex-col items-center py-8">
             <div class="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -138,50 +138,34 @@
                   <p v-if="result.interest_added" class="text-sm text-green-600 dark:text-green-400 mt-1">
                     Dodano na listu interesa
                   </p>
+                  <p v-else-if="result.already_tracked" class="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                    Već pratite ovaj proizvod
+                  </p>
                 </div>
               </div>
             </div>
 
-            <!-- Products Found -->
+            <!-- Products Found - Horizontal Scroll like moji-proizvodi -->
             <div v-if="result.products?.length > 0">
               <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                 Pronađeno {{ result.products.length }} proizvoda:
               </h4>
-              <div class="space-y-3">
-                <div
+
+              <!-- Horizontal Scroll Container -->
+              <div
+                class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide py-2 gap-4 -mx-4 px-4"
+              >
+                <ProductCardMobile
                   v-for="product in result.products"
                   :key="product.id"
-                  class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  @click="goToProduct(product)"
-                >
-                  <img
-                    v-if="product.image_path"
-                    :src="getProductImageUrl(product.image_path)"
-                    :alt="product.title"
-                    class="w-14 h-14 object-cover rounded-lg"
-                  />
-                  <div v-else class="w-14 h-14 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-900 dark:text-white truncate">{{ product.title }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ product.business?.name }}</p>
-                    <div class="flex items-center gap-2 mt-1">
-                      <span v-if="product.has_discount" class="text-sm line-through text-gray-400">
-                        {{ formatPrice(product.base_price) }}
-                      </span>
-                      <span :class="product.has_discount ? 'text-red-600 font-bold' : 'text-gray-900 dark:text-white'">
-                        {{ formatPrice(product.discount_price || product.base_price) }}
-                      </span>
-                    </div>
-                  </div>
-                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
+                  :product="formatProductForCard(product)"
+                />
               </div>
+
+              <!-- Swipe hint -->
+              <p v-if="result.products.length > 1" class="text-center text-xs text-gray-400 mt-2">
+                ← Prevuci za više →
+              </p>
             </div>
 
             <!-- No Products Found -->
@@ -232,6 +216,7 @@ interface CameraSearchResult {
   }
   products: Product[]
   interest_added: boolean
+  already_tracked: boolean
   search_terms: string[]
 }
 
@@ -487,4 +472,32 @@ function goToProduct(product: Product) {
   closeModal()
   router.push(`/proizvodi/${product.id}`)
 }
+
+// Format product data for ProductCardMobile component (matches moji-proizvodi)
+function formatProductForCard(product: any) {
+  return {
+    id: product.id,
+    title: product.title,
+    base_price: product.base_price,
+    discount_price: product.discount_price,
+    image_path: product.image_path || product.image_url,
+    product_image_url: product.image_path || product.image_url,
+    business: product.business || {
+      id: null,
+      name: 'Nepoznato'
+    },
+    has_discount: product.has_discount || (product.discount_price && product.discount_price < product.base_price),
+    similarity_score: product.similarity_score || product._score
+  }
+}
 </script>
+
+<style scoped>
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+</style>
