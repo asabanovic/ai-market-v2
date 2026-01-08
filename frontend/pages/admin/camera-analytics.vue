@@ -147,12 +147,11 @@
                     {{ formatDate(user.last_interaction) }}
                   </td>
                   <td class="px-6 py-4">
-                    <div v-if="user.uploaded_images.length > 0" class="flex gap-2">
+                    <div v-if="user.uploaded_images.length > 0" class="flex gap-2 cursor-pointer" @click="openGallery(user.uploaded_images)">
                       <div
                         v-for="img in user.uploaded_images.slice(0, 3)"
                         :key="img.id"
-                        class="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-purple-500"
-                        @click="openImageModal(img)"
+                        class="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 hover:ring-2 hover:ring-purple-500"
                       >
                         <img
                           :src="getImageUrl(img.thumbnail_url || img.image_url)"
@@ -160,7 +159,7 @@
                           alt="Uploaded"
                         />
                       </div>
-                      <span v-if="user.uploaded_images.length > 3" class="text-xs text-gray-500 self-center">
+                      <span v-if="user.uploaded_images.length > 3" class="text-xs text-gray-500 self-center bg-gray-100 px-2 py-1 rounded-full hover:bg-purple-100 hover:text-purple-700">
                         +{{ user.uploaded_images.length - 3 }}
                       </span>
                     </div>
@@ -205,38 +204,89 @@
       </div>
     </div>
 
-    <!-- Image Modal -->
+    <!-- Image Gallery Modal -->
     <Teleport to="body">
       <div
-        v-if="selectedImage"
-        class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-        @click="selectedImage = null"
+        v-if="galleryImages.length > 0"
+        class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+        @click="closeGallery"
       >
-        <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden" @click.stop>
-          <div class="p-4 border-b flex justify-between items-center">
+        <div class="relative w-full h-full flex flex-col" @click.stop>
+          <!-- Header -->
+          <div class="flex-shrink-0 p-4 flex justify-between items-center text-white">
             <div>
-              <div class="font-semibold">{{ selectedImage.extracted_name || 'Slika proizvoda' }}</div>
-              <div class="text-sm text-gray-500">
-                {{ selectedImage.status }}
-                <span v-if="selectedImage.extracted_price">| {{ selectedImage.extracted_price }} KM</span>
+              <div class="font-semibold">{{ currentGalleryImage?.extracted_name || 'Slika proizvoda' }}</div>
+              <div class="text-sm text-gray-300">
+                {{ currentGalleryImage?.status }}
+                <span v-if="currentGalleryImage?.extracted_price">| {{ currentGalleryImage.extracted_price }} KM</span>
               </div>
             </div>
-            <button @click="selectedImage = null" class="text-gray-400 hover:text-gray-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <div class="flex items-center gap-4">
+              <span class="text-sm text-gray-300">{{ galleryIndex + 1 }} / {{ galleryImages.length }}</span>
+              <button @click="closeGallery" class="text-gray-400 hover:text-white p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Image Container -->
+          <div class="flex-1 flex items-center justify-center relative px-16">
+            <!-- Previous Button -->
+            <button
+              v-if="galleryImages.length > 1"
+              @click.stop="prevImage"
+              class="absolute left-4 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <!-- Main Image -->
+            <img
+              v-if="currentGalleryImage"
+              :src="getImageUrl(currentGalleryImage.image_url)"
+              class="max-w-full max-h-[75vh] object-contain rounded-lg"
+              alt="Full image"
+            />
+
+            <!-- Next Button -->
+            <button
+              v-if="galleryImages.length > 1"
+              @click.stop="nextImage"
+              class="absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
-          <div class="p-4">
-            <img
-              :src="getImageUrl(selectedImage.image_url)"
-              class="max-w-full max-h-[60vh] mx-auto rounded-lg"
-              alt="Full image"
-            />
+
+          <!-- Footer with metadata -->
+          <div class="flex-shrink-0 p-4 text-sm text-gray-400">
+            <div>Uploadovano: {{ formatDate(currentGalleryImage?.created_at) }}</div>
+            <div v-if="currentGalleryImage?.processed_at">Obrađeno: {{ formatDate(currentGalleryImage.processed_at) }}</div>
           </div>
-          <div class="p-4 border-t text-sm text-gray-500">
-            <div>Uploadovano: {{ formatDate(selectedImage.created_at) }}</div>
-            <div v-if="selectedImage.processed_at">Obrađeno: {{ formatDate(selectedImage.processed_at) }}</div>
+
+          <!-- Thumbnail Strip -->
+          <div v-if="galleryImages.length > 1" class="flex-shrink-0 p-4 border-t border-white/10">
+            <div class="flex gap-2 justify-center overflow-x-auto">
+              <div
+                v-for="(img, idx) in galleryImages"
+                :key="img.id"
+                @click.stop="galleryIndex = idx"
+                class="w-16 h-16 rounded-lg overflow-hidden border-2 cursor-pointer flex-shrink-0 transition-all"
+                :class="idx === galleryIndex ? 'border-purple-500 ring-2 ring-purple-500' : 'border-white/20 hover:border-white/50'"
+              >
+                <img
+                  :src="getImageUrl(img.thumbnail_url || img.image_url)"
+                  class="w-full h-full object-cover"
+                  alt="Thumbnail"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -257,7 +307,11 @@ const page = ref(1)
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const data = ref<any>(null)
-const selectedImage = ref<any>(null)
+
+// Gallery state
+const galleryImages = ref<any[]>([])
+const galleryIndex = ref(0)
+const currentGalleryImage = computed(() => galleryImages.value[galleryIndex.value] || null)
 
 const funnelSteps = [
   { key: 'expand', label: 'Otvorio', icon: '👆', bgClass: 'bg-gray-100', textClass: 'text-gray-700' },
@@ -348,11 +402,51 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function openImageModal(img: any) {
-  selectedImage.value = img
+function openGallery(images: any[]) {
+  galleryImages.value = images
+  galleryIndex.value = 0
+}
+
+function closeGallery() {
+  galleryImages.value = []
+  galleryIndex.value = 0
+}
+
+function prevImage() {
+  if (galleryIndex.value > 0) {
+    galleryIndex.value--
+  } else {
+    galleryIndex.value = galleryImages.value.length - 1
+  }
+}
+
+function nextImage() {
+  if (galleryIndex.value < galleryImages.value.length - 1) {
+    galleryIndex.value++
+  } else {
+    galleryIndex.value = 0
+  }
+}
+
+// Keyboard navigation for gallery
+function handleKeydown(e: KeyboardEvent) {
+  if (galleryImages.value.length === 0) return
+
+  if (e.key === 'Escape') {
+    closeGallery()
+  } else if (e.key === 'ArrowLeft') {
+    prevImage()
+  } else if (e.key === 'ArrowRight') {
+    nextImage()
+  }
 }
 
 onMounted(() => {
   fetchData()
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
