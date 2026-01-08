@@ -66,7 +66,7 @@ export function usePwaInstall() {
   const trackEvent = async (event: string) => {
     try {
       const apiBase = config.public.apiBase || 'http://localhost:5001'
-      const token = localStorage.getItem('auth_token')
+      const token = localStorage.getItem('token')
 
       await fetch(`${apiBase}/api/track/pwa-install`, {
         method: 'POST',
