@@ -252,6 +252,17 @@ if google_bp:
         error_msg = quote(str(message) if message else "OAuth authentication failed")
         return redirect(f"{frontend_url}/prijava?error={error_msg}")
 
+    # Handle MismatchingStateError - happens when session is lost between OAuth start and callback
+    # This error is raised BEFORE oauth_error handler, so we need a Flask error handler
+    from oauthlib.oauth2.rfc6749.errors import MismatchingStateError
+
+    @app.errorhandler(MismatchingStateError)
+    def handle_mismatching_state_error(error):
+        app.logger.warning(f"OAuth state mismatch - session likely lost: {error}")
+        frontend_url = get_frontend_url()
+        # User-friendly message in Bosnian
+        return redirect(f"{frontend_url}/prijava?error=session_expired&message=Sesija%20je%20istekla.%20Molimo%20pokušajte%20ponovo.")
+
     @oauth_authorized.connect_via(google_bp)
     def google_logged_in(blueprint, token):
         frontend_url = get_frontend_url()
