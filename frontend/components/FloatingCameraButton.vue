@@ -397,8 +397,8 @@ async function handleFileSelect(event: Event) {
   result.value = null
 
   try {
-    // Convert to base64
-    const base64 = await fileToBase64(file)
+    // Compress image before upload (prevents 413 errors from large phone photos)
+    const base64 = await compressImage(file)
 
     // Call API
     const apiBase = config.public.apiBase || 'http://localhost:5001'
@@ -414,7 +414,11 @@ async function handleFileSelect(event: Event) {
     })
 
     if (!response.ok) {
-      const data = await response.json()
+      // Handle 413 specifically with helpful message
+      if (response.status === 413) {
+        throw new Error('Slika je prevelika. Molimo pokušajte sa manjom slikom.')
+      }
+      const data = await response.json().catch(() => ({}))
       throw new Error(data.error || 'Greška pri pretrazi')
     }
 
@@ -430,14 +434,58 @@ async function handleFileSelect(event: Event) {
   }
 }
 
-function fileToBase64(file: File): Promise<string> {
+/**
+ * Compress image before upload to avoid 413 errors
+ * Resizes to max 1200px and compresses to ~80% JPEG quality
+ * This reduces a 10MB phone photo to ~150-300KB
+ */
+function compressImage(file: File, maxDimension: number = 1200, quality: number = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      // Remove data URL prefix
-      const base64 = result.split(',')[1]
+    const img = new Image()
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    img.onload = () => {
+      // Calculate new dimensions maintaining aspect ratio
+      let width = img.width
+      let height = img.height
+
+      if (width > height) {
+        if (width > maxDimension) {
+          height = Math.round((height * maxDimension) / width)
+          width = maxDimension
+        }
+      } else {
+        if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height)
+          height = maxDimension
+        }
+      }
+
+      canvas.width = width
+      canvas.height = height
+
+      // Draw and compress
+      ctx?.drawImage(img, 0, 0, width, height)
+      const dataUrl = canvas.toDataURL('image/jpeg', quality)
+
+      // Remove data URL prefix to get pure base64
+      const base64 = dataUrl.split(',')[1]
+
+      // Log compression stats for debugging
+      const originalSizeKB = Math.round(file.size / 1024)
+      const compressedSizeKB = Math.round((base64.length * 3) / 4 / 1024) // base64 is ~33% larger than binary
+      console.log(`[Camera] Image compressed: ${originalSizeKB}KB → ${compressedSizeKB}KB (${img.width}x${img.height} → ${width}x${height})`)
+
       resolve(base64)
+    }
+
+    img.onerror = () => reject(new Error('Failed to load image'))
+
+    // Read file as data URL to load into image
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      img.src = e.target?.result as string
     }
     reader.onerror = reject
     reader.readAsDataURL(file)

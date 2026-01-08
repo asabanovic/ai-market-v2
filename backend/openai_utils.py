@@ -304,7 +304,7 @@ def smart_rank_products(original_query, intent_data, candidate_products):
             "final_price": (p.discount_price if hasattr(p, 'discount_price') else p.get('discount_price')) or
                            (p.base_price if hasattr(p, 'base_price') else p.get('base_price')),
             "discount_percentage": 0,
-            "store_name": p.business.name if hasattr(p, 'business') else p.get('business', {}).get('name', 'Unknown')
+            "store_name": p.business.name if hasattr(p, 'business') and p.business else (p.get('business') or {}).get('name', 'Unknown')
         }
 
         # Calculate discount percentage

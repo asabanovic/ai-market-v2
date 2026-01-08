@@ -100,8 +100,20 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 
 # Security configuration
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max file size (client compresses images)
 app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour CSRF token validity
+
+
+# Handle 413 errors with a friendly JSON response
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Return JSON error for large uploads instead of HTML error page"""
+    from flask import jsonify
+    return jsonify({
+        'error': 'Datoteka je prevelika. Maksimalna veličina je 10MB.',
+        'max_size_mb': 10
+    }), 413
+
 # Disable CSRF for API endpoints (using JWT for security instead)
 app.config['WTF_CSRF_ENABLED'] = False
 

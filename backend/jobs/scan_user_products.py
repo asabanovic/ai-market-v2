@@ -355,7 +355,7 @@ def scan_single_user(user):
                         tracked_product_id=tracked.id,
                         product_id=product_id,
                         product_title=product_data.get('title'),
-                        business_name=product_data.get('business', {}).get('name'),
+                        business_name=(product_data.get('business') or {}).get('name'),
                         similarity_score=product_data.get('similarity_score'),
                         base_price=product_data.get('base_price'),
                         discount_price=product_data.get('discount_price'),
