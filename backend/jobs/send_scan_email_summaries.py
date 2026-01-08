@@ -331,19 +331,31 @@ def run_email_summaries():
                     EmailNotification.sent_at >= today_start
                 ).all() if row[0] is not None
             )
-            logger.info(f"Found {len(already_emailed_today)} users already emailed today (daily or weekly)")
+            # Also track by email address to prevent duplicates when same email has multiple user_ids
+            # or when race conditions between job instances occur
+            already_emailed_addresses = set(
+                row[0].lower() for row in db.session.query(EmailNotification.email).filter(
+                    EmailNotification.email_type.in_(['daily_scan', 'weekly_scan']),
+                    EmailNotification.status == 'sent',
+                    EmailNotification.sent_at >= today_start
+                ).all() if row[0] is not None
+            )
+            logger.info(f"Found {len(already_emailed_today)} users/{len(already_emailed_addresses)} emails already emailed today")
 
             sent_count = 0
             skipped_count = 0
             failed_count = 0
             emailed_user_ids = set()  # Track users emailed in this run
+            emailed_addresses = set()  # Track email addresses emailed in this run
 
             processed_count = 0
             for scan in completed_scans:
                 processed_count += 1
                 user = User.query.get(scan.user_id)
-                if not user:
+                if not user or not user.email:
                     continue
+
+                user_email_lower = user.email.lower()
 
                 # Skip if user already received email today (daily or weekly)
                 if user.id in already_emailed_today:
@@ -351,9 +363,21 @@ def run_email_summaries():
                     skipped_count += 1
                     continue
 
+                # Skip if email address already received email today (handles race conditions)
+                if user_email_lower in already_emailed_addresses:
+                    logger.debug(f"Email {user.email} already received email today, skipping user {user.id}")
+                    skipped_count += 1
+                    continue
+
                 # Skip if we already emailed this user in this job run
                 if user.id in emailed_user_ids:
                     logger.debug(f"User {user.id} already processed in this run, skipping")
+                    skipped_count += 1
+                    continue
+
+                # Skip if we already emailed this email address in this job run
+                if user_email_lower in emailed_addresses:
+                    logger.debug(f"Email {user.email} already processed in this run, skipping user {user.id}")
                     skipped_count += 1
                     continue
 
@@ -367,6 +391,7 @@ def run_email_summaries():
                 try:
                     if send_scan_summary_email(user, summary):
                         emailed_user_ids.add(user.id)  # Mark as emailed
+                        emailed_addresses.add(user_email_lower)  # Track email address too
                         sent_count += 1
 
                         # Log the email notification
