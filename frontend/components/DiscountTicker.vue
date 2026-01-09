@@ -16,7 +16,7 @@
             <span v-else class="store-name">{{ store.name }}</span>
             <span class="countdown">
               <span class="countdown-label">ističe za</span>
-              <span class="countdown-value">{{ formatCountdown(store.latest_expires) }}</span>
+              <span class="countdown-value">{{ formatCountdown(store.earliest_expires) }}</span>
             </span>
             <span class="discount-count">({{ store.discount_count }} {{ store.discount_count === 1 ? 'akcija' : 'akcija' }})</span>
             <span class="separator">|</span>
@@ -32,7 +32,7 @@ interface Store {
   id: number
   name: string
   logo?: string
-  latest_expires: string
+  earliest_expires: string
   discount_count: number
 }
 

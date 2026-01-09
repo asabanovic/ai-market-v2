@@ -1395,16 +1395,18 @@ def api_businesses():
 
 @app.route('/api/store-discounts-freshness')
 def api_store_discounts_freshness():
-    """Get the latest discount expiration date per store for freshness ticker"""
+    """Get the soonest discount expiration date per store for freshness ticker"""
     try:
         today = date.today()
 
-        # Query to get each store's latest non-expired discount expiration date and count
+        # Query to get each store's SOONEST (earliest) non-expired discount expiration date and count
+        # This shows the most urgent deadlines first - e.g. if Bingo has products expiring in 2 days
+        # and also products expiring in March, we show "2 days" to create urgency
         query = db.session.query(
             Business.id,
             Business.name,
             Business.logo_path,
-            func.max(Product.expires).label('latest_expires'),
+            func.min(Product.expires).label('earliest_expires'),
             func.count(Product.id).label('discount_count')
         ).join(Product, Business.id == Product.business_id).filter(
             Business.status == 'active',
@@ -1418,12 +1420,12 @@ def api_store_discounts_freshness():
                 'id': row.id,
                 'name': row.name,
                 'logo': format_logo_url(row.logo_path),
-                'latest_expires': row.latest_expires.isoformat() if row.latest_expires else None,
+                'earliest_expires': row.earliest_expires.isoformat() if row.earliest_expires else None,
                 'discount_count': row.discount_count
             })
 
-        # Sort by latest_expires (soonest first)
-        stores.sort(key=lambda x: x['latest_expires'] or '9999-12-31')
+        # Sort by earliest_expires (soonest first) - most urgent deadlines appear first in ticker
+        stores.sort(key=lambda x: x['earliest_expires'] or '9999-12-31')
 
         return jsonify({'stores': stores})
 
