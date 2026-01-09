@@ -6209,6 +6209,9 @@ def api_admin_user_profile(user_id):
             'created_at': target_user.created_at.isoformat() if target_user.created_at else None,
             'updated_at': target_user.updated_at.isoformat() if target_user.updated_at else None,
             'last_login': last_login,
+            # Notification preferences
+            'notification_preferences': target_user.notification_preferences,  # SMS/Viber: 'none', 'favorites', 'all'
+            'email_preferences': target_user.preferences.get('email_preferences', {}) if target_user.preferences else {},
         }
 
         # Activity stats (last 30 days)

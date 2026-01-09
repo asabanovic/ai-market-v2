@@ -88,6 +88,34 @@
                   <span>Referral: {{ userData.referral_code }}</span>
                 </div>
               </div>
+
+              <!-- Notification Preferences -->
+              <div class="mt-4 pt-4 border-t border-gray-100">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Notifikacije</h4>
+                <div class="flex flex-wrap gap-3 text-sm">
+                  <!-- SMS/Viber preference -->
+                  <div class="flex items-center gap-2">
+                    <Icon name="mdi:message-text" class="w-4 h-4 text-gray-400" />
+                    <span class="text-gray-500">SMS/Viber:</span>
+                    <span :class="{
+                      'text-green-600 font-medium': userData.notification_preferences === 'all',
+                      'text-yellow-600 font-medium': userData.notification_preferences === 'favorites',
+                      'text-gray-400': userData.notification_preferences === 'none' || !userData.notification_preferences
+                    }">
+                      {{ getNotificationLabel(userData.notification_preferences) }}
+                    </span>
+                  </div>
+                  <!-- Email preferences -->
+                  <div class="flex items-center gap-2">
+                    <Icon name="mdi:email-outline" class="w-4 h-4 text-gray-400" />
+                    <span class="text-gray-500">Email:</span>
+                    <span v-if="userData.email_preferences?.daily_emails" class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">Dnevni</span>
+                    <span v-if="userData.email_preferences?.weekly_summary" class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">Sedmicni</span>
+                    <span v-if="userData.email_preferences?.monthly_summary" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">Mjesecni</span>
+                    <span v-if="!userData.email_preferences?.daily_emails && !userData.email_preferences?.weekly_summary && !userData.email_preferences?.monthly_summary" class="text-gray-400">Nema</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Credits Summary -->
@@ -751,6 +779,15 @@ function getInitials(firstName?: string, lastName?: string, email?: string): str
     return email[0].toUpperCase()
   }
   return '?'
+}
+
+function getNotificationLabel(pref?: string): string {
+  switch (pref) {
+    case 'all': return 'Sve akcije'
+    case 'favorites': return 'Samo omiljeni'
+    case 'none': return 'Isključeno'
+    default: return 'Nije postavljeno'
+  }
 }
 
 function formatDate(dateString: string): string {
