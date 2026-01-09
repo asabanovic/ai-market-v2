@@ -187,15 +187,6 @@
               Duplikati
             </NuxtLink>
 
-            <NuxtLink
-              to="/admin/pwa-analytics"
-              class="inline-flex items-center px-4 py-2 border border-violet-300 rounded-md shadow-sm text-sm font-medium text-violet-700 bg-violet-50 hover:bg-violet-100"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-              </svg>
-              PWA Analytics
-            </NuxtLink>
           </div>
         </div>
 

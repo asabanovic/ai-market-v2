@@ -241,9 +241,10 @@ def get_pwa_install_analytics():
                 platforms[platform] = {}
             platforms[platform][event] = count
 
-        # Get users who installed
-        installed_users = db.session.query(
+        # Get users who installed - with potential duplicates
+        installed_users_raw = db.session.query(
             PwaInstallAnalytics.user_id,
+            PwaInstallAnalytics.session_id,
             User.email,
             User.first_name,
             User.last_name,
@@ -257,10 +258,28 @@ def get_pwa_install_analytics():
             PwaInstallAnalytics.event == 'installed'
         ).order_by(
             desc(PwaInstallAnalytics.created_at)
-        ).limit(100).all()
+        ).all()
 
+        # Deduplicate: for logged-in users by user_id, for anonymous by session_id
+        # Keep the first (most recent) install per user
+        seen_users = set()
+        seen_sessions = set()
         users_installed = []
-        for row in installed_users:
+
+        for row in installed_users_raw:
+            # Skip if we've already seen this user
+            if row.user_id:
+                if row.user_id in seen_users:
+                    continue
+                seen_users.add(row.user_id)
+            elif row.session_id:
+                if row.session_id in seen_sessions:
+                    continue
+                seen_sessions.add(row.session_id)
+            else:
+                # No user_id or session_id - skip to avoid duplicates
+                continue
+
             users_installed.append({
                 'user_id': row.user_id,
                 'email': row.email,
@@ -269,6 +288,9 @@ def get_pwa_install_analytics():
                 'browser': row.browser,
                 'installed_at': row.created_at.isoformat() if row.created_at else None
             })
+
+            if len(users_installed) >= 100:
+                break
 
         # Daily trend
         daily_trend = db.session.query(
