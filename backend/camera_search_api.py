@@ -116,17 +116,55 @@ For Bosnian products, include both Latin and local names."""
         api_time = time.time() - api_start
         logger.info(f"[TIMING] Vision API call took {api_time:.2f}s")
 
-        content = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        if not content:
+            logger.warning("Vision API returned empty content")
+            return {
+                "title": None,
+                "brand": None,
+                "product_type": None,
+                "search_terms": [],
+                "confidence": "low",
+                "error": "Empty response from Vision API"
+            }
+
+        content = content.strip()
 
         # Clean markdown if present
         if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        content = content.strip()
+            parts = content.split("```")
+            # Take the content between first ``` and second ```
+            if len(parts) >= 2:
+                content = parts[1]
+                if content.startswith("json"):
+                    content = content[4:]
+            content = content.strip()
+
+        # Check for empty content after cleaning
+        if not content:
+            logger.warning(f"Vision API content empty after cleaning. Raw: {response.choices[0].message.content[:200]}")
+            return {
+                "title": None,
+                "brand": None,
+                "product_type": None,
+                "search_terms": [],
+                "confidence": "low",
+                "error": "Could not parse Vision API response"
+            }
 
         return json.loads(content)
 
+    except json.JSONDecodeError as e:
+        raw_content = response.choices[0].message.content[:500] if response and response.choices else "N/A"
+        logger.error(f"Vision API JSON parse error: {e}. Raw content: {raw_content}")
+        return {
+            "title": None,
+            "brand": None,
+            "product_type": None,
+            "search_terms": [],
+            "confidence": "low",
+            "error": f"JSON parse error: {str(e)}"
+        }
     except Exception as e:
         logger.error(f"Vision API error: {e}")
         return {
