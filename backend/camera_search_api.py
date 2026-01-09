@@ -71,25 +71,32 @@ def analyze_product_image(image_base64: str) -> dict:
 
     system_prompt = """You are a product identification expert for Bosnian supermarkets.
 Analyze this product image and extract:
-- Product name/title (in Bosnian if possible)
+- Product name/title (MUST be in Bosnian language - use Bosnian spelling, NOT Serbian or Croatian)
 - Brand name
 - Product type/category
 - Size/weight if visible
 - Any distinguishing features
 
+IMPORTANT: All text output MUST be in Bosnian language. Use Bosnian-specific terms:
+- Use "hljeb" not "hleb" (Serbian) or "kruh" (Croatian)
+- Use "mlijeko" not "mleko" (Serbian)
+- Use "sedmica" not "nedelja" (Serbian) or "tjedan" (Croatian)
+- Use "kahva/kafa" for coffee
+- Use "čokolada", "sok", "jogurt", "maslac", "sir", "jaja", etc.
+
 Return JSON format:
 {
-    "title": "full product name with brand and size",
+    "title": "full product name with brand and size in Bosnian",
     "brand": "brand name or null",
-    "product_type": "category like mlijeko, čokolada, sok, etc.",
+    "product_type": "category in Bosnian like mlijeko, čokolada, sok, etc.",
     "size_value": "numeric size or null",
     "size_unit": "g, kg, ml, L, kom, etc. or null",
-    "search_terms": ["array", "of", "search", "keywords"],
+    "search_terms": ["array", "of", "Bosnian", "search", "keywords"],
     "confidence": "high" | "medium" | "low"
 }
 
-Be specific with search_terms - include brand variations, common misspellings, and related terms.
-For Bosnian products, include both Latin and local names."""
+Be specific with search_terms - include brand variations, common misspellings, and related Bosnian terms.
+For products, include both Latin script and common Bosnian names."""
 
     try:
         api_start = time.time()
