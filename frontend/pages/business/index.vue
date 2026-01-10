@@ -77,6 +77,10 @@
                   <span>kategoriz.</span>
                 </p>
                 <p>{{ business.views || 0 }} pregleda</p>
+                <!-- Follower count -->
+                <p class="text-indigo-600 font-medium">
+                  {{ business.follower_count || 0 }} {{ business.follower_count === 1 ? 'pratilac' : 'pratilaca' }}
+                </p>
                 <!-- Expiry dates -->
                 <div v-if="business.expiry_dates?.length" class="mt-2 pt-2 border-t border-gray-100">
                   <p class="text-xs font-medium text-gray-600 mb-1">Istječe:</p>

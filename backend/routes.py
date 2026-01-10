@@ -10,7 +10,7 @@ import json
 import csv
 import io
 import re
-from sqlalchemy import or_, and_, func, case
+from sqlalchemy import or_, and_, func, case, text
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
 from app import app, db, csrf
@@ -1804,6 +1804,11 @@ def api_my_businesses():
             # Get earliest expiry
             earliest_expiry = expiry_dates_list[0] if expiry_dates_list else None
 
+            # Count users who have this business in their preferred_stores
+            follower_count = db.session.query(User).filter(
+                text(f"(preferences::jsonb)->'preferred_stores' @> '[{business.id}]'::jsonb")
+            ).count()
+
             # Get user role for this business
             user_role = None
             if user.is_admin:
@@ -1831,7 +1836,8 @@ def api_my_businesses():
                 'user_role': user_role,
                 'status': business.status,
                 'earliest_expiry': earliest_expiry,
-                'expiry_dates': expiry_dates_list
+                'expiry_dates': expiry_dates_list,
+                'follower_count': follower_count
             })
 
         return jsonify({
