@@ -83,6 +83,8 @@ IMPORTANT: All text output MUST be in Bosnian language. Use Bosnian-specific ter
 - Use "sedmica" not "nedelja" (Serbian) or "tjedan" (Croatian)
 - Use "kahva/kafa" for coffee
 - Use "čokolada", "sok", "jogurt", "maslac", "sir", "jaja", etc.
+- For chicken products: assume it's for human consumption (piletina, pileća prsa, pileći file, etc.)
+  unless packaging clearly indicates it's animal food. Do NOT confuse with animal feed.
 
 Return JSON format:
 {
