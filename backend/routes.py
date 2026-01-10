@@ -1793,6 +1793,17 @@ def api_my_businesses():
                 business_id=business.id
             ).scalar() or 0
 
+            # Get expiry dates for products (future dates only)
+            today = date.today()
+            expiry_dates = db.session.query(Product.expires).filter(
+                Product.business_id == business.id,
+                Product.expires >= today
+            ).distinct().order_by(Product.expires).all()
+            expiry_dates_list = [exp[0].isoformat() for exp in expiry_dates if exp[0]]
+
+            # Get earliest expiry
+            earliest_expiry = expiry_dates_list[0] if expiry_dates_list else None
+
             # Get user role for this business
             user_role = None
             if user.is_admin:
@@ -1818,7 +1829,9 @@ def api_my_businesses():
                 'categorized_count': categorized_count,
                 'views': total_views,
                 'user_role': user_role,
-                'status': business.status
+                'status': business.status,
+                'earliest_expiry': earliest_expiry,
+                'expiry_dates': expiry_dates_list
             })
 
         return jsonify({

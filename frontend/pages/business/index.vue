@@ -32,7 +32,10 @@
         <div
           v-for="business in businesses"
           :key="business.id"
-          class="bg-white rounded-lg shadow-md p-6"
+          :class="[
+            'rounded-lg shadow-md p-6',
+            business.expiry_dates?.length ? 'bg-white' : 'bg-red-50 border-2 border-red-200'
+          ]"
         >
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-start space-x-4 flex-1">
@@ -74,6 +77,25 @@
                   <span>kategoriz.</span>
                 </p>
                 <p>{{ business.views || 0 }} pregleda</p>
+                <!-- Expiry dates -->
+                <div v-if="business.expiry_dates?.length" class="mt-2 pt-2 border-t border-gray-100">
+                  <p class="text-xs font-medium text-gray-600 mb-1">Istječe:</p>
+                  <div class="flex flex-wrap gap-1 justify-end">
+                    <span
+                      v-for="expiry in business.expiry_dates.slice(0, 5)"
+                      :key="expiry"
+                      :class="[
+                        'text-xs px-1.5 py-0.5 rounded',
+                        isExpiringSoon(expiry) ? 'bg-red-100 text-red-700 font-medium' : 'bg-gray-100 text-gray-600'
+                      ]"
+                    >
+                      {{ formatExpiryDate(expiry) }}
+                    </span>
+                    <span v-if="business.expiry_dates.length > 5" class="text-xs text-gray-400">
+                      +{{ business.expiry_dates.length - 5 }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1091,6 +1113,21 @@ function formatDateTime(dateString: string): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function formatExpiryDate(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('sr-Latn-BA', {
+    day: '2-digit',
+    month: '2-digit'
+  })
+}
+
+function isExpiringSoon(dateString: string): boolean {
+  const date = new Date(dateString)
+  const today = new Date()
+  const diffDays = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  return diffDays <= 3
 }
 
 useSeoMeta({
