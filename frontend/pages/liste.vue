@@ -2,13 +2,37 @@
   <div class="bg-gray-50 min-h-screen py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="mb-8">
+      <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 mb-2">
-          Moje Kupovne Liste
+          Moja Korpa - Historija
         </h1>
         <p class="text-gray-600">
           Pregled statistike i historije kupovina
         </p>
+      </div>
+
+      <!-- Explainer Box -->
+      <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-5 mb-8">
+        <div class="flex items-start gap-4">
+          <div class="flex-shrink-0 w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-semibold text-purple-900 mb-1">Kako koristiti korpu za poređenje cijena?</h3>
+            <p class="text-sm text-purple-800 leading-relaxed">
+              Pretražite proizvode koje trebate i dodajte ih u korpu klikom na <span class="inline-flex items-center gap-1 bg-green-600 text-white px-1.5 py-0.5 rounded text-xs font-medium">+ Korpa</span> dugme.
+              Kada završite, otvorite korpu da vidite <strong>u kojem marketu možete sve kupiti najpovoljnije</strong>.
+            </p>
+            <NuxtLink to="/" class="inline-flex items-center gap-1 text-sm text-purple-700 hover:text-purple-900 font-medium mt-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              Pretraži proizvode
+            </NuxtLink>
+          </div>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -33,7 +57,7 @@
           <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-600 mb-1">Ukupno Lista</p>
+                <p class="text-sm text-gray-600 mb-1">Ukupno Kupovina</p>
                 <p class="text-3xl font-bold text-gray-900">
                   {{ stats.all_time.total_lists }}
                 </p>
@@ -122,7 +146,7 @@
         <!-- All Lists -->
         <div class="bg-white rounded-lg shadow-md p-6">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">
-            Sve Liste
+            Sve Kupovine
           </h3>
           <div v-if="lists.length > 0" class="space-y-3">
             <NuxtLink
@@ -152,7 +176,7 @@
             </NuxtLink>
           </div>
           <p v-else class="text-gray-500 text-center py-8">
-            Nemate još shopping lista
+            Nemate još sačuvanih kupovina
           </p>
         </div>
       </div>

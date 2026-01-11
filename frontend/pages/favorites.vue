@@ -205,8 +205,8 @@
                   @click="addToCart(favorite)"
                   class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-all"
                 >
-                  <Icon name="mdi:playlist-plus" class="w-4 h-4 mr-1" />
-                  Dodaj u listu
+                  <Icon name="mdi:cart-plus" class="w-4 h-4 mr-1" />
+                  Dodaj u korpu
                 </button>
                 <button
                   @click="removeFavorite(favorite.favorite_id)"
@@ -304,8 +304,8 @@
                       @click="addToCart(favorite)"
                       class="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-4 h-4 mr-1" />
-                      Dodaj u listu
+                      <Icon name="mdi:cart-plus" class="w-4 h-4 mr-1" />
+                      Dodaj u korpu
                     </button>
                     <button
                       @click="removeFavorite(favorite.favorite_id)"
@@ -522,7 +522,7 @@ async function addToCart(favorite: any) {
   )
 
   if (result.success) {
-    showSuccess(`"${favorite.name}" dodano na listu!`)
+    showSuccess(`"${favorite.name}" dodano u korpu!`)
   } else if (result.error) {
     handleApiError(result.error)
   }

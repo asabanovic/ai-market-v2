@@ -406,6 +406,12 @@
       v-model="showCityRequiredModal"
       @city-saved="handleCitySaved"
     />
+
+    <!-- Korpa Education Popup (one-time after first search) -->
+    <KorpaEducationPopup
+      :is-visible="showKorpaEducation"
+      @close="showKorpaEducation = false"
+    />
   </div>
 </template>
 
@@ -477,6 +483,9 @@ const exitIntentTriggered = ref(false)
 const showCityRequiredModal = ref(false)
 const pendingSearchQuery = ref('')
 
+// Korpa education popup (one-time after first search with results)
+const showKorpaEducation = ref(false)
+
 // URL product modal state (for direct links)
 const urlProduct = ref<any>(null)
 const showUrlProductModal = ref(false)
@@ -485,26 +494,22 @@ const showUrlProductModal = ref(false)
 const searchPlaceholder = computed(() => {
   if (user.value) {
     // Logged-in user - simple, no promotional text
-    return `Primjeri (unesite bilo šta slično):
+    return `Pretraži i dodaj u korpu za poređenje cijena
 
+Primjeri:
 • Trebam brasno, mlijeko i čokoladu
-
 • Gdje ima najjeftinija piletina?
-
-• Lista: hljeb, jaja, kafa, deterdžent`
+• Korpa: hljeb, jaja, kafa, deterdžent`
   } else {
     // Anonymous user - promotional text
-    return `🎯 BESPLATNI TEST - Probajte sada!
+    return `🎯 Pretraži i dodaj u korpu za poređenje cijena
 
-Primjeri (unesite bilo šta slično):
-
+Primjeri:
 • Trebam brasno, mlijeko i čokoladu
-
 • Gdje ima najjeftinija piletina?
+• Korpa: hljeb, jaja, kafa, deterdžent
 
-• Lista: hljeb, jaja, kafa, deterdžent
-
-Registracijom dobijate neograničenu pretragu i pristup listama za kupovinu!`
+Registracijom dobijate neograničenu pretragu i pristup korpi!`
   }
 })
 
@@ -515,7 +520,7 @@ const chatExamples = [
     assistant: 'Pronađeno: Losos u Mercatoru za 15 KM/kg (-20%), piletina u Bingu za 8 KM/kg'
   },
   {
-    user: 'Lista: hljeb, mlijeko, jaja, deterdžent',
+    user: 'Korpa: hljeb, mlijeko, jaja, deterdžent',
     assistant: 'Najbolja opcija: Konzum - sve za 12.50 KM (ušteda 3 KM)'
   },
   {
@@ -1338,6 +1343,17 @@ async function performSearch() {
       // If this was an anonymous search, mark it as used in localStorage
       if (data.is_anonymous) {
         localStorage.setItem('anonymous_search_used', 'true')
+      }
+
+      // Show korpa education popup (one-time) for logged-in users after getting results
+      if (!data.is_anonymous && user.value) {
+        const hasSeenKorpaEducation = localStorage.getItem('korpa_education_seen')
+        if (!hasSeenKorpaEducation) {
+          // Show popup with slight delay so user sees results first
+          setTimeout(() => {
+            showKorpaEducation.value = true
+          }, 1500)
+        }
       }
 
       // Expand all groups by default when new results come in

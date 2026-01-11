@@ -84,9 +84,9 @@
               </svg>
             </div>
             <div>
-              <h3 class="font-semibold text-gray-900">Lista za kupovinu</h3>
+              <h3 class="font-semibold text-gray-900">Korpa za poređenje cijena</h3>
               <p class="text-sm text-gray-600 mt-1">
-                Dodajte proizvode na listu klikom na "Dodaj u listu". Tako ćete imati sve na jednom mjestu kad krenete u radnju.
+                Dodajte proizvode u korpu klikom na "Dodaj u korpu". Tako ćete vidjeti u kojem marketu možete sve kupiti najpovoljnije.
               </p>
             </div>
           </div>

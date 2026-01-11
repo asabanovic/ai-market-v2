@@ -482,8 +482,8 @@
                     :disabled="addingToList[product.id]"
                     class="w-full py-2 px-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Icon name="mdi:playlist-plus" class="w-4 h-4" />
-                    <span>Dodaj u listu</span>
+                    <Icon name="mdi:cart-plus" class="w-4 h-4" />
+                    <span>Dodaj u korpu</span>
                   </button>
                 </div>
               </div>
@@ -1191,7 +1191,7 @@ async function addToShoppingList(product: any) {
     )
 
     if (result.success) {
-      showSuccess(`"${product.title}" dodano na listu!`)
+      showSuccess(`"${product.title}" dodano u korpu!`)
     } else if (result.error) {
       handleApiError(result.error)
     }

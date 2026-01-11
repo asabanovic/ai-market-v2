@@ -23,7 +23,7 @@
           <div class="flex-1">
             <div class="flex items-center gap-2">
               <h2 :class="['text-lg font-bold', todoMode ? 'text-gray-900' : 'text-gray-900 dark:text-white']">
-                {{ todoMode ? 'TODO Lista' : 'Vaša Lista' }}
+                {{ todoMode ? 'TODO Lista' : 'Vaša Korpa' }}
               </h2>
               <!-- TODO Mode Toggle -->
               <button
@@ -79,10 +79,10 @@
         >
           <Icon name="mdi:cart" class="w-12 h-12 text-gray-400 mb-3" />
           <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">
-            Lista je prazna
+            Korpa je prazna
           </h3>
           <p class="text-xs text-gray-500 dark:text-gray-400">
-            Dodajte proizvode u listu za kupovinu
+            Dodajte proizvode u korpu za poređenje cijena
           </p>
         </div>
 

@@ -204,8 +204,8 @@
               :disabled="isAddingToList"
               class="inline-flex items-center gap-2 py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Icon name="mdi:playlist-plus" class="w-5 h-5 flex-shrink-0" />
-              <span class="whitespace-nowrap">Dodaj u listu</span>
+              <Icon name="mdi:cart-plus" class="w-5 h-5 flex-shrink-0" />
+              <span class="whitespace-nowrap">Dodaj u korpu</span>
             </button>
 
             <!-- Favorite Button -->
@@ -355,10 +355,10 @@
                     <button
                       @click.stop="handleRelatedAddToList(clone)"
                       class="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors"
-                      title="Dodaj na listu"
+                      title="Dodaj u korpu"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
-                      <span>Lista</span>
+                      <Icon name="mdi:cart-plus" class="w-4 h-4" />
+                      <span>Korpa</span>
                     </button>
                   </div>
                 </div>
@@ -436,8 +436,9 @@
                     <button
                       @click.stop="handleRelatedAddToList(sibling)"
                       class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                      title="Dodaj u korpu"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
+                      <Icon name="mdi:cart-plus" class="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -537,8 +538,9 @@
                     <button
                       @click.stop="handleRelatedAddToList(variant)"
                       class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                      title="Dodaj u korpu"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
+                      <Icon name="mdi:cart-plus" class="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -911,7 +913,7 @@ async function addToShoppingList() {
     )
 
     if (result.success) {
-      showSuccess(`"${product.value.title}" dodano na listu!`)
+      showSuccess(`"${product.value.title}" dodano u korpu!`)
     } else if (result.error) {
       handleApiError(result.error)
     }
@@ -1110,7 +1112,7 @@ async function handleRelatedAddToList(product: any) {
     )
 
     if (result.success) {
-      showSuccess(`"${product.title}" dodano na listu!`)
+      showSuccess(`"${product.title}" dodano u korpu!`)
     } else if (result.error) {
       handleApiError(result.error)
     }

@@ -290,10 +290,10 @@
                     <button
                       @click.stop="handleAddToList(clone)"
                       class="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors"
-                      title="Dodaj na listu"
+                      title="Dodaj u korpu"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-4 h-4" />
-                      <span class="hidden sm:inline">Lista</span>
+                      <Icon name="mdi:cart-plus" class="w-4 h-4" />
+                      <span class="hidden sm:inline">Korpa</span>
                     </button>
                   </div>
                 </div>
@@ -381,9 +381,9 @@
                     <button
                       @click.stop="handleAddToList(sibling)"
                       class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
-                      title="Dodaj na listu"
+                      title="Dodaj u korpu"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-3.5 h-3.5" />
+                      <Icon name="mdi:cart-plus" class="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -482,9 +482,9 @@
                     <button
                       @click.stop="handleAddToList(variant)"
                       class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
-                      title="Dodaj na listu"
+                      title="Dodaj u korpu"
                     >
-                      <Icon name="mdi:playlist-plus" class="w-3.5 h-3.5" />
+                      <Icon name="mdi:cart-plus" class="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1437,7 +1437,7 @@ const handleAddToList = async (product: any) => {
     )
 
     if (result.success) {
-      showSuccess(`"${product.title}" dodano na listu!`)
+      showSuccess(`"${product.title}" dodano u korpu!`)
     } else if (result.error) {
       handleApiError(result.error)
     }

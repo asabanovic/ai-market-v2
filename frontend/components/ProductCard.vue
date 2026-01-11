@@ -303,11 +303,11 @@
         v-if="isLoggedIn"
         @click.stop="addToShoppingList"
         :disabled="isAddingToList"
-        :title="'Dodaj u listu za kupovinu'"
+        :title="'Dodaj u korpu'"
         class="w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
       >
-        <Icon name="mdi:playlist-plus" class="w-5 h-5 flex-shrink-0" />
-        <span class="leading-none">Dodaj u listu</span>
+        <Icon name="mdi:cart-plus" class="w-5 h-5 flex-shrink-0" />
+        <span class="leading-none">Dodaj u korpu</span>
       </button>
     </div>
 
@@ -621,7 +621,7 @@ async function addToShoppingList() {
     )
 
     if (result.success) {
-      showSuccess(`"${props.product.title}" dodano na listu!`)
+      showSuccess(`"${props.product.title}" dodano u korpu!`)
     } else if (result.error) {
       handleApiError(result.error)
     }

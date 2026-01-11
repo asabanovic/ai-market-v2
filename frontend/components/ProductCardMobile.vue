@@ -182,8 +182,8 @@
           :disabled="isAddingToList"
           class="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
         >
-          <Icon name="mdi:playlist-plus" class="w-5 h-5" />
-          Dodaj u listu
+          <Icon name="mdi:cart-plus" class="w-5 h-5" />
+          Dodaj u korpu
         </button>
 
         <!-- Details Button -->
