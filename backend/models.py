@@ -1882,6 +1882,58 @@ class PwaInstallAnalytics(db.Model):
     )
 
 
+# ==================== SUPPORT MESSAGES ====================
+
+class SupportMessage(db.Model):
+    """Support chat messages between admin and users.
+
+    Used for:
+    - Admin replies to user feedback
+    - Proactive admin outreach to users
+    - User responses to admin messages
+    """
+    __tablename__ = 'support_messages'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # The user this conversation is with (NOT the admin)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+
+    # Who sent this message: 'admin' or 'user'
+    sender_type = db.Column(db.String(10), nullable=False)  # 'admin' or 'user'
+
+    # For admin messages, track which admin sent it
+    admin_user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+    # Message content
+    message = db.Column(db.Text, nullable=False)
+
+    # Optional reference to feedback this message is replying to
+    feedback_id = db.Column(db.Integer, db.ForeignKey('user_feedback.id', ondelete='SET NULL'), nullable=True)
+
+    # Read status
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    # Email notification status
+    email_sent = db.Column(db.Boolean, default=False, nullable=False)
+    email_sent_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('support_messages', lazy='dynamic'))
+    admin = db.relationship('User', foreign_keys=[admin_user_id])
+    feedback = db.relationship('UserFeedback', backref=db.backref('support_messages', lazy='dynamic'))
+
+    __table_args__ = (
+        db.Index('idx_support_messages_user', 'user_id'),
+        db.Index('idx_support_messages_created', 'created_at'),
+        db.Index('idx_support_messages_unread', 'user_id', 'is_read'),
+        db.Index('idx_support_messages_feedback', 'feedback_id'),
+    )
+
+
 class EmailAuthToken(db.Model):
     """Magic link tokens for email-based auto-login.
 

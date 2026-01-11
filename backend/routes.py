@@ -53,6 +53,9 @@ from camera_search_api import camera_search_bp
 # Import activity tracking API blueprint
 from activity_api import activity_api_bp
 
+# Import support API blueprint
+from support_api import support_bp
+
 # Disable CSRF for API endpoints (JWT-based)
 csrf.exempt(auth_api_bp)
 csrf.exempt(shopping_api_bp)
@@ -60,6 +63,7 @@ csrf.exempt(phone_auth_bp)
 csrf.exempt(referral_api_bp)
 csrf.exempt(engagement_bp)
 csrf.exempt(activity_api_bp)
+csrf.exempt(support_bp)
 
 # Register auth API blueprint
 app.register_blueprint(auth_api_bp)
@@ -82,6 +86,9 @@ csrf.exempt(camera_search_bp)
 
 # Register activity tracking API blueprint
 app.register_blueprint(activity_api_bp)
+
+# Register support API blueprint
+app.register_blueprint(support_bp)
 
 
 # Helper function to parse user agent string
@@ -8839,6 +8846,8 @@ def api_check_feedback_status():
 def api_admin_get_feedback():
     """Get all feedback for admin dashboard"""
     from auth_api import decode_jwt_token
+    from models import SupportMessage
+    from sqlalchemy import func
 
     auth_header = request.headers.get('Authorization')
     if not auth_header:
@@ -8857,8 +8866,53 @@ def api_admin_get_feedback():
         # Get feedback with pagination
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
+        filter_contacted = request.args.get('contacted', None)  # 'true', 'false', or None
+
+        # Get all user_ids that have support messages from admin
+        users_with_admin_messages = db.session.query(
+            SupportMessage.user_id
+        ).filter(
+            SupportMessage.sender_type == 'admin'
+        ).distinct().all()
+        contacted_user_ids = set(u[0] for u in users_with_admin_messages)
+
+        # Get message counts and unread counts per user
+        message_stats = db.session.query(
+            SupportMessage.user_id,
+            func.count(SupportMessage.id).label('message_count'),
+            func.sum(
+                db.case(
+                    (db.and_(SupportMessage.sender_type == 'user', SupportMessage.is_read == False), 1),
+                    else_=0
+                )
+            ).label('unread_from_user')
+        ).group_by(SupportMessage.user_id).all()
+
+        user_message_stats = {
+            stat.user_id: {
+                'message_count': stat.message_count,
+                'unread_from_user': stat.unread_from_user or 0
+            }
+            for stat in message_stats
+        }
 
         feedback_query = UserFeedback.query.order_by(UserFeedback.created_at.desc())
+
+        # Apply filter if requested
+        if filter_contacted == 'false':
+            # Only show feedback from users we haven't messaged
+            feedback_query = feedback_query.filter(
+                db.or_(
+                    UserFeedback.user_id.is_(None),
+                    ~UserFeedback.user_id.in_(contacted_user_ids)
+                )
+            )
+        elif filter_contacted == 'true':
+            # Only show feedback from users we have messaged
+            feedback_query = feedback_query.filter(
+                UserFeedback.user_id.in_(contacted_user_ids)
+            )
+
         feedback_paginated = feedback_query.paginate(page=page, per_page=per_page, error_out=False)
 
         feedback_list = []
@@ -8867,6 +8921,8 @@ def api_admin_get_feedback():
             if fb.user_id:
                 user = User.query.get(fb.user_id)
                 user_email = user.email if user else None
+
+            stats = user_message_stats.get(fb.user_id, {'message_count': 0, 'unread_from_user': 0})
 
             feedback_list.append({
                 'id': fb.id,
@@ -8880,14 +8936,25 @@ def api_admin_get_feedback():
                 'comments': fb.comments,
                 'trigger_type': fb.trigger_type,
                 'device_type': fb.device_type,
-                'created_at': fb.created_at.isoformat() if fb.created_at else None
+                'created_at': fb.created_at.isoformat() if fb.created_at else None,
+                'has_been_contacted': fb.user_id in contacted_user_ids if fb.user_id else False,
+                'message_count': stats['message_count'],
+                'unread_from_user': stats['unread_from_user']
             })
+
+        # Summary stats
+        total_users_contacted = len(contacted_user_ids)
+        total_unread = sum(s['unread_from_user'] for s in user_message_stats.values())
 
         return jsonify({
             'feedback': feedback_list,
             'total': feedback_paginated.total,
             'page': page,
-            'pages': feedback_paginated.pages
+            'pages': feedback_paginated.pages,
+            'summary': {
+                'users_contacted': total_users_contacted,
+                'total_unread_messages': total_unread
+            }
         }), 200
 
     except Exception as e:

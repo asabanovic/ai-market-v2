@@ -126,6 +126,24 @@
             <!-- Header Icons (Favorites & Cart) -->
             <HeaderIcons v-if="isAuthenticated" @toggle-sidebar="showSidebar = true" />
 
+            <!-- Support Icon with Badge -->
+            <NuxtLink
+              v-if="isAuthenticated"
+              to="/podrska"
+              class="relative p-2 text-gray-700 hover:text-primary-600 transition-colors"
+              title="Podrška"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              <span
+                v-if="supportUnreadCount > 0"
+                class="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center"
+              >
+                {{ supportUnreadCount > 9 ? '9+' : supportUnreadCount }}
+              </span>
+            </NuxtLink>
+
             <template #fallback>
               <!-- Empty fallback to avoid server/client mismatch -->
             </template>
@@ -177,6 +195,22 @@
                     >
                       <Icon name="mdi:clipboard-list" class="w-4 h-4 mr-2" />
                       Moje liste
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/podrska"
+                      class="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <span class="flex items-center">
+                        <Icon name="mdi:headset" class="w-4 h-4 mr-2" />
+                        Podrška
+                      </span>
+                      <span
+                        v-if="supportUnreadCount > 0"
+                        class="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+                      >
+                        {{ supportUnreadCount }}
+                      </span>
                     </NuxtLink>
                     <NuxtLink
                       v-if="user?.has_business"
@@ -332,6 +366,18 @@
               <Icon name="mdi:clipboard-list" class="w-4 h-4 inline mr-2" />
               Moje liste
             </NuxtLink>
+            <NuxtLink to="/podrska" class="flex items-center justify-between px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+              <span>
+                <Icon name="mdi:headset" class="w-4 h-4 inline mr-2" />
+                Podrška
+              </span>
+              <span
+                v-if="supportUnreadCount > 0"
+                class="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+              >
+                {{ supportUnreadCount }}
+              </span>
+            </NuxtLink>
             <NuxtLink v-if="user?.has_business" to="/moj-biznis" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
               <Icon name="mdi:store" class="w-4 h-4 inline mr-2" />
               Moj Biznis
@@ -386,6 +432,7 @@ const showMobileMenu = ref(false)
 const showProfileDropdown = ref(false)
 const showSidebar = ref(false)
 const logoError = ref(false)
+const supportUnreadCount = ref(0)
 
 // Streak timeline ref
 const streakTimelineRef = ref<{ openModal: () => void } | null>(null)
@@ -439,6 +486,7 @@ onMounted(async () => {
   if (isAuthenticated.value) {
     await refreshCredits()
     await loadCities()
+    await loadSupportUnreadCount()
   }
 })
 
@@ -451,12 +499,24 @@ async function loadCities() {
   }
 }
 
+async function loadSupportUnreadCount() {
+  try {
+    const data = await get('/api/support/unread-count')
+    supportUnreadCount.value = data.unread_count || 0
+  } catch (error) {
+    // Silently fail - user may not have access
+    supportUnreadCount.value = 0
+  }
+}
+
 watch(isAuthenticated, async (newVal) => {
   if (newVal) {
     await refreshCredits()
     await loadCities()
+    await loadSupportUnreadCount()
   } else {
     clearCredits()
+    supportUnreadCount.value = 0
   }
 })
 

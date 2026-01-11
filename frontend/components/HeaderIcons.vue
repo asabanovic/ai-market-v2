@@ -1,8 +1,5 @@
 <template>
   <div class="flex items-center gap-4">
-    <!-- Notifications Bell -->
-    <NotificationBell />
-
     <!-- Favorites Icon -->
     <button
       @click="navigateTo('/favorites')"

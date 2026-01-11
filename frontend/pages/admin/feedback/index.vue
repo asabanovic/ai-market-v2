@@ -17,9 +17,9 @@
       </div>
 
       <!-- Stats Summary -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="text-sm text-gray-500">Ukupno povratnih informacija</div>
+          <div class="text-sm text-gray-500">Ukupno</div>
           <div class="text-2xl font-bold text-gray-900">{{ total }}</div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -32,13 +32,58 @@
           </div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="text-sm text-gray-500">Od registrovanih korisnika</div>
+          <div class="text-sm text-gray-500">Registrovani</div>
           <div class="text-2xl font-bold text-blue-600">{{ registeredCount }}</div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="text-sm text-gray-500">Od anonimnih korisnika</div>
+          <div class="text-sm text-gray-500">Anonimni</div>
           <div class="text-2xl font-bold text-gray-600">{{ anonymousCount }}</div>
         </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <div class="text-sm text-gray-500">Kontaktirani</div>
+          <div class="text-2xl font-bold text-green-600">{{ summary.users_contacted || 0 }}</div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <div class="text-sm text-gray-500">Nepročitane poruke</div>
+          <div class="text-2xl font-bold text-red-600">{{ summary.total_unread_messages || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Filter Buttons -->
+      <div class="flex gap-2 mb-6">
+        <button
+          @click="setFilter(null)"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            filterContacted === null
+              ? 'bg-indigo-600 text-white'
+              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+          ]"
+        >
+          Svi
+        </button>
+        <button
+          @click="setFilter('true')"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            filterContacted === 'true'
+              ? 'bg-green-600 text-white'
+              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+          ]"
+        >
+          Kontaktirani
+        </button>
+        <button
+          @click="setFilter('false')"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            filterContacted === 'false'
+              ? 'bg-orange-600 text-white'
+              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+          ]"
+        >
+          Nekontaktirani
+        </button>
       </div>
 
       <!-- Loading State -->
@@ -72,15 +117,33 @@
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <!-- User Avatar -->
-              <div
-                class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                :class="fb.user_email ? 'bg-blue-600' : 'bg-gray-400'"
-              >
-                {{ fb.user_email ? fb.user_email[0].toUpperCase() : '?' }}
+              <div class="relative">
+                <div
+                  class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                  :class="fb.user_email ? 'bg-blue-600' : 'bg-gray-400'"
+                >
+                  {{ fb.user_email ? fb.user_email[0].toUpperCase() : '?' }}
+                </div>
+                <!-- Contacted badge -->
+                <div
+                  v-if="fb.has_been_contacted"
+                  class="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
+                  title="Kontaktiran"
+                >
+                  <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
               </div>
               <div>
-                <div class="font-medium text-gray-900">
+                <div class="font-medium text-gray-900 flex items-center gap-2">
                   {{ fb.user_email || 'Anonimni korisnik' }}
+                  <span v-if="fb.unread_from_user > 0" class="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                    {{ fb.unread_from_user }} nova
+                  </span>
+                  <span v-if="fb.message_count > 0 && fb.unread_from_user === 0" class="text-xs text-gray-400">
+                    ({{ fb.message_count }} poruka)
+                  </span>
                 </div>
                 <div class="text-xs text-gray-500">
                   {{ formatDateTime(fb.created_at) }}
@@ -127,6 +190,19 @@
               <p class="text-sm text-gray-900">{{ fb.comments }}</p>
             </div>
           </div>
+
+          <!-- Reply button -->
+          <div v-if="fb.user_email" class="mt-4 pt-4 border-t border-gray-200">
+            <NuxtLink
+              :to="`/admin/feedback/${fb.id}`"
+              class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Odgovori korisniku
+            </NuxtLink>
+          </div>
         </div>
 
         <!-- Pagination -->
@@ -166,6 +242,11 @@ const feedbackList = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pages = ref(1)
+const summary = ref<{ users_contacted: number; total_unread_messages: number }>({
+  users_contacted: 0,
+  total_unread_messages: 0
+})
+const filterContacted = ref<string | null>(null)
 
 // Computed stats
 const averageRating = computed(() => {
@@ -189,15 +270,28 @@ onMounted(async () => {
 async function loadFeedback() {
   isLoading.value = true
   try {
-    const data = await get(`/api/admin/feedback?page=${currentPage.value}&per_page=20`)
+    let url = `/api/admin/feedback?page=${currentPage.value}&per_page=20`
+    if (filterContacted.value !== null) {
+      url += `&contacted=${filterContacted.value}`
+    }
+    const data = await get(url)
     feedbackList.value = data.feedback || []
     total.value = data.total || 0
     pages.value = data.pages || 1
+    if (data.summary) {
+      summary.value = data.summary
+    }
   } catch (error) {
     console.error('Error loading feedback:', error)
   } finally {
     isLoading.value = false
   }
+}
+
+async function setFilter(value: string | null) {
+  filterContacted.value = value
+  currentPage.value = 1
+  await loadFeedback()
 }
 
 async function loadPage(page: number) {
