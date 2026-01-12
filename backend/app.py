@@ -95,8 +95,11 @@ if database_url.startswith("postgres://"):
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    'pool_pre_ping': True,
-    "pool_recycle": 300,
+    'pool_pre_ping': True,  # Check connection health before using
+    'pool_recycle': 120,    # Recycle connections every 2 minutes (Railway can be aggressive)
+    'pool_size': 5,         # Keep 5 connections in pool
+    'max_overflow': 10,     # Allow up to 10 additional connections
+    'pool_timeout': 30,     # Wait 30s for connection before timeout
 }
 
 # Security configuration
