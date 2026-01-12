@@ -5814,6 +5814,60 @@ def api_admin_users():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@app.route('/api/admin/users/cities', methods=['GET'])
+def api_admin_users_cities():
+    """API endpoint for admin to get user counts by city"""
+    from auth_api import decode_jwt_token
+    from sqlalchemy import func
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user or not user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get user counts by city
+        city_counts = db.session.query(
+            func.coalesce(User.city, 'N/A').label('city'),
+            func.count(User.id).label('count')
+        ).group_by(
+            func.coalesce(User.city, 'N/A')
+        ).order_by(
+            func.count(User.id).desc()
+        ).all()
+
+        cities = []
+        total_users = 0
+        for row in city_counts:
+            count = row.count
+            total_users += count
+            cities.append({
+                'city': row.city if row.city else 'N/A',
+                'count': count
+            })
+
+        return jsonify({
+            'success': True,
+            'cities': cities,
+            'total': total_users
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin users cities error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @app.route('/api/admin/users/analytics')
 def api_admin_users_analytics():
     """API endpoint for time-series analytics: user registrations and searches by hour/day/month"""

@@ -31,7 +31,10 @@ import {
   mdiCheckCircle,
   mdiAlertCircle,
   mdiCloseCircle,
-  mdiInformation
+  mdiInformation,
+  mdiCity,
+  mdiMapMarker,
+  mdiHelpCircle
 } from '@mdi/js'
 
 const props = defineProps<{
@@ -67,7 +70,10 @@ const iconMap: Record<string, string> = {
   'mdi:check-circle': mdiCheckCircle,
   'mdi:alert-circle': mdiAlertCircle,
   'mdi:close-circle': mdiCloseCircle,
-  'mdi:information': mdiInformation
+  'mdi:information': mdiInformation,
+  'mdi:city': mdiCity,
+  'mdi:map-marker': mdiMapMarker,
+  'mdi:help-circle': mdiHelpCircle
 }
 
 const iconPath = computed(() => {

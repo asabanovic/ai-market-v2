@@ -102,7 +102,7 @@
           <!-- Question 3 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Šta bi vas natjeralo da koristite ovu aplikaciju svaki put kad kupujete? <span class="text-red-500">*</span>
+              Šta bi vas potaklo da koristite ovu aplikaciju svaki put kad kupujete? <span class="text-red-500">*</span>
               <span class="text-xs text-gray-500 font-normal">(min. {{ MIN_CHARS_PER_FIELD }} znakova)</span>
             </label>
             <textarea

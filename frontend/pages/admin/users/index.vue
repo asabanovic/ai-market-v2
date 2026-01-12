@@ -65,6 +65,18 @@
             <Icon name="mdi:heart-outline" class="w-5 h-5 inline mr-2" />
             Preferencije
           </button>
+          <button
+            @click="activeTab = 'cities'; loadCities()"
+            :class="[
+              'py-4 px-1 border-b-2 font-medium text-sm transition-colors',
+              activeTab === 'cities'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            <Icon name="mdi:city" class="w-5 h-5 inline mr-2" />
+            Gradovi
+          </button>
         </nav>
       </div>
 
@@ -933,6 +945,112 @@
         </div>
       </div>
       <!-- End Tab Content: Preferences -->
+
+      <!-- Tab Content: Cities -->
+      <div v-show="activeTab === 'cities'">
+        <!-- Loading State -->
+        <div v-if="citiesLoading" class="flex items-center justify-center h-64">
+          <Icon name="mdi:loading" class="w-8 h-8 text-purple-600 animate-spin" />
+        </div>
+
+        <div v-else-if="citiesData">
+          <!-- Summary Card -->
+          <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">Korisnici po gradovima</h3>
+                <p class="text-sm text-gray-500 mt-1">
+                  Ukupno {{ citiesData.total }} korisnika u {{ citiesData.cities.length }} lokacija
+                </p>
+              </div>
+              <button
+                @click="loadCities"
+                class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+              >
+                <Icon name="mdi:refresh" class="w-4 h-4" :class="{ 'animate-spin': citiesLoading }" />
+                Osvježi
+              </button>
+            </div>
+          </div>
+
+          <!-- Cities Table -->
+          <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grad</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Broj korisnika</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procenat</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vizualizacija</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr
+                  v-for="(city, index) in citiesData.cities"
+                  :key="city.city"
+                  :class="[
+                    'hover:bg-gray-50',
+                    city.city === 'N/A' ? 'bg-yellow-50' : ''
+                  ]"
+                >
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ index + 1 }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
+                      <Icon
+                        :name="city.city === 'N/A' ? 'mdi:help-circle' : 'mdi:map-marker'"
+                        :class="city.city === 'N/A' ? 'text-yellow-500' : 'text-purple-600'"
+                        class="w-5 h-5"
+                      />
+                      <span
+                        class="font-medium"
+                        :class="city.city === 'N/A' ? 'text-yellow-700' : 'text-gray-900'"
+                      >
+                        {{ city.city }}
+                      </span>
+                      <span v-if="city.city === 'N/A'" class="text-xs text-yellow-600">(nije uneseno)</span>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-lg font-semibold text-gray-900">{{ city.count }}</span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm text-gray-600">
+                      {{ ((city.count / citiesData.total) * 100).toFixed(1) }}%
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="w-48 bg-gray-200 rounded-full h-4 overflow-hidden">
+                      <div
+                        class="h-full rounded-full"
+                        :class="city.city === 'N/A' ? 'bg-yellow-400' : 'bg-purple-500'"
+                        :style="{ width: `${Math.max((city.count / maxCityCount) * 100, 2)}%` }"
+                      ></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Info Box -->
+          <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <Icon name="mdi:information" class="w-5 h-5 text-blue-600 mt-0.5" />
+              <div class="text-sm text-blue-800">
+                <p class="font-medium mb-1">Kako korisnici biraju grad?</p>
+                <p class="text-blue-600">
+                  Korisnici mogu odabrati grad prilikom registracije ili u postavkama profila.
+                  N/A znači da korisnik nije unio grad u svoj profil.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Tab Content: Cities -->
     </div>
 
     <!-- Stores Modal -->
@@ -1104,6 +1222,15 @@ const jobMessageType = ref<'success' | 'error'>('success')
 const preferencesData = ref<any>(null)
 const preferencesLoading = ref(false)
 const preferencesChartData = ref<any>(null)
+
+// Cities state
+const citiesData = ref<any>(null)
+const citiesLoading = ref(false)
+
+const maxCityCount = computed(() => {
+  if (!citiesData.value?.cities?.length) return 1
+  return citiesData.value.cities[0]?.count || 1
+})
 
 const preferencesChartOptions = {
   responsive: true,
@@ -1468,6 +1595,19 @@ async function loadPreferencesAnalytics() {
     console.error('Error loading preferences analytics:', error)
   } finally {
     preferencesLoading.value = false
+  }
+}
+
+// Cities functions
+async function loadCities() {
+  citiesLoading.value = true
+  try {
+    const data = await get('/api/admin/users/cities')
+    citiesData.value = data
+  } catch (error) {
+    console.error('Error loading cities:', error)
+  } finally {
+    citiesLoading.value = false
   }
 }
 
