@@ -71,7 +71,7 @@
                 'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
                 whatToImprove.trim().length > 0 && whatToImprove.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
               ]"
-              placeholder="Primjer: 'Bilo bi sjajno da mogu uporediti cijene istog proizvoda u više prodavnica na jednom mjestu. Trenutno moram ručno pretraživati svaku prodavnicu posebno.'"
+              placeholder="Opišite šta bi trebalo biti bolje..."
             />
             <div v-if="whatToImprove.trim().length > 0 && whatToImprove.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
               Još {{ MIN_CHARS_PER_FIELD - whatToImprove.trim().length }} znakova
@@ -92,7 +92,7 @@
                 'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
                 howToHelp.trim().length > 0 && howToHelp.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
               ]"
-              placeholder="Primjer: 'Kada tražim određeni proizvod, želim vidjeti i slične proizvode drugih brendova. Također bi mi pomoglo da dobijem obavještenje kada cijena padne ispod određenog iznosa.'"
+              placeholder="Šta bi vam olakšalo korištenje..."
             />
             <div v-if="howToHelp.trim().length > 0 && howToHelp.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
               Još {{ MIN_CHARS_PER_FIELD - howToHelp.trim().length }} znakova
@@ -113,7 +113,7 @@
                 'w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white',
                 whatWouldMakeYouUse.trim().length > 0 && whatWouldMakeYouUse.trim().length < MIN_CHARS_PER_FIELD ? 'border-red-300' : 'border-gray-300'
               ]"
-              placeholder="Primjer: 'Koristio/la bih aplikaciju redovno ako bih mogao/la napraviti svoju listu za kupovinu i vidjeti gdje je najjeftinija. Bilo bi super da mogu pratiti cijene proizvoda koje često kupujem.'"
+              placeholder="Šta vam nedostaje da biste koristili aplikaciju redovno..."
             />
             <div v-if="whatWouldMakeYouUse.trim().length > 0 && whatWouldMakeYouUse.trim().length < MIN_CHARS_PER_FIELD" class="text-xs text-red-500 mt-1">
               Još {{ MIN_CHARS_PER_FIELD - whatWouldMakeYouUse.trim().length }} znakova
@@ -130,7 +130,7 @@
               rows="3"
               maxlength="1000"
               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-sm text-gray-900 bg-white"
-              placeholder="Primjer: 'Sviđa mi se ideja aplikacije, ali ponekad mi je teško pronaći proizvode. Bilo bi korisno dodati više kategorija ili omogućiti sortiranje po cijeni. Hvala što radite na ovome!'"
+              placeholder="Bilo šta dodatno što želite podijeliti s nama..."
             />
           </div>
         </div>
