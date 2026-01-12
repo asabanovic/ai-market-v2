@@ -14,7 +14,7 @@ from sqlalchemy import or_, and_, func, case, text
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
 from app import app, db, csrf
-from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, UserFeedback
+from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, UserFeedback, SupportMessage
 from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
@@ -8833,6 +8833,34 @@ def api_submit_feedback():
                         app.logger.info(f"User {user_id} not eligible for feedback bonus (claimed={bonuses_claimed}, max_allowed={max_bonuses_allowed}, lifetime_spent={total_credits_spent})")
 
         db.session.commit()
+
+        # Create a support message from the feedback so it appears in /podrska page
+        # This allows users to see what they wrote and admins' replies in context
+        if user_id:
+            # Build a formatted message from feedback fields
+            message_parts = ["[Povratna informacija iz ankete]"]
+            if data.get('rating'):
+                message_parts.append(f"Ocjena: {data.get('rating')}/5")
+            if what_to_improve:
+                message_parts.append(f"Šta poboljšati: {what_to_improve}")
+            if how_to_help:
+                message_parts.append(f"Kako pomoći: {how_to_help}")
+            if what_would_make_you_use:
+                message_parts.append(f"Šta bi vas potaklo: {what_would_make_you_use}")
+            if comments:
+                message_parts.append(f"Komentari: {comments}")
+
+            feedback_message = "\n\n".join(message_parts)
+
+            support_msg = SupportMessage(
+                user_id=user_id,
+                sender_type='user',
+                message=feedback_message,
+                feedback_id=feedback.id,
+                is_read=False  # Admin hasn't read it yet
+            )
+            db.session.add(support_msg)
+            db.session.commit()
 
         app.logger.info(f"Feedback submitted: user={user_id or 'anonymous'}, rating={data.get('rating')}, trigger={data.get('trigger_type')}, credits_awarded={credits_awarded}")
 

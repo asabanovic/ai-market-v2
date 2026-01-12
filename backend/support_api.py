@@ -152,7 +152,10 @@ def admin_get_messages(user_id):
         return jsonify({'error': 'User not found'}), 404
 
     # Get all messages for this user
+    # Sort so feedback-linked messages appear first (as context), then by timestamp
     messages = SupportMessage.query.filter_by(user_id=user_id).order_by(
+        # feedback_id NOT NULL comes first (feedback context messages)
+        db.case((SupportMessage.feedback_id.isnot(None), 0), else_=1),
         SupportMessage.created_at.asc()
     ).all()
 
@@ -324,7 +327,10 @@ def user_get_messages():
         return jsonify({'error': 'User not found'}), 404
 
     # Get all messages for this user
+    # Sort so feedback-linked messages appear first (as context), then by timestamp
     messages = SupportMessage.query.filter_by(user_id=user.id).order_by(
+        # feedback_id NOT NULL comes first (feedback context messages)
+        db.case((SupportMessage.feedback_id.isnot(None), 0), else_=1),
         SupportMessage.created_at.asc()
     ).all()
 
@@ -441,9 +447,13 @@ def admin_get_feedback_detail(feedback_id):
     # Get associated support messages
     messages = []
     if feedback.user_id:
+        # Sort so feedback-linked messages appear first (as context), then by timestamp
         support_messages = SupportMessage.query.filter_by(
             user_id=feedback.user_id
-        ).order_by(SupportMessage.created_at.asc()).all()
+        ).order_by(
+            db.case((SupportMessage.feedback_id.isnot(None), 0), else_=1),
+            SupportMessage.created_at.asc()
+        ).all()
 
         # Mark user messages as read
         unread_messages = SupportMessage.query.filter_by(
