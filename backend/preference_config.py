@@ -19,3 +19,8 @@ PREFERENCE_MATCH_THRESHOLD = 0.7
 
 # For display in frontend/emails (percentage format)
 PREFERENCE_MATCH_THRESHOLD_PERCENT = int(PREFERENCE_MATCH_THRESHOLD * 100)  # 70%
+
+# Threshold for email reports - stricter to avoid false positives
+# (e.g., showing "Coca Cola Cherry Vanilla" as lowest price for "Coca Cola Original")
+# Users expect exact matches in their email notifications and savings calculations
+EMAIL_MATCH_THRESHOLD = 1.0  # 100% match required for email reports

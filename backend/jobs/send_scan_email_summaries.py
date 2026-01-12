@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app import app, db
 from models import User, UserProductScan, UserScanResult, UserTrackedProduct, JobRun, EmailNotification
 from sendgrid_utils import send_scan_summary_email as sendgrid_scan_summary, plural_bs
+from preference_config import EMAIL_MATCH_THRESHOLD
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +57,10 @@ def get_scan_summary_for_user(user_id: int, scan_date: date) -> dict:
 
     # Get all results grouped by tracked product
     results = UserScanResult.query.filter_by(scan_id=scan.id).all()
+
+    # Filter to only include exact matches (100% similarity) for email reports
+    # This prevents showing wrong products (e.g., "Cherry Vanilla" for "Original Taste")
+    results = [r for r in results if (r.similarity_score or 0) >= EMAIL_MATCH_THRESHOLD]
 
     # Group by tracked product
     term_groups = {}
