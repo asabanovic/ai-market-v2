@@ -295,8 +295,8 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="tx in transactions" :key="tx.id" class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-gray-900">{{ tx.user?.display_name || 'N/A' }}</div>
-                  <div class="text-xs text-gray-500">{{ tx.user?.email }}</div>
+                  <div class="text-sm font-medium text-gray-900" data-pii>{{ tx.user?.display_name || 'N/A' }}</div>
+                  <div class="text-xs text-gray-500" data-pii>{{ tx.user?.email }}</div>
                 </td>
                 <td class="px-6 py-4">
                   <div class="text-sm font-medium text-gray-900">{{ tx.coupon?.article_name }}</div>

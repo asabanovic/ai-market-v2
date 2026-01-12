@@ -256,11 +256,11 @@
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <dt class="text-xs text-indigo-600">Ime</dt>
-                  <dd class="text-sm font-medium text-gray-900">{{ selectedLog.user.name }}</dd>
+                  <dd class="text-sm font-medium text-gray-900" data-pii>{{ selectedLog.user.name }}</dd>
                 </div>
                 <div>
                   <dt class="text-xs text-indigo-600">Email</dt>
-                  <dd class="text-sm font-medium text-gray-900">{{ selectedLog.user.email || '-' }}</dd>
+                  <dd class="text-sm font-medium text-gray-900" data-pii>{{ selectedLog.user.email || '-' }}</dd>
                 </div>
                 <div>
                   <dt class="text-xs text-indigo-600">Lokacija</dt>

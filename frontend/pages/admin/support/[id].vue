@@ -11,7 +11,7 @@
           </NuxtLink>
           <div>
             <h1 class="text-2xl font-semibold text-gray-900">Razgovor sa korisnikom</h1>
-            <p v-if="userInfo" class="mt-1 text-sm text-gray-600">{{ userInfo.name || userInfo.email }}</p>
+            <p v-if="userInfo" class="mt-1 text-sm text-gray-600" data-pii>{{ userInfo.name || userInfo.email }}</p>
           </div>
         </div>
       </div>
@@ -35,8 +35,8 @@
               {{ (userInfo.name || userInfo.email || '?')[0].toUpperCase() }}
             </div>
             <div>
-              <div class="font-semibold text-gray-900">{{ userInfo.name || userInfo.email }}</div>
-              <div class="text-sm text-gray-500">{{ userInfo.email }}</div>
+              <div class="font-semibold text-gray-900" data-pii>{{ userInfo.name || userInfo.email }}</div>
+              <div class="text-sm text-gray-500" data-pii>{{ userInfo.email }}</div>
               <div class="text-xs text-gray-400 mt-1">Registrovan: {{ formatDate(userInfo.created_at) }}</div>
             </div>
           </div>

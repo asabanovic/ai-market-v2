@@ -134,7 +134,7 @@ For products, include both Latin script and common Bosnian names."""
                 "product_type": None,
                 "search_terms": [],
                 "confidence": "low",
-                "error": "Empty response from Vision API"
+                "error": "Nije moguće analizirati sliku. Pokušajte sa drugom slikom proizvoda."
             }
 
         content = content.strip()
@@ -158,7 +158,7 @@ For products, include both Latin script and common Bosnian names."""
                 "product_type": None,
                 "search_terms": [],
                 "confidence": "low",
-                "error": "Could not parse Vision API response"
+                "error": "Nije moguće analizirati sliku. Pokušajte sa drugom slikom proizvoda."
             }
 
         return json.loads(content)
@@ -166,13 +166,28 @@ For products, include both Latin script and common Bosnian names."""
     except json.JSONDecodeError as e:
         raw_content = response.choices[0].message.content[:500] if response and response.choices else "N/A"
         logger.error(f"Vision API JSON parse error: {e}. Raw content: {raw_content}")
+
+        # Check if this is a refusal to identify a person
+        refusal_phrases = [
+            "ne mogu identificirati", "cannot identify", "can't identify",
+            "ne mogu prepoznati", "osob", "person", "face", "lice",
+            "žao mi je", "sorry", "nisam u mogućnosti"
+        ]
+        raw_lower = raw_content.lower()
+        is_person_refusal = any(phrase in raw_lower for phrase in refusal_phrases)
+
+        if is_person_refusal:
+            error_msg = "Molimo uslikajte proizvod, ne osobu. Pokušajte ponovo sa slikom proizvoda."
+        else:
+            error_msg = "Nije moguće analizirati sliku. Pokušajte sa drugom slikom proizvoda."
+
         return {
             "title": None,
             "brand": None,
             "product_type": None,
             "search_terms": [],
             "confidence": "low",
-            "error": f"JSON parse error: {str(e)}"
+            "error": error_msg
         }
     except Exception as e:
         logger.error(f"Vision API error: {e}")
@@ -182,7 +197,7 @@ For products, include both Latin script and common Bosnian names."""
             "product_type": None,
             "search_terms": [],
             "confidence": "low",
-            "error": str(e)
+            "error": "Došlo je do greške pri analizi slike. Pokušajte ponovo."
         }
 
 
@@ -285,8 +300,7 @@ def camera_search():
 
         if vision_result.get('error'):
             return jsonify({
-                'error': 'Could not analyze image',
-                'details': vision_result.get('error')
+                'error': vision_result.get('error')
             }), 400
 
         # Search products using semantic search (same as homepage)

@@ -78,10 +78,10 @@
                 {{ (conv.user_name || conv.user_email || '?')[0].toUpperCase() }}
               </div>
               <div>
-                <div class="font-medium text-gray-900">
+                <div class="font-medium text-gray-900" data-pii>
                   {{ conv.user_name || conv.user_email }}
                 </div>
-                <div class="text-sm text-gray-500">{{ conv.user_email }}</div>
+                <div class="text-sm text-gray-500" data-pii>{{ conv.user_email }}</div>
                 <div v-if="conv.last_message_preview" class="text-sm text-gray-600 mt-1 truncate max-w-md">
                   <span v-if="conv.last_message_sender === 'admin'" class="text-indigo-600 font-medium">Vi: </span>
                   {{ conv.last_message_preview }}
@@ -143,8 +143,8 @@
                 @click="selectUser(user)"
                 class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
               >
-                <div class="font-medium text-gray-900">{{ user.name }}</div>
-                <div class="text-sm text-gray-500">{{ user.email }}</div>
+                <div class="font-medium text-gray-900" data-pii>{{ user.name }}</div>
+                <div class="text-sm text-gray-500" data-pii>{{ user.email }}</div>
               </button>
             </div>
 

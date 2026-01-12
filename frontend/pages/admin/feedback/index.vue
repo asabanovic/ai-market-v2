@@ -137,7 +137,7 @@
               </div>
               <div>
                 <div class="font-medium text-gray-900 flex items-center gap-2">
-                  {{ fb.user_email || 'Anonimni korisnik' }}
+                  <span data-pii>{{ fb.user_email || 'Anonimni korisnik' }}</span>
                   <span v-if="fb.unread_from_user > 0" class="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                     {{ fb.unread_from_user }} nova
                   </span>

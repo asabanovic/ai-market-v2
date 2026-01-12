@@ -47,7 +47,7 @@
             <!-- User Info -->
             <div class="flex-1">
               <div class="flex items-center gap-3">
-                <h2 class="text-xl font-semibold text-gray-900">
+                <h2 class="text-xl font-semibold text-gray-900" data-pii>
                   {{ userData.first_name || 'Nepoznato' }} {{ userData.last_name || '' }}
                 </h2>
                 <span v-if="userData.is_admin" class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
@@ -63,11 +63,11 @@
               </div>
 
               <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div v-if="userData.email" class="flex items-center gap-2 text-gray-600">
+                <div v-if="userData.email" class="flex items-center gap-2 text-gray-600" data-pii>
                   <Icon name="mdi:email" class="w-4 h-4" />
                   <span>{{ userData.email }}</span>
                 </div>
-                <div v-if="userData.phone" class="flex items-center gap-2 text-gray-600">
+                <div v-if="userData.phone" class="flex items-center gap-2 text-gray-600" data-pii>
                   <Icon name="mdi:phone" class="w-4 h-4" />
                   <span>{{ userData.phone }}</span>
                 </div>

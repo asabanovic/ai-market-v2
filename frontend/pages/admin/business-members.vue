@@ -166,9 +166,9 @@
             <tbody class="divide-y divide-gray-100">
               <tr v-for="member in members" :key="member.id" class="hover:bg-gray-50">
                 <td class="px-4 py-3">
-                  <div class="font-medium text-gray-900">{{ member.name || 'Nepoznato' }}</div>
+                  <div class="font-medium text-gray-900" data-pii>{{ member.name || 'Nepoznato' }}</div>
                 </td>
-                <td class="px-4 py-3 text-gray-600">{{ member.email }}</td>
+                <td class="px-4 py-3 text-gray-600" data-pii>{{ member.email }}</td>
                 <td class="px-4 py-3">
                   <select
                     :value="member.role"
@@ -224,7 +224,7 @@
         <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
           <h3 class="text-lg font-bold text-gray-900 mb-2">Ukloni člana?</h3>
           <p class="text-gray-600 mb-4">
-            Da li ste sigurni da želite ukloniti <strong>{{ memberToRemove.email }}</strong> iz poslovnice <strong>{{ selectedBusiness?.name }}</strong>?
+            Da li ste sigurni da želite ukloniti <strong data-pii>{{ memberToRemove.email }}</strong> iz poslovnice <strong>{{ selectedBusiness?.name }}</strong>?
           </p>
           <div class="flex gap-3 justify-end">
             <button

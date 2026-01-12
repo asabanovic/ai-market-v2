@@ -71,8 +71,8 @@
                 ]"
               >
                 <div>
-                  <div class="font-medium text-gray-900">{{ user.name || user.email || user.phone }}</div>
-                  <div class="text-sm text-gray-500">{{ user.email }} {{ user.phone ? `| ${user.phone}` : '' }}</div>
+                  <div class="font-medium text-gray-900" data-pii>{{ user.name || user.email || user.phone }}</div>
+                  <div class="text-sm text-gray-500" data-pii>{{ user.email }} {{ user.phone ? `| ${user.phone}` : '' }}</div>
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-gray-400">{{ user.total_credits }} kredita</span>
@@ -95,6 +95,7 @@
                   v-for="user in selectedUsers"
                   :key="user.id"
                   class="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                  data-pii
                 >
                   {{ user.name || user.email || user.phone }}
                   <button @click="removeUser(user.id)" class="hover:text-purple-900">

@@ -252,7 +252,7 @@
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
                     <div>
-                      <div class="text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors">
+                      <div class="text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors" data-pii>
                         {{ user.first_name || 'N/A' }} {{ user.last_name || '' }}
                         <Icon name="mdi:open-in-new" class="w-3 h-3 inline ml-1 opacity-0 group-hover:opacity-100" />
                       </div>
@@ -264,11 +264,11 @@
                 <!-- Contact -->
                 <td class="px-6 py-4">
                   <div class="text-sm text-gray-900">
-                    <div v-if="user.email" class="flex items-center gap-2">
+                    <div v-if="user.email" class="flex items-center gap-2" data-pii>
                       <Icon name="mdi:email" class="w-4 h-4 text-gray-400" />
                       {{ user.email }}
                     </div>
-                    <div v-if="user.phone" class="flex items-center gap-2">
+                    <div v-if="user.phone" class="flex items-center gap-2" data-pii>
                       <Icon name="mdi:cellphone" class="w-4 h-4 text-gray-400" />
                       {{ user.phone }}
                     </div>
@@ -548,8 +548,8 @@
               <tbody class="divide-y divide-gray-200">
                 <tr v-for="email in emails" :key="email.id" class="hover:bg-gray-50">
                   <td class="px-6 py-4">
-                    <div class="text-sm font-medium text-gray-900">{{ email.user_name || 'N/A' }}</div>
-                    <div class="text-xs text-gray-500">{{ email.email }}</div>
+                    <div class="text-sm font-medium text-gray-900" data-pii>{{ email.user_name || 'N/A' }}</div>
+                    <div class="text-xs text-gray-500" data-pii>{{ email.email }}</div>
                   </td>
                   <td class="px-6 py-4">
                     <span class="px-2 py-1 text-xs rounded-full" :class="getEmailTypeBadgeClass(email.email_type)">
@@ -1062,7 +1062,7 @@
       <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <h3 class="text-lg font-semibold text-gray-900">
-            Prodavnice - {{ storesModalUser.first_name || storesModalUser.email }}
+            Prodavnice - <span data-pii>{{ storesModalUser.first_name || storesModalUser.email }}</span>
           </h3>
           <button
             @click="storesModalUser = null"
@@ -1110,10 +1110,10 @@
             Jeste li sigurni da želite obrisati korisnika?
           </p>
           <div v-if="userToDelete" class="bg-gray-50 rounded-lg p-4 mb-4">
-            <div class="font-medium text-gray-900">
+            <div class="font-medium text-gray-900" data-pii>
               {{ userToDelete.first_name || 'N/A' }} {{ userToDelete.last_name || '' }}
             </div>
-            <div class="text-sm text-gray-600">{{ userToDelete.email || userToDelete.phone }}</div>
+            <div class="text-sm text-gray-600" data-pii>{{ userToDelete.email || userToDelete.phone }}</div>
           </div>
           <p class="text-sm text-red-600 mb-6">
             <Icon name="mdi:alert" class="w-4 h-4 inline mr-1" />

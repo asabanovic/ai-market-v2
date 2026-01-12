@@ -96,3 +96,14 @@
     animation-delay: 300ms;
   }
 }
+
+/* Privacy Mode - Blur PII data for screen sharing */
+body.privacy-mode [data-pii] {
+  filter: blur(5px);
+  user-select: none;
+  transition: filter 0.2s ease;
+}
+
+body.privacy-mode [data-pii]:hover {
+  filter: blur(5px); /* Keep blurred even on hover */
+}

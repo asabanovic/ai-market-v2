@@ -121,8 +121,8 @@
               <tbody class="bg-white divide-y divide-gray-200">
                 <tr v-for="click in data.recent_clicks" :key="click.id" class="hover:bg-gray-50">
                   <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">{{ click.name }}</div>
-                    <div class="text-xs text-gray-500">{{ click.email }}</div>
+                    <div class="text-sm font-medium text-gray-900" data-pii>{{ click.name }}</div>
+                    <div class="text-xs text-gray-500" data-pii>{{ click.email }}</div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"

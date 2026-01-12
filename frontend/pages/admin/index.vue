@@ -445,7 +445,7 @@
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
-                    <span v-if="search.user_name" class="text-sm text-indigo-600">{{ search.user_name }}</span>
+                    <span v-if="search.user_name" class="text-sm text-indigo-600" data-pii>{{ search.user_name }}</span>
                     <span v-else class="text-sm text-gray-400 italic">Anonimni</span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -494,8 +494,8 @@
               <div v-for="user in recentUsers" :key="user.id" class="px-6 py-4">
                 <div class="flex items-center justify-between">
                   <div>
-                    <p class="text-sm font-medium text-gray-900">{{ user.first_name || user.email }}</p>
-                    <p class="text-sm text-gray-500">{{ user.email }}</p>
+                    <p class="text-sm font-medium text-gray-900" data-pii>{{ user.first_name || user.email }}</p>
+                    <p class="text-sm text-gray-500" data-pii>{{ user.email }}</p>
                   </div>
                   <div class="text-right">
                     <p class="text-xs text-gray-500">{{ formatDate(user.created_at) }}</p>
