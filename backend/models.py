@@ -22,7 +22,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String, nullable=True)  # For email/password registration
     reset_token = db.Column(db.String, nullable=True)
     reset_token_expires = db.Column(db.DateTime, nullable=True)
-    city = db.Column(db.String, nullable=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('cities.id'), nullable=True, index=True)
+    _city_legacy = db.Column('city', db.String, nullable=True)  # Legacy column, kept for migration
     preferences = db.Column(JSON, nullable=True)  # JSON field for user preferences
     package_id = db.Column(db.Integer, db.ForeignKey('packages.id'), default=1)
     
@@ -111,10 +112,36 @@ class User(UserMixin, db.Model):
 
     # Relationships
     package = db.relationship('Package', backref='users')
+    city_rel = db.relationship('City', backref='users', lazy='joined')
     searches = db.relationship('UserSearch', backref='user', lazy='dynamic')
     favorites = db.relationship('Favorite', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     shopping_lists = db.relationship('ShoppingList', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     credit_transactions = db.relationship('CreditTransaction', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+
+    @property
+    def city(self):
+        """Get city name from relationship or legacy column"""
+        if self.city_rel:
+            return self.city_rel.name
+        return self._city_legacy
+
+    @city.setter
+    def city(self, value):
+        """Set city - accepts city name (string) or city_id (int)"""
+        if value is None:
+            self.city_id = None
+            self._city_legacy = None
+        elif isinstance(value, int):
+            self.city_id = value
+        elif isinstance(value, str):
+            # Look up city by name
+            from models import City
+            city_obj = City.query.filter_by(name=value).first()
+            if city_obj:
+                self.city_id = city_obj.id
+            else:
+                # Store in legacy column if city not found in DB
+                self._city_legacy = value
 
 # (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 class OAuth(OAuthConsumerMixin, db.Model):

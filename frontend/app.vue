@@ -231,9 +231,72 @@ function hasPreferences(): boolean {
   return !!(preferences?.grocery_interests && preferences.grocery_interests.length > 0)
 }
 
+// Weekly feedback popup limit tracking
+const MAX_FEEDBACK_POPUPS_PER_WEEK = 3
+
+function getFeedbackWeekData(): { weekStart: string; count: number } {
+  if (!process.client) return { weekStart: '', count: 0 }
+
+  try {
+    const data = localStorage.getItem('feedback_week_data')
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch {}
+  return { weekStart: '', count: 0 }
+}
+
+function getWeekStartDate(): string {
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) // Monday as start of week
+  const weekStart = new Date(now.setDate(diff))
+  return weekStart.toISOString().split('T')[0]
+}
+
+function canShowFeedbackThisWeek(): boolean {
+  if (!process.client) return false
+
+  const currentWeekStart = getWeekStartDate()
+  const weekData = getFeedbackWeekData()
+
+  // Reset counter if we're in a new week
+  if (weekData.weekStart !== currentWeekStart) {
+    return true // New week, can show
+  }
+
+  return weekData.count < MAX_FEEDBACK_POPUPS_PER_WEEK
+}
+
+function incrementFeedbackCount() {
+  if (!process.client) return
+
+  const currentWeekStart = getWeekStartDate()
+  const weekData = getFeedbackWeekData()
+
+  // Reset if new week
+  if (weekData.weekStart !== currentWeekStart) {
+    localStorage.setItem('feedback_week_data', JSON.stringify({
+      weekStart: currentWeekStart,
+      count: 1
+    }))
+  } else {
+    localStorage.setItem('feedback_week_data', JSON.stringify({
+      weekStart: currentWeekStart,
+      count: weekData.count + 1
+    }))
+  }
+}
+
 // Check if we should show feedback popup for logged-in users
 async function checkFeedbackStatus() {
   if (!user.value || feedbackChecked.value || hasGivenFeedback.value) return
+
+  // Don't show feedback popup to admins
+  if (user.value.is_admin) {
+    feedbackChecked.value = true
+    return
+  }
 
   // PRECONDITION 1: User must have set preferences
   if (!hasPreferences()) {
@@ -257,6 +320,12 @@ async function checkFeedbackStatus() {
     return
   }
 
+  // Check weekly limit BEFORE making API call
+  if (!canShowFeedbackThisWeek()) {
+    feedbackChecked.value = true
+    return
+  }
+
   try {
     const response = await get('/api/feedback/check')
     feedbackChecked.value = true
@@ -267,16 +336,16 @@ async function checkFeedbackStatus() {
       return
     }
 
-    // Show popup if credits trigger OR random chance (20%)
-    const shouldShowRandom = Math.random() < 0.2 // 20% chance
-
-    if (response.show_feedback || shouldShowRandom) {
+    // Show popup if credits trigger (respect weekly limit, already checked)
+    if (response.show_feedback) {
       // Wait a bit before showing the popup
       setTimeout(() => {
-        feedbackTriggerType.value = response.show_feedback ? 'credits_spent' : 'random'
+        feedbackTriggerType.value = 'credits_spent'
         showFeedbackPopup.value = true
+        incrementFeedbackCount()
       }, 3000)
     }
+    // Removed the 20% random chance - too annoying for users
   } catch (error) {
     console.error('Error checking feedback status:', error)
   }
@@ -306,8 +375,13 @@ function showAnonymousFeedback() {
   if (localStorage.getItem('feedback_popup_dismissed') || localStorage.getItem('feedback_submitted')) {
     return
   }
+  // Check weekly limit
+  if (!canShowFeedbackThisWeek()) {
+    return
+  }
   feedbackTriggerType.value = 'scroll_bottom'
   showFeedbackPopup.value = true
+  incrementFeedbackCount()
 }
 
 // Make it available globally for index.vue to call

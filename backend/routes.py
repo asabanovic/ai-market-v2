@@ -14,7 +14,7 @@ from sqlalchemy import or_, and_, func, case, text
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
 from app import app, db, csrf
-from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, UserFeedback, SupportMessage
+from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, UserFeedback, SupportMessage, City
 from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
                           generate_single_ai_response,
@@ -3150,6 +3150,7 @@ def profile():
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         city = data.get('city', '').strip()
+        city_id = data.get('city_id')
 
         # Validate required fields
         if not first_name:
@@ -3162,7 +3163,27 @@ def profile():
         # Update user information
         current_user.first_name = first_name
         current_user.last_name = last_name if last_name else None
-        current_user.city = city if city else None
+
+        # Handle city - prefer city_id if provided
+        if city_id:
+            from models import City
+            city_obj = City.query.get(city_id)
+            if city_obj:
+                current_user.city_id = city_id
+                current_user._city_legacy = None
+        elif city:
+            from models import City
+            city_obj = City.query.filter_by(name=city).first()
+            if city_obj:
+                current_user.city_id = city_obj.id
+                current_user._city_legacy = None
+            else:
+                current_user._city_legacy = city
+                current_user.city_id = None
+        else:
+            current_user.city_id = None
+            current_user._city_legacy = None
+
         current_user.updated_at = datetime.now()
 
         try:
@@ -5777,6 +5798,7 @@ def api_admin_users():
                 'first_name': u.first_name,
                 'last_name': u.last_name,
                 'city': u.city,
+                'city_id': u.city_id,
                 'created_at': u.created_at.isoformat() if u.created_at else None,
                 'weekly_credits': u.weekly_credits,
                 'weekly_credits_used': u.weekly_credits_used,
@@ -5838,11 +5860,15 @@ def api_admin_users_cities():
             return jsonify({'error': 'Access denied'}), 403
 
         # Get user counts by city
+        # Use city_rel relationship first, fall back to legacy column
+        # This query gets city name from cities table via city_id, or from legacy city column
         city_counts = db.session.query(
-            func.coalesce(User.city, 'N/A').label('city'),
+            func.coalesce(City.name, User._city_legacy, 'N/A').label('city'),
             func.count(User.id).label('count')
+        ).outerjoin(
+            City, User.city_id == City.id
         ).group_by(
-            func.coalesce(User.city, 'N/A')
+            func.coalesce(City.name, User._city_legacy, 'N/A')
         ).order_by(
             func.count(User.id).desc()
         ).all()
@@ -9428,6 +9454,7 @@ def api_admin_user_preferences():
                 'last_name': user.last_name,
                 'phone': user.phone,
                 'city': user.city,
+                'city_id': user.city_id,
                 'preferred_stores': preferred_store_names,
                 'preferred_store_ids': preferred_store_ids,
                 'grocery_interests': grocery_interests,

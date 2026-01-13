@@ -117,6 +117,44 @@ def populate_cities():
         print(f"  With coordinates: {cities_with_coords}")
         print(f"  Missing coordinates: {total_cities - cities_with_coords}")
 
+        # Update users' city_id from their city string
+        update_users_city_id()
+
+
+def update_users_city_id():
+    """Update users' city_id from their existing city string."""
+    from models import User
+    from sqlalchemy import text
+
+    print("\n" + "="*50)
+    print("Updating users' city_id from city strings...")
+
+    # Get users with city string but no city_id
+    result = db.session.execute(text("""
+        UPDATE users u
+        SET city_id = c.id
+        FROM cities c
+        WHERE u.city = c.name
+        AND u.city IS NOT NULL
+        AND u.city_id IS NULL
+    """))
+    db.session.commit()
+
+    updated_count = result.rowcount
+    print(f"  Updated {updated_count} users with city_id")
+
+    # Check for users with city string that doesn't match any city
+    orphaned = db.session.execute(text("""
+        SELECT DISTINCT city FROM users
+        WHERE city IS NOT NULL
+        AND city_id IS NULL
+    """)).fetchall()
+
+    if orphaned:
+        print(f"\n  Warning: {len(orphaned)} city values don't match any city in the database:")
+        for row in orphaned:
+            print(f"    - {row[0]}")
+
 
 def add_missing_coordinates():
     """Try to add coordinates to cities that are missing them."""
@@ -167,10 +205,14 @@ if __name__ == "__main__":
             list_cities()
         elif sys.argv[1] == "missing":
             add_missing_coordinates()
+        elif sys.argv[1] == "update-users":
+            with app.app_context():
+                update_users_city_id()
         else:
-            print("Usage: python populate_cities.py [list|missing]")
-            print("  (no args) - Populate all cities")
-            print("  list      - List all cities in database")
-            print("  missing   - Only geocode cities missing coordinates")
+            print("Usage: python populate_cities.py [list|missing|update-users]")
+            print("  (no args)    - Populate all cities + update users")
+            print("  list         - List all cities in database")
+            print("  missing      - Only geocode cities missing coordinates")
+            print("  update-users - Update users' city_id from city strings")
     else:
         populate_cities()

@@ -70,21 +70,21 @@
                 </div>
                 <div class="py-1">
                   <button
-                    v-for="city in cities"
-                    :key="city"
-                    @click="changeCity(city)"
+                    v-for="cityOption in cities"
+                    :key="cityOption.id"
+                    @click="changeCity(cityOption)"
                     :class="[
                       'flex items-center w-full px-3 py-2 text-sm text-left transition-colors',
-                      city === user?.city
+                      cityOption.id === user?.city_id
                         ? 'bg-purple-50 text-purple-700 font-medium'
                         : 'text-gray-700 hover:bg-gray-50'
                     ]"
                     :disabled="isSavingCity"
                   >
-                    <svg v-if="city === user?.city" class="w-4 h-4 mr-2 text-purple-600" viewBox="0 0 24 24" fill="currentColor">
+                    <svg v-if="cityOption.id === user?.city_id" class="w-4 h-4 mr-2 text-purple-600" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                     </svg>
-                    <span :class="{ 'ml-6': city !== user?.city }">{{ city }}</span>
+                    <span :class="{ 'ml-6': cityOption.id !== user?.city_id }">{{ cityOption.name }}</span>
                   </button>
                 </div>
               </div>
@@ -325,13 +325,13 @@
           <div v-if="isAuthenticated && user" class="mx-3 mb-3">
             <label class="block text-xs text-gray-500 mb-1 px-1">Vaš grad</label>
             <select
-              :value="user?.city || ''"
-              @change="(e) => changeCity((e.target as HTMLSelectElement).value)"
+              :value="user?.city_id || ''"
+              @change="(e) => handleMobileCityChange((e.target as HTMLSelectElement).value)"
               class="w-full px-3 py-2 text-sm border border-purple-200 rounded-md bg-purple-50 text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
               :disabled="isSavingCity"
             >
               <option value="">Odaberite grad</option>
-              <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+              <option v-for="cityOption in cities" :key="cityOption.id" :value="cityOption.id">{{ cityOption.name }}</option>
             </select>
           </div>
 
@@ -465,7 +465,11 @@ function openStreakModal() {
 
 // City selector state
 const showCityDropdown = ref(false)
-const cities = ref<string[]>([])
+interface CityOption {
+  id: number
+  name: string
+}
+const cities = ref<CityOption[]>([])
 const isSavingCity = ref(false)
 
 // Computed property for user display name
@@ -515,7 +519,15 @@ onMounted(async () => {
 async function loadCities() {
   try {
     const data = await get('/auth/cities')
-    cities.value = data.cities || []
+    // Handle both old format (string[]) and new format ({id, name}[])
+    if (data.cities && data.cities.length > 0) {
+      if (typeof data.cities[0] === 'string') {
+        // Old format - convert to objects (id will be null)
+        cities.value = data.cities.map((name: string) => ({ id: 0, name }))
+      } else {
+        cities.value = data.cities
+      }
+    }
   } catch (error) {
     console.error('Error loading cities:', error)
   }
@@ -581,23 +593,34 @@ function closeCityDropdown() {
   showCityDropdown.value = false
 }
 
-async function changeCity(city: string) {
-  if (!city || city === user.value?.city) {
+async function changeCity(cityOption: CityOption) {
+  if (!cityOption || cityOption.id === user.value?.city_id) {
     showCityDropdown.value = false
     return
   }
 
   isSavingCity.value = true
   try {
-    const response = await put('/auth/user/profile', { city })
+    const response = await put('/auth/user/profile', { city_id: cityOption.id })
     if (response.success && user.value) {
-      user.value.city = city
+      user.value.city = cityOption.name
+      user.value.city_id = cityOption.id
     }
   } catch (error) {
     console.error('Error updating city:', error)
   } finally {
     isSavingCity.value = false
     showCityDropdown.value = false
+  }
+}
+
+// Handle mobile city dropdown change (receives string value from select)
+function handleMobileCityChange(cityIdStr: string) {
+  if (!cityIdStr) return
+  const cityId = parseInt(cityIdStr, 10)
+  const cityOption = cities.value.find(c => c.id === cityId)
+  if (cityOption) {
+    changeCity(cityOption)
   }
 }
 

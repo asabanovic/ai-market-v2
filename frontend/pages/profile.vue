@@ -108,12 +108,12 @@
                 <label for="city" class="block text-sm font-medium text-gray-700 mb-1">Grad *</label>
                 <select
                   id="city"
-                  v-model="formData.city"
+                  v-model="formData.city_id"
                   required
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
-                  <option value="">Odaberite grad</option>
-                  <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+                  <option :value="null">Odaberite grad</option>
+                  <option v-for="cityOption in cities" :key="cityOption.id" :value="cityOption.id">{{ cityOption.name }}</option>
                 </select>
                 <p class="text-xs text-gray-500 mt-1">Grad je obavezan za personalizirane rezultate pretrage</p>
               </div>
@@ -544,13 +544,18 @@ const showSuccess = ref(false)
 const showError = ref(false)
 const errorMessage = ref('')
 
+interface CityOption {
+  id: number
+  name: string
+}
+
 const formData = ref({
   first_name: '',
   last_name: '',
-  city: ''
+  city_id: null as number | null
 })
 
-const cities = ref<string[]>([])
+const cities = ref<CityOption[]>([])
 const packageInfo = ref<any>(null)
 const searchCounts = ref<any>(null)
 const recentSearches = ref<any[]>([])
@@ -643,9 +648,17 @@ async function checkOrganizationMembership() {
 
 async function loadCities() {
   try {
-    // Load simple city list for dropdown
+    // Load simple city list for dropdown (with IDs)
     const data = await get('/auth/cities')
-    cities.value = data.cities || []
+    // Handle both old format (string[]) and new format ({id, name}[])
+    if (data.cities && data.cities.length > 0) {
+      if (typeof data.cities[0] === 'string') {
+        // Old format - convert to objects
+        cities.value = data.cities.map((name: string, index: number) => ({ id: index + 1, name }))
+      } else {
+        cities.value = data.cities
+      }
+    }
 
     // Also load cities with coordinates for map functionality
     const coordsData = await get('/auth/cities?coords=true')
@@ -666,7 +679,7 @@ async function loadProfileData() {
     formData.value = {
       first_name: user.value?.first_name || '',
       last_name: user.value?.last_name || '',
-      city: user.value?.city || ''
+      city_id: user.value?.city_id || null
     }
   } catch (error) {
     console.error('Error loading profile data:', error)
@@ -689,7 +702,10 @@ async function handleSubmit() {
       if (user.value) {
         user.value.first_name = formData.value.first_name
         user.value.last_name = formData.value.last_name
-        user.value.city = formData.value.city
+        user.value.city_id = formData.value.city_id
+        // Find city name from cities list
+        const selectedCity = cities.value.find(c => c.id === formData.value.city_id)
+        user.value.city = selectedCity?.name || null
       }
 
       // Scroll to top to show success message
@@ -715,7 +731,7 @@ function cancelEdit() {
   formData.value = {
     first_name: user.value?.first_name || '',
     last_name: user.value?.last_name || '',
-    city: user.value?.city || ''
+    city_id: user.value?.city_id || null
   }
 }
 

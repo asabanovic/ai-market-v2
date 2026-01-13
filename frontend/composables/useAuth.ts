@@ -8,6 +8,7 @@ interface User {
   is_verified?: boolean
   phone?: string
   city?: string
+  city_id?: number | null
   first_search_reward_claimed?: boolean
   onboarding_completed?: boolean
   welcome_guide_seen?: boolean

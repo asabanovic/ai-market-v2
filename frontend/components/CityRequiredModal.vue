@@ -32,11 +32,11 @@
             </label>
             <select
               id="city-select"
-              v-model="selectedCity"
+              v-model="selectedCityId"
               class="w-full px-3 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             >
               <option value="">Odaberite grad...</option>
-              <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+              <option v-for="cityOption in cities" :key="cityOption.id" :value="cityOption.id">{{ cityOption.name }}</option>
             </select>
           </div>
 
@@ -56,7 +56,7 @@
         <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <button
             @click="saveCity"
-            :disabled="!selectedCity || isSaving"
+            :disabled="!selectedCityId || isSaving"
             class="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ isSaving ? 'Čuvanje...' : 'Sačuvaj i nastavi' }}
@@ -68,6 +68,11 @@
 </template>
 
 <script setup lang="ts">
+interface CityOption {
+  id: number
+  name: string
+}
+
 const props = defineProps<{
   modelValue: boolean
 }>()
@@ -80,8 +85,8 @@ const emit = defineEmits<{
 const { user } = useAuth()
 const { get, put } = useApi()
 
-const cities = ref<string[]>([])
-const selectedCity = ref('')
+const cities = ref<CityOption[]>([])
+const selectedCityId = ref<number | ''>('')
 const isSaving = ref(false)
 
 const isVisible = computed({
@@ -96,28 +101,40 @@ onMounted(async () => {
 async function loadCities() {
   try {
     const data = await get('/auth/cities')
-    cities.value = data.cities || []
+    // Handle both old format (string[]) and new format ({id, name}[])
+    if (data.cities && data.cities.length > 0) {
+      if (typeof data.cities[0] === 'string') {
+        // Old format - convert to objects
+        cities.value = data.cities.map((name: string, index: number) => ({ id: index + 1, name }))
+      } else {
+        cities.value = data.cities
+      }
+    }
   } catch (error) {
     console.error('Error loading cities:', error)
   }
 }
 
 async function saveCity() {
-  if (!selectedCity.value) return
+  if (!selectedCityId.value) return
+
+  const selectedCity = cities.value.find(c => c.id === selectedCityId.value)
+  if (!selectedCity) return
 
   isSaving.value = true
   try {
     const response = await put('/auth/user/profile', {
-      city: selectedCity.value
+      city_id: selectedCity.id
     })
 
     if (response.success) {
       // Update user object
       if (user.value) {
-        user.value.city = selectedCity.value
+        user.value.city = selectedCity.name
+        user.value.city_id = selectedCity.id
       }
 
-      emit('city-saved', selectedCity.value)
+      emit('city-saved', selectedCity.name)
       isVisible.value = false
     }
   } catch (error) {

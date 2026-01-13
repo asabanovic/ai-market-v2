@@ -360,6 +360,7 @@ def api_login():
             'last_name': user.last_name,
             'phone': user.phone,
             'city': user.city,
+            'city_id': user.city_id,
             'is_admin': user.is_admin,
             'is_verified': user.is_verified,
             'onboarding_completed': user.onboarding_completed or False,
@@ -430,6 +431,7 @@ def api_verify():
             'last_name': user.last_name,
             'phone': user.phone,
             'city': user.city,
+            'city_id': user.city_id,
             'is_admin': user.is_admin,
             'is_verified': user.is_verified,
             'onboarding_completed': user.onboarding_completed or False,
@@ -799,6 +801,7 @@ def user_profile():
                 'last_name': user.last_name,
                 'phone': user.phone,
                 'city': user.city,
+                'city_id': user.city_id,
                 'notification_preferences': user.notification_preferences or 'none',
                 'is_admin': user.is_admin,
                 'is_verified': user.is_verified,
@@ -822,12 +825,37 @@ def user_profile():
             if 'phone' in data:
                 user.phone = data['phone'].strip() if data['phone'] else None
 
-            if 'city' in data:
+            # Handle city - prefer city_id if provided, fallback to city name
+            if 'city_id' in data:
+                from models import City
+                city_id = data['city_id']
+                if city_id:
+                    city_obj = City.query.get(city_id)
+                    if not city_obj:
+                        return jsonify({'error': 'Invalid city selected'}), 400
+                    user.city_id = city_id
+                    user._city_legacy = None  # Clear legacy column
+                else:
+                    user.city_id = None
+                    user._city_legacy = None
+            elif 'city' in data:
                 city = data['city'].strip() if data['city'] else None
                 # Validate city is in the list
                 if city and city not in BOSNIAN_CITIES:
                     return jsonify({'error': 'Invalid city selected'}), 400
-                user.city = city
+                # Look up city_id from name
+                if city:
+                    from models import City
+                    city_obj = City.query.filter_by(name=city).first()
+                    if city_obj:
+                        user.city_id = city_obj.id
+                        user._city_legacy = None
+                    else:
+                        user._city_legacy = city  # Store in legacy column if not in DB
+                        user.city_id = None
+                else:
+                    user.city_id = None
+                    user._city_legacy = None
 
             if 'notification_preferences' in data:
                 prefs = data['notification_preferences'].strip() if data['notification_preferences'] else 'none'
@@ -869,6 +897,7 @@ def user_profile():
                     'last_name': user.last_name,
                     'phone': user.phone,
                     'city': user.city,
+                    'city_id': user.city_id,
                     'is_admin': user.is_admin
                 }
             }), 200
@@ -1091,29 +1120,35 @@ def get_preferences_status():
 
 @auth_api_bp.route('/cities', methods=['GET'])
 def get_cities():
-    """Get list of Bosnian cities with optional coordinates"""
+    """Get list of Bosnian cities with IDs and optional coordinates"""
     from models import City
 
     # Check if coordinates are requested
     include_coords = request.args.get('coords', 'false').lower() == 'true'
+    # Check if full objects are requested (default now to support city_id)
+    full_objects = request.args.get('full', 'true').lower() == 'true'
 
     # Try to get from database first
     db_cities = City.query.order_by(City.name).all()
 
     if db_cities:
-        if include_coords:
+        if full_objects or include_coords:
             cities = [{
+                'id': city.id,
                 'name': city.name,
-                'latitude': city.latitude,
-                'longitude': city.longitude
+                'latitude': city.latitude if include_coords else None,
+                'longitude': city.longitude if include_coords else None
             } for city in db_cities]
+            # Remove None lat/long if not requested
+            if not include_coords:
+                cities = [{'id': c['id'], 'name': c['name']} for c in cities]
             return jsonify({'cities': cities}), 200
         else:
             # Return just names for backward compatibility
             return jsonify({'cities': [city.name for city in db_cities]}), 200
     else:
-        # Fallback to constants if no cities in DB
-        return jsonify({'cities': BOSNIAN_CITIES}), 200
+        # Fallback to constants if no cities in DB (without IDs)
+        return jsonify({'cities': [{'id': None, 'name': name} for name in BOSNIAN_CITIES]}), 200
 
 
 @auth_api_bp.route('/cities/populate', methods=['POST'])
@@ -2303,6 +2338,7 @@ def validate_magic_link(token):
             'last_name': user.last_name,
             'phone': user.phone,
             'city': user.city,
+            'city_id': user.city_id,
             'is_admin': user.is_admin,
             'is_verified': user.is_verified,
             'onboarding_completed': user.onboarding_completed or False,
