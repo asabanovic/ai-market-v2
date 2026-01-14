@@ -10453,6 +10453,14 @@ def api_user_tracked_products():
                     product = Product.query.get(r.product_id) if r.product_id else None
                     image_url = product.image_path if product else None
 
+                    # Calculate has_discount from the actual product
+                    has_discount = False
+                    if product:
+                        has_discount = product.has_discount
+                    elif r.discount_price and r.base_price and r.discount_price < r.base_price:
+                        # Fallback for products without full data
+                        has_discount = True
+
                     item['products'].append({
                         'id': r.product_id,
                         'title': r.product_title,
@@ -10462,7 +10470,8 @@ def api_user_tracked_products():
                         'similarity_score': float(r.similarity_score) if r.similarity_score else None,
                         'is_new_today': r.is_new_today,
                         'price_dropped_today': r.price_dropped_today,
-                        'image_url': image_url
+                        'image_url': image_url,
+                        'has_discount': has_discount
                     })
 
             tracked_items.append(item)

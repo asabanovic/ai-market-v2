@@ -1818,6 +1818,11 @@ function handleImageError(event: Event, productId: number, idx: number) {
 }
 
 function hasDiscount(product: any): boolean {
+  // Use API's has_discount which considers discount_starts date
+  if (product.has_discount !== undefined) {
+    return product.has_discount
+  }
+  // Fallback for products without has_discount field
   return product.discount_price && product.discount_price < product.base_price
 }
 

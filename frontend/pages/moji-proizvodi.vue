@@ -978,7 +978,7 @@ function formatProductForCard(product: any) {
     },
     is_new_today: product.is_new_today,
     price_dropped_today: product.price_dropped_today,
-    has_discount: !!product.discount_price,
+    has_discount: product.has_discount ?? (product.discount_price && product.discount_price < product.base_price),
     similarity_score: product.similarity_score
   }
 }
