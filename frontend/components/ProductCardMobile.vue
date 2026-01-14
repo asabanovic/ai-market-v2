@@ -1,7 +1,7 @@
 <template>
   <div
     class="product-card-mobile flex flex-col relative snap-center"
-    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-200 ring-2 ring-green-500' : 'bg-white']"
+    :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-200 ring-2 ring-green-500' : hasUpcomingDiscount ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'bg-white']"
   >
     <!-- Teaser Blur Overlay (Anonymous Users) -->
     <div
@@ -139,8 +139,24 @@
         </span>
       </div>
 
+      <!-- Upcoming Discount -->
+      <div
+        v-if="hasUpcomingDiscount"
+        class="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-300 rounded-lg px-3 py-2 mb-3"
+      >
+        <div class="flex items-center gap-1 text-xs text-yellow-800">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span class="font-medium">
+            Akcija za {{ daysUntilDiscount }} {{ daysUntilDiscount === 1 ? 'dan' : 'dana' }} -
+            <span class="text-green-700 font-bold">{{ formatPrice(product.discount_price) }} KM</span>
+          </span>
+        </div>
+      </div>
+
       <!-- Expiry if applicable -->
-      <div v-if="product.expires && product.has_discount" class="text-sm text-yellow-700 mb-3">
+      <div v-else-if="product.expires && product.has_discount" class="text-sm text-yellow-700 mb-3">
         Akcija do {{ formatShortDate(product.expires) }}
       </div>
 
@@ -235,6 +251,32 @@ const hasActiveDiscount = computed(() => {
   return props.product.discount_price &&
          props.product.base_price > 0 &&
          props.product.discount_price < props.product.base_price
+})
+
+// Compute upcoming discount (discount_starts is in the future)
+const hasUpcomingDiscount = computed(() => {
+  if (!props.product.discount_starts || !props.product.discount_price) {
+    return false
+  }
+  if (props.product.discount_price >= props.product.base_price) {
+    return false
+  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const startDate = new Date(props.product.discount_starts)
+  startDate.setHours(0, 0, 0, 0)
+  return startDate > today
+})
+
+// Days until discount starts
+const daysUntilDiscount = computed(() => {
+  if (!hasUpcomingDiscount.value || !props.product.discount_starts) return 0
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const startDate = new Date(props.product.discount_starts)
+  startDate.setHours(0, 0, 0, 0)
+  const diffTime = startDate.getTime() - today.getTime()
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 })
 
 const discountPercentage = computed(() => {
