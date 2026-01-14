@@ -3953,13 +3953,23 @@ def bulk_import_products(business_id):
                     try:
                         expires = datetime.strptime(product_data['expires'], '%Y-%m-%d').date()
                     except ValueError:
-                        errors.append(f"Proizvod #{idx + 1}: nevažeći datum format (koristite YYYY-MM-DD)")
+                        errors.append(f"Proizvod #{idx + 1}: nevažeći datum format za expires (koristite YYYY-MM-DD)")
+                        continue
+
+                # Parse discount_starts date if provided
+                discount_starts = None
+                if product_data.get('discount_starts'):
+                    try:
+                        discount_starts = datetime.strptime(product_data['discount_starts'], '%Y-%m-%d').date()
+                    except ValueError:
+                        errors.append(f"Proizvod #{idx + 1}: nevažeći datum format za discount_starts (koristite YYYY-MM-DD)")
                         continue
 
                 validated_products.append({
                     'index': idx,
                     'data': product_data,
-                    'expires': expires
+                    'expires': expires,
+                    'discount_starts': discount_starts
                 })
 
             except Exception as e:
@@ -3998,6 +4008,7 @@ def bulk_import_products(business_id):
             try:
                 product_data = validated_product['data']
                 expires = validated_product['expires']
+                discount_starts = validated_product['discount_starts']
                 tags = all_tags[idx] if idx < len(all_tags) else [product_data['title'].lower()]
 
                 # Check if product exists by exact title first
@@ -4036,7 +4047,7 @@ def bulk_import_products(business_id):
                     # Update existing product (including prices)
                     existing_product.base_price = new_base
                     existing_product.discount_price = new_discount
-                    existing_product.discount_starts = product_data.get('discount_starts')
+                    existing_product.discount_starts = discount_starts
                     existing_product.expires = expires
                     existing_product.category = product_data.get('category')
                     existing_product.tags = tags
@@ -4065,7 +4076,7 @@ def bulk_import_products(business_id):
                         title=product_data['title'],
                         base_price=float(product_data['base_price']),
                         discount_price=float(product_data['discount_price']) if product_data.get('discount_price') else None,
-                        discount_starts=product_data.get('discount_starts'),
+                        discount_starts=discount_starts,
                         expires=expires,
                         category=product_data.get('category'),
                         tags=tags,
