@@ -418,6 +418,9 @@
                     <span v-else class="text-gray-300">↕</span>
                   </div>
                 </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Početak
+                </th>
                 <th
                   @click="toggleSort('expires')"
                   class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
@@ -547,6 +550,12 @@
                   <div v-if="product.created_at" class="text-sm text-gray-900">{{ formatDate(product.created_at) }}</div>
                   <div v-if="product.created_at" class="text-xs text-gray-500">{{ formatTime(product.created_at) }}</div>
                   <span v-else class="text-sm text-gray-500">N/A</span>
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap">
+                  <span v-if="product.discount_starts" class="text-sm text-yellow-600">
+                    {{ formatDate(product.discount_starts) }}
+                  </span>
+                  <span v-else class="text-sm text-gray-500">-</span>
                 </td>
                 <td class="px-4 py-4 whitespace-nowrap">
                   <span v-if="product.expires" class="text-sm" :class="isExpired(product.expires) ? 'text-red-600' : 'text-gray-900'">
@@ -1302,11 +1311,18 @@
                 {{ product.category }}
               </div>
 
+              <div v-if="product.discount_starts" class="text-xs text-yellow-600 flex items-center gap-1 mb-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                Počinje: {{ product.discount_starts }}
+              </div>
+
               <div v-if="product.expires" class="text-xs text-gray-500 flex items-center gap-1">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
-                {{ product.expires }}
+                Istječe: {{ product.expires }}
               </div>
             </div>
           </div>
