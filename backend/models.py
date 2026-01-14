@@ -428,6 +428,7 @@ class Product(db.Model):
     title = db.Column(db.String, nullable=False)
     base_price = db.Column(db.Float, nullable=False)
     discount_price = db.Column(db.Float, nullable=True)
+    discount_starts = db.Column(db.Date, nullable=True)  # When discount becomes active (NULL = immediately)
     expires = db.Column(db.Date, nullable=True)
     category = db.Column(db.String, nullable=True)
     category_group = db.Column(db.String, nullable=True)  # Simplified category: meso, mlijeko, pica, etc.
@@ -452,11 +453,15 @@ class Product(db.Model):
 
     @property
     def has_discount(self):
-        """Check if product has an active (non-expired) discount"""
+        """Check if product has an active discount (started and not expired)"""
         if self.discount_price is None or self.discount_price >= self.base_price:
             return False
+        today = date.today()
+        # Check if discount has started (NULL = immediately active)
+        if self.discount_starts and today < self.discount_starts:
+            return False
         # Check if discount has expired
-        if self.expires and date.today() > self.expires:
+        if self.expires and today > self.expires:
             return False
         return True
     

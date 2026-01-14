@@ -107,6 +107,17 @@
               </div>
 
               <div>
+                <label for="discount_starts" class="block text-sm font-medium text-gray-700 mb-1">Početak akcije</label>
+                <input
+                  v-model="manualForm.discount_starts"
+                  type="date"
+                  id="discount_starts"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                >
+                <p class="text-xs text-gray-500 mt-1">Ostavite prazno za odmah</p>
+              </div>
+
+              <div>
                 <label for="expires" class="block text-sm font-medium text-gray-700 mb-1">Datum isteka akcije</label>
                 <input
                   v-model="manualForm.expires"
@@ -890,14 +901,26 @@
             >
           </div>
 
-          <div>
-            <label for="edit_expires" class="block text-sm font-medium text-gray-700 mb-1">Datum isteka akcije</label>
-            <input
-              v-model="editForm.expires"
-              type="date"
-              id="edit_expires"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-            >
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="edit_discount_starts" class="block text-sm font-medium text-gray-700 mb-1">Početak akcije</label>
+              <input
+                v-model="editForm.discount_starts"
+                type="date"
+                id="edit_discount_starts"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+              >
+              <p class="text-xs text-gray-500 mt-1">Ostavite prazno za odmah</p>
+            </div>
+            <div>
+              <label for="edit_expires" class="block text-sm font-medium text-gray-700 mb-1">Datum isteka akcije</label>
+              <input
+                v-model="editForm.expires"
+                type="date"
+                id="edit_expires"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+              >
+            </div>
           </div>
 
           <!-- Tags -->
@@ -1394,6 +1417,7 @@ const manualForm = ref({
   base_price: null,
   discount_price: null,
   category: '',
+  discount_starts: '',
   expires: '',
   product_url: ''
 })
@@ -1453,6 +1477,7 @@ const editForm = ref({
   base_price: null as number | null,
   discount_price: null as number | null,
   category: '',
+  discount_starts: '',
   expires: '',
   product_url: '',
   enriched_description: '',
@@ -1511,6 +1536,7 @@ async function submitManualProduct() {
         base_price: null,
         discount_price: null,
         category: '',
+        discount_starts: '',
         expires: '',
         product_url: ''
       }
@@ -1771,6 +1797,7 @@ async function editProduct(productId: number) {
     base_price: product.base_price,
     discount_price: product.discount_price,
     category: product.category || '',
+    discount_starts: product.discount_starts ? product.discount_starts.split('T')[0] : '',
     expires: product.expires ? product.expires.split('T')[0] : '',
     product_url: product.product_url || '',
     enriched_description: product.enriched_description || '',
@@ -1832,6 +1859,7 @@ function closeEditModal() {
     base_price: null,
     discount_price: null,
     category: '',
+    discount_starts: '',
     expires: '',
     product_url: '',
     enriched_description: '',
@@ -1979,6 +2007,7 @@ async function saveProduct() {
       base_price: editForm.value.base_price,
       discount_price: editForm.value.discount_price,
       category: editForm.value.category,
+      discount_starts: editForm.value.discount_starts || null,
       expires: editForm.value.expires,
       product_url: editForm.value.product_url,
       enriched_description: editForm.value.enriched_description,

@@ -155,6 +155,7 @@ def get_organization_products():
         'brand': p.brand,
         'size_value': p.size_value,
         'size_unit': p.size_unit,
+        'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
         'expires': p.expires.isoformat() if p.expires else None,
         'has_discount': p.has_discount,
         'discount_percentage': p.discount_percentage,
@@ -212,6 +213,7 @@ def get_organization_product(product_id):
             'size_value': product.size_value,
             'size_unit': product.size_unit,
             'variant': product.variant,
+            'discount_starts': product.discount_starts.isoformat() if product.discount_starts else None,
             'expires': product.expires.isoformat() if product.expires else None,
             'tags': product.tags,
             'product_metadata': product.product_metadata,
@@ -303,6 +305,15 @@ def update_organization_product(product_id):
                 pass
         else:
             product.expires = None
+
+    if 'discount_starts' in data:
+        if data['discount_starts']:
+            try:
+                product.discount_starts = datetime.fromisoformat(data['discount_starts'].replace('Z', '+00:00')).date()
+            except:
+                pass
+        else:
+            product.discount_starts = None
 
     if 'image_path' in data:
         product.image_path = data['image_path']

@@ -402,7 +402,26 @@ def product_to_dict(product, include_price_history=True):
     # Get basic product data safely
     base_price = safe_get(product, 'base_price')
     discount_price = safe_get(product, 'discount_price')
+    discount_starts_val = safe_get(product, 'discount_starts')
     expires_val = safe_get(product, 'expires')
+
+    # Normalize discount_starts date (needed for has_discount check)
+    discount_starts_iso = None
+    discount_starts_date = None
+    if discount_starts_val:
+        if isinstance(discount_starts_val, str):
+            try:
+                discount_starts_date = datetime.strptime(discount_starts_val, '%Y-%m-%d').date()
+                discount_starts_iso = discount_starts_date.isoformat()
+            except ValueError:
+                try:
+                    discount_starts_date = datetime.fromisoformat(discount_starts_val.replace('Z', '+00:00')).date()
+                    discount_starts_iso = discount_starts_date.isoformat()
+                except:
+                    discount_starts_iso = None
+        elif hasattr(discount_starts_val, 'isoformat'):
+            discount_starts_date = discount_starts_val if isinstance(discount_starts_val, date) else discount_starts_val.date() if hasattr(discount_starts_val, 'date') else None
+            discount_starts_iso = discount_starts_val.isoformat()
 
     # Normalize expiry date first (needed for has_discount check)
     expires_iso = None
@@ -429,10 +448,14 @@ def product_to_dict(product, include_price_history=True):
     # Check if discount has expired
     is_expired = expires_date is not None and date.today() > expires_date
 
-    # Calculate discount information - only show discount if not expired
+    # Check if discount has started (NULL = immediately active)
+    has_started = discount_starts_date is None or date.today() >= discount_starts_date
+
+    # Calculate discount information - only show discount if started and not expired
     has_discount = (discount_price is not None
                     and base_price is not None
                     and float(discount_price) < float(base_price)
+                    and has_started
                     and not is_expired)
 
     discount_percentage = 0
@@ -513,6 +536,7 @@ def product_to_dict(product, include_price_history=True):
         'image_path': safe_get(product, 'image_path'),
         'base_price': float(base_price) if base_price else 0,
         'discount_price': float(discount_price) if has_discount else None,
+        'discount_starts': discount_starts_iso,
         'expires': expires_iso if has_discount else None,
         'has_discount': has_discount,
         'discount_percentage': discount_percentage,
@@ -1536,6 +1560,7 @@ def api_public_business_page(business_id):
                 'discount_percentage': p.discount_percentage,
                 'image_path': p.image_path,
                 'category': p.category,
+                'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
                 'expires': p.expires.isoformat() if p.expires else None
             } for p in products],
             'has_more': business.products.count() > 20
@@ -1581,6 +1606,7 @@ def api_public_business_products(business_id):
                 'discount_percentage': p.discount_percentage,
                 'image_path': p.image_path,
                 'category': p.category,
+                'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
                 'expires': p.expires.isoformat() if p.expires else None,
                 'match_counts': match_counts_map.get(p.id, {'clones': 0, 'siblings': 0, 'brand_variants': 0})
             })
@@ -1726,6 +1752,7 @@ def api_business_products(business_id):
                 'category': product.category,
                 'tags': product.tags if product.tags else [],
                 'image_path': product.image_path,
+                'discount_starts': product.discount_starts.isoformat() if product.discount_starts else None,
                 'expires': product.expires.isoformat() if product.expires else None,
                 'created_at': product.created_at.isoformat() if product.created_at else None,
                 'views': product.views if hasattr(product, 'views') else 0,
@@ -4009,6 +4036,7 @@ def bulk_import_products(business_id):
                     # Update existing product (including prices)
                     existing_product.base_price = new_base
                     existing_product.discount_price = new_discount
+                    existing_product.discount_starts = product_data.get('discount_starts')
                     existing_product.expires = expires
                     existing_product.category = product_data.get('category')
                     existing_product.tags = tags
@@ -4037,6 +4065,7 @@ def bulk_import_products(business_id):
                         title=product_data['title'],
                         base_price=float(product_data['base_price']),
                         discount_price=float(product_data['discount_price']) if product_data.get('discount_price') else None,
+                        discount_starts=product_data.get('discount_starts'),
                         expires=expires,
                         category=product_data.get('category'),
                         tags=tags,
@@ -4174,6 +4203,11 @@ def update_single_product(business_id, product_id):
                 product.expires = datetime.strptime(data['expires'], '%Y-%m-%d').date()
             else:
                 product.expires = None
+        if 'discount_starts' in data:
+            if data['discount_starts']:
+                product.discount_starts = datetime.strptime(data['discount_starts'], '%Y-%m-%d').date()
+            else:
+                product.discount_starts = None
         if 'product_url' in data:
             product.product_url = data['product_url']
         if 'enriched_description' in data:
@@ -6851,6 +6885,7 @@ def api_admin_products():
             'base_price': float(product.base_price) if product.base_price else 0,
             'discount_price': float(product.discount_price) if product.discount_price else None,
             'image_path': product.image_path,
+            'discount_starts': product.discount_starts.isoformat() if product.discount_starts else None,
             'expires': product.expires.isoformat() if product.expires else None,
             'category': product.category,
             'category_group': product.category_group,
