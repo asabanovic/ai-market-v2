@@ -190,15 +190,21 @@
 
       <!-- Price Info -->
       <div class="mb-2">
-        <span class="text-2xl font-bold text-gray-900">
-          {{ formatPrice(product.discount_price || product.base_price) }} KM
-        </span>
-        <span
-          v-if="product.discount_price && product.base_price > product.discount_price"
-          class="text-gray-400 line-through ml-2"
-        >
-          {{ formatPrice(product.base_price) }} KM
-        </span>
+        <!-- Active discount: show discount price with crossed-out base price -->
+        <template v-if="hasActiveDiscount">
+          <span class="text-2xl font-bold text-gray-900">
+            {{ formatPrice(product.discount_price) }} KM
+          </span>
+          <span class="text-gray-400 line-through ml-2">
+            {{ formatPrice(product.base_price) }} KM
+          </span>
+        </template>
+        <!-- Upcoming or no discount: show base price only -->
+        <template v-else>
+          <span class="text-2xl font-bold text-gray-900">
+            {{ formatPrice(product.base_price) }} KM
+          </span>
+        </template>
       </div>
 
       <!-- Countdown Timer OR Upcoming Discount OR Price History OR Recently Expired (same row, consistent height) -->
@@ -377,10 +383,23 @@ const hasActiveDiscount = computed(() => {
   if (props.product.has_discount !== undefined) {
     return props.product.has_discount
   }
-  // Fallback: manual check
-  return props.product.discount_price &&
-         props.product.base_price > 0 &&
-         props.product.discount_price < props.product.base_price
+  // Fallback: manual check (must also check discount_starts)
+  if (!props.product.discount_price ||
+      props.product.base_price <= 0 ||
+      props.product.discount_price >= props.product.base_price) {
+    return false
+  }
+  // Check if discount has started (null = immediately active)
+  if (props.product.discount_starts) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const startDate = new Date(props.product.discount_starts)
+    startDate.setHours(0, 0, 0, 0)
+    if (startDate > today) {
+      return false  // Discount hasn't started yet
+    }
+  }
+  return true
 })
 
 // Compute upcoming discount (discount_starts is in the future)
@@ -521,7 +540,8 @@ const siblingCount = computed(() => props.product.match_counts?.siblings || 0)
 const brandVariantCount = computed(() => props.product.match_counts?.brand_variants || 0)
 
 const discountPercentage = computed(() => {
-  if (props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
+  // Only show discount percentage badge when discount is ACTIVE (not upcoming)
+  if (hasActiveDiscount.value && props.product.discount_price && props.product.base_price > 0 && props.product.discount_price < props.product.base_price) {
     return Math.round(((props.product.base_price - props.product.discount_price) / props.product.base_price) * 100)
   }
   return 0

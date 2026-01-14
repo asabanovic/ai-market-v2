@@ -523,18 +523,36 @@ function goToProduct(product: Product) {
 
 // Format product data for ProductCardMobile component (matches moji-proizvodi)
 function formatProductForCard(product: any) {
+  // Check if has_discount is explicitly set, otherwise calculate based on discount_starts
+  let hasDiscount = product.has_discount
+  if (hasDiscount === undefined) {
+    hasDiscount = product.discount_price && product.discount_price < product.base_price
+    // If discount hasn't started yet, it's not an active discount
+    if (hasDiscount && product.discount_starts) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const startDate = new Date(product.discount_starts)
+      startDate.setHours(0, 0, 0, 0)
+      if (startDate > today) {
+        hasDiscount = false
+      }
+    }
+  }
+
   return {
     id: product.id,
     title: product.title,
     base_price: product.base_price,
     discount_price: product.discount_price,
+    discount_starts: product.discount_starts,
+    expires: product.expires,
     image_path: product.image_path || product.image_url,
     product_image_url: product.image_path || product.image_url,
     business: product.business || {
       id: null,
       name: 'Nepoznato'
     },
-    has_discount: product.has_discount || (product.discount_price && product.discount_price < product.base_price),
+    has_discount: hasDiscount,
     similarity_score: product.similarity_score || product._score
   }
 }

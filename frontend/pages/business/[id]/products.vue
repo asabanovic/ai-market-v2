@@ -1453,6 +1453,7 @@ const previewProducts = ref<Array<{
   base_price: number
   discount_price?: number
   category?: string
+  discount_starts?: string
   expires?: string
   product_url?: string
   image_url?: string
@@ -1654,6 +1655,7 @@ function openBulkPreview() {
         base_price: product.base_price || 0,
         discount_price: product.discount_price || null,
         category: product.category || null,
+        discount_starts: product.discount_starts || null,
         expires: product.expires || null,
         product_url: product.product_url || null,
         image_url: product.image_url || null,
@@ -1694,6 +1696,7 @@ async function confirmBulkUpload() {
       base_price: p.base_price,
       discount_price: p.discount_price,
       category: p.category,
+      discount_starts: p.discount_starts,
       expires: p.expires,
       product_url: p.product_url,
       image_url: p.image_url

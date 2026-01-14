@@ -348,7 +348,7 @@
                 v-for="product in tracked.products.slice(0, showAllProducts[tracked.id] ? undefined : 4)"
                 :key="product.id"
                 class="group rounded-lg overflow-hidden transition-colors relative flex flex-col"
-                :class="product.discount_price ? 'bg-green-50/70 hover:bg-green-100/70' : 'bg-gray-50 hover:bg-gray-100'"
+                :class="hasActiveDiscount(product) ? 'bg-green-50/70 hover:bg-green-100/70' : hasUpcomingDiscount(product) ? 'bg-yellow-50/70 hover:bg-yellow-100/70' : 'bg-gray-50 hover:bg-gray-100'"
               >
                 <!-- Social Interaction Header -->
                 <div class="bg-gradient-to-b from-black/70 via-black/40 to-transparent px-2 py-2 absolute top-0 left-0 right-0 z-10">
@@ -422,9 +422,9 @@
 
                   <!-- Badges -->
                   <div class="flex flex-wrap items-center gap-1.5 mb-2">
-                    <!-- Best Price Label (only for ≥90% match confidence with discount) -->
+                    <!-- Best Price Label (only for ≥90% match confidence with active discount) -->
                     <span
-                      v-if="product.similarity_score >= 0.90 && product.discount_price && isBestPriceInCategory(tracked, product)"
+                      v-if="product.similarity_score >= 0.90 && hasActiveDiscount(product) && isBestPriceInCategory(tracked, product)"
                       class="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-medium"
                     >
                       Najbolja cijena
@@ -442,10 +442,16 @@
                       SNIŽENO
                     </span>
                     <span
-                      v-if="product.discount_price"
+                      v-if="hasActiveDiscount(product)"
                       class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs font-medium"
                     >
                       AKCIJA
+                    </span>
+                    <span
+                      v-else-if="hasUpcomingDiscount(product)"
+                      class="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-xs font-medium"
+                    >
+                      ZA {{ getDaysUntilDiscount(product) }} {{ getDaysUntilDiscount(product) === 1 ? 'DAN' : 'DANA' }}
                     </span>
                   </div>
 
@@ -458,13 +464,33 @@
                   <p class="text-xs text-gray-500 mt-1">{{ product.business }}</p>
 
                   <!-- Price -->
-                  <div class="mt-2 flex items-center gap-2">
-                    <span class="text-lg font-bold text-purple-600">
-                      {{ (product.discount_price || product.base_price)?.toFixed(2) }} KM
-                    </span>
-                    <span v-if="product.discount_price && product.base_price && product.base_price > 0" class="text-xs text-gray-500 line-through">
-                      {{ product.base_price.toFixed(2) }} KM
-                    </span>
+                  <div class="mt-2 flex flex-col">
+                    <template v-if="hasActiveDiscount(product)">
+                      <!-- Active discount: show discount price with crossed-out base price -->
+                      <div class="flex items-center gap-2">
+                        <span class="text-lg font-bold text-purple-600">
+                          {{ product.discount_price?.toFixed(2) }} KM
+                        </span>
+                        <span class="text-xs text-gray-500 line-through">
+                          {{ product.base_price?.toFixed(2) }} KM
+                        </span>
+                      </div>
+                    </template>
+                    <template v-else-if="hasUpcomingDiscount(product)">
+                      <!-- Upcoming discount: show base price and future discount -->
+                      <span class="text-lg font-bold text-purple-600">
+                        {{ product.base_price?.toFixed(2) }} KM
+                      </span>
+                      <span class="text-xs text-yellow-700 font-medium">
+                        → {{ product.discount_price?.toFixed(2) }} KM za {{ getDaysUntilDiscount(product) }} {{ getDaysUntilDiscount(product) === 1 ? 'dan' : 'dana' }}
+                      </span>
+                    </template>
+                    <template v-else>
+                      <!-- No discount: show base price only -->
+                      <span class="text-lg font-bold text-purple-600">
+                        {{ product.base_price?.toFixed(2) }} KM
+                      </span>
+                    </template>
                   </div>
 
                   <!-- Relevance Score -->
@@ -836,6 +862,67 @@ const sortedTrackedProducts = computed(() => {
   })
 })
 
+// Check if product has an active discount (started and not expired)
+function hasActiveDiscount(product: any): boolean {
+  if (!product.discount_price || !product.base_price || product.discount_price >= product.base_price) {
+    return false
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Check if discount has started
+  if (product.discount_starts) {
+    const startDate = new Date(product.discount_starts)
+    startDate.setHours(0, 0, 0, 0)
+    if (startDate > today) {
+      return false // Discount hasn't started yet
+    }
+  }
+
+  // Check if discount has expired
+  if (product.expires) {
+    const expiresDate = new Date(product.expires)
+    expiresDate.setHours(0, 0, 0, 0)
+    if (today > expiresDate) {
+      return false // Discount has expired
+    }
+  }
+
+  return true
+}
+
+// Check if product has an upcoming discount (starts in the future)
+function hasUpcomingDiscount(product: any): boolean {
+  if (!product.discount_price || !product.base_price || product.discount_price >= product.base_price) {
+    return false
+  }
+
+  if (!product.discount_starts) {
+    return false // No start date means no upcoming discount
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const startDate = new Date(product.discount_starts)
+  startDate.setHours(0, 0, 0, 0)
+
+  return startDate > today
+}
+
+// Get days until discount starts
+function getDaysUntilDiscount(product: any): number {
+  if (!product.discount_starts) return 0
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const startDate = new Date(product.discount_starts)
+  startDate.setHours(0, 0, 0, 0)
+
+  const diffTime = startDate.getTime() - today.getTime()
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
+
 // Check if product is the best (lowest) price in its tracked category
 function isBestPriceInCategory(tracked: any, product: any): boolean {
   if (!product.discount_price) return false
@@ -965,11 +1052,29 @@ function scrollTracked(trackedId: number, direction: 'left' | 'right') {
 
 // Format product data for ProductCardMobile component
 function formatProductForCard(product: any) {
+  // Check if has_discount is explicitly set, otherwise calculate based on discount_starts
+  let hasDiscount = product.has_discount
+  if (hasDiscount === undefined) {
+    hasDiscount = product.discount_price && product.discount_price < product.base_price
+    // If discount hasn't started yet, it's not an active discount
+    if (hasDiscount && product.discount_starts) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const startDate = new Date(product.discount_starts)
+      startDate.setHours(0, 0, 0, 0)
+      if (startDate > today) {
+        hasDiscount = false
+      }
+    }
+  }
+
   return {
     id: product.id,
     title: product.title,
     base_price: product.base_price,
     discount_price: product.discount_price,
+    discount_starts: product.discount_starts,
+    expires: product.expires,
     image_path: product.image_url,
     product_image_url: product.image_url,
     business: {
@@ -978,7 +1083,7 @@ function formatProductForCard(product: any) {
     },
     is_new_today: product.is_new_today,
     price_dropped_today: product.price_dropped_today,
-    has_discount: product.has_discount ?? (product.discount_price && product.discount_price < product.base_price),
+    has_discount: hasDiscount,
     similarity_score: product.similarity_score
   }
 }

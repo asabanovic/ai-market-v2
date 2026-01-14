@@ -178,6 +178,7 @@ def search_by_vector(
                 p.enriched_description,
                 p.city,
                 p.expires,
+                p.discount_starts,
                 p.image_path,
                 p.business_id,
                 p.size_value,
@@ -231,6 +232,7 @@ def search_by_vector(
                 p.enriched_description,
                 p.city,
                 p.expires,
+                p.discount_starts,
                 p.image_path,
                 p.business_id,
                 p.size_value,
@@ -260,15 +262,26 @@ def search_by_vector(
         if row.expires:
             is_expired = date.today() > row.expires
 
+        # Check if discount has started
+        has_started = True  # Default to started if no start date
+        if row.discount_starts:
+            has_started = date.today() >= row.discount_starts
+
         # If discount has expired, treat as regular product
         if is_expired:
             discount_price = None
             current_price = row.base_price
             expires = None
+            discount_starts = None
         else:
             discount_price = row.discount_price
-            current_price = row.discount_price if row.discount_price else row.base_price
+            # Current price is discount only if discount has started
+            if row.discount_price and has_started:
+                current_price = row.discount_price
+            else:
+                current_price = row.base_price
             expires = row.expires
+            discount_starts = row.discount_starts
 
         product = {
             "id": row.id,
@@ -281,6 +294,7 @@ def search_by_vector(
             "enriched_description": row.enriched_description,
             "city": row.city,
             "expires": expires,
+            "discount_starts": discount_starts,
             "image_path": row.image_path,
             # Size fields for size-based boosting
             "size_value": str(row.size_value) if row.size_value else None,

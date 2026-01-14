@@ -529,15 +529,18 @@ def product_to_dict(product, include_price_history=True):
                 'history_count': history_count
             }
 
-    # If discount is expired, don't show discount info - product becomes regular
+    # Return product data - include discount_price even if discount hasn't started yet
+    # (so frontend can show "upcoming discount" info)
+    # But hide discount info if EXPIRED (product becomes regular)
+    show_discount_info = discount_price is not None and base_price is not None and float(discount_price) < float(base_price) and not is_expired
     return {
         'id': safe_get(product, 'id'),
         'title': safe_get(product, 'title'),
         'image_path': safe_get(product, 'image_path'),
         'base_price': float(base_price) if base_price else 0,
-        'discount_price': float(discount_price) if has_discount else None,
-        'discount_starts': discount_starts_iso,
-        'expires': expires_iso if has_discount else None,
+        'discount_price': float(discount_price) if show_discount_info else None,
+        'discount_starts': discount_starts_iso if show_discount_info else None,
+        'expires': expires_iso if show_discount_info else None,
         'has_discount': has_discount,
         'discount_percentage': discount_percentage,
         'city': safe_get(product, 'city'),
@@ -3935,6 +3938,11 @@ def bulk_import_products(business_id):
                 'error': '"products" mora biti array'
             }), 400
 
+        # DEBUG: Log first product to check if discount_starts is in payload
+        if products_data:
+            app.logger.info(f"BULK IMPORT DEBUG - First product keys: {list(products_data[0].keys())}")
+            app.logger.info(f"BULK IMPORT DEBUG - discount_starts value: {products_data[0].get('discount_starts')}")
+
         imported_count = 0
         errors = []
 
@@ -6890,11 +6898,21 @@ def api_admin_products():
         if categorization_filter == 'has_matches' and match_count == 0:
             continue  # Skip products that don't have matches
 
+        # Compute has_discount considering discount_starts and expires
+        has_discount = False
+        if product.discount_price and product.base_price and float(product.discount_price) < float(product.base_price):
+            # Check if discount has started (null = immediately active)
+            has_started = product.discount_starts is None or date.today() >= product.discount_starts
+            # Check if discount has expired
+            is_expired = product.expires is not None and date.today() > product.expires
+            has_discount = has_started and not is_expired
+
         products_list.append({
             'id': product.id,
             'title': product.title,
             'base_price': float(product.base_price) if product.base_price else 0,
             'discount_price': float(product.discount_price) if product.discount_price else None,
+            'has_discount': has_discount,
             'image_path': product.image_path,
             'discount_starts': product.discount_starts.isoformat() if product.discount_starts else None,
             'expires': product.expires.isoformat() if product.expires else None,
@@ -10460,14 +10478,21 @@ def api_user_tracked_products():
                 ).limit(20).all()
 
                 for r in results:
-                    # Get product image if available
+                    # Get product image and discount dates if available
                     product = Product.query.get(r.product_id) if r.product_id else None
                     image_url = product.image_path if product else None
+                    discount_starts = None
+                    expires = None
 
                     # Calculate has_discount from the actual product
                     has_discount = False
                     if product:
                         has_discount = product.has_discount
+                        # Get discount dates from product
+                        if product.discount_starts:
+                            discount_starts = product.discount_starts.isoformat() if hasattr(product.discount_starts, 'isoformat') else str(product.discount_starts)
+                        if product.expires:
+                            expires = product.expires.isoformat() if hasattr(product.expires, 'isoformat') else str(product.expires)
                     elif r.discount_price and r.base_price and r.discount_price < r.base_price:
                         # Fallback for products without full data
                         has_discount = True
@@ -10478,6 +10503,8 @@ def api_user_tracked_products():
                         'business': r.business_name,
                         'base_price': float(r.base_price) if r.base_price else None,
                         'discount_price': float(r.discount_price) if r.discount_price else None,
+                        'discount_starts': discount_starts,
+                        'expires': expires,
                         'similarity_score': float(r.similarity_score) if r.similarity_score else None,
                         'is_new_today': r.is_new_today,
                         'price_dropped_today': r.price_dropped_today,

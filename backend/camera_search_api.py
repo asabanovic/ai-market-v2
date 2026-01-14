@@ -230,17 +230,47 @@ def search_products_by_vision_result(vision_result: dict, user_city: str = None,
     formatted_products = format_agent_products(raw_products)
 
     # Transform for ProductCardMobile compatibility (add image_path, has_discount)
+    from datetime import date
+    today = date.today()
     for p in formatted_products:
         # ProductCardMobile expects image_path, agent_search returns image_url
         if 'image_url' in p and 'image_path' not in p:
             p['image_path'] = p['image_url']
-        # Add has_discount flag
+        # Add has_discount flag (considering discount_starts and expires)
         if 'has_discount' not in p:
-            p['has_discount'] = bool(
+            has_valid_discount = bool(
                 p.get('discount_price') and
                 p.get('base_price') and
                 p['discount_price'] < p['base_price']
             )
+            if has_valid_discount:
+                # Check if discount has started
+                discount_starts = p.get('discount_starts')
+                if discount_starts:
+                    if isinstance(discount_starts, str):
+                        from datetime import datetime
+                        try:
+                            start_date = datetime.strptime(discount_starts, '%Y-%m-%d').date()
+                        except:
+                            start_date = None
+                    else:
+                        start_date = discount_starts
+                    if start_date and start_date > today:
+                        has_valid_discount = False  # Discount hasn't started yet
+                # Check if discount has expired
+                expires = p.get('expires')
+                if expires and has_valid_discount:
+                    if isinstance(expires, str):
+                        from datetime import datetime
+                        try:
+                            expire_date = datetime.strptime(expires, '%Y-%m-%d').date()
+                        except:
+                            expire_date = None
+                    else:
+                        expire_date = expires
+                    if expire_date and today > expire_date:
+                        has_valid_discount = False  # Discount has expired
+            p['has_discount'] = has_valid_discount
 
     return formatted_products
 

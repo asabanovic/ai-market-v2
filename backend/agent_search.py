@@ -226,15 +226,40 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
             elif isinstance(expires, date):
                 is_expired = date.today() > expires
 
+        # Check if discount has started
+        discount_starts = product.get("discount_starts")
+        has_started = True  # Default to started if no start date
+        if discount_starts:
+            if isinstance(discount_starts, str):
+                from datetime import datetime
+                try:
+                    start_date = datetime.fromisoformat(discount_starts).date()
+                    has_started = date.today() >= start_date
+                except:
+                    pass
+            elif isinstance(discount_starts, date):
+                has_started = date.today() >= discount_starts
+
         base_price = product.get("base_price")
         discount_price = product.get("discount_price")
 
-        # If expired, treat as regular product
+        # Determine if discount is active (started and not expired)
+        has_discount = False
+        if discount_price and base_price and float(discount_price) < float(base_price):
+            has_discount = has_started and not is_expired
+
+        # If expired, clear discount info entirely
         if is_expired:
             discount_price = None
             expires = None
+            discount_starts = None
 
-        current_price = discount_price if discount_price else base_price
+        # Current price is discount_price only if discount is active (started and not expired)
+        # If discount hasn't started yet, show base_price as current price
+        if has_discount:
+            current_price = discount_price
+        else:
+            current_price = base_price
 
         formatted_product = {
             "id": product.get("id"),
@@ -243,6 +268,8 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
             "discount_price": float(discount_price) if discount_price else None,
             "price": float(current_price) if current_price else None,
             "expires": expires.isoformat() if hasattr(expires, 'isoformat') else expires,
+            "discount_starts": discount_starts.isoformat() if hasattr(discount_starts, 'isoformat') else discount_starts,
+            "has_discount": has_discount,
             "category": product.get("category"),
             "tags": product.get("tags"),
             "city": product.get("city"),
@@ -266,8 +293,8 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
                 "phone": business.get("phone"),
             }
 
-        # Calculate discount info
-        if formatted_product["discount_price"] and formatted_product["base_price"] and not is_expired:
+        # Calculate discount info - only if discount is ACTIVE (started and not expired)
+        if has_discount and formatted_product["discount_price"] and formatted_product["base_price"]:
             formatted_product["discount_percent"] = round(
                 ((formatted_product["base_price"] - formatted_product["discount_price"]) / formatted_product["base_price"]) * 100
             )
@@ -279,7 +306,7 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
         # Skip products with base_price = 0 unless they have an active discount
         if (formatted_product["base_price"] is None or formatted_product["base_price"] == 0):
             # Only include if there's an active discount
-            if not (formatted_product["discount_price"] and formatted_product["discount_price"] > 0 and not is_expired):
+            if not has_discount:
                 continue
 
         formatted.append(formatted_product)
