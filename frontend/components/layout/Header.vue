@@ -23,13 +23,13 @@
           <NuxtLink to="/proizvodi" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
             Proizvodi
           </NuxtLink>
+          <NuxtLink to="/novosti" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
+            Novosti
+          </NuxtLink>
           <ClientOnly>
             <template v-if="!isAuthenticated">
               <NuxtLink to="/kako-radimo" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
                 Kako radimo
-              </NuxtLink>
-              <NuxtLink to="/novosti" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
-                Novosti
               </NuxtLink>
               <NuxtLink to="/kontakt" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
                 Kontakt
@@ -38,9 +38,6 @@
             <template #fallback>
               <NuxtLink to="/kako-radimo" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
                 Kako radimo
-              </NuxtLink>
-              <NuxtLink to="/novosti" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
-                Novosti
               </NuxtLink>
               <NuxtLink to="/kontakt" class="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 transition-colors" :active-class="''" :exact-active-class="''">
                 Kontakt
@@ -307,13 +304,13 @@
         <NuxtLink to="/proizvodi" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
           Proizvodi
         </NuxtLink>
+        <NuxtLink to="/novosti" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
+          Novosti
+        </NuxtLink>
         <ClientOnly>
           <template v-if="!isAuthenticated">
             <NuxtLink to="/kako-radimo" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
               Kako radimo
-            </NuxtLink>
-            <NuxtLink to="/novosti" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
-              Novosti
             </NuxtLink>
             <NuxtLink to="/kontakt" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
               Kontakt
@@ -322,9 +319,6 @@
           <template #fallback>
             <NuxtLink to="/kako-radimo" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
               Kako radimo
-            </NuxtLink>
-            <NuxtLink to="/novosti" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
-              Novosti
             </NuxtLink>
             <NuxtLink to="/kontakt" class="block px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors" :active-class="''" :exact-active-class="''">
               Kontakt
