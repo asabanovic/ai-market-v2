@@ -1126,11 +1126,12 @@ def sitemap_products():
                     'updated_at': p.updated_at.isoformat() if p.updated_at else None
                 }
                 for p in products
-            ]
+            ],
+            'count': len(products)
         })
     except Exception as e:
         app.logger.error(f"Sitemap products error: {e}")
-        return jsonify({'products': []}), 200
+        return jsonify({'products': [], 'error': str(e)}), 200
 
 
 # Homepage route - API info endpoint
