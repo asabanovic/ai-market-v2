@@ -13,7 +13,9 @@
           v-model="selectedCategory"
           :category-counts="categoryCounts"
           :disabled="!canPaginate"
+          :current-sort="filters.sort"
           @update:model-value="onCategoryChange"
+          @sort-cheapest="onSortCheapest"
         />
         <!-- Credits warning for category selector -->
         <div v-if="!canPaginate" class="mt-3 text-sm text-amber-700 flex items-center gap-2">
@@ -287,6 +289,13 @@ function onCategoryChange() {
   currentPage.value = 1
   // Track category filter change
   trackFilter('proizvodi', 'category', selectedCategory.value)
+  loadProducts()
+}
+
+function onSortCheapest() {
+  filters.value.sort = 'price_asc'
+  currentPage.value = 1
+  trackFilter('proizvodi', 'sort', 'price_asc')
   loadProducts()
 }
 

@@ -48,7 +48,7 @@
           disabled
             ? 'opacity-50 cursor-not-allowed'
             : '',
-          selectedCategory === null
+          selectedCategory === null && currentSort !== 'price_asc'
             ? 'bg-purple-600 text-white shadow-md'
             : disabled
               ? 'bg-gray-100 text-gray-400'
@@ -57,6 +57,26 @@
       >
         <span class="text-xl">🏪</span>
         <span class="text-xs font-medium whitespace-nowrap">Sve</span>
+      </button>
+
+      <!-- Najjeftinije (cheapest) quick filter -->
+      <button
+        @click="sortByCheapest"
+        :disabled="disabled"
+        :class="[
+          'flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[72px]',
+          disabled
+            ? 'opacity-50 cursor-not-allowed'
+            : '',
+          currentSort === 'price_asc'
+            ? 'bg-green-600 text-white shadow-md'
+            : disabled
+              ? 'bg-gray-100 text-gray-400'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        ]"
+      >
+        <span class="text-xl">💰</span>
+        <span class="text-xs font-medium whitespace-nowrap">Najjeftinije</span>
       </button>
 
       <!-- Category buttons -->
@@ -107,10 +127,12 @@ const props = defineProps<{
   modelValue: string | null
   categoryCounts?: Record<string, number>
   disabled?: boolean
+  currentSort?: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | null]
+  'sort-cheapest': []
 }>()
 
 const scrollContainer = ref<HTMLElement | null>(null)
@@ -151,6 +173,13 @@ function selectCategory(categoryId: string | null) {
   if (props.disabled) return
   selectedCategory.value = categoryId
 }
+
+function sortByCheapest() {
+  if (props.disabled) return
+  emit('sort-cheapest')
+}
+
+const currentSort = computed(() => props.currentSort || '')
 
 function updateGradients() {
   if (!scrollContainer.value) return
