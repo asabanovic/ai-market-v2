@@ -160,7 +160,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Pretraži po email, telefon, ime..."
-            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 placeholder-gray-400"
             @input="debouncedSearch"
           />
           <button
