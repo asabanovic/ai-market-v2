@@ -20,6 +20,9 @@
           <NuxtLink to="/proizvodi" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Proizvodi
           </NuxtLink>
+          <NuxtLink to="/novosti" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Novosti
+          </NuxtLink>
         </div>
 
         <div class="pt-6">

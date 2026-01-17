@@ -237,6 +237,14 @@
                       </span>
                     </NuxtLink>
                     <NuxtLink
+                      to="/novosti"
+                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <Icon name="mdi:newspaper" class="w-4 h-4 mr-2" />
+                      Novosti
+                    </NuxtLink>
+                    <NuxtLink
                       v-if="user?.has_business"
                       to="/moj-biznis"
                       class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
