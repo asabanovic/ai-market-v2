@@ -121,34 +121,43 @@
           <button
             :disabled="currentPage === 1"
             @click="changePage(currentPage - 1)"
-            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Prije
           </button>
 
           <div class="flex space-x-1">
-            <button
-              v-for="page in visiblePages"
-              :key="page"
-              @click="changePage(page)"
-              :disabled="page > 1 && !canPaginate"
-              :class="[
-                'px-4 py-2 border rounded-md',
-                page === currentPage
-                  ? 'bg-purple-600 text-white border-purple-600'
-                  : page > 1 && !canPaginate
-                    ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              ]"
-            >
-              {{ page }}
-            </button>
+            <template v-for="(page, index) in visiblePages" :key="index">
+              <!-- Ellipsis (not clickable) -->
+              <span
+                v-if="page === '...'"
+                class="px-2 py-2 text-gray-500"
+              >
+                ...
+              </span>
+              <!-- Page number button -->
+              <button
+                v-else
+                @click="changePage(page as number)"
+                :disabled="(page as number) > 1 && !canPaginate"
+                :class="[
+                  'px-3 py-2 border rounded-md text-sm',
+                  page === currentPage
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : (page as number) > 1 && !canPaginate
+                      ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                ]"
+              >
+                {{ page }}
+              </button>
+            </template>
           </div>
 
           <button
             :disabled="currentPage === totalPages || !canPaginate"
             @click="changePage(currentPage + 1)"
-            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Dalje
           </button>
@@ -299,19 +308,45 @@ function onSortCheapest() {
   loadProducts()
 }
 
-// Computed
+// Computed - smart pagination with ellipsis
 const visiblePages = computed(() => {
-  const pages = []
-  const maxVisible = 5
-  let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2))
-  let end = Math.min(totalPages.value, start + maxVisible - 1)
+  const pages: (number | string)[] = []
+  const total = totalPages.value
+  const current = currentPage.value
 
-  if (end - start + 1 < maxVisible) {
-    start = Math.max(1, end - maxVisible + 1)
-  }
+  if (total <= 5) {
+    // Show all pages if 5 or fewer
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    // Always show first page
+    pages.push(1)
 
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
+    if (current <= 3) {
+      // Near the beginning: 1 2 3 4 ... last
+      for (let i = 2; i <= Math.min(4, total - 1); i++) {
+        pages.push(i)
+      }
+      if (total > 4) {
+        pages.push('...')
+        pages.push(total)
+      }
+    } else if (current >= total - 2) {
+      // Near the end: 1 ... last-3 last-2 last-1 last
+      pages.push('...')
+      for (let i = Math.max(2, total - 3); i <= total; i++) {
+        pages.push(i)
+      }
+    } else {
+      // In the middle: 1 ... curr-1 curr curr+1 ... last
+      pages.push('...')
+      pages.push(current - 1)
+      pages.push(current)
+      pages.push(current + 1)
+      pages.push('...')
+      pages.push(total)
+    }
   }
 
   return pages
