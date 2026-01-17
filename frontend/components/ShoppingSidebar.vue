@@ -4,7 +4,7 @@
     <div
       v-if="isOpen"
       @click="$emit('close')"
-      class="fixed inset-0 bg-black/50 z-40"
+      class="fixed inset-0 bg-black/50 z-[55]"
     ></div>
   </Transition>
 
@@ -13,7 +13,7 @@
     <div
       v-if="isOpen"
       :class="[
-        'fixed top-0 right-0 h-full w-full max-w-md shadow-2xl z-50 flex flex-col',
+        'fixed top-0 right-0 h-full w-full max-w-md shadow-2xl z-[60] flex flex-col',
         todoMode ? 'bg-white' : 'bg-white dark:bg-gray-900'
       ]"
     >
