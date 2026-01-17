@@ -1110,20 +1110,20 @@ def health_check():
 # Sitemap endpoint - returns all product IDs for sitemap generation
 @app.route('/api/sitemap/products')
 def sitemap_products():
-    """Return all product IDs with updated timestamps for sitemap generation.
+    """Return all product IDs with timestamps for sitemap generation.
     This is a public endpoint with no authentication required."""
     try:
         # Fetch all products with minimal data for sitemap
         products = db.session.query(
             Product.id,
-            Product.updated_at
+            Product.created_at
         ).order_by(Product.id).all()
 
         return jsonify({
             'products': [
                 {
                     'id': p.id,
-                    'updated_at': p.updated_at.isoformat() if p.updated_at else None
+                    'updated_at': p.created_at.isoformat() if p.created_at else None
                 }
                 for p in products
             ],
