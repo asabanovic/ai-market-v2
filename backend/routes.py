@@ -5848,6 +5848,8 @@ def api_admin_users():
                 'registration_method': u.registration_method,
                 'is_admin': u.is_admin,
                 'is_verified': u.is_verified,
+                'is_deactivated': u.deleted_at is not None,
+                'deleted_at': u.deleted_at.isoformat() if u.deleted_at else None,
                 'first_name': u.first_name,
                 'last_name': u.last_name,
                 'city': u.city,
@@ -5861,11 +5863,13 @@ def api_admin_users():
                 'preferred_stores': preferred_stores
             })
 
-        # Get registration method stats for ALL users (not just current page)
-        email_count = User.query.filter(User.registration_method == 'email').count()
-        google_count = User.query.filter(User.registration_method == 'google').count()
-        phone_count = User.query.filter(User.registration_method == 'phone').count()
-        verified_count = User.query.filter(User.is_verified == True).count()
+        # Get registration method stats for ALL active users (excluding deactivated)
+        active_filter = User.deleted_at.is_(None)
+        email_count = User.query.filter(User.registration_method == 'email', active_filter).count()
+        google_count = User.query.filter(User.registration_method == 'google', active_filter).count()
+        phone_count = User.query.filter(User.registration_method == 'phone', active_filter).count()
+        verified_count = User.query.filter(User.is_verified == True, active_filter).count()
+        total_active = User.query.filter(active_filter).count()
 
         return jsonify({
             'users': user_data,
@@ -5876,7 +5880,7 @@ def api_admin_users():
                 'pages': pagination.pages
             },
             'stats': {
-                'total': pagination.total,
+                'total': total_active,  # Only count active users
                 'email': email_count,
                 'google': google_count,
                 'phone': phone_count,

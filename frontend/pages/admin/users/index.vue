@@ -271,7 +271,7 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50 cursor-pointer" @click="openUserProfile(user.id)">
+              <tr v-for="user in users" :key="user.id" :class="['hover:bg-gray-50 cursor-pointer', user.is_deactivated ? 'bg-red-50/50' : '']" @click="openUserProfile(user.id)">
                 <!-- User -->
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
@@ -355,6 +355,12 @@
                 <!-- Status -->
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex flex-col gap-1">
+                    <span
+                      v-if="user.is_deactivated"
+                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"
+                    >
+                      Deaktiviran
+                    </span>
                     <span
                       v-if="user.is_admin"
                       class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800"
