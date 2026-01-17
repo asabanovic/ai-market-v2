@@ -1107,6 +1107,32 @@ def health_check():
     return jsonify({'status': 'healthy', 'service': 'ai-market-backend'}), 200
 
 
+# Sitemap endpoint - returns all product IDs for sitemap generation
+@app.route('/api/sitemap/products')
+def sitemap_products():
+    """Return all product IDs with updated timestamps for sitemap generation.
+    This is a public endpoint with no authentication required."""
+    try:
+        # Fetch all products with minimal data for sitemap
+        products = db.session.query(
+            Product.id,
+            Product.updated_at
+        ).order_by(Product.id).all()
+
+        return jsonify({
+            'products': [
+                {
+                    'id': p.id,
+                    'updated_at': p.updated_at.isoformat() if p.updated_at else None
+                }
+                for p in products
+            ]
+        })
+    except Exception as e:
+        app.logger.error(f"Sitemap products error: {e}")
+        return jsonify({'products': []}), 200
+
+
 # Homepage route - API info endpoint
 @app.route('/')
 def index():

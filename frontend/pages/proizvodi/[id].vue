@@ -1209,4 +1209,58 @@ useSeoMeta({
   twitterDescription: productDescription,
   twitterImage: productImage,
 })
+
+// Canonical URL
+useHead({
+  link: [
+    { rel: 'canonical', href: productUrl.value }
+  ]
+})
+
+// JSON-LD Structured Data for Google (Schema.org Product)
+const jsonLd = computed(() => {
+  const p = productData.value
+  if (!p) return null
+
+  const price = p.has_discount && p.discount_price ? p.discount_price : p.base_price
+  const availability = p.has_discount ? 'https://schema.org/InStock' : 'https://schema.org/InStock'
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    'name': p.title,
+    'description': p.enriched_description || productDescription.value,
+    'image': productImage.value,
+    'url': productUrl.value,
+    'brand': p.brand ? { '@type': 'Brand', 'name': p.brand } : undefined,
+    'category': p.category || undefined,
+    'offers': {
+      '@type': 'Offer',
+      'url': productUrl.value,
+      'priceCurrency': 'BAM',
+      'price': price.toFixed(2),
+      'priceValidUntil': p.expires || undefined,
+      'availability': availability,
+      'seller': p.business ? {
+        '@type': 'Organization',
+        'name': p.business.name
+      } : undefined
+    },
+    'aggregateRating': (voteStats.value.upvotes + voteStats.value.downvotes) > 0 ? {
+      '@type': 'AggregateRating',
+      'ratingValue': voteStats.value.upvotes > 0 ? Math.round((voteStats.value.upvotes / (voteStats.value.upvotes + voteStats.value.downvotes)) * 5) : 3,
+      'reviewCount': voteStats.value.upvotes + voteStats.value.downvotes
+    } : undefined
+  }
+})
+
+// Inject JSON-LD script
+useHead({
+  script: computed(() => jsonLd.value ? [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify(jsonLd.value)
+    }
+  ] : [])
+})
 </script>
