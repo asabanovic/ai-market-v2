@@ -348,6 +348,11 @@ def api_login():
             app.logger.info("API login failed: Invalid credentials")
             return jsonify({'error': 'Neispravni podaci za prijavu'}), 401
 
+        # Check if account is deactivated
+        if user.deleted_at is not None:
+            app.logger.info(f"API login failed: Account deactivated for {email}")
+            return jsonify({'error': 'Vaš račun je deaktiviran. Kontaktirajte podršku za reaktivaciju.'}), 403
+
         # Generate JWT token (allow unverified users - they'll see a banner in the app)
         token = generate_jwt_token(user.id, user.email)
 
@@ -613,6 +618,41 @@ def api_logout():
     # With JWT, logout is handled client-side by removing the token
     # This endpoint exists for consistency and potential future server-side token blacklisting
     return jsonify({'success': True}), 200
+
+
+@auth_api_bp.route('/deactivate', methods=['POST'])
+@require_jwt_auth
+def api_deactivate_account():
+    """Deactivate user account (soft delete)"""
+    try:
+        user = User.query.filter_by(id=request.current_user_id).first()
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Don't allow deactivating admin accounts
+        if user.is_admin:
+            return jsonify({'error': 'Admin računi ne mogu biti deaktivirani'}), 400
+
+        # Already deactivated
+        if user.deleted_at is not None:
+            return jsonify({'error': 'Račun je već deaktiviran'}), 400
+
+        # Set deleted_at timestamp
+        user.deleted_at = datetime.now()
+        db.session.commit()
+
+        app.logger.info(f"User account deactivated: {user.email or user.phone}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Vaš račun je uspješno deaktiviran. Nećete više primati obavještenja.'
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Account deactivation error: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Greška pri deaktivaciji računa'}), 500
 
 
 @auth_api_bp.route('/user/phone', methods=['POST', 'OPTIONS'])

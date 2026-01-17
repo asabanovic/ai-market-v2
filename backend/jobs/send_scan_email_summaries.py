@@ -360,6 +360,12 @@ def run_email_summaries():
                 if not user or not user.email:
                     continue
 
+                # Skip deactivated users
+                if user.deleted_at is not None:
+                    logger.debug(f"User {user.id} is deactivated, skipping email")
+                    skipped_count += 1
+                    continue
+
                 user_email_lower = user.email.lower()
 
                 # Skip if user already received email today (daily or weekly)

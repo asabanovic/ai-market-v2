@@ -6306,7 +6306,7 @@ def api_admin_user_profile(user_id):
     from auth_api import decode_jwt_token
     from models import (User, UserSearch, UserEngagement, CreditTransaction,
                         Favorite, ShoppingList, ProductComment, ProductVote,
-                        ProductReport, Notification, BusinessMembership, OTPCode, UserLogin)
+                        ProductReport, Notification, BusinessMembership, OTPCode, UserLogin, UserDailyVisit)
 
     # Check JWT authentication
     auth_header = request.headers.get('Authorization')
@@ -6574,6 +6574,31 @@ def api_admin_user_profile(user_id):
                 'expired': latest_otp.expires_at < datetime.now()
             }
 
+        # Daily visits data (last 90 days)
+        daily_visits = UserDailyVisit.query.filter_by(user_id=user_id).order_by(
+            UserDailyVisit.visit_date.desc()
+        ).limit(90).all()
+
+        visits_data = [{
+            'id': v.id,
+            'visit_date': v.visit_date.isoformat(),
+            'first_seen': v.first_seen.isoformat() if v.first_seen else None,
+            'last_seen': v.last_seen.isoformat() if v.last_seen else None,
+            'page_views': v.page_views or 1,
+        } for v in daily_visits]
+
+        # Activity summary stats
+        total_visits = UserDailyVisit.query.filter_by(user_id=user_id).count()
+        stats['total_active_days'] = total_visits
+        stats['visits_last_30_days'] = UserDailyVisit.query.filter(
+            UserDailyVisit.user_id == user_id,
+            UserDailyVisit.visit_date >= (datetime.now() - timedelta(days=30)).date()
+        ).count()
+        stats['visits_last_7_days'] = UserDailyVisit.query.filter(
+            UserDailyVisit.user_id == user_id,
+            UserDailyVisit.visit_date >= (datetime.now() - timedelta(days=7)).date()
+        ).count()
+
         return jsonify({
             'user': user_data,
             'stats': stats,
@@ -6584,7 +6609,8 @@ def api_admin_user_profile(user_id):
             'recent_engagements': engagements_data,
             'recent_favorites': favorites_data,
             'business_memberships': memberships_data,
-            'latest_otp': otp_data
+            'latest_otp': otp_data,
+            'daily_visits': visits_data,
         }), 200
 
     except Exception as e:
@@ -6697,6 +6723,140 @@ def api_admin_delete_user(user_id):
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Admin delete user error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users/<path:user_id>/deactivate', methods=['POST'])
+def api_admin_deactivate_user(user_id):
+    """API endpoint for admin to deactivate/reactivate a user (soft delete toggle)"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the target user
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Prevent deactivating yourself
+        if target_user.id == admin_user.id:
+            return jsonify({'error': 'Ne možete deaktivirati sebe'}), 400
+
+        # Prevent deactivating other admins
+        if target_user.is_admin:
+            return jsonify({'error': 'Ne možete deaktivirati drugog admina'}), 400
+
+        # Get the action from request body (default to toggle)
+        data = request.get_json() or {}
+        action = data.get('action', 'toggle')
+
+        if action == 'deactivate':
+            target_user.deleted_at = datetime.now()
+            message = 'Korisnik je deaktiviran'
+        elif action == 'reactivate':
+            target_user.deleted_at = None
+            message = 'Korisnik je reaktiviran'
+        else:
+            # Toggle
+            if target_user.deleted_at is None:
+                target_user.deleted_at = datetime.now()
+                message = 'Korisnik je deaktiviran'
+            else:
+                target_user.deleted_at = None
+                message = 'Korisnik je reaktiviran'
+
+        db.session.commit()
+
+        app.logger.info(f"Admin {admin_user.email} {'deactivated' if target_user.deleted_at else 'reactivated'} user {user_id}")
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'is_deactivated': target_user.deleted_at is not None,
+            'deleted_at': target_user.deleted_at.isoformat() if target_user.deleted_at else None
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Admin deactivate user error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users/deactivation-stats', methods=['GET'])
+def api_admin_deactivation_stats():
+    """API endpoint for admin to get stats on deactivated users and users with disabled notifications"""
+    from auth_api import decode_jwt_token
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Count total users
+        total_users = User.query.count()
+
+        # Count deactivated users (deleted_at is not null)
+        deactivated_users = User.query.filter(User.deleted_at.isnot(None)).count()
+
+        # Count users with at least one notification type disabled
+        # This is more complex - we need to check JSON preferences field
+        users_with_disabled_notifications = 0
+        users_with_prefs = User.query.filter(User.preferences.isnot(None)).all()
+        for user in users_with_prefs:
+            prefs = user.preferences or {}
+
+            # Check legacy email_notifications setting
+            if prefs.get('email_notifications') == False:
+                users_with_disabled_notifications += 1
+                continue
+
+            # Check new email_preferences
+            email_prefs = prefs.get('email_preferences', {})
+            if (email_prefs.get('daily_emails') == False or
+                email_prefs.get('weekly_summary') == False or
+                email_prefs.get('monthly_summary') == False):
+                users_with_disabled_notifications += 1
+
+        return jsonify({
+            'total_users': total_users,
+            'deactivated_users': deactivated_users,
+            'users_with_disabled_notifications': users_with_disabled_notifications,
+            'active_users': total_users - deactivated_users
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Admin deactivation stats error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500

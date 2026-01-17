@@ -308,6 +308,14 @@ def verify_otp():
         is_new_user = True
         logger.info(f"New user registered via phone: {user.id}")
     else:
+        # Check if account is deactivated
+        if user.deleted_at is not None:
+            logger.info(f"Phone login blocked: Account deactivated for {normalized_phone}")
+            return jsonify({
+                'success': False,
+                'error': 'Vaš račun je deaktiviran. Kontaktirajte podršku za reaktivaciju.'
+            }), 403
+
         # Update verification status if not already verified
         if not user.phone_verified:
             user.phone_verified = True

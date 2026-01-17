@@ -365,6 +365,25 @@
             </div>
           </div>
 
+          <!-- Account Deactivation Section -->
+          <div class="border border-gray-200 rounded-md p-4 bg-gray-50">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-medium text-gray-900">Deaktivacija računa</h3>
+                <p class="text-xs text-gray-600 mt-1">
+                  Deaktivirajte svoj račun. Nećete više primati obavještenja i nećete se moći prijaviti.
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="showDeactivateModal = true"
+                class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
+              >
+                Deaktiviraj račun
+              </button>
+            </div>
+          </div>
+
           <!-- Admin Badge (if admin) -->
           <div v-if="profile.is_admin" class="bg-red-50 border border-red-200 rounded-md p-4">
             <div class="flex items-center">
@@ -399,6 +418,80 @@
         </form>
       </div>
     </div>
+
+    <!-- Deactivate Account Confirmation Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showDeactivateModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+        @click.self="showDeactivateModal = false"
+      >
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+          <!-- Header -->
+          <div class="bg-red-50 px-6 py-4 border-b border-red-100">
+            <div class="flex items-center gap-3">
+              <div class="bg-red-100 rounded-full p-2">
+                <svg class="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-bold text-red-800">Deaktivacija računa</h2>
+                <p class="text-sm text-red-600">Ova akcija se ne može poništiti</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="px-6 py-4">
+            <p class="text-gray-700 mb-4">
+              Jeste li sigurni da želite deaktivirati svoj račun?
+            </p>
+            <div class="bg-gray-50 rounded-lg p-4 space-y-2 text-sm text-gray-600">
+              <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <span>Nećete više primati dnevne, sedmične ili mjesečne email izvještaje</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <span>Nakon isteka sesije, nećete se moći ponovo prijaviti</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+                <span>Za reaktivaciju računa kontaktirajte podršku</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
+            <button
+              @click="showDeactivateModal = false"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Odustani
+            </button>
+            <button
+              @click="deactivateAccount"
+              :disabled="isDeactivating"
+              class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <svg v-if="isDeactivating" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {{ isDeactivating ? 'Deaktiviranje...' : 'Potvrdi deaktivaciju' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -407,8 +500,8 @@ definePageMeta({
   middleware: ['auth']
 })
 
-const { get, put } = useApi()
-const { refreshUser } = useAuth()
+const { get, put, post } = useApi()
+const { refreshUser, logout } = useAuth()
 const pwa = usePwaInstall()
 
 // PWA install state
@@ -431,6 +524,10 @@ const isSaving = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
 const isPhoneValid = ref(true)
+
+// Account deactivation state
+const showDeactivateModal = ref(false)
+const isDeactivating = ref(false)
 
 // Interest popup state
 const showInterestPopup = ref(false)
@@ -712,6 +809,33 @@ function selectAllStores() {
 
 function clearAllStores() {
   selectedStoreIds.value = []
+}
+
+// Account deactivation function
+async function deactivateAccount() {
+  isDeactivating.value = true
+  try {
+    const response = await post('/auth/deactivate', {})
+    if (response.success) {
+      // Close modal
+      showDeactivateModal.value = false
+      // Show success message briefly then logout
+      successMessage.value = response.message || 'Račun je uspješno deaktiviran.'
+      // Wait a moment then logout
+      setTimeout(async () => {
+        await logout()
+        navigateTo('/')
+      }, 2000)
+    } else {
+      errorMessage.value = response.error || 'Greška pri deaktivaciji računa'
+      showDeactivateModal.value = false
+    }
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Greška pri deaktivaciji računa'
+    showDeactivateModal.value = false
+  } finally {
+    isDeactivating.value = false
+  }
 }
 
 onMounted(() => {

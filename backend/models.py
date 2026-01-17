@@ -110,6 +110,9 @@ class User(UserMixin, db.Model):
     last_pwa_access = db.Column(db.DateTime, nullable=True)  # Last time accessed from PWA
     pwa_access_count = db.Column(db.Integer, default=0, nullable=False)  # Number of PWA sessions
 
+    # Soft delete - deactivated accounts
+    deleted_at = db.Column(db.DateTime, nullable=True)  # When user deactivated their account (soft delete)
+
     # Relationships
     package = db.relationship('Package', backref='users')
     city_rel = db.relationship('City', backref='users', lazy='joined')

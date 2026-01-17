@@ -54,7 +54,8 @@ def get_users_with_tracking() -> list:
     users = User.query.filter(
         User.id.in_(user_ids),
         User.email.isnot(None),
-        User.email != ''
+        User.email != '',
+        User.deleted_at.is_(None)  # Skip deactivated users
     ).all()
 
     # Filter out users who have weekly emails disabled

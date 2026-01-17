@@ -173,7 +173,7 @@
       </div>
 
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-4">
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-center justify-between">
             <div>
@@ -217,6 +217,30 @@
               <p class="text-2xl font-bold text-gray-900">{{ verifiedUsers }}</p>
             </div>
             <Icon name="mdi:check-circle" class="w-12 h-12 text-teal-600" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Deactivation Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">Deaktivirani računi</p>
+              <p class="text-2xl font-bold text-red-600">{{ deactivationStats.deactivated_users || 0 }}</p>
+              <p class="text-xs text-gray-400 mt-1">Korisnici koji su deaktivirali profil</p>
+            </div>
+            <Icon name="mdi:account-off" class="w-12 h-12 text-red-400" />
+          </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">Isključene notifikacije</p>
+              <p class="text-2xl font-bold text-yellow-600">{{ deactivationStats.users_with_disabled_notifications || 0 }}</p>
+              <p class="text-xs text-gray-400 mt-1">Korisnici sa bar jednim tipom isključene notifikacije</p>
+            </div>
+            <Icon name="mdi:bell-off" class="w-12 h-12 text-yellow-400" />
           </div>
         </div>
       </div>
@@ -1299,6 +1323,14 @@ const stats = ref({
   verified: 0
 })
 
+// Deactivation stats
+const deactivationStats = ref({
+  deactivated_users: 0,
+  users_with_disabled_notifications: 0,
+  total_users: 0,
+  active_users: 0
+})
+
 // Computed stats from server data
 const totalUsers = computed(() => stats.value.total)
 const emailUsers = computed(() => stats.value.email)
@@ -1309,7 +1341,17 @@ const verifiedUsers = computed(() => stats.value.verified)
 onMounted(() => {
   loadUsers()
   loadAnalytics()
+  loadDeactivationStats()
 })
+
+async function loadDeactivationStats() {
+  try {
+    const data = await get('/api/admin/users/deactivation-stats')
+    deactivationStats.value = data
+  } catch (error) {
+    console.error('Error loading deactivation stats:', error)
+  }
+}
 
 async function loadUsers(page = 1) {
   try {

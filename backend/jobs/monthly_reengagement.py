@@ -94,6 +94,7 @@ def get_users_without_tracking() -> list:
     users = User.query.filter(
         User.email.isnot(None),
         User.email != '',
+        User.deleted_at.is_(None),  # Skip deactivated users
         ~User.id.in_(db.session.query(users_with_tracking.c.user_id))
     ).all()
 

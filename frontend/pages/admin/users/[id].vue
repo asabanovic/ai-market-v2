@@ -60,6 +60,10 @@
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
                   PWA ({{ userData.pwa_access_count }}x)
                 </span>
+                <span v-if="userData.deleted_at" class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 flex items-center gap-1">
+                  <Icon name="mdi:account-off" class="w-3 h-3" />
+                  Deaktiviran
+                </span>
               </div>
 
               <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -118,8 +122,8 @@
               </div>
             </div>
 
-            <!-- Credits Summary -->
-            <div class="flex-shrink-0 text-right">
+            <!-- Credits Summary and Actions -->
+            <div class="flex-shrink-0 text-right space-y-3">
               <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
                 <div class="text-sm text-gray-500">Krediti</div>
                 <div class="text-2xl font-bold text-indigo-600">
@@ -130,12 +134,32 @@
                   <span v-if="userData.extra_credits"> + {{ userData.extra_credits }} ekstra</span>
                 </div>
               </div>
+              <!-- Deactivate/Reactivate Button -->
+              <button
+                v-if="!userData.is_admin"
+                @click="toggleDeactivation"
+                :disabled="isDeactivating"
+                :class="[
+                  'w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2',
+                  userData.deleted_at
+                    ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                    : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                ]"
+              >
+                <Icon v-if="isDeactivating" name="mdi:loading" class="w-4 h-4 animate-spin" />
+                <Icon v-else :name="userData.deleted_at ? 'mdi:account-check' : 'mdi:account-off'" class="w-4 h-4" />
+                {{ userData.deleted_at ? 'Reaktiviraj račun' : 'Deaktiviraj račun' }}
+              </button>
             </div>
           </div>
         </div>
 
         <!-- Quick Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div class="text-2xl font-bold text-green-600">{{ stats.total_active_days || 0 }}</div>
+            <div class="text-sm text-gray-500">Aktivni dani</div>
+          </div>
           <div class="bg-white rounded-lg border border-gray-200 p-4">
             <div class="text-2xl font-bold text-blue-600">{{ stats.total_searches }}</div>
             <div class="text-sm text-gray-500">Pretrage</div>
@@ -149,7 +173,7 @@
             <div class="text-sm text-gray-500">Omiljeni</div>
           </div>
           <div class="bg-white rounded-lg border border-gray-200 p-4">
-            <div class="text-2xl font-bold text-green-600">{{ stats.total_shopping_lists }}</div>
+            <div class="text-2xl font-bold text-indigo-600">{{ stats.total_shopping_lists }}</div>
             <div class="text-sm text-gray-500">Liste kupovine</div>
           </div>
           <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -276,6 +300,101 @@
                     Nema podataka o prijavi
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Visits Tab -->
+            <div v-if="activeTab === 'visits'">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Dnevne posjete (posljednjih 90 dana)</h3>
+
+              <!-- Visit Stats Summary -->
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                  <div class="text-sm text-green-700">Ukupno aktivnih dana</div>
+                  <div class="text-3xl font-bold text-green-600">{{ stats.total_active_days || 0 }}</div>
+                </div>
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                  <div class="text-sm text-blue-700">Posljednjih 30 dana</div>
+                  <div class="text-3xl font-bold text-blue-600">{{ stats.visits_last_30_days || 0 }}</div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                  <div class="text-sm text-purple-700">Posljednjih 7 dana</div>
+                  <div class="text-3xl font-bold text-purple-600">{{ stats.visits_last_7_days || 0 }}</div>
+                </div>
+                <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                  <div class="text-sm text-orange-700">Prosj. pregleda/dan</div>
+                  <div class="text-3xl font-bold text-orange-600">{{ avgPageViews }}</div>
+                </div>
+              </div>
+
+              <!-- Activity Calendar Heatmap -->
+              <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 class="font-medium text-gray-900 mb-3">Kalendar aktivnosti</h4>
+                <div class="flex flex-wrap gap-1">
+                  <div
+                    v-for="day in calendarDays"
+                    :key="day.date"
+                    :title="`${day.dateFormatted}: ${day.pageViews > 0 ? day.pageViews + ' pregleda' : 'Nije aktivan'}`"
+                    class="w-4 h-4 rounded-sm transition-all cursor-pointer"
+                    :class="getHeatmapColor(day.pageViews)"
+                  ></div>
+                </div>
+                <div class="flex items-center gap-4 mt-4 text-xs text-gray-500">
+                  <span>Manje</span>
+                  <div class="flex gap-1">
+                    <div class="w-4 h-4 rounded-sm bg-gray-200"></div>
+                    <div class="w-4 h-4 rounded-sm bg-green-200"></div>
+                    <div class="w-4 h-4 rounded-sm bg-green-400"></div>
+                    <div class="w-4 h-4 rounded-sm bg-green-600"></div>
+                    <div class="w-4 h-4 rounded-sm bg-green-800"></div>
+                  </div>
+                  <span>Više</span>
+                </div>
+              </div>
+
+              <!-- Daily Visits Table -->
+              <h4 class="font-medium text-gray-900 mb-3">Detaljna istorija posjeta</h4>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prva aktivnost</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Zadnja aktivnost</th>
+                      <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Pregledi</th>
+                      <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trajanje sesije</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    <tr
+                      v-for="visit in dailyVisits.slice(0, 30)"
+                      :key="visit.id"
+                      class="hover:bg-gray-50"
+                    >
+                      <td class="px-4 py-3 text-sm text-gray-900 font-medium">
+                        {{ formatDateShort(visit.visit_date) }}
+                        <span class="text-gray-400 text-xs ml-1">{{ getDayOfWeek(visit.visit_date) }}</span>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-600">
+                        {{ formatTime(visit.first_seen) }}
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-600">
+                        {{ formatTime(visit.last_seen) }}
+                      </td>
+                      <td class="px-4 py-3 text-sm text-center">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium" :class="getPageViewsBadge(visit.page_views)">
+                          {{ visit.page_views }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-center text-gray-600">
+                        {{ calculateSessionDuration(visit.first_seen, visit.last_seen) }}
+                      </td>
+                    </tr>
+                    <tr v-if="!dailyVisits.length">
+                      <td colspan="5" class="px-4 py-8 text-center text-gray-500">Nema zabilježenih posjeta</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -712,6 +831,7 @@ const recentEngagements = ref<any[]>([])
 const recentFavorites = ref<any[]>([])
 const businessMemberships = ref<any[]>([])
 const latestOtp = ref<any>(null)
+const dailyVisits = ref<any[]>([])
 
 // Tracking data
 const trackedProducts = ref<any[]>([])
@@ -727,8 +847,12 @@ const expandedGroups = ref<Set<number>>(new Set())
 // Image modal
 const imageModalUrl = ref<string | null>(null)
 
+// Deactivation state
+const isDeactivating = ref(false)
+
 const tabs = [
   { id: 'activity', label: 'Aktivnost', icon: 'mdi:chart-line' },
+  { id: 'visits', label: 'Posjete', icon: 'mdi:calendar-check' },
   { id: 'credits', label: 'Krediti', icon: 'mdi:currency-usd' },
   { id: 'searches', label: 'Pretrage', icon: 'mdi:magnify' },
   { id: 'engagements', label: 'Interakcije', icon: 'mdi:thumb-up' },
@@ -741,6 +865,39 @@ const tabs = [
 const maxCredit = computed(() => {
   const values = Object.values(creditBreakdown.value).map(Math.abs)
   return Math.max(...values, 1)
+})
+
+// Computed for average page views
+const avgPageViews = computed(() => {
+  if (!dailyVisits.value.length) return 0
+  const total = dailyVisits.value.reduce((sum, v) => sum + (v.page_views || 1), 0)
+  return Math.round(total / dailyVisits.value.length)
+})
+
+// Computed for calendar heatmap (last 90 days)
+const calendarDays = computed(() => {
+  const days = []
+  const today = new Date()
+  const visitMap = new Map<string, number>()
+
+  // Create a map of visit dates to page views
+  dailyVisits.value.forEach(v => {
+    visitMap.set(v.visit_date, v.page_views || 1)
+  })
+
+  // Generate last 90 days
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const dateStr = d.toISOString().split('T')[0]
+    days.push({
+      date: dateStr,
+      dateFormatted: d.toLocaleDateString('sr-RS', { day: '2-digit', month: '2-digit' }),
+      pageViews: visitMap.get(dateStr) || 0
+    })
+  }
+
+  return days
 })
 
 onMounted(async () => {
@@ -763,6 +920,7 @@ async function loadUserProfile() {
     recentFavorites.value = data.recent_favorites
     businessMemberships.value = data.business_memberships
     latestOtp.value = data.latest_otp
+    dailyVisits.value = data.daily_visits || []
   } catch (err: any) {
     error.value = err.message || 'Greska pri ucitavanju profila'
     console.error('Error loading user profile:', err)
@@ -787,6 +945,31 @@ function getNotificationLabel(pref?: string): string {
     case 'favorites': return 'Samo omiljeni'
     case 'none': return 'Isključeno'
     default: return 'Nije postavljeno'
+  }
+}
+
+async function toggleDeactivation() {
+  if (isDeactivating.value || !userData.value) return
+
+  const action = userData.value.deleted_at ? 'reactivate' : 'deactivate'
+  const confirmMsg = action === 'deactivate'
+    ? 'Jeste li sigurni da želite deaktivirati ovog korisnika?'
+    : 'Jeste li sigurni da želite reaktivirati ovog korisnika?'
+
+  if (!confirm(confirmMsg)) return
+
+  isDeactivating.value = true
+  try {
+    const response = await post(`/api/admin/users/${userId}/deactivate`, { action })
+    if (response.success) {
+      userData.value.deleted_at = response.deleted_at
+      alert(response.message)
+    }
+  } catch (error: any) {
+    console.error('Error toggling deactivation:', error)
+    alert(error.message || 'Greška pri promjeni statusa korisnika')
+  } finally {
+    isDeactivating.value = false
   }
 }
 
@@ -885,6 +1068,54 @@ function getRoleBadgeClass(role: string): string {
     'staff': 'bg-gray-100 text-gray-800',
   }
   return classes[role] || 'bg-gray-100 text-gray-800'
+}
+
+// Visit helper functions
+function getHeatmapColor(pageViews: number): string {
+  if (pageViews === 0) return 'bg-gray-200'
+  if (pageViews <= 2) return 'bg-green-200'
+  if (pageViews <= 5) return 'bg-green-400'
+  if (pageViews <= 10) return 'bg-green-600'
+  return 'bg-green-800'
+}
+
+function formatTime(dateString: string | null): string {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDateShort(dateString: string): string {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('sr-RS', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function getDayOfWeek(dateString: string): string {
+  const date = new Date(dateString)
+  const days = ['Ned', 'Pon', 'Uto', 'Sri', 'Čet', 'Pet', 'Sub']
+  return days[date.getDay()]
+}
+
+function getPageViewsBadge(views: number): string {
+  if (views <= 2) return 'bg-gray-100 text-gray-700'
+  if (views <= 5) return 'bg-blue-100 text-blue-700'
+  if (views <= 10) return 'bg-green-100 text-green-700'
+  return 'bg-purple-100 text-purple-700'
+}
+
+function calculateSessionDuration(first: string | null, last: string | null): string {
+  if (!first || !last) return '-'
+  const start = new Date(first)
+  const end = new Date(last)
+  const diffMs = end.getTime() - start.getTime()
+  const diffMins = Math.round(diffMs / 60000)
+
+  if (diffMins < 1) return '< 1 min'
+  if (diffMins < 60) return `${diffMins} min`
+  const hours = Math.floor(diffMins / 60)
+  const mins = diffMins % 60
+  return `${hours}h ${mins}m`
 }
 
 function getImageUrl(path: string): string {
