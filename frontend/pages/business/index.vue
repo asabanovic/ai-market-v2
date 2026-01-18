@@ -147,6 +147,13 @@
               </button>
               <button
                 v-if="user?.is_admin"
+                @click="openLocationsModal(business)"
+                class="bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition duration-200"
+              >
+                Lokacije
+              </button>
+              <button
+                v-if="user?.is_admin"
                 @click="categorizeBusinessProducts(business.id)"
                 :disabled="isCategorizingBusiness.has(business.id)"
                 class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
@@ -583,6 +590,315 @@
         </div>
       </div>
     </div>
+
+    <!-- Locations Modal -->
+    <div v-if="showLocationsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click.self="closeLocationsModal">
+      <div class="relative top-10 mx-auto p-6 border max-w-3xl shadow-lg rounded-lg bg-white max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-bold text-gray-900">
+            Lokacije: {{ locationsBusiness?.name }}
+          </h3>
+          <button @click="closeLocationsModal" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Add Location Button -->
+        <div class="mb-4">
+          <button
+            @click="showAddLocationForm = true"
+            v-if="!showAddLocationForm"
+            class="flex items-center gap-2 bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition duration-200"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Dodaj lokaciju
+          </button>
+        </div>
+
+        <!-- Add Location Form -->
+        <div v-if="showAddLocationForm" class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+          <h4 class="text-md font-semibold text-gray-800 mb-4">Nova lokacija</h4>
+          <form @submit.prevent="handleAddLocation" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Naziv lokacije *</label>
+                <input
+                  type="text"
+                  v-model="newLocation.name"
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  placeholder="Npr. Bingo Centar Tuzla"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Grad</label>
+                <input
+                  type="text"
+                  v-model="newLocation.city"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  placeholder="Npr. Tuzla"
+                />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Adresa</label>
+              <input
+                type="text"
+                v-model="newLocation.address"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                placeholder="Npr. Ulica 123, Tuzla"
+              />
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                <input
+                  type="tel"
+                  v-model="newLocation.phone"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  placeholder="+387 XX XXX XXX"
+                />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    v-model.number="newLocation.latitude"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                    placeholder="44.5380"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    v-model.number="newLocation.longitude"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                    placeholder="18.6669"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                @click="geocodeNewLocation"
+                :disabled="isGeocodingNew || (!newLocation.address && !newLocation.city)"
+                class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200 flex items-center gap-2"
+              >
+                <svg v-if="isGeocodingNew" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {{ isGeocodingNew ? 'Traži...' : 'Dohvati GPS' }}
+              </button>
+              <button
+                type="submit"
+                :disabled="isAddingLocation || !newLocation.name"
+                class="bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200"
+              >
+                {{ isAddingLocation ? 'Dodaje se...' : 'Dodaj lokaciju' }}
+              </button>
+              <button
+                type="button"
+                @click="cancelAddLocation"
+                class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-400 transition duration-200"
+              >
+                Otkaži
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="isLoadingLocations" class="text-center py-8">
+          <div class="inline-flex items-center text-cyan-600">
+            <svg class="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span class="ml-2">Učitavanje lokacija...</span>
+          </div>
+        </div>
+
+        <!-- Locations List -->
+        <div v-else-if="businessLocations.length > 0" class="space-y-3">
+          <div
+            v-for="location in businessLocations"
+            :key="location.id"
+            class="bg-white border border-gray-200 rounded-lg p-4 hover:border-cyan-300 transition-colors"
+          >
+            <!-- View Mode -->
+            <div v-if="editingLocationId !== location.id">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <h4 class="text-md font-semibold text-gray-900">{{ location.name }}</h4>
+                  <div class="text-sm text-gray-600 mt-1 space-y-1">
+                    <p v-if="location.address">
+                      <span class="font-medium">Adresa:</span> {{ location.address }}
+                    </p>
+                    <p v-if="location.city">
+                      <span class="font-medium">Grad:</span> {{ location.city }}
+                    </p>
+                    <p v-if="location.phone">
+                      <span class="font-medium">Telefon:</span> {{ location.phone }}
+                    </p>
+                    <p v-if="location.latitude && location.longitude" class="text-xs text-gray-500">
+                      GPS: {{ location.latitude }}, {{ location.longitude }}
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 ml-4">
+                  <button
+                    @click="startEditLocation(location)"
+                    class="text-gray-500 hover:text-cyan-600 p-1"
+                    title="Uredi"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button
+                    @click="handleDeleteLocation(location)"
+                    class="text-gray-500 hover:text-red-600 p-1"
+                    title="Obriši"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Edit Mode -->
+            <div v-else>
+              <form @submit.prevent="handleUpdateLocation" class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Naziv *</label>
+                    <input
+                      type="text"
+                      v-model="editLocationForm.name"
+                      required
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Grad</label>
+                    <input
+                      type="text"
+                      v-model="editLocationForm.city"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Adresa</label>
+                  <input
+                    type="text"
+                    v-model="editLocationForm.address"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Telefon</label>
+                    <input
+                      type="tel"
+                      v-model="editLocationForm.phone"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      v-model.number="editLocationForm.latitude"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      v-model.number="editLocationForm.longitude"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    @click="geocodeEditLocation"
+                    :disabled="isGeocodingEdit || (!editLocationForm.address && !editLocationForm.city)"
+                    class="bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-600 disabled:bg-gray-400 flex items-center gap-1"
+                  >
+                    <svg v-if="isGeocodingEdit" class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    </svg>
+                    GPS
+                  </button>
+                  <button
+                    type="submit"
+                    :disabled="isUpdatingLocation"
+                    class="bg-cyan-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-cyan-700 disabled:bg-gray-400"
+                  >
+                    {{ isUpdatingLocation ? 'Čuva se...' : 'Sačuvaj' }}
+                  </button>
+                  <button
+                    type="button"
+                    @click="cancelEditLocation"
+                    class="bg-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-400"
+                  >
+                    Otkaži
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else class="text-center py-8">
+          <div class="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <h4 class="text-md font-medium text-gray-900 mb-1">Nema lokacija</h4>
+          <p class="text-sm text-gray-500 mb-4">Dodajte prvu lokaciju za ovaj biznis</p>
+        </div>
+
+        <!-- Close Button -->
+        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+          <button
+            @click="closeLocationsModal"
+            class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 text-sm font-medium"
+          >
+            Zatvori
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -592,7 +908,7 @@ definePageMeta({
 })
 
 const { user } = useAuth()
-const { get, post, upload, delete: del } = useApi()
+const { get, post, put, upload, delete: del } = useApi()
 const config = useRuntimeConfig()
 
 const apiBaseUrl = config.public.apiBase || 'http://localhost:5001'
@@ -646,6 +962,47 @@ const pdfForm = ref({
   pdf_url: '',
   last_sync: null as string | null
 })
+
+// Locations modal
+const showLocationsModal = ref(false)
+const locationsBusiness = ref<any>(null)
+const businessLocations = ref<any[]>([])
+const isLoadingLocations = ref(false)
+const showAddLocationForm = ref(false)
+const isAddingLocation = ref(false)
+const editingLocationId = ref<number | null>(null)
+const isUpdatingLocation = ref(false)
+
+interface LocationForm {
+  name: string
+  address: string
+  city: string
+  phone: string
+  latitude: number | null
+  longitude: number | null
+}
+
+const newLocation = ref<LocationForm>({
+  name: '',
+  address: '',
+  city: '',
+  phone: '',
+  latitude: null,
+  longitude: null
+})
+
+const editLocationForm = ref<LocationForm>({
+  name: '',
+  address: '',
+  city: '',
+  phone: '',
+  latitude: null,
+  longitude: null
+})
+
+// Geocoding state
+const isGeocodingNew = ref(false)
+const isGeocodingEdit = ref(false)
 
 // AI Categorization
 const isCategorizingBusiness = ref<Set<number>>(new Set())
@@ -1105,6 +1462,225 @@ async function uploadPdf() {
     }
   } finally {
     isUploadingPdf.value = false
+  }
+}
+
+// ==================== LOCATIONS FUNCTIONS ====================
+
+async function openLocationsModal(business: any) {
+  locationsBusiness.value = business
+  showLocationsModal.value = true
+  showAddLocationForm.value = false
+  editingLocationId.value = null
+  await loadBusinessLocations(business.id)
+}
+
+function closeLocationsModal() {
+  showLocationsModal.value = false
+  locationsBusiness.value = null
+  businessLocations.value = []
+  showAddLocationForm.value = false
+  editingLocationId.value = null
+  resetNewLocationForm()
+}
+
+async function loadBusinessLocations(businessId: number) {
+  isLoadingLocations.value = true
+  try {
+    const data = await get(`/api/admin/businesses/${businessId}/locations`)
+    businessLocations.value = data.locations || []
+  } catch (error) {
+    console.error('Error loading locations:', error)
+    businessLocations.value = []
+  } finally {
+    isLoadingLocations.value = false
+  }
+}
+
+function resetNewLocationForm() {
+  newLocation.value = {
+    name: '',
+    address: '',
+    city: '',
+    phone: '',
+    latitude: null,
+    longitude: null
+  }
+}
+
+function cancelAddLocation() {
+  showAddLocationForm.value = false
+  resetNewLocationForm()
+}
+
+async function handleAddLocation() {
+  if (!locationsBusiness.value || !newLocation.value.name) return
+
+  isAddingLocation.value = true
+  try {
+    // Auto-geocode if address/city provided but no coordinates
+    if ((newLocation.value.address || newLocation.value.city) &&
+        (!newLocation.value.latitude || !newLocation.value.longitude)) {
+      try {
+        const geoResponse = await post('/api/admin/businesses/geocode', {
+          address: newLocation.value.address,
+          city: newLocation.value.city
+        })
+        if (geoResponse.success) {
+          newLocation.value.latitude = geoResponse.latitude
+          newLocation.value.longitude = geoResponse.longitude
+        }
+      } catch (geoError) {
+        console.log('Auto-geocoding failed, continuing without coordinates')
+      }
+    }
+
+    const response = await post(`/api/admin/businesses/${locationsBusiness.value.id}/locations`, {
+      name: newLocation.value.name,
+      address: newLocation.value.address || null,
+      city: newLocation.value.city || null,
+      phone: newLocation.value.phone || null,
+      latitude: newLocation.value.latitude,
+      longitude: newLocation.value.longitude
+    })
+
+    if (response.success) {
+      await loadBusinessLocations(locationsBusiness.value.id)
+      showAddLocationForm.value = false
+      resetNewLocationForm()
+    }
+  } catch (error: any) {
+    console.error('Error adding location:', error)
+    alert('Greška pri dodavanju lokacije: ' + (error.message || 'Nepoznata greška'))
+  } finally {
+    isAddingLocation.value = false
+  }
+}
+
+function startEditLocation(location: any) {
+  editingLocationId.value = location.id
+  editLocationForm.value = {
+    name: location.name || '',
+    address: location.address || '',
+    city: location.city || '',
+    phone: location.phone || '',
+    latitude: location.latitude,
+    longitude: location.longitude
+  }
+}
+
+function cancelEditLocation() {
+  editingLocationId.value = null
+}
+
+async function handleUpdateLocation() {
+  if (!locationsBusiness.value || !editingLocationId.value) return
+
+  isUpdatingLocation.value = true
+  try {
+    // Auto-geocode if address/city provided but no coordinates
+    if ((editLocationForm.value.address || editLocationForm.value.city) &&
+        (!editLocationForm.value.latitude || !editLocationForm.value.longitude)) {
+      try {
+        const geoResponse = await post('/api/admin/businesses/geocode', {
+          address: editLocationForm.value.address,
+          city: editLocationForm.value.city
+        })
+        if (geoResponse.success) {
+          editLocationForm.value.latitude = geoResponse.latitude
+          editLocationForm.value.longitude = geoResponse.longitude
+        }
+      } catch (geoError) {
+        console.log('Auto-geocoding failed, continuing without coordinates')
+      }
+    }
+
+    const response = await put(`/api/admin/businesses/${locationsBusiness.value.id}/locations/${editingLocationId.value}`, {
+      name: editLocationForm.value.name,
+      address: editLocationForm.value.address || null,
+      city: editLocationForm.value.city || null,
+      phone: editLocationForm.value.phone || null,
+      latitude: editLocationForm.value.latitude,
+      longitude: editLocationForm.value.longitude
+    })
+
+    if (response.success) {
+      await loadBusinessLocations(locationsBusiness.value.id)
+      editingLocationId.value = null
+    }
+  } catch (error: any) {
+    console.error('Error updating location:', error)
+    alert('Greška pri ažuriranju lokacije: ' + (error.message || 'Nepoznata greška'))
+  } finally {
+    isUpdatingLocation.value = false
+  }
+}
+
+async function handleDeleteLocation(location: any) {
+  if (!locationsBusiness.value) return
+
+  if (!confirm(`Jeste li sigurni da želite obrisati lokaciju "${location.name}"?`)) {
+    return
+  }
+
+  try {
+    const response = await del(`/api/admin/businesses/${locationsBusiness.value.id}/locations/${location.id}`)
+
+    if (response.success) {
+      await loadBusinessLocations(locationsBusiness.value.id)
+    }
+  } catch (error: any) {
+    console.error('Error deleting location:', error)
+    alert('Greška pri brisanju lokacije: ' + (error.message || 'Nepoznata greška'))
+  }
+}
+
+// Geocoding functions
+async function geocodeNewLocation() {
+  if (!newLocation.value.address && !newLocation.value.city) return
+
+  isGeocodingNew.value = true
+  try {
+    const response = await post('/api/admin/businesses/geocode', {
+      address: newLocation.value.address,
+      city: newLocation.value.city
+    })
+
+    if (response.success) {
+      newLocation.value.latitude = response.latitude
+      newLocation.value.longitude = response.longitude
+    } else {
+      alert(response.error || 'Nije moguće pronaći koordinate za ovu adresu')
+    }
+  } catch (error: any) {
+    console.error('Geocoding error:', error)
+    alert('Greška pri dohvaćanju koordinata: ' + (error.message || 'Nepoznata greška'))
+  } finally {
+    isGeocodingNew.value = false
+  }
+}
+
+async function geocodeEditLocation() {
+  if (!editLocationForm.value.address && !editLocationForm.value.city) return
+
+  isGeocodingEdit.value = true
+  try {
+    const response = await post('/api/admin/businesses/geocode', {
+      address: editLocationForm.value.address,
+      city: editLocationForm.value.city
+    })
+
+    if (response.success) {
+      editLocationForm.value.latitude = response.latitude
+      editLocationForm.value.longitude = response.longitude
+    } else {
+      alert(response.error || 'Nije moguće pronaći koordinate za ovu adresu')
+    }
+  } catch (error: any) {
+    console.error('Geocoding error:', error)
+    alert('Greška pri dohvaćanju koordinata: ' + (error.message || 'Nepoznata greška'))
+  } finally {
+    isGeocodingEdit.value = false
   }
 }
 

@@ -5,6 +5,7 @@ Uses JWT authentication (not flask_login session)
 from flask import Blueprint, jsonify, request
 from functools import wraps
 import logging
+import requests
 from datetime import datetime
 
 admin_business_bp = Blueprint('admin_business', __name__, url_prefix='/api/admin/businesses')
@@ -404,3 +405,264 @@ def update_business(business_id):
             'status': business.status
         }
     })
+
+
+# ==================== BUSINESS LOCATIONS ====================
+
+@admin_business_bp.route('/<int:business_id>/locations', methods=['GET'])
+@jwt_admin_required
+def get_business_locations(business_id):
+    """
+    Get all locations for a business
+    """
+    from models import Business, BusinessLocation
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    locations = BusinessLocation.query.filter_by(
+        business_id=business_id
+    ).order_by(BusinessLocation.name.asc()).all()
+
+    return jsonify({
+        'business': {
+            'id': business.id,
+            'name': business.name
+        },
+        'locations': [loc.to_dict() for loc in locations]
+    })
+
+
+@admin_business_bp.route('/<int:business_id>/locations', methods=['POST'])
+@jwt_admin_required
+def create_business_location(business_id):
+    """
+    Create a new location for a business
+    Body:
+    - name: location name (required)
+    - address: full street address
+    - city: city name
+    - latitude: GPS latitude
+    - longitude: GPS longitude
+    - phone: contact phone
+    - working_hours: JSON object with hours
+    """
+    from models import db, Business, BusinessLocation
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Location name is required'}), 400
+
+    location = BusinessLocation(
+        business_id=business_id,
+        name=name,
+        address=data.get('address', '').strip() or None,
+        city=data.get('city', '').strip() or None,
+        latitude=data.get('latitude'),
+        longitude=data.get('longitude'),
+        phone=data.get('phone', '').strip() or None,
+        working_hours=data.get('working_hours'),
+        is_active=True
+    )
+
+    db.session.add(location)
+    db.session.commit()
+
+    logger.info(f"Created location '{name}' for business {business.name}")
+
+    return jsonify({
+        'success': True,
+        'message': f'Location "{name}" created',
+        'location': location.to_dict()
+    }), 201
+
+
+@admin_business_bp.route('/<int:business_id>/locations/<int:location_id>', methods=['PUT'])
+@jwt_admin_required
+def update_business_location(business_id, location_id):
+    """
+    Update a business location
+    """
+    from models import db, BusinessLocation
+
+    location = BusinessLocation.query.filter_by(
+        id=location_id,
+        business_id=business_id
+    ).first()
+
+    if not location:
+        return jsonify({'error': 'Location not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    if 'name' in data:
+        name = data['name'].strip()
+        if not name:
+            return jsonify({'error': 'Location name cannot be empty'}), 400
+        location.name = name
+    if 'address' in data:
+        location.address = data['address'].strip() or None
+    if 'city' in data:
+        location.city = data['city'].strip() or None
+    if 'latitude' in data:
+        location.latitude = data['latitude']
+    if 'longitude' in data:
+        location.longitude = data['longitude']
+    if 'phone' in data:
+        location.phone = data['phone'].strip() or None
+    if 'working_hours' in data:
+        location.working_hours = data['working_hours']
+    if 'is_active' in data:
+        location.is_active = bool(data['is_active'])
+
+    location.updated_at = datetime.now()
+    db.session.commit()
+
+    logger.info(f"Updated location {location_id} for business {business_id}")
+
+    return jsonify({
+        'success': True,
+        'message': 'Location updated',
+        'location': location.to_dict()
+    })
+
+
+@admin_business_bp.route('/<int:business_id>/locations/<int:location_id>', methods=['DELETE'])
+@jwt_admin_required
+def delete_business_location(business_id, location_id):
+    """
+    Delete a business location
+    """
+    from models import db, BusinessLocation
+
+    location = BusinessLocation.query.filter_by(
+        id=location_id,
+        business_id=business_id
+    ).first()
+
+    if not location:
+        return jsonify({'error': 'Location not found'}), 404
+
+    location_name = location.name
+
+    db.session.delete(location)
+    db.session.commit()
+
+    logger.info(f"Deleted location '{location_name}' from business {business_id}")
+
+    return jsonify({
+        'success': True,
+        'message': f'Location "{location_name}" deleted'
+    })
+
+
+# ==================== GEOCODING ====================
+
+# Nominatim API settings (free, no API key required)
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_HEADERS = {
+    "User-Agent": "PopustBA/1.0 (contact@popust.ba)"
+}
+
+
+@admin_business_bp.route('/geocode', methods=['POST'])
+@jwt_admin_required
+def geocode_address():
+    """
+    Geocode an address to get latitude and longitude using Nominatim (OpenStreetMap)
+    Body:
+    - address: street address (optional)
+    - city: city name (required)
+    - country: country name (default: Bosnia and Herzegovina)
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    address = data.get('address', '').strip()
+    city = data.get('city', '').strip()
+    country = data.get('country', 'Bosnia and Herzegovina').strip()
+
+    if not city and not address:
+        return jsonify({'error': 'City or address is required'}), 400
+
+    # Build search query
+    query_parts = []
+    if address:
+        query_parts.append(address)
+    if city:
+        query_parts.append(city)
+    if country:
+        query_parts.append(country)
+
+    query = ', '.join(query_parts)
+
+    try:
+        params = {
+            'q': query,
+            'format': 'json',
+            'limit': 1,
+            'addressdetails': 1
+        }
+
+        response = requests.get(
+            NOMINATIM_URL,
+            params=params,
+            headers=NOMINATIM_HEADERS,
+            timeout=10
+        )
+        response.raise_for_status()
+        results = response.json()
+
+        if not results:
+            # Try without country if no results
+            if country and city:
+                params['q'] = f"{address}, {city}" if address else city
+                response = requests.get(
+                    NOMINATIM_URL,
+                    params=params,
+                    headers=NOMINATIM_HEADERS,
+                    timeout=10
+                )
+                results = response.json()
+
+        if not results:
+            return jsonify({
+                'success': False,
+                'error': 'Adresa nije pronađena. Pokušajte sa preciznijom adresom.'
+            }), 404
+
+        result = results[0]
+        latitude = float(result['lat'])
+        longitude = float(result['lon'])
+        display_name = result.get('display_name', '')
+
+        logger.info(f"Geocoded '{query}' -> {latitude}, {longitude}")
+
+        return jsonify({
+            'success': True,
+            'latitude': latitude,
+            'longitude': longitude,
+            'display_name': display_name
+        })
+
+    except requests.exceptions.Timeout:
+        logger.error(f"Geocoding timeout for: {query}")
+        return jsonify({'error': 'Geocoding service timeout'}), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Geocoding error for {query}: {e}")
+        return jsonify({'error': 'Geocoding service error'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected geocoding error: {e}", exc_info=True)
+        return jsonify({'error': 'Unexpected error during geocoding'}), 500

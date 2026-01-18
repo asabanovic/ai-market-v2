@@ -735,6 +735,54 @@ class BusinessInvitation(db.Model):
         """Check if invitation is still active and can be used"""
         return not self.is_expired and not self.is_accepted and not self.is_revoked
 
+# Business locations for supermarket chains (multiple store locations)
+class BusinessLocation(db.Model):
+    __tablename__ = 'business_locations'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False)
+
+    # Location details
+    name = db.Column(db.String(200), nullable=False)  # e.g., "Bingo Tuzla - Centar"
+    address = db.Column(db.String(500), nullable=True)  # Full street address
+    city = db.Column(db.String(100), nullable=True)  # City name
+
+    # Coordinates for map display
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+
+    # Additional info
+    phone = db.Column(db.String(50), nullable=True)
+    working_hours = db.Column(JSON, nullable=True)  # {"mon": "08:00-21:00", ...}
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Relationships
+    business = db.relationship('Business', backref=db.backref('locations', lazy='dynamic', cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        db.Index('idx_business_locations_business', 'business_id'),
+        db.Index('idx_business_locations_city', 'city'),
+    )
+
+    def to_dict(self):
+        """Convert location to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'business_id': self.business_id,
+            'name': self.name,
+            'address': self.address,
+            'city': self.city,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'phone': self.phone,
+            'working_hours': self.working_hours,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
 # Savings statistics table for marketing tracking
 class SavingsStatistics(db.Model):
     __tablename__ = 'savings_statistics'
