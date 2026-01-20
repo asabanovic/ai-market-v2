@@ -14,7 +14,7 @@
           <NuxtLink
             v-for="store in followedStores"
             :key="store.id"
-            :to="store.slug ? `/prodavnica/${store.slug}` : `/radnja/${store.id}`"
+            :to="`/radnja/${store.slug || store.id}`"
             class="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
           >
             <div class="w-12 h-12 rounded-full bg-gray-100 overflow-hidden mb-2 flex items-center justify-center border border-gray-200 group-hover:border-purple-300">

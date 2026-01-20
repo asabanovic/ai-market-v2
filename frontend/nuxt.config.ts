@@ -88,7 +88,8 @@ export default defineNuxtConfig({
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5001',
       googleOAuthEnabled: process.env.NUXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true' || false,
-      gaId: process.env.NUXT_PUBLIC_GA_ID || ''
+      gaId: process.env.NUXT_PUBLIC_GA_ID || '',
+      googleMapsApiKey: process.env.NUXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
     }
   },
 

@@ -29,7 +29,7 @@ from admin_embedding_routes import admin_embedding_bp
 from admin_search_routes import admin_search_bp
 from admin_business_routes import admin_business_bp
 from organization_api import organization_bp
-from public_business_api import public_business_bp
+# Removed: public_business_api (consolidated into routes.py /api/radnja/)
 
 # Import JWT-based auth API blueprint
 from auth_api import auth_api_bp, require_jwt_auth, generate_jwt_token
@@ -221,9 +221,7 @@ csrf.exempt(admin_business_bp)
 app.register_blueprint(organization_bp)
 csrf.exempt(organization_bp)
 
-# Register public business API (public store pages)
-app.register_blueprint(public_business_bp)
-csrf.exempt(public_business_bp)
+# Removed: public_business_bp (consolidated into /api/radnja/)
 
 # Handle CORS preflight requests globally
 @app.before_request
@@ -1554,12 +1552,15 @@ def api_create_business():
 
 
 # API endpoint for business page (requires authentication)
-@app.route('/api/radnja/<int:business_id>')
+@app.route('/api/radnja/<slug_or_id>')
 @require_jwt_auth
-def api_public_business_page(business_id):
+def api_public_business_page(slug_or_id):
     """API endpoint for business page with products (requires authentication)"""
     try:
-        business = Business.query.filter_by(id=business_id, status='active').first()
+        # Try to find by slug first, then by ID if it's a number
+        business = Business.query.filter_by(slug=slug_or_id, status='active').first()
+        if not business and slug_or_id.isdigit():
+            business = Business.query.filter_by(id=int(slug_or_id), status='active').first()
 
         if not business:
             return jsonify({'error': 'Radnja nije pronađena'}), 404
@@ -1583,7 +1584,7 @@ def api_public_business_page(business_id):
             return True
 
         # Get all products from this business, excluding featured ones, sorted by discount
-        products_query = Product.query.filter(Product.business_id == business_id)
+        products_query = Product.query.filter(Product.business_id == business.id)
         if featured_product_ids:
             products_query = products_query.filter(~Product.id.in_(featured_product_ids))
 
@@ -1651,7 +1652,7 @@ def api_public_business_page(business_id):
 
         # Get unique categories from this business's products
         categories = db.session.query(Product.category).filter(
-            Product.business_id == business_id,
+            Product.business_id == business.id,
             Product.category.isnot(None),
             Product.category != ''
         ).distinct().all()
@@ -1712,9 +1713,9 @@ def api_public_business_page(business_id):
         return jsonify({'error': 'Greška pri učitavanju radnje'}), 500
 
 
-@app.route('/api/radnja/<int:business_id>/products')
+@app.route('/api/radnja/<slug_or_id>/products')
 @require_jwt_auth
-def api_public_business_products(business_id):
+def api_public_business_products(slug_or_id):
     """API endpoint for paginated business products (requires authentication)"""
     try:
         page = request.args.get('page', 1, type=int)
@@ -1724,7 +1725,10 @@ def api_public_business_products(business_id):
         category = request.args.get('category', '', type=str).strip()
         sort_by = request.args.get('sort', 'discount', type=str).strip()  # discount, price_asc, price_desc, name
 
-        business = Business.query.filter_by(id=business_id, status='active').first()
+        # Try to find by slug first, then by ID if it's a number
+        business = Business.query.filter_by(slug=slug_or_id, status='active').first()
+        if not business and slug_or_id.isdigit():
+            business = Business.query.filter_by(id=int(slug_or_id), status='active').first()
         if not business:
             return jsonify({'error': 'Radnja nije pronađena'}), 404
 
@@ -1743,7 +1747,7 @@ def api_public_business_products(business_id):
             return True
 
         # Build query - get ALL products from this business
-        query = Product.query.filter(Product.business_id == business_id)
+        query = Product.query.filter(Product.business_id == business.id)
 
         # Exclude featured products from main list if requested
         featured_product_ids = business.featured_products or []

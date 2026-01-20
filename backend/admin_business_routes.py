@@ -567,6 +567,78 @@ def delete_business_location(business_id, location_id):
     })
 
 
+@admin_business_bp.route('/<int:business_id>/locations/bulk', methods=['POST'])
+@jwt_admin_required
+def bulk_import_locations(business_id):
+    """
+    Bulk import locations for a business from JSON array.
+    Body:
+    - locations: array of location objects, each with:
+      - name: location name (required)
+      - address: full street address
+      - city: city name
+      - latitude: GPS latitude
+      - longitude: GPS longitude
+      - phone: contact phone
+      - working_hours: JSON object with hours
+    """
+    from models import db, Business, BusinessLocation
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    locations_data = data.get('locations', [])
+    if not locations_data or not isinstance(locations_data, list):
+        return jsonify({'error': 'locations must be a non-empty array'}), 400
+
+    created = []
+    errors = []
+
+    for idx, loc_data in enumerate(locations_data):
+        name = (loc_data.get('name') or '').strip()
+        if not name:
+            errors.append(f"Item {idx + 1}: name is required")
+            continue
+
+        try:
+            location = BusinessLocation(
+                business_id=business_id,
+                name=name,
+                address=(loc_data.get('address') or '').strip() or None,
+                city=(loc_data.get('city') or '').strip() or None,
+                latitude=loc_data.get('latitude'),
+                longitude=loc_data.get('longitude'),
+                phone=(loc_data.get('phone') or '').strip() or None,
+                working_hours=loc_data.get('working_hours'),
+                is_active=True
+            )
+            db.session.add(location)
+            db.session.flush()
+            created.append({
+                'id': location.id,
+                'name': location.name
+            })
+        except Exception as e:
+            errors.append(f"Item {idx + 1} ({name}): {str(e)}")
+
+    if created:
+        db.session.commit()
+        logger.info(f"Bulk imported {len(created)} locations for business {business.name}")
+
+    return jsonify({
+        'success': len(created) > 0,
+        'created_count': len(created),
+        'created': created,
+        'errors': errors,
+        'message': f'Created {len(created)} locations' + (f' with {len(errors)} errors' if errors else '')
+    }), 201 if created else 400
+
+
 # ==================== GEOCODING ====================
 
 import os

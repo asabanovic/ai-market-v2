@@ -16,10 +16,10 @@
     </div>
 
     <!-- Business Page -->
-    <div v-else-if="business" class="max-w-7xl mx-auto pb-8 pt-4">
-      <!-- Cover Map Section (Facebook-style) -->
-      <div class="relative h-56 md:h-80 w-full mt-2 mx-4 rounded-lg overflow-hidden" style="width: calc(100% - 2rem);">
-        <!-- Map Container -->
+    <div v-else-if="business">
+      <!-- Full Width Map Section -->
+      <div class="relative h-56 md:h-80 w-full">
+        <!-- Leaflet Map Container -->
         <div
           v-if="hasLocations"
           ref="mapContainer"
@@ -39,8 +39,10 @@
         </div>
       </div>
 
-      <!-- Profile Section (Facebook-style: logo overlapping cover) -->
-      <div class="bg-white shadow-sm relative mx-6 rounded-b-lg -mt-10 pt-0 pb-4 px-5">
+      <!-- Content Container -->
+      <div class="max-w-7xl mx-auto pb-8">
+        <!-- Profile Section (Facebook-style: logo overlapping cover) -->
+        <div class="bg-white shadow-sm relative mx-4 md:mx-6 rounded-b-lg -mt-10 pt-0 pb-4 px-5">
         <!-- Logo + Name Row -->
         <div class="flex items-end gap-4">
           <!-- Logo (overlapping the cover) -->
@@ -309,6 +311,7 @@
           </div>
         </div>
       </div>
+      </div>
     </div>
   </div>
 </template>
@@ -469,35 +472,34 @@ function onFilterChange() {
   fetchProducts()
 }
 
-// Load Leaflet CSS and JS dynamically
+// Load Leaflet dynamically
 async function loadLeaflet(): Promise<any> {
   if (typeof window === 'undefined') return null
 
   // Check if already loaded
   if ((window as any).L) return (window as any).L
 
-  // Load CSS first and wait for it
-  await new Promise<void>((resolve) => {
-    const existingLink = document.querySelector('link[href*="leaflet.css"]')
-    if (existingLink) {
-      resolve()
-      return
-    }
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    link.onload = () => resolve()
-    link.onerror = () => resolve() // Continue even if CSS fails
-    document.head.appendChild(link)
-  })
-
-  // Load JS
   return new Promise((resolve) => {
-    const existingScript = document.querySelector('script[src*="leaflet.js"]')
-    if (existingScript && (window as any).L) {
-      resolve((window as any).L)
+    // Load CSS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+
+    // Load JS
+    const existingScript = document.querySelector('script[src*="leaflet"]')
+    if (existingScript) {
+      const checkLoaded = setInterval(() => {
+        if ((window as any).L) {
+          clearInterval(checkLoaded)
+          resolve((window as any).L)
+        }
+      }, 100)
       return
     }
+
     const script = document.createElement('script')
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
     script.onload = () => resolve((window as any).L)
@@ -506,131 +508,65 @@ async function loadLeaflet(): Promise<any> {
   })
 }
 
-// Initialize the map
+// Initialize Leaflet map with all locations
 async function initMap() {
   try {
-    if (!hasLocations.value || !mapContainer.value) {
-      console.log('Map init skipped: hasLocations=', hasLocations.value, 'container=', !!mapContainer.value)
-      return
-    }
-
-    // Clean up existing map if any
-    if (mapInstance) {
-      mapInstance.remove()
-      mapInstance = null
-    }
+    if (!hasLocations.value || !mapContainer.value) return
 
     const L = await loadLeaflet()
-    if (!L) {
-      console.error('Failed to load Leaflet')
-      return
-    }
+    if (!L) return
 
-    const locations = business.value.locations
-    if (!locations || locations.length === 0) {
-      console.error('No locations to display')
-      return
-    }
+    const locations = business.value.locations.filter((loc: any) => loc.latitude && loc.longitude)
+    if (locations.length === 0) return
 
     // Ensure container has dimensions
     const container = mapContainer.value
     if (container.clientWidth === 0 || container.clientHeight === 0) {
-      console.log('Map container has no dimensions, retrying...')
       await new Promise(resolve => setTimeout(resolve, 300))
     }
 
-    // Create map with a single location center or bounds
-    if (locations.length === 1) {
-      mapInstance = L.map(container, {
-        zoomControl: false,
-        attributionControl: false,
-        center: [locations[0].latitude, locations[0].longitude],
-        zoom: 14
-      })
-    } else {
-      const bounds = L.latLngBounds(
-        locations.map((loc: any) => [loc.latitude, loc.longitude])
-      )
-      mapInstance = L.map(container, {
-        zoomControl: false,
-        attributionControl: false
-      }).fitBounds(bounds, { padding: [30, 30], maxZoom: 15 })
-    }
+    // Calculate center from all locations
+    const lats = locations.map((loc: any) => loc.latitude)
+    const lngs = locations.map((loc: any) => loc.longitude)
+    const centerLat = lats.reduce((a: number, b: number) => a + b, 0) / lats.length
+    const centerLng = lngs.reduce((a: number, b: number) => a + b, 0) / lngs.length
 
-    // Add tile layer IMMEDIATELY after map creation
+    // Create map
+    mapInstance = L.map(container, {
+      zoomControl: true,
+      attributionControl: false
+    }).setView([centerLat, centerLng], 15)
+
+    // Add OpenStreetMap tiles (standard map style)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: ''
+      maxZoom: 19
     }).addTo(mapInstance)
 
-    // Invalidate size after a delay to ensure tiles render
-    setTimeout(() => {
-      if (mapInstance) {
-        mapInstance.invalidateSize()
-      }
-    }, 100)
-
-    // Create custom icon with business logo
-    const logoUrl = business.value.logo_path
-      ? getImageUrl(business.value.logo_path)
-      : null
-
     // Add markers for each location
+    const markers: any[] = []
     locations.forEach((loc: any) => {
-      let marker
+      const marker = L.marker([loc.latitude, loc.longitude]).addTo(mapInstance)
 
-      if (logoUrl) {
-        // Custom icon with logo
-        const customIcon = L.divIcon({
-          className: 'custom-marker',
-          html: `
-            <div style="
-              width: 40px;
-              height: 40px;
-              border-radius: 50%;
-              border: 3px solid #7c3aed;
-              background: white;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-              overflow: hidden;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            ">
-              <img src="${logoUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
-            </div>
-            <div style="
-              width: 0;
-              height: 0;
-              border-left: 8px solid transparent;
-              border-right: 8px solid transparent;
-              border-top: 10px solid #7c3aed;
-              margin: -2px auto 0;
-            "></div>
-          `,
-          iconSize: [40, 52],
-          iconAnchor: [20, 52],
-          popupAnchor: [0, -52]
-        })
-        marker = L.marker([loc.latitude, loc.longitude], { icon: customIcon })
-      } else {
-        // Default marker
-        marker = L.marker([loc.latitude, loc.longitude])
-      }
-
-      // Add popup with location info
+      // Add popup with location details
       const popupContent = `
-        <div style="min-width: 150px; padding: 4px;">
+        <div style="min-width: 150px;">
           <strong style="color: #1f2937;">${loc.name || business.value.name}</strong>
-          ${loc.address ? `<br><span style="color: #6b7280; font-size: 12px;">${loc.address}</span>` : ''}
-          ${loc.city ? `<br><span style="color: #6b7280; font-size: 12px;">${loc.city}</span>` : ''}
+          ${loc.address ? `<br><span style="color: #6b7280; font-size: 13px;">${loc.address}</span>` : ''}
+          ${loc.city ? `<br><span style="color: #6b7280; font-size: 13px;">${loc.city}</span>` : ''}
         </div>
       `
       marker.bindPopup(popupContent)
-      marker.addTo(mapInstance)
+      markers.push(marker)
     })
 
+    // Fit bounds if multiple locations
+    if (markers.length > 1) {
+      const group = L.featureGroup(markers)
+      mapInstance.fitBounds(group.getBounds().pad(0.1))
+    }
+
   } catch (err) {
-    console.error('Error initializing map:', err)
+    console.error('Error initializing Leaflet map:', err)
   }
 }
 
@@ -767,16 +703,15 @@ onMounted(async () => {
   await fetchBusiness()
 })
 
-// Watch for mapContainer to become available and initialize map
+// Watch for mapContainer to become available
 watch(mapContainer, (newContainer) => {
   if (newContainer && hasLocations.value && !mapInstance) {
-    console.log('Map container now available, initializing map...')
     initMap()
   }
 })
 
 onUnmounted(() => {
-  // Clean up map instance
+  // Clean up Leaflet map instance
   if (mapInstance) {
     mapInstance.remove()
     mapInstance = null

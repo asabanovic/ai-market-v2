@@ -605,19 +605,126 @@
           </button>
         </div>
 
-        <!-- Add Location Button -->
-        <div class="mb-4">
-          <button
-            @click="showAddLocationForm = true"
-            v-if="!showAddLocationForm"
-            class="flex items-center gap-2 bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition duration-200"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Dodaj lokaciju
-          </button>
+        <!-- Tab Navigation -->
+        <div class="border-b border-gray-200 mb-4">
+          <nav class="flex space-x-4" aria-label="Tabs">
+            <button
+              @click="locationsTab = 'list'"
+              :class="[
+                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                locationsTab === 'list'
+                  ? 'border-cyan-500 text-cyan-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ]"
+            >
+              Lista lokacija
+            </button>
+            <button
+              @click="locationsTab = 'bulk'"
+              :class="[
+                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                locationsTab === 'bulk'
+                  ? 'border-cyan-500 text-cyan-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ]"
+            >
+              Bulk Import (JSON)
+            </button>
+          </nav>
         </div>
+
+        <!-- Bulk Import Tab -->
+        <div v-if="locationsTab === 'bulk'" class="space-y-4">
+          <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div class="flex">
+              <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <div class="text-sm text-blue-700 flex-1">
+                <p class="font-medium mb-1">JSON format za lokacije:</p>
+                <pre class="text-xs bg-blue-100 p-2 rounded overflow-x-auto">[
+  {"name": "Lokacija 1", "address": "Ulica 123", "city": "Sarajevo"},
+  {"name": "Lokacija 2", "city": "Tuzla", "phone": "+387 35 123 456"}
+]</pre>
+                <p class="mt-2 text-xs">Polja: <code class="bg-blue-100 px-1 rounded">name</code> (obavezno), <code class="bg-blue-100 px-1 rounded">address</code>, <code class="bg-blue-100 px-1 rounded">city</code>, <code class="bg-blue-100 px-1 rounded">phone</code>, <code class="bg-blue-100 px-1 rounded">latitude</code>, <code class="bg-blue-100 px-1 rounded">longitude</code></p>
+                <button
+                  @click="downloadSampleJson"
+                  class="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Preuzmi primjer (sample.json)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">JSON podaci za lokacije</label>
+            <textarea
+              v-model="bulkLocationsJson"
+              rows="12"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              placeholder='[
+  {"name": "Bingo TC Stupine", "address": "Stupine bb", "city": "Tuzla"},
+  {"name": "Bingo TC Merkator", "address": "Mije Kerosevica Guje 1", "city": "Sarajevo"}
+]'
+            ></textarea>
+          </div>
+
+          <!-- Bulk Import Results -->
+          <div v-if="bulkImportResult" :class="[
+            'border rounded-md p-3',
+            bulkImportResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+          ]">
+            <p :class="bulkImportResult.success ? 'text-green-800' : 'text-red-800'" class="font-medium text-sm">
+              {{ bulkImportResult.message }}
+            </p>
+            <div v-if="bulkImportResult.errors?.length" class="mt-2 text-xs text-red-600">
+              <p class="font-medium">Greske:</p>
+              <ul class="list-disc list-inside">
+                <li v-for="(err, idx) in bulkImportResult.errors" :key="idx">{{ err }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button
+              @click="handleBulkImport"
+              :disabled="isBulkImporting || !bulkLocationsJson.trim()"
+              class="bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200 flex items-center gap-2"
+            >
+              <svg v-if="isBulkImporting" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              {{ isBulkImporting ? 'Importuje se...' : 'Importuj lokacije' }}
+            </button>
+            <button
+              @click="bulkLocationsJson = ''; bulkImportResult = null"
+              class="text-gray-600 hover:text-gray-800 text-sm"
+            >
+              Ocisti
+            </button>
+          </div>
+        </div>
+
+        <!-- List Tab Content -->
+        <div v-if="locationsTab === 'list'">
+          <!-- Add Location Button -->
+          <div class="mb-4">
+            <button
+              @click="showAddLocationForm = true"
+              v-if="!showAddLocationForm"
+              class="flex items-center gap-2 bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition duration-200"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Dodaj lokaciju
+            </button>
+          </div>
 
         <!-- Add Location Form -->
         <div v-if="showAddLocationForm" class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
@@ -887,6 +994,7 @@
           <h4 class="text-md font-medium text-gray-900 mb-1">Nema lokacija</h4>
           <p class="text-sm text-gray-500 mb-4">Dodajte prvu lokaciju za ovaj biznis</p>
         </div>
+        </div><!-- End List Tab -->
 
         <!-- Close Button -->
         <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end">
@@ -972,6 +1080,12 @@ const showAddLocationForm = ref(false)
 const isAddingLocation = ref(false)
 const editingLocationId = ref<number | null>(null)
 const isUpdatingLocation = ref(false)
+const locationsTab = ref<'list' | 'bulk'>('list')
+
+// Bulk import state
+const bulkLocationsJson = ref('')
+const isBulkImporting = ref(false)
+const bulkImportResult = ref<{ success: boolean; message: string; errors?: string[] } | null>(null)
 
 interface LocationForm {
   name: string
@@ -1481,7 +1595,93 @@ function closeLocationsModal() {
   businessLocations.value = []
   showAddLocationForm.value = false
   editingLocationId.value = null
+  locationsTab.value = 'list'
+  bulkLocationsJson.value = ''
+  bulkImportResult.value = null
   resetNewLocationForm()
+}
+
+// Bulk import functions
+async function handleBulkImport() {
+  if (!locationsBusiness.value || !bulkLocationsJson.value.trim()) return
+
+  isBulkImporting.value = true
+  bulkImportResult.value = null
+
+  try {
+    const locations = JSON.parse(bulkLocationsJson.value)
+
+    if (!Array.isArray(locations)) {
+      bulkImportResult.value = {
+        success: false,
+        message: 'JSON mora biti niz (array) lokacija'
+      }
+      return
+    }
+
+    const response = await post(`/api/admin/businesses/${locationsBusiness.value.id}/locations/bulk`, {
+      locations
+    })
+
+    bulkImportResult.value = {
+      success: response.created_count > 0,
+      message: response.message || `Kreirano ${response.created_count} lokacija`,
+      errors: response.errors
+    }
+
+    if (response.created_count > 0) {
+      await loadBusinessLocations(locationsBusiness.value.id)
+      bulkLocationsJson.value = ''
+    }
+  } catch (error: any) {
+    if (error instanceof SyntaxError) {
+      bulkImportResult.value = {
+        success: false,
+        message: 'Neispravan JSON format. Provjerite sintaksu.'
+      }
+    } else {
+      bulkImportResult.value = {
+        success: false,
+        message: error.message || 'Greska pri importu lokacija'
+      }
+    }
+  } finally {
+    isBulkImporting.value = false
+  }
+}
+
+function downloadSampleJson() {
+  const sampleData = [
+    {
+      name: "Bingo TC Stupine",
+      address: "Stupine bb",
+      city: "Tuzla",
+      phone: "+387 35 123 456"
+    },
+    {
+      name: "Bingo TC Merkator",
+      address: "Mije Kerosevica Guje 1",
+      city: "Sarajevo",
+      latitude: 43.8563,
+      longitude: 18.4131
+    },
+    {
+      name: "Bingo Centar Mostar",
+      address: "Marsala Tita bb",
+      city: "Mostar"
+    }
+  ]
+
+  const json = JSON.stringify(sampleData, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'lokacije_primjer.json'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 async function loadBusinessLocations(businessId: number) {
