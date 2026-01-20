@@ -158,12 +158,12 @@
           <!-- Header with Add Button -->
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h2 class="text-lg font-semibold text-gray-900">Moji Proizvodi</h2>
-            <div class="flex gap-3 w-full sm:w-auto">
+            <div class="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
               <input
                 v-model="productSearch"
                 type="text"
                 placeholder="Pretraži..."
-                class="flex-1 sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                class="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                 @keyup.enter="searchProducts"
               />
               <button
