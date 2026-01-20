@@ -1036,6 +1036,15 @@
                             />
                           </div>
                         </div>
+                        <!-- Expiry date (only show if discount price exists) -->
+                        <div v-if="result.data.discount_price" class="mt-2">
+                          <label class="text-xs text-gray-500">Akcija vrijedi do</label>
+                          <input
+                            v-model="result.data.expires"
+                            type="date"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                          />
+                        </div>
                         <div class="mt-2 flex flex-wrap items-center gap-2">
                           <span v-if="result.data.brand" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{{ result.data.brand }}</span>
                           <span v-if="result.data.product_type" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{{ result.data.product_type }}</span>
@@ -1780,7 +1789,7 @@ async function createProductFromAi(result: any) {
       title: result.data.title || 'Nepoznat proizvod',
       base_price: result.data.base_price || 0,
       discount_price: result.data.discount_price || null,
-      expires: '',
+      expires: result.data.expires || null,
       category: result.data.category || null,
       tags: result.data.tags || [],
       description: result.data.description || null,

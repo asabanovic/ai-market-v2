@@ -618,6 +618,7 @@ def process_image_with_llm(image_data, filename):
 - category_group: Simplified category (e.g., "hrana", "piće", "kućanstvo")
 - base_price: Price if visible (number only, in KM)
 - discount_price: Sale price if visible (number only, in KM)
+- expires: Discount expiry date if visible (format: YYYY-MM-DD). Look for "akcija do", "vrijedi do", "do" followed by date
 - size_value: Size/weight value if visible (number only)
 - size_unit: Size unit (kg, g, l, ml, kom)
 - product_type: Normalized product type
@@ -635,7 +636,7 @@ Return JSON only, no markdown. Use null for missing values."""
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:image/jpeg;base64,{base64_image}",
-                                "detail": "high"
+                                "detail": "low"  # Low detail for 512px images saves tokens
                             }
                         }
                     ]
