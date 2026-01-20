@@ -3167,7 +3167,7 @@ def forgot_password():
 
         user = User.query.filter_by(email=email).first()
 
-        if user and user.password_hash:  # Only for email/password users, not OAuth users
+        if user:  # Allow both password users and OAuth users to set/reset password
             # Generate reset token (1 hour expiry)
             reset_token = generate_verification_token()
             token_expires = datetime.now() + timedelta(hours=1)
