@@ -7,6 +7,32 @@
         <p class="text-gray-600">Filtrirajte po kategoriji i prodavnici da pronađete najbolje popuste</p>
       </div>
 
+      <!-- Followed Stores Section -->
+      <div v-if="followedStores.length > 0" class="bg-white rounded-lg shadow-md p-4 mb-4">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">Moje prodavnice</h2>
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          <NuxtLink
+            v-for="store in followedStores"
+            :key="store.id"
+            :to="store.slug ? `/prodavnica/${store.slug}` : `/radnja/${store.id}`"
+            class="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
+          >
+            <div class="w-12 h-12 rounded-full bg-gray-100 overflow-hidden mb-2 flex items-center justify-center border border-gray-200 group-hover:border-purple-300">
+              <img
+                v-if="store.logo"
+                :src="store.logo"
+                :alt="store.name"
+                class="w-full h-full object-cover"
+              />
+              <svg v-else class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <span class="text-xs text-gray-700 text-center line-clamp-2 group-hover:text-purple-600">{{ store.name }}</span>
+          </NuxtLink>
+        </div>
+      </div>
+
       <!-- Category Selector -->
       <div class="bg-white rounded-lg shadow-md p-4 mb-4">
         <CategorySelector
@@ -197,6 +223,7 @@ const showRegistrationPrompt = ref(false)
 const totalActiveProducts = ref(0)
 const businesses = ref<any[]>([])
 const isLoading = ref(true)
+const followedStores = ref<any[]>([])
 const currentPage = ref(1)
 const totalPages = ref(1)
 const totalProducts = ref(0)
@@ -240,6 +267,7 @@ const initPage = () => {
   }
 
   loadBusinesses()
+  loadFollowedStores()
   loadProducts()
 }
 
@@ -358,6 +386,16 @@ async function loadBusinesses() {
     businesses.value = data.businesses || []
   } catch (error) {
     console.error('Error loading businesses:', error)
+  }
+}
+
+async function loadFollowedStores() {
+  try {
+    const data = await get('/auth/user/store-preferences')
+    // Filter only the stores that are selected (followed)
+    followedStores.value = (data.all_stores || []).filter((store: any) => store.is_selected)
+  } catch (error) {
+    console.error('Error loading followed stores:', error)
   }
 }
 

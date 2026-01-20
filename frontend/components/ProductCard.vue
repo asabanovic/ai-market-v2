@@ -143,42 +143,6 @@
       <span v-else class="text-gray-400 text-sm">Nema Slike</span>
     </div>
 
-    <!-- Match Type Indicators Row - Always visible, 3 columns -->
-    <div class="grid grid-cols-3 border-t border-gray-100">
-      <!-- Clones (same product, other stores) -->
-      <div
-        class="flex flex-col items-center justify-center py-2 cursor-pointer transition-colors"
-        :class="cloneCount > 0 ? 'bg-blue-50/70 hover:bg-blue-100/70' : 'bg-gray-50/50'"
-        :title="cloneCount > 0 ? `Dostupno u ${cloneCount} drugih prodavnica` : 'Nema u drugim prodavnicama'"
-        @click="cloneCount > 0 && showDetails()"
-      >
-        <Icon name="mdi:store-outline" class="w-4 h-4" :class="cloneCount > 0 ? 'text-blue-600' : 'text-gray-300'" />
-        <span class="text-xs font-medium mt-0.5" :class="cloneCount > 0 ? 'text-blue-700' : 'text-gray-300'">{{ cloneCount }}</span>
-      </div>
-
-      <!-- Siblings (other sizes) -->
-      <div
-        class="flex flex-col items-center justify-center py-2 border-x border-gray-100 cursor-pointer transition-colors"
-        :class="siblingCount > 0 ? 'bg-purple-50/70 hover:bg-purple-100/70' : 'bg-gray-50/50'"
-        :title="siblingCount > 0 ? `${siblingCount} drugih veličina` : 'Nema drugih veličina'"
-        @click="siblingCount > 0 && showDetails()"
-      >
-        <Icon name="mdi:arrow-expand-horizontal" class="w-4 h-4" :class="siblingCount > 0 ? 'text-purple-600' : 'text-gray-300'" />
-        <span class="text-xs font-medium mt-0.5" :class="siblingCount > 0 ? 'text-purple-700' : 'text-gray-300'">{{ siblingCount }}</span>
-      </div>
-
-      <!-- Brand variants (other brands) -->
-      <div
-        class="flex flex-col items-center justify-center py-2 cursor-pointer transition-colors"
-        :class="brandVariantCount > 0 ? 'bg-amber-50/70 hover:bg-amber-100/70' : 'bg-gray-50/50'"
-        :title="brandVariantCount > 0 ? `${brandVariantCount} alternativnih brendova` : 'Nema alternativnih brendova'"
-        @click="brandVariantCount > 0 && showDetails()"
-      >
-        <Icon name="mdi:swap-horizontal" class="w-4 h-4" :class="brandVariantCount > 0 ? 'text-amber-600' : 'text-gray-300'" />
-        <span class="text-xs font-medium mt-0.5" :class="brandVariantCount > 0 ? 'text-amber-700' : 'text-gray-300'">{{ brandVariantCount }}</span>
-      </div>
-    </div>
-
     <!-- Product Details -->
     <div class="p-4">
       <!-- Product Title -->

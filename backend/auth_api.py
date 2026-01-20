@@ -1322,6 +1322,7 @@ def user_store_preferences():
                         'name': b.name,
                         'logo': b.logo_path,
                         'city': b.city,
+                        'slug': b.slug,
                         'is_selected': b.id in preferred_stores
                     }
                     for b in businesses

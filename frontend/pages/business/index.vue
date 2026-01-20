@@ -387,12 +387,12 @@
           <form @submit.prevent="handleInviteUser">
             <div class="mb-4">
               <label for="invitation-email" class="block text-sm font-medium text-gray-700 mb-2">Email adresa</label>
-              <input type="email" id="invitation-email" v-model="inviteForm.email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+              <input type="email" id="invitation-email" v-model="inviteForm.email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-gray-900">
             </div>
 
             <div class="mb-4">
               <label for="invitation-role" class="block text-sm font-medium text-gray-700 mb-2">Uloga</label>
-              <select id="invitation-role" v-model="inviteForm.role" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+              <select id="invitation-role" v-model="inviteForm.role" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-gray-900 bg-white">
                 <option value="staff">Zaposleni - Može dodavati proizvode</option>
                 <option value="manager">Menadžer - Može upravljati proizvodima i biznisом</option>
                 <option value="owner">Vlasnik - Puna kontrola uključujući pozive</option>

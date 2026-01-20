@@ -167,6 +167,15 @@
                 @keyup.enter="searchProducts"
               />
               <button
+                @click="openFeaturedModal"
+                class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 flex items-center gap-2 text-sm whitespace-nowrap"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Featured ({{ featuredProducts.length }}/6)
+              </button>
+              <button
                 @click="showAiUploadModal = true"
                 class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm whitespace-nowrap"
               >
@@ -1103,6 +1112,103 @@
         </div>
       </div>
     </div>
+
+    <!-- Featured Products Modal -->
+    <div v-if="showFeaturedModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div class="p-4 border-b flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900">Featured Proizvodi ({{ featuredProducts.length }}/6)</h3>
+          <button @click="showFeaturedModal = false" class="text-gray-500 hover:text-gray-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-4 border-b">
+          <div class="relative">
+            <input
+              v-model="featuredSearchQuery"
+              type="text"
+              placeholder="Pretrazi proizvode..."
+              class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 text-gray-900"
+            >
+            <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="p-4 overflow-y-auto max-h-96">
+          <div v-if="isLoadingAllProducts" class="text-center py-8">
+            <svg class="animate-spin h-8 w-8 text-yellow-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-500">Ucitavam proizvode...</p>
+          </div>
+          <div v-else-if="filteredFeaturedProducts.length === 0" class="text-center py-8 text-gray-500">
+            Nema proizvoda koji odgovaraju pretrazi
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="product in filteredFeaturedProducts"
+              :key="product.id"
+              @click="toggleFeaturedInModal(product.id)"
+              class="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors"
+              :class="featuredProducts.includes(product.id) ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'"
+            >
+              <div class="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-200">
+                <img
+                  v-if="product.image_path"
+                  :src="getProductImageUrl(product.image_path)"
+                  :alt="product.title"
+                  class="w-full h-full object-cover"
+                >
+                <div v-else class="w-full h-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">{{ product.title }}</p>
+                <p class="text-sm text-gray-500">
+                  <span v-if="product.discount_price" class="text-green-600 font-semibold">{{ product.discount_price.toFixed(2) }} KM</span>
+                  <span v-else class="font-semibold">{{ product.base_price.toFixed(2) }} KM</span>
+                </p>
+              </div>
+              <div class="flex-shrink-0">
+                <svg
+                  class="w-6 h-6 transition-colors"
+                  :class="featuredProducts.includes(product.id) ? 'text-yellow-500' : 'text-gray-300'"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t flex justify-end gap-2">
+          <button
+            @click="showFeaturedModal = false"
+            class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Zatvori
+          </button>
+          <button
+            @click="saveFeaturedProducts"
+            :disabled="isSavingFeatured"
+            class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+          >
+            {{ isSavingFeatured ? 'Spremam...' : 'Spremi' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1245,6 +1351,27 @@ const aiUploadInput = ref<HTMLInputElement | null>(null)
 // Track products with failed image loads (S3 still processing)
 const failedImageProducts = ref<Set<number>>(new Set())
 
+// Featured products state
+const featuredProducts = ref<number[]>([])
+const showFeaturedModal = ref(false)
+const featuredSearchQuery = ref('')
+const isSavingFeatured = ref(false)
+const allProductsForFeatured = ref<any[]>([])
+const isLoadingAllProducts = ref(false)
+
+// Computed property for filtered featured modal products
+const filteredFeaturedProducts = computed(() => {
+  if (!featuredSearchQuery.value.trim()) {
+    return allProductsForFeatured.value
+  }
+  const query = featuredSearchQuery.value.toLowerCase().trim()
+  const words = query.split(/\s+/)
+  return allProductsForFeatured.value.filter(p => {
+    const title = (p.title || '').toLowerCase()
+    return words.every(word => title.includes(word))
+  })
+})
+
 // Redemption
 const redemptionCode = ref('')
 const redemptionError = ref('')
@@ -1308,6 +1435,61 @@ const productStats = computed(() => {
   }
 })
 
+// Featured products functions
+async function loadFeaturedProducts() {
+  if (!business.value?.id) return
+  try {
+    const data = await get(`/api/admin/businesses/${business.value.id}/featured`)
+    featuredProducts.value = data.featured_products || []
+  } catch (error) {
+    console.error('Error loading featured products:', error)
+  }
+}
+
+async function loadAllProductsForFeatured() {
+  if (!business.value?.id) return
+  isLoadingAllProducts.value = true
+  try {
+    const data = await get(`/api/businesses/${business.value.id}/products?per_page=1000`)
+    allProductsForFeatured.value = data.products || []
+  } catch (error) {
+    console.error('Error loading products for featured modal:', error)
+  } finally {
+    isLoadingAllProducts.value = false
+  }
+}
+
+function openFeaturedModal() {
+  featuredSearchQuery.value = ''
+  showFeaturedModal.value = true
+  loadAllProductsForFeatured()
+}
+
+function toggleFeaturedInModal(productId: number) {
+  if (featuredProducts.value.includes(productId)) {
+    featuredProducts.value = featuredProducts.value.filter(id => id !== productId)
+  } else if (featuredProducts.value.length < 6) {
+    featuredProducts.value = [...featuredProducts.value, productId]
+  } else {
+    alert('Maksimalno 6 featured proizvoda')
+  }
+}
+
+async function saveFeaturedProducts() {
+  if (!business.value?.id) return
+  isSavingFeatured.value = true
+  try {
+    await post(`/api/admin/businesses/${business.value.id}/featured`, {
+      product_ids: featuredProducts.value
+    })
+    showFeaturedModal.value = false
+  } catch (error) {
+    console.error('Error saving featured products:', error)
+  } finally {
+    isSavingFeatured.value = false
+  }
+}
+
 onMounted(async () => {
   await loadData()
 })
@@ -1326,6 +1508,9 @@ async function loadData() {
 
     // Load products (default tab)
     await loadProducts()
+
+    // Load featured products
+    await loadFeaturedProducts()
 
     // Load subscriber count and growth data
     try {

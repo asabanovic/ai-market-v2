@@ -207,8 +207,19 @@ class Business(db.Model):
     total_reviews = db.Column(db.Integer, default=0)  # Cached total reviews count
     cover_image_path = db.Column(db.String, nullable=True)  # Large storefront/cover image for landing page
 
+    # Featured products - array of product IDs (max 6)
+    featured_products = db.Column(JSON, nullable=True, default=list)  # [product_id1, product_id2, ...]
+
+    # Social media and contact links
+    website_url = db.Column(db.String(500), nullable=True)
+    facebook_url = db.Column(db.String(500), nullable=True)
+    instagram_url = db.Column(db.String(500), nullable=True)
+    viber_contact = db.Column(db.String(100), nullable=True)  # Viber phone number
+    contact_email = db.Column(db.String(255), nullable=True)
+
     # Relationships
     products = db.relationship('Product', backref='business', lazy='dynamic', cascade='all, delete-orphan')
+    # Note: locations relationship is defined via backref in BusinessLocation model
 
     @staticmethod
     def generate_slug(name, city=None):

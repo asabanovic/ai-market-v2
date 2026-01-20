@@ -1564,24 +1564,128 @@ def api_public_business_page(business_id):
         if not business:
             return jsonify({'error': 'Radnja nije pronađena'}), 404
 
-        # Get active products with discounts
-        products = Product.query.filter(
+        # Get featured products first
+        featured_product_ids = business.featured_products or []
+        featured_products = []
+
+        # Helper to check if discount is currently active
+        def is_discount_active(product):
+            if not product.discount_price or product.discount_price >= product.base_price:
+                return False
+            from datetime import date
+            today = date.today()
+            # Check if discount has started
+            if product.discount_starts and product.discount_starts > today:
+                return False
+            # Check if discount has expired
+            if product.expires and product.expires < today:
+                return False
+            return True
+
+        # Get all products from this business, excluding featured ones, sorted by discount
+        products_query = Product.query.filter(Product.business_id == business_id)
+        if featured_product_ids:
+            products_query = products_query.filter(~Product.id.in_(featured_product_ids))
+
+        # Sort: products with active discounts first (by discount %), then others by created_at
+        today = date.today()
+        products = products_query.order_by(
+            db.case(
+                (db.and_(
+                    Product.base_price > 0,
+                    Product.discount_price.isnot(None),
+                    Product.discount_price < Product.base_price,
+                    db.or_(Product.expires.is_(None), Product.expires >= today)
+                ),
+                 (Product.base_price - Product.discount_price) / Product.base_price),
+                else_=0
+            ).desc(),
+            Product.created_at.desc()
+        ).limit(28).all()
+
+        if featured_product_ids:
+            featured_prods = Product.query.filter(Product.id.in_(featured_product_ids)).all()
+            featured_products = [{
+                'id': p.id,
+                'title': p.title,
+                'base_price': p.base_price,
+                'discount_price': p.discount_price,
+                'discount_percentage': p.discount_percentage,
+                'image_path': p.image_path,
+                'category': p.category,
+                'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
+                'expires': p.expires.isoformat() if p.expires else None,
+                'has_discount': is_discount_active(p),
+                'business': {
+                    'id': business.id,
+                    'name': business.name,
+                    'logo_path': business.logo_path
+                }
+            } for p in featured_prods]
+
+        # Get store locations with coordinates
+        locations = []
+        for loc in business.locations.all():
+            if loc.latitude and loc.longitude:
+                locations.append({
+                    'id': loc.id,
+                    'name': loc.name,
+                    'address': loc.address,
+                    'city': loc.city,
+                    'latitude': loc.latitude,
+                    'longitude': loc.longitude
+                })
+
+        # If no locations with coords, try to get from city
+        if not locations and business.city:
+            city = City.query.filter_by(name=business.city).first()
+            if city and city.latitude and city.longitude:
+                locations.append({
+                    'id': 0,
+                    'name': business.name,
+                    'address': business.address or business.city,
+                    'city': business.city,
+                    'latitude': city.latitude,
+                    'longitude': city.longitude
+                })
+
+        # Get unique categories from this business's products
+        categories = db.session.query(Product.category).filter(
             Product.business_id == business_id,
-            Product.discount_price.isnot(None),
-            Product.discount_price < Product.base_price
-        ).order_by(Product.created_at.desc()).limit(20).all()
+            Product.category.isnot(None),
+            Product.category != ''
+        ).distinct().all()
+        unique_categories = sorted([c[0] for c in categories if c[0]])
 
         return jsonify({
             'business': {
                 'id': business.id,
                 'name': business.name,
                 'city': business.city,
-                'logo_path': f"/static/{business.logo_path}" if business.logo_path else None,
+                'address': business.address,
+                'description': business.description,
+                'logo_path': business.logo_path,
+                'cover_image_path': business.cover_image_path,
                 'contact_phone': business.contact_phone,
                 'google_link': business.google_link,
+                'working_hours': business.working_hours,
                 'product_count': business.products.count(),
-                'views': business.views
+                'views': business.views,
+                'featured_products': featured_product_ids,
+                'locations': locations,
+                # Social media and contact
+                'website_url': business.website_url,
+                'facebook_url': business.facebook_url,
+                'instagram_url': business.instagram_url,
+                'viber_contact': business.viber_contact,
+                'contact_email': business.contact_email,
+                # Ratings
+                'average_rating': business.average_rating,
+                'total_reviews': business.total_reviews,
+                # Categories
+                'categories': unique_categories
             },
+            'featured_products': featured_products,
             'products': [{
                 'id': p.id,
                 'title': p.title,
@@ -1591,9 +1695,16 @@ def api_public_business_page(business_id):
                 'image_path': p.image_path,
                 'category': p.category,
                 'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
-                'expires': p.expires.isoformat() if p.expires else None
+                'expires': p.expires.isoformat() if p.expires else None,
+                'has_discount': is_discount_active(p),
+                'business': {
+                    'id': business.id,
+                    'name': business.name,
+                    'logo_path': business.logo_path
+                }
             } for p in products],
-            'has_more': business.products.count() > 20
+            'has_more': business.products.count() - len(featured_product_ids) > 28,
+            'total_products': business.products.count() - len(featured_product_ids)
         })
 
     except Exception as e:
@@ -1607,18 +1718,81 @@ def api_public_business_products(business_id):
     """API endpoint for paginated business products (requires authentication)"""
     try:
         page = request.args.get('page', 1, type=int)
-        per_page = 20
+        per_page = request.args.get('per_page', 28, type=int)
+        search = request.args.get('search', '', type=str).strip()
+        exclude_featured = request.args.get('exclude_featured', 'true').lower() == 'true'
+        category = request.args.get('category', '', type=str).strip()
+        sort_by = request.args.get('sort', 'discount', type=str).strip()  # discount, price_asc, price_desc, name
 
         business = Business.query.filter_by(id=business_id, status='active').first()
         if not business:
             return jsonify({'error': 'Radnja nije pronađena'}), 404
 
+        # Helper to check if discount is currently active
+        def is_discount_active(product):
+            if not product.discount_price or product.discount_price >= product.base_price:
+                return False
+            from datetime import date
+            today = date.today()
+            # Check if discount has started
+            if product.discount_starts and product.discount_starts > today:
+                return False
+            # Check if discount has expired
+            if product.expires and product.expires < today:
+                return False
+            return True
+
+        # Build query - get ALL products from this business
+        query = Product.query.filter(Product.business_id == business_id)
+
+        # Exclude featured products from main list if requested
+        featured_product_ids = business.featured_products or []
+        if exclude_featured and featured_product_ids:
+            query = query.filter(~Product.id.in_(featured_product_ids))
+
+        # Add search filter if provided
+        if search:
+            query = query.filter(Product.title.ilike(f'%{search}%'))
+
+        # Add category filter if provided
+        if category:
+            query = query.filter(Product.category == category)
+
         # Get products with pagination
-        pagination = Product.query.filter(
-            Product.business_id == business_id,
-            Product.discount_price.isnot(None),
-            Product.discount_price < Product.base_price
-        ).order_by(Product.created_at.desc()).paginate(
+        today = date.today()
+
+        # Apply sorting based on sort_by parameter
+        if sort_by == 'price_asc':
+            # Sort by discount_price if available, else base_price (ascending)
+            query = query.order_by(
+                db.func.coalesce(Product.discount_price, Product.base_price).asc(),
+                Product.title.asc()
+            )
+        elif sort_by == 'price_desc':
+            # Sort by discount_price if available, else base_price (descending)
+            query = query.order_by(
+                db.func.coalesce(Product.discount_price, Product.base_price).desc(),
+                Product.title.asc()
+            )
+        elif sort_by == 'name':
+            query = query.order_by(Product.title.asc())
+        else:
+            # Default: products with active discounts first (by discount %), then others by created_at
+            query = query.order_by(
+                db.case(
+                    (db.and_(
+                        Product.base_price > 0,
+                        Product.discount_price.isnot(None),
+                        Product.discount_price < Product.base_price,
+                        db.or_(Product.expires.is_(None), Product.expires >= today)
+                    ),
+                     (Product.base_price - Product.discount_price) / Product.base_price),
+                    else_=0
+                ).desc(),
+                Product.created_at.desc()
+            )
+
+        pagination = query.paginate(
             page=page, per_page=per_page, error_out=False
         )
 
@@ -1638,6 +1812,12 @@ def api_public_business_products(business_id):
                 'category': p.category,
                 'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
                 'expires': p.expires.isoformat() if p.expires else None,
+                'has_discount': is_discount_active(p),
+                'business': {
+                    'id': business.id,
+                    'name': business.name,
+                    'logo_path': business.logo_path
+                },
                 'match_counts': match_counts_map.get(p.id, {'clones': 0, 'siblings': 0, 'brand_variants': 0})
             })
 
@@ -1645,6 +1825,7 @@ def api_public_business_products(business_id):
             'products': products,
             'has_more': pagination.has_next,
             'page': page,
+            'pages': pagination.pages,
             'total': pagination.total
         })
 
