@@ -1138,7 +1138,7 @@ const editMapEmbedUrl = computed(() => {
 
 async function loadCities() {
   try {
-    const data = await get('/auth/cities')
+    const data = await get('/auth/cities?full=false')
     cities.value = data.cities || []
   } catch (error) {
     console.error('Error loading cities:', error)

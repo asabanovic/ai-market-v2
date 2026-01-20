@@ -1506,7 +1506,12 @@ def api_create_business():
             return jsonify({'success': False, 'error': 'No data provided'}), 400
 
         name = (data.get('name') or '').strip()
-        city = (data.get('city') or '').strip()
+        # Handle city as either string or object {id, name}
+        city_data = data.get('city')
+        if isinstance(city_data, dict):
+            city = (city_data.get('name') or '').strip()
+        else:
+            city = (city_data or '').strip()
         contact_phone = (data.get('contact_phone') or '').strip() or None
         google_link = (data.get('google_link') or '').strip() or None
 
@@ -2204,7 +2209,11 @@ def api_edit_business(business_id):
         if 'contact_phone' in data:
             business.contact_phone = data['contact_phone']
         if 'city' in data:
-            business.city = data['city'].strip()
+            city_data = data['city']
+            if isinstance(city_data, dict):
+                business.city = (city_data.get('name') or '').strip()
+            else:
+                business.city = (city_data or '').strip()
 
         google_link = data.get('google_link', business.google_link)
         if google_link and google_link.strip():
