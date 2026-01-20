@@ -989,11 +989,11 @@
                   <div
                     v-for="(result, idx) in aiUploadResults"
                     :key="idx"
-                    class="bg-gray-50 rounded-lg p-4 flex gap-4"
+                    class="bg-gray-50 rounded-lg p-4 flex flex-col sm:flex-row gap-4"
                     :class="{ 'border-l-4 border-red-500': !result.success }"
                   >
                     <!-- Image Preview -->
-                    <div class="flex-shrink-0 w-40 h-40 bg-white rounded-lg overflow-hidden border border-gray-200">
+                    <div class="flex-shrink-0 w-full sm:w-32 h-32 sm:h-32 bg-white rounded-lg overflow-hidden border border-gray-200 mx-auto sm:mx-0">
                       <img
                         v-if="result.image_base64"
                         :src="'data:image/jpeg;base64,' + result.image_base64"
@@ -1015,8 +1015,8 @@
                           class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium text-gray-900 mb-2"
                           placeholder="Naziv proizvoda"
                         />
-                        <div class="flex gap-2">
-                          <div class="flex-1">
+                        <div class="grid grid-cols-2 gap-2">
+                          <div>
                             <label class="text-xs text-gray-500">Cijena (KM)</label>
                             <input
                               v-model.number="result.data.base_price"
@@ -1025,8 +1025,8 @@
                               class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
                             />
                           </div>
-                          <div class="flex-1">
-                            <label class="text-xs text-gray-500">Akcijska cijena</label>
+                          <div>
+                            <label class="text-xs text-gray-500">Akcijska</label>
                             <input
                               v-model.number="result.data.discount_price"
                               type="number"

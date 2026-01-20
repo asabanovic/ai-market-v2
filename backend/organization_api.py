@@ -452,8 +452,12 @@ def create_organization_product():
 def upload_product_images():
     """
     Bulk upload product images for LLM processing
-    Accepts multiple image files, processes them, and returns extracted product info
+    Accepts multiple image files, processes them in parallel, and returns extracted product info
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from s3_utils import upload_to_s3
+    import base64
+
     user = request.jwt_user
     business, role = get_user_business(user)
 
@@ -473,7 +477,8 @@ def upload_product_images():
     if len(files) > max_files:
         return jsonify({'error': f'Maximum {max_files} images per upload'}), 400
 
-    results = []
+    # Phase 1: Pre-process all images (fast, sequential)
+    prepared_images = []
     errors = []
 
     for file in files:
@@ -486,20 +491,14 @@ def upload_product_images():
             ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
 
             if ext not in allowed_extensions:
-                errors.append({
-                    'filename': file.filename,
-                    'error': 'Invalid file type'
-                })
+                errors.append({'filename': file.filename, 'error': 'Invalid file type'})
                 continue
 
             # Read and validate image
             image_data = file.read()
 
             if len(image_data) > 10 * 1024 * 1024:  # 10MB limit
-                errors.append({
-                    'filename': file.filename,
-                    'error': 'File too large (max 10MB)'
-                })
+                errors.append({'filename': file.filename, 'error': 'File too large (max 10MB)'})
                 continue
 
             # Process image with PIL
@@ -516,8 +515,8 @@ def upload_product_images():
                 elif img.mode != 'RGB':
                     img = img.convert('RGB')
 
-                # Resize if too large
-                max_dim = 2048
+                # Resize for faster vision API processing (1024px is sufficient for product recognition)
+                max_dim = 1024
                 if img.width > max_dim or img.height > max_dim:
                     img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
@@ -527,44 +526,63 @@ def upload_product_images():
                 buffer.seek(0)
                 processed_data = buffer.read()
 
-            except Exception as e:
-                errors.append({
+                prepared_images.append({
                     'filename': file.filename,
-                    'error': f'Invalid image: {str(e)}'
+                    'data': processed_data,
+                    'business_id': business.id
                 })
+
+            except Exception as e:
+                errors.append({'filename': file.filename, 'error': f'Invalid image: {str(e)}'})
                 continue
 
+        except Exception as e:
+            logger.error(f"Error pre-processing image {file.filename}: {e}", exc_info=True)
+            errors.append({'filename': file.filename, 'error': str(e)})
+
+    # Phase 2: Process images in parallel (S3 upload + LLM extraction)
+    def process_single_image(img_info):
+        """Process a single image: upload to S3 and extract info with LLM"""
+        try:
+            filename = img_info['filename']
+            processed_data = img_info['data']
+            business_id = img_info['business_id']
+
             # Upload to S3
-            from s3_utils import upload_to_s3
-            import base64
-
             unique_filename = f"{uuid.uuid4()}.jpg"
-            s3_path = f"assets/images/product_images/{business.id}/uploads/{unique_filename}"
-
+            s3_path = f"assets/images/product_images/{business_id}/uploads/{unique_filename}"
             s3_url = upload_to_s3(processed_data, s3_path, content_type='image/jpeg')
 
             if not s3_url:
-                errors.append({
-                    'filename': file.filename,
-                    'error': 'Failed to upload to storage'
-                })
-                continue
+                return {'success': False, 'filename': filename, 'error': 'Failed to upload to storage'}
 
             # Process with LLM to extract product info
-            product_info = process_image_with_llm(processed_data, file.filename)
+            product_info = process_image_with_llm(processed_data, filename)
 
-            results.append({
-                'filename': file.filename,
+            return {
+                'success': True,
+                'filename': filename,
                 'image_url': s3_url,
                 'extracted_info': product_info
-            })
-
+            }
         except Exception as e:
-            logger.error(f"Error processing image {file.filename}: {e}", exc_info=True)
-            errors.append({
-                'filename': file.filename,
-                'error': str(e)
-            })
+            logger.error(f"Error processing image {img_info['filename']}: {e}", exc_info=True)
+            return {'success': False, 'filename': img_info['filename'], 'error': str(e)}
+
+    results = []
+    # Use ThreadPoolExecutor for parallel processing (4 workers for API rate limits)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(process_single_image, img): img for img in prepared_images}
+        for future in as_completed(futures):
+            result = future.result()
+            if result['success']:
+                results.append({
+                    'filename': result['filename'],
+                    'image_url': result['image_url'],
+                    'extracted_info': result['extracted_info']
+                })
+            else:
+                errors.append({'filename': result['filename'], 'error': result['error']})
 
     return jsonify({
         'success': True,
