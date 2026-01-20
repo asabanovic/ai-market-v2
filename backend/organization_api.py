@@ -515,8 +515,8 @@ def upload_product_images():
                 elif img.mode != 'RGB':
                     img = img.convert('RGB')
 
-                # Resize for faster vision API processing (1024px is sufficient for product recognition)
-                max_dim = 1024
+                # Resize for faster/cheaper vision API (512px balances cost vs text readability)
+                max_dim = 512
                 if img.width > max_dim or img.height > max_dim:
                     img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
