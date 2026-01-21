@@ -444,7 +444,16 @@ function getApiUrl() {
 function getImageUrl(path: string) {
   if (!path) return ''
   if (path.startsWith('http')) return path
-  return `${getApiUrl()}${path}`
+  // S3 paths (popust/, assets/, etc.) go to S3
+  if (path.startsWith('popust/') || path.startsWith('assets/')) {
+    return `https://aipijaca.s3.eu-central-1.amazonaws.com/${path}`
+  }
+  // Local paths go to API server
+  if (path.startsWith('/static/') || path.startsWith('uploads/')) {
+    return `${getApiUrl()}${path.startsWith('/') ? '' : '/static/'}${path}`
+  }
+  // Default to S3 for unknown paths
+  return `https://aipijaca.s3.eu-central-1.amazonaws.com/${path}`
 }
 
 function getToken() {
