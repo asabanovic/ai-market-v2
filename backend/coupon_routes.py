@@ -2062,6 +2062,13 @@ def delete_business_product(business_id, product_id):
         return jsonify({'error': 'Product not found'}), 404
 
     product_title = product.title
+
+    # Clean up featured_products - remove deleted product from featured list
+    from models import Business
+    business = Business.query.get(business_id)
+    if business and business.featured_products and product_id in business.featured_products:
+        business.featured_products = [pid for pid in business.featured_products if pid != product_id]
+
     db.session.delete(product)
     db.session.commit()
 
