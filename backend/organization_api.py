@@ -551,10 +551,13 @@ def upload_product_images():
             # Upload to S3
             unique_filename = f"{uuid.uuid4()}.jpg"
             s3_path = f"assets/images/product_images/{business_id}/uploads/{unique_filename}"
-            s3_url = upload_to_s3(processed_data, s3_path, content_type='image/jpeg')
+            uploaded_path = upload_to_s3(processed_data, s3_path, content_type='image/jpeg')
 
-            if not s3_url:
+            if not uploaded_path:
                 return {'success': False, 'filename': filename, 'error': 'Failed to upload to storage'}
+
+            # Full S3 URL for consistency
+            s3_url = f"https://aipijaca.s3.eu-central-1.amazonaws.com/{uploaded_path}"
 
             # Process with LLM to extract product info
             product_info = process_image_with_llm(processed_data, filename)

@@ -1895,10 +1895,12 @@ def create_business_product(business_id):
             uploaded_path = upload_to_s3(image_data, s3_path, 'image/jpeg')
 
             if uploaded_path:
-                product.image_path = uploaded_path
+                # Store full S3 URL for consistency with other upload methods
+                full_s3_url = f"https://aipijaca.s3.eu-central-1.amazonaws.com/{uploaded_path}"
+                product.image_path = full_s3_url
                 db.session.commit()
-                image_path = uploaded_path
-                logger.info(f"Product {product.id} image uploaded to S3: {uploaded_path}")
+                image_path = full_s3_url
+                logger.info(f"Product {product.id} image uploaded to S3: {full_s3_url}")
         except Exception as e:
             logger.error(f"Failed to upload image for product {product.id}: {e}")
 
