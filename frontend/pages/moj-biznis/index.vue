@@ -1746,6 +1746,42 @@ function handleFileSelect(event: Event) {
   }
 }
 
+// Compress image to reduce upload size
+async function compressImage(file: File, maxSize = 1024, quality = 0.8): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let { width, height } = img
+
+      // Resize if larger than maxSize
+      if (width > maxSize || height > maxSize) {
+        if (width > height) {
+          height = (height / width) * maxSize
+          width = maxSize
+        } else {
+          width = (width / height) * maxSize
+          height = maxSize
+        }
+      }
+
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+        } else {
+          resolve(file) // Fallback to original
+        }
+      }, 'image/jpeg', quality)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 async function processFiles(files: File[]) {
   if (!business.value) return
 
@@ -1760,10 +1796,15 @@ async function processFiles(files: File[]) {
   }
 
   aiUploadProcessing.value = true
-  aiUploadProgress.value = `Pripremam ${imageFiles.length} slika...`
+  aiUploadProgress.value = `Kompresija ${imageFiles.length} slika...`
+
+  // Compress images before upload (1024px max, 80% quality)
+  const compressedFiles = await Promise.all(
+    imageFiles.map(file => compressImage(file, 1024, 0.8))
+  )
 
   const formData = new FormData()
-  imageFiles.forEach(file => {
+  compressedFiles.forEach(file => {
     formData.append('files', file)
   })
 
