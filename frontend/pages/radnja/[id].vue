@@ -543,7 +543,8 @@ async function initMap() {
     // Create map
     mapInstance = L.map(container, {
       zoomControl: true,
-      attributionControl: false
+      attributionControl: false,
+      scrollWheelZoom: false
     }).setView([centerLat, centerLng], 15)
 
     // Add OpenStreetMap tiles (standard map style)
@@ -551,10 +552,69 @@ async function initMap() {
       maxZoom: 19
     }).addTo(mapInstance)
 
+    // Create custom icon with store logo
+    const logoUrl = business.value.logo_path ? getImageUrl(business.value.logo_path) : null
+
+    const createLogoIcon = (L: any) => {
+      if (logoUrl) {
+        return L.divIcon({
+          className: 'custom-logo-marker',
+          html: `
+            <div style="
+              width: 32px;
+              height: 38px;
+              position: relative;
+              filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+            ">
+              <div style="
+                width: 32px;
+                height: 32px;
+                background: white;
+                border-radius: 50%;
+                border: 2px solid #7c3aed;
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <img src="${logoUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+              </div>
+              <div style="
+                width: 0;
+                height: 0;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-top: 8px solid #7c3aed;
+                position: absolute;
+                bottom: 0;
+                left: 50%;
+                transform: translateX(-50%);
+              "></div>
+            </div>
+          `,
+          iconSize: [32, 38],
+          iconAnchor: [16, 38],
+          popupAnchor: [0, -38]
+        })
+      }
+      // Fallback to default marker if no logo
+      return L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      })
+    }
+
+    const customIcon = createLogoIcon(L)
+
     // Add markers for each location
     const markers: any[] = []
     locations.forEach((loc: any) => {
-      const marker = L.marker([loc.latitude, loc.longitude]).addTo(mapInstance)
+      const marker = L.marker([loc.latitude, loc.longitude], { icon: customIcon }).addTo(mapInstance)
 
       // Add popup with location details
       const popupContent = `

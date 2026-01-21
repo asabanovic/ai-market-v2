@@ -245,26 +245,6 @@
           </div>
         </div>
 
-        <!-- Compact Chat Examples -->
-        <div class="mt-6 w-full mx-auto" style="max-width: 95vw;">
-          <h3 class="text-white text-sm font-medium mb-3 text-center">Primjeri pretraga:</h3>
-          <div class="space-y-2">
-            <div v-for="(example, idx) in chatExamples" :key="idx" class="chat-example bg-white/10 backdrop-blur-sm rounded-lg p-3 text-left">
-              <div class="flex items-start space-x-3">
-                <div class="flex-1">
-                  <div class="mb-1">
-                    <span class="text-xs text-gray-300">Vi:</span>
-                    <span class="text-sm text-white font-medium ml-1">{{ example.user }}</span>
-                  </div>
-                  <div>
-                    <span class="text-xs text-gray-300">Popust:</span>
-                    <span class="text-sm text-gray-200 ml-1">{{ example.assistant }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
