@@ -818,15 +818,29 @@ def get_featured_products(business_id):
     """
     Get the featured products for a business
     Returns the list of product IDs marked as featured (max 6)
+    Auto-cleans stale product IDs that no longer exist
     """
     from app import db
-    from models import Business
+    from models import Business, Product
 
     business = Business.query.get(business_id)
     if not business:
         return jsonify({'error': 'Business not found'}), 404
 
     featured_ids = business.featured_products or []
+
+    # Auto-clean: filter out stale product IDs that no longer exist
+    if featured_ids:
+        valid_ids = [p.id for p in Product.query.filter(
+            Product.id.in_(featured_ids),
+            Product.business_id == business_id
+        ).all()]
+        # If there were stale IDs, update the database
+        if set(valid_ids) != set(featured_ids):
+            business.featured_products = valid_ids
+            db.session.commit()
+            logger.info(f"Auto-cleaned stale featured products for business {business_id}: {featured_ids} -> {valid_ids}")
+            featured_ids = valid_ids
 
     return jsonify({
         'success': True,
@@ -859,15 +873,15 @@ def set_featured_products(business_id):
     if len(product_ids) > 6:
         return jsonify({'error': 'Maximum 6 featured products allowed'}), 400
 
-    # Validate all product IDs belong to this business
+    # Filter to only valid product IDs that belong to this business
     if product_ids:
         valid_products = Product.query.filter(
             Product.id.in_(product_ids),
             Product.business_id == business_id
-        ).count()
-
-        if valid_products != len(product_ids):
-            return jsonify({'error': 'Some products are invalid or do not belong to this business'}), 400
+        ).all()
+        valid_ids = [p.id for p in valid_products]
+        # Keep original order, but only valid ones
+        product_ids = [pid for pid in product_ids if pid in valid_ids]
 
     # Update featured products
     business.featured_products = product_ids
