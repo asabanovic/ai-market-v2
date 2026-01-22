@@ -352,6 +352,54 @@
           </div>
         </div>
 
+        <!-- Tab: PRATITELJI -->
+        <div v-if="activeTab === 'followers'" class="space-y-6">
+          <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-lg font-semibold text-gray-900">Pratitelji ({{ followers.length }})</h2>
+              <p class="text-sm text-gray-500 mt-1">Korisnici koji prate vašu radnju</p>
+            </div>
+
+            <!-- Loading -->
+            <div v-if="followersLoading" class="p-8 text-center">
+              <svg class="animate-spin h-8 w-8 mx-auto text-orange-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="followers.length === 0" class="p-12 text-center">
+              <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <p class="text-gray-500">Još nemate pratitelja.</p>
+            </div>
+
+            <!-- Table -->
+            <div v-else class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ime</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prezime</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grad</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrovan</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr v-for="follower in followers" :key="follower.id" class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ follower.first_name || '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ follower.last_name || '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ follower.city || '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(follower.created_at) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Tab: KUPONI -->
         <div v-if="activeTab === 'coupons'" class="space-y-6">
           <!-- Sub-tabs for Kuponi -->
@@ -1429,6 +1477,7 @@ const subscriberChartOptions = {
 const activeTab = ref('products')
 const tabs = [
   { id: 'products', name: 'PRODUKTI', icon: 'box' },
+  { id: 'followers', name: 'PRATITELJI', icon: 'users' },
   { id: 'coupons', name: 'KUPONI', icon: 'ticket' }
 ]
 
@@ -1445,6 +1494,11 @@ const productsPagination = ref({
   pages: 0
 })
 const productSearch = ref('')
+
+// Followers state
+const followers = ref<any[]>([])
+const followersLoading = ref(false)
+
 const showProductModal = ref(false)
 const showDeleteModal = ref(false)
 const productToDelete = ref<any>(null)
@@ -1777,6 +1831,13 @@ onMounted(async () => {
   await loadData()
 })
 
+// Watch for tab changes to load data lazily
+watch(activeTab, (newTab) => {
+  if (newTab === 'followers' && followers.value.length === 0) {
+    loadFollowers()
+  }
+})
+
 async function loadData() {
   isLoading.value = true
   try {
@@ -1855,6 +1916,19 @@ async function loadProducts() {
     console.error('Error loading products:', error)
   } finally {
     productsLoading.value = false
+  }
+}
+
+async function loadFollowers() {
+  if (!business.value) return
+  followersLoading.value = true
+  try {
+    const res = await get(`/api/business/${business.value.id}/followers`)
+    followers.value = res.followers || []
+  } catch (error) {
+    console.error('Error loading followers:', error)
+  } finally {
+    followersLoading.value = false
   }
 }
 

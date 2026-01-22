@@ -2152,10 +2152,13 @@ def delete_business_product(business_id, product_id):
     product_title = product.title
 
     # Clean up featured_products - remove deleted product from featured list
-    from models import Business
+    from models import Business, ShoppingListItem
     business = Business.query.get(business_id)
     if business and business.featured_products and product_id in business.featured_products:
         business.featured_products = [pid for pid in business.featured_products if pid != product_id]
+
+    # Remove product from any shopping lists to avoid FK constraint
+    ShoppingListItem.query.filter_by(product_id=product_id).delete()
 
     db.session.delete(product)
     db.session.commit()
@@ -2525,4 +2528,48 @@ def get_business_subscriber_count(business_id):
         'success': True,
         'subscriber_count': current_count,
         'growth_data': growth_data
+    })
+
+
+@coupon_bp.route('/api/business/<int:business_id>/followers', methods=['GET'])
+@jwt_required
+def get_business_followers(business_id):
+    """Get list of users who follow this business"""
+    from models import User, City
+
+    current_user = get_jwt_user()
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Query users who have this business_id in their preferred_stores array
+    # PostgreSQL JSON array contains query
+    followers = User.query.filter(
+        User.preferences['preferred_stores'].contains([business_id])
+    ).order_by(User.created_at.desc()).all()
+
+    followers_data = []
+    for user in followers:
+        # Get city name if available
+        city_name = None
+        if user.city_id:
+            city = City.query.get(user.city_id)
+            if city:
+                city_name = city.name
+
+        followers_data.append({
+            'id': user.id,
+            'first_name': user.first_name or '',
+            'last_name': user.last_name or '',
+            'city': city_name,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        })
+
+    return jsonify({
+        'success': True,
+        'followers': followers_data,
+        'total': len(followers_data)
     })
