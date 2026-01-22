@@ -2546,10 +2546,11 @@ def get_business_followers(business_id):
         return jsonify({'error': 'Business not found'}), 404
 
     # Query users who have this business_id in their preferred_stores array
-    # PostgreSQL JSON array contains query
+    # PostgreSQL JSON array contains query using raw SQL
+    from sqlalchemy import text
     followers = User.query.filter(
-        User.preferences['preferred_stores'].contains([business_id])
-    ).order_by(User.created_at.desc()).all()
+        text("preferences->'preferred_stores' @> :store_id::jsonb")
+    ).params(store_id=f'[{business_id}]').order_by(User.created_at.desc()).all()
 
     followers_data = []
     for user in followers:
