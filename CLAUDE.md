@@ -45,6 +45,15 @@ For development work, **always use `./start.sh`** to avoid slow rebuilds.
 - `docker-compose.yml` - Production Docker setup
 - `start.sh` / `stop.sh` - Development environment scripts
 
+## Git Branches & Environments
+
+| Branch | Environment | URL |
+|--------|-------------|-----|
+| `develop` | Staging | https://popust-ba-staging.up.railway.app |
+| `main` | Production | https://popust.ba |
+
+**Workflow:** develop → staging, main → production
+
 ## Railway Deployment
 
 - Staging: https://popust-ba-staging.up.railway.app
