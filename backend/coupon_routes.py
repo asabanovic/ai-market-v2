@@ -2546,11 +2546,22 @@ def get_business_followers(business_id):
         return jsonify({'error': 'Business not found'}), 404
 
     # Query users who have this business_id in their preferred_stores array
-    # PostgreSQL JSON array contains query using raw SQL
+    # PostgreSQL JSON array contains query - cast to jsonb since preferences column is json type
+    # Note: business_id is safe to interpolate - it's an int from Flask route <int:business_id>
     from sqlalchemy import text
     followers = User.query.filter(
-        text("preferences->'preferred_stores' @> :store_id::jsonb")
-    ).params(store_id=f'[{business_id}]').order_by(User.created_at.desc()).all()
+        text(f"(preferences->'preferred_stores')::jsonb @> '[{business_id}]'::jsonb")
+    ).order_by(User.created_at.desc()).all()
+
+    # Bosnian month names
+    bs_months = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Juni',
+                 'Juli', 'August', 'Septembar', 'Oktobar', 'Novembar', 'Decembar']
+
+    def format_date_bs(dt):
+        if not dt:
+            return None
+        month = bs_months[dt.month - 1]
+        return f"{dt.day:02d} {month} {dt.year}, {dt.hour:02d}:{dt.minute:02d}"
 
     followers_data = []
     for user in followers:
@@ -2566,7 +2577,7 @@ def get_business_followers(business_id):
             'first_name': user.first_name or '',
             'last_name': user.last_name or '',
             'city': city_name,
-            'created_at': user.created_at.isoformat() if user.created_at else None
+            'created_at': format_date_bs(user.created_at)
         })
 
     return jsonify({

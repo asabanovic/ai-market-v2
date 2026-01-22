@@ -392,7 +392,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ follower.first_name || '-' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ follower.last_name || '-' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ follower.city || '-' }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(follower.created_at) }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ follower.created_at || '-' }}</td>
                   </tr>
                 </tbody>
               </table>
