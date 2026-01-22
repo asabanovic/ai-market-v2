@@ -410,7 +410,7 @@ async function addToShoppingList() {
   try {
     const result = await cartStore.addItem(
       props.product.id,
-      props.product.business?.id || 1,
+      props.product.business_id || props.product.business?.id || 1,
       1
     )
 
