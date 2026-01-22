@@ -1657,6 +1657,7 @@ SEARCH & SEO FIELDS:
 - description: SEO-friendly description (2-3 sentences)
 
 IMPORTANT RULES:
+- READ ALL TEXT on the image CAREFULLY before extracting. Do not guess product names - use exactly what is written.
 - Prices in Bosnia use KM (Konvertibilna Marka)
 - If you see crossed-out price, that's base_price; highlighted price is discount_price
 - ALWAYS extract product_type, size_value, size_unit for product matching
@@ -1683,7 +1684,7 @@ Return JSON format:
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",  # Use gpt-4o for vision tasks
+            model="gpt-4o-mini",  # Use gpt-4o-mini for faster vision (2-3x faster, 10x cheaper)
             messages=[
                 {"role": "system", "content": system_prompt},
                 {

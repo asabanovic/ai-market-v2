@@ -74,21 +74,48 @@
 
         <!-- Tab: Products -->
         <div v-if="activeTab === 'products'" class="space-y-6">
-          <!-- Subscriber Stats Widget with Chart -->
-          <div class="bg-white rounded-xl shadow-lg p-5">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900">Pratitelji prodavnice</h3>
-                <p class="text-sm text-gray-500">Korisnici koji prate vaše akcije</p>
+          <!-- Top Row: Chart (80%) + Access Widget (20%) -->
+          <div class="flex gap-4">
+            <!-- Subscriber Stats Widget with Chart (80%) -->
+            <div class="bg-white rounded-xl shadow-lg p-5 flex-1" style="flex-basis: 80%;">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">Pratitelji prodavnice</h3>
+                  <p class="text-sm text-gray-500">Korisnici koji prate vaše akcije</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-3xl font-bold text-purple-600">{{ subscriberCount }}</div>
+                  <div class="text-xs text-gray-500">ukupno pratitelja</div>
+                </div>
               </div>
-              <div class="text-right">
-                <div class="text-3xl font-bold text-purple-600">{{ subscriberCount }}</div>
-                <div class="text-xs text-gray-500">ukupno pratitelja</div>
+              <!-- Line Chart -->
+              <div class="h-48">
+                <Line v-if="subscriberChartData" :data="subscriberChartData" :options="subscriberChartOptions" />
               </div>
             </div>
-            <!-- Line Chart -->
-            <div class="h-48">
-              <Line v-if="subscriberChartData" :data="subscriberChartData" :options="subscriberChartOptions" />
+
+            <!-- Access Widget (20%) -->
+            <div class="bg-white rounded-xl shadow-lg p-4" style="flex-basis: 20%; min-width: 200px;">
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <h3 class="text-sm font-semibold text-gray-900">Pristup</h3>
+              </div>
+              <div class="space-y-2">
+                <div v-if="businessMembers.length === 0" class="text-xs text-gray-500">
+                  Učitavanje...
+                </div>
+                <div v-for="member in businessMembers" :key="member.id" class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xs font-medium">
+                    {{ member.name?.charAt(0)?.toUpperCase() || '?' }}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-xs font-medium text-gray-900 truncate">{{ member.name }}</div>
+                    <div class="text-[10px] text-gray-500 capitalize">{{ member.role }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -252,6 +279,17 @@
                     :class="product.has_discount ? 'text-xs text-gray-400 line-through' : 'text-base font-bold text-gray-900'"
                   >
                     {{ product.base_price.toFixed(2) }} KM
+                  </span>
+                  <!-- Price history indicator -->
+                  <span
+                    v-if="product.price_history_count > 0"
+                    class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                    :title="`${product.price_history_count} historijskih cijena`"
+                  >
+                    <svg class="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {{ product.price_history_count }}
                   </span>
                 </div>
                 <div v-if="product.expires" class="text-xs text-gray-500 mt-1">
@@ -903,7 +941,7 @@
         <!-- AI Upload Modal with Drag & Drop -->
         <div v-if="showAiUploadModal" class="fixed inset-0 z-50 overflow-y-auto">
           <div class="flex items-center justify-center min-h-screen px-4 py-6">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="closeAiUploadModal"></div>
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
             <div class="relative bg-white rounded-xl max-w-4xl w-full shadow-2xl overflow-hidden">
               <!-- Header -->
               <div class="bg-purple-600 px-6 py-4">
@@ -968,15 +1006,39 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <p class="text-lg font-medium text-gray-700">AI analizira slike...</p>
+                  <p class="text-lg font-medium text-gray-700">{{ processingMessage }}</p>
                   <p class="text-sm text-gray-500 mt-2">{{ aiUploadProgress }}</p>
+                  <!-- Fun fact -->
+                  <div class="mt-6 bg-purple-50 rounded-lg p-4 max-w-md mx-auto">
+                    <p class="text-xs text-purple-600 font-medium mb-1">Jeste li znali?</p>
+                    <p class="text-sm text-purple-800">{{ currentFunFact }}</p>
+                  </div>
                 </div>
 
-                <!-- Results -->
-                <div v-else class="space-y-4 max-h-[60vh] overflow-y-auto">
+                <!-- Results - Pipeline View -->
+                <div v-else>
+                  <!-- Global Expiry Date -->
+                  <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <label class="text-sm font-medium text-amber-800">Globalni datum isteka akcije:</label>
+                      </div>
+                      <input
+                        v-model="globalExpiryDate"
+                        type="date"
+                        class="px-3 py-1.5 border border-amber-300 rounded-lg text-sm text-gray-900 bg-white"
+                      />
+                    </div>
+                    <p class="text-xs text-amber-600 mt-1">Primjenjuje se na sve proizvode osim ako pojedinačno ne postavite drugačije</p>
+                  </div>
+
+                  <!-- Progress indicator -->
                   <div class="flex items-center justify-between mb-4">
                     <p class="text-sm text-gray-600">
-                      Uspješno: {{ aiUploadResults.filter(r => r.success).length }} / {{ aiUploadResults.length }}
+                      Proizvod {{ currentAiIndex + 1 }} od {{ totalSuccessResults }}
                     </p>
                     <button
                       @click="resetAiUpload"
@@ -986,95 +1048,155 @@
                     </button>
                   </div>
 
-                  <div
-                    v-for="(result, idx) in aiUploadResults"
-                    :key="idx"
-                    class="bg-gray-50 rounded-lg p-4 flex flex-col sm:flex-row gap-4"
-                    :class="{ 'border-l-4 border-red-500': !result.success }"
-                  >
-                    <!-- Image Preview -->
-                    <div class="flex-shrink-0 w-full sm:w-32 h-32 sm:h-32 bg-white rounded-lg overflow-hidden border border-gray-200 mx-auto sm:mx-0">
-                      <img
-                        v-if="result.image_base64"
-                        :src="'data:image/jpeg;base64,' + result.image_base64"
-                        class="w-full h-full object-contain"
-                      />
-                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    </div>
+                  <!-- Progress bar -->
+                  <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                    <div
+                      class="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                      :style="{ width: `${((currentAiIndex + 1) / totalSuccessResults) * 100}%` }"
+                    ></div>
+                  </div>
 
-                    <!-- Product Data -->
-                    <div class="flex-1 min-w-0">
-                      <div v-if="result.success && result.data">
-                        <input
-                          v-model="result.data.title"
-                          type="text"
-                          class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium text-gray-900 mb-2"
-                          placeholder="Naziv proizvoda"
+                  <!-- Single Item Pipeline View -->
+                  <div v-if="currentAiResult" class="bg-gray-50 rounded-xl p-5">
+                    <div class="flex gap-6">
+                      <!-- Large Image Preview -->
+                      <div class="flex-shrink-0 w-48 h-48 bg-white rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          v-if="currentAiResult.image_base64"
+                          :src="'data:image/jpeg;base64,' + currentAiResult.image_base64"
+                          class="w-full h-full object-contain"
                         />
-                        <div class="grid grid-cols-2 gap-2">
+                      </div>
+
+                      <!-- Product Data Form -->
+                      <div class="flex-1">
+                        <div class="mb-3">
+                          <input
+                            v-model="currentAiResult.data.title"
+                            type="text"
+                            class="w-full px-4 py-2 border rounded-lg text-base font-medium text-gray-900"
+                            :class="!currentAiResult.data.title || currentAiResult.data.title === 'Nepoznat proizvod' ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            placeholder="Naziv proizvoda *"
+                          />
+                          <p v-if="!currentAiResult.data.title || currentAiResult.data.title === 'Nepoznat proizvod'" class="text-xs text-red-500 mt-1">Naziv je obavezan</p>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3 mb-3">
                           <div>
-                            <label class="text-xs text-gray-500">Cijena (KM)</label>
+                            <label class="text-xs text-gray-500 mb-1 block">Cijena (KM) *</label>
                             <input
-                              v-model.number="result.data.base_price"
+                              v-model.number="currentAiResult.data.base_price"
                               type="number"
                               step="0.01"
-                              class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                              class="w-full px-3 py-2 border rounded-lg text-sm text-gray-900"
+                              :class="!currentAiResult.data.base_price || currentAiResult.data.base_price <= 0 ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                             />
+                            <p v-if="!currentAiResult.data.base_price || currentAiResult.data.base_price <= 0" class="text-xs text-red-500 mt-1">Cijena obavezna</p>
                           </div>
                           <div>
-                            <label class="text-xs text-gray-500">Akcijska</label>
+                            <label class="text-xs text-gray-500 mb-1 block">Akcijska cijena</label>
                             <input
-                              v-model.number="result.data.discount_price"
+                              v-model.number="currentAiResult.data.discount_price"
                               type="number"
                               step="0.01"
-                              class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                               placeholder="Opciono"
                             />
                           </div>
+                          <div>
+                            <label class="text-xs text-gray-500 mb-1 block">Ističe (overrides global)</label>
+                            <input
+                              v-model="currentAiResult.data.expires"
+                              type="date"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                              :placeholder="globalExpiryDate || 'Koristi globalni'"
+                            />
+                          </div>
                         </div>
-                        <!-- Expiry date (only show if discount price exists) -->
-                        <div v-if="result.data.discount_price" class="mt-2">
-                          <label class="text-xs text-gray-500">Akcija vrijedi do</label>
-                          <input
-                            v-model="result.data.expires"
-                            type="date"
-                            class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
-                          />
+
+                        <!-- Tags/badges -->
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                          <span v-if="currentAiResult.data.brand" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{{ currentAiResult.data.brand }}</span>
+                          <span v-if="currentAiResult.data.product_type" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">{{ currentAiResult.data.product_type }}</span>
+                          <span v-if="currentAiResult.data.size_value && currentAiResult.data.size_unit" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">{{ currentAiResult.data.size_value }}{{ currentAiResult.data.size_unit }}</span>
+                          <span v-if="currentAiResult.data.category" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">{{ currentAiResult.data.category }}</span>
                         </div>
-                        <div class="mt-2 flex flex-wrap items-center gap-2">
-                          <span v-if="result.data.brand" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{{ result.data.brand }}</span>
-                          <span v-if="result.data.product_type" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{{ result.data.product_type }}</span>
-                          <span v-if="result.data.size_value && result.data.size_unit" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">{{ result.data.size_value }}{{ result.data.size_unit }}</span>
-                          <span v-else-if="result.data.weight_volume" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">{{ result.data.weight_volume }}</span>
-                          <span v-if="result.data.variant" class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">{{ result.data.variant }}</span>
-                          <span v-if="result.data.category" class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{{ result.data.category }}</span>
+
+                        <!-- Description -->
+                        <div v-if="currentAiResult.data.description" class="mb-3">
+                          <p class="text-xs text-gray-600 line-clamp-2">{{ currentAiResult.data.description }}</p>
                         </div>
-                        <div v-if="result.data.description" class="mt-2">
-                          <p class="text-xs text-gray-600 line-clamp-2">{{ result.data.description }}</p>
-                        </div>
-                        <div v-if="result.data.tags && result.data.tags.length" class="mt-2 flex flex-wrap gap-1">
-                          <span v-for="tag in result.data.tags.slice(0, 6)" :key="tag" class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{{ tag }}</span>
-                          <span v-if="result.data.tags.length > 6" class="text-[10px] text-gray-400">+{{ result.data.tags.length - 6 }}</span>
-                        </div>
-                        <div class="mt-3 flex justify-end">
-                          <button
-                            @click="createProductFromAi(result)"
-                            :disabled="result.creating"
-                            class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
-                          >
-                            {{ result.creating ? 'Kreiram...' : 'Kreiraj proizvod' }}
-                          </button>
-                        </div>
-                      </div>
-                      <div v-else class="text-red-600">
-                        <p class="text-sm font-medium">Greška: {{ result.error || 'Nepoznata greška' }}</p>
-                        <p class="text-xs text-gray-500">{{ result.filename }}</p>
                       </div>
                     </div>
+
+                    <!-- Navigation + Actions -->
+                    <div class="flex items-center justify-between mt-5 pt-4 border-t border-gray-200">
+                      <!-- Prev Button -->
+                      <button
+                        @click="prevAiResult"
+                        :disabled="currentAiIndex === 0"
+                        class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Prethodni
+                      </button>
+
+                      <!-- Create Button -->
+                      <button
+                        @click="createProductFromAiPipeline"
+                        :disabled="currentAiResult.creating || currentAiResult.created"
+                        class="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <svg v-if="currentAiResult.created" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        {{ currentAiResult.creating ? 'Kreiram...' : currentAiResult.created ? 'Kreirano!' : 'Kreiraj i nastavi' }}
+                      </button>
+
+                      <!-- Next Button -->
+                      <button
+                        @click="nextAiResult"
+                        :disabled="currentAiIndex >= totalSuccessResults - 1"
+                        class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        Sljedeći
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Info message on non-last slides -->
+                  <div v-if="totalSuccessResults > 1 && currentAiIndex < totalSuccessResults - 1" class="mt-4 text-center">
+                    <p class="text-sm text-gray-500">
+                      Pregledajte sve slike, pa sačuvajte na kraju
+                    </p>
+                  </div>
+
+                  <!-- Save All Button - only on last slide -->
+                  <div v-if="totalSuccessResults > 1 && currentAiIndex === totalSuccessResults - 1" class="mt-4 flex justify-center">
+                    <button
+                      @click="saveAllAiProducts"
+                      :disabled="savingAllProducts || allProductsCreated"
+                      class="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      <svg v-if="allProductsCreated" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <svg v-else-if="savingAllProducts" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      {{ savingAllProducts ? `Spremam (${savedCount}/${totalSuccessResults})...` : allProductsCreated ? 'Svi proizvodi sačuvani!' : `Sačuvaj sve (${uncreatedCount})` }}
+                    </button>
+                  </div>
+
+                  <!-- Failed uploads summary -->
+                  <div v-if="aiUploadResults.filter(r => !r.success).length > 0" class="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p class="text-sm text-red-700 font-medium">{{ aiUploadResults.filter(r => !r.success).length }} slika nije uspješno obrađeno</p>
                   </div>
                 </div>
               </div>
@@ -1254,6 +1376,7 @@ const businessStats = ref({
 })
 const subscriberCount = ref(0)
 const subscriberGrowthData = ref<{date: string, total: number}[]>([])
+const businessMembers = ref<{id: number, user_id: string, email: string, name: string, role: string}[]>([])
 
 // Chart configuration
 const subscriberChartData = computed(() => {
@@ -1354,8 +1477,159 @@ const showAiUploadModal = ref(false)
 const aiUploadProcessing = ref(false)
 const aiUploadProgress = ref('')
 const aiUploadResults = ref<any[]>([])
+const funFactIndex = ref(0)
+let funFactInterval: any = null
+
+// Fun processing messages
+const processingMessages = [
+  'Obrađujem slike...',
+  'Čitam etikete...',
+  'Prepoznajem cijene...',
+  'Skoro gotovo...',
+  'Još malo strpljenja...'
+]
+
+// Fun facts (true facts!)
+const funFacts = [
+  'Prosječan čovjek provede 6 mjeseci života čekajući na crvenom svjetlu.',
+  'Med nikada ne pokvaruje. Pronađen je jestivi med u egipatskim grobnicama star 3000 godina.',
+  'Hobotnice imaju tri srca i plavu krv.',
+  'Banane su tehnički bobice, a jagode nisu.',
+  'Krava može hodati stepenicama gore, ali ne i dolje.',
+  'Srce škampa nalazi se u njegovoj glavi.',
+  'Flamingosi su prirodno bijeli - rozi postaju od hrane koju jedu.',
+  'Staklo nije ni čvrsto ni tekuće - to je amorfna tvar.',
+  'Oko 70% kisika na Zemlji proizvode morske alge i biljke.',
+  'Pčele mogu prepoznati ljudska lica.',
+  'Mrav može nositi 50 puta svoju težinu.',
+  'Jedina namirnica koja nikad ne trune je med.',
+  'Kokoši imaju više kostiju u vratu nego žirafe.',
+  'Prst koristi 6 različitih mišića da bi se pomakao.',
+  'Najstariji poznati recept je za pivo - star preko 4000 godina.',
+  'Jedna munja može zagrijati zrak na 30.000°C.',
+  'Ljudsko oko može razlikovati oko 10 miliona boja.',
+  'Slonovi su jedine životinje koje ne mogu skakati.',
+  'Vaša je koža najveći organ vašeg tijela.',
+  'Zvuk se kreće 4 puta brže kroz vodu nego kroz zrak.'
+]
+
+// Computed: Current fun fact (rotates every 3 seconds)
+const currentFunFact = computed(() => funFacts[funFactIndex.value % funFacts.length])
+
+// Computed: Processing message based on progress
+const processingMessage = computed(() => {
+  const progress = aiUploadProgress.value
+  if (progress.includes('1/')) return processingMessages[0]
+  if (progress.includes('2/')) return processingMessages[1]
+  if (progress.includes('3/')) return processingMessages[2]
+  return processingMessages[Math.floor(Math.random() * processingMessages.length)]
+})
 const isDragging = ref(false)
 const aiUploadInput = ref<HTMLInputElement | null>(null)
+const currentAiIndex = ref(0)
+const globalExpiryDate = ref('')
+
+// Current result in pipeline view
+const currentAiResult = computed(() => {
+  const successResults = aiUploadResults.value.filter(r => r.success)
+  return successResults[currentAiIndex.value] || null
+})
+
+// Total successful results for navigation
+const totalSuccessResults = computed(() => aiUploadResults.value.filter(r => r.success).length)
+
+// Save All state
+const savingAllProducts = ref(false)
+const savedCount = ref(0)
+const allProductsCreated = computed(() => {
+  const successResults = aiUploadResults.value.filter(r => r.success)
+  return successResults.length > 0 && successResults.every(r => r.created)
+})
+const uncreatedCount = computed(() => {
+  return aiUploadResults.value.filter(r => r.success && !r.created).length
+})
+
+// Navigation functions
+function nextAiResult() {
+  if (currentAiIndex.value < totalSuccessResults.value - 1) {
+    currentAiIndex.value++
+  }
+}
+
+function prevAiResult() {
+  if (currentAiIndex.value > 0) {
+    currentAiIndex.value--
+  }
+}
+
+// Save all products at once
+async function saveAllAiProducts() {
+  if (!business.value) return
+
+  const successResults = aiUploadResults.value.filter(r => r.success && !r.created)
+  if (successResults.length === 0) return
+
+  // Validate all products first
+  const allErrors: string[] = []
+  successResults.forEach((result, index) => {
+    const errors = validateProductData(result.data)
+    if (errors.length > 0) {
+      allErrors.push(`Proizvod ${index + 1}: ${errors.join(', ')}`)
+    }
+  })
+
+  if (allErrors.length > 0) {
+    alert('Greške u podacima:\n' + allErrors.join('\n'))
+    return
+  }
+
+  savingAllProducts.value = true
+  savedCount.value = 0
+
+  try {
+    for (const result of successResults) {
+      const effectiveExpiry = result.data.expires || globalExpiryDate.value || null
+
+      const productData = {
+        title: result.data.title,
+        base_price: result.data.base_price,
+        discount_price: result.data.discount_price || null,
+        expires: effectiveExpiry,
+        category: result.data.category || null,
+        tags: result.data.tags || [],
+        description: result.data.description || null,
+        brand: result.data.brand || null,
+        product_type: result.data.product_type || null,
+        size_value: result.data.size_value || null,
+        size_unit: result.data.size_unit || null,
+        variant: result.data.variant || null,
+        image_base64: result.image_base64 || null
+      }
+
+      await post(`/api/business/${business.value.id}/products`, productData)
+      result.created = true
+      savedCount.value++
+    }
+
+    // All done - close modal and reload
+    setTimeout(() => {
+      showAiUploadModal.value = false
+      resetAiUpload()
+      loadProducts()
+    }, 1000)
+  } catch (error: any) {
+    console.error('Error saving products:', error)
+    alert(error.response?.data?.error || 'Greška pri spremanju proizvoda')
+  } finally {
+    savingAllProducts.value = false
+  }
+}
+
+// Get effective expiry for current item (individual overrides global)
+function getEffectiveExpiry(result: any) {
+  if (result?.data?.expires) return result.data.expires
+  return globalExpiryDate.value
+}
 
 // Track products with failed image loads (S3 still processing)
 const failedImageProducts = ref<Set<number>>(new Set())
@@ -1528,6 +1802,14 @@ async function loadData() {
       subscriberGrowthData.value = subRes.growth_data || []
     } catch (e) {
       console.error('Error loading subscriber count:', e)
+    }
+
+    // Load business members (who has access)
+    try {
+      const membersRes = await get(`/api/business/${business.value.id}/members`)
+      businessMembers.value = membersRes.members || []
+    } catch (e) {
+      console.error('Error loading business members:', e)
     }
 
     // Load coupons
@@ -1729,6 +2011,9 @@ function resetAiUpload() {
   aiUploadProcessing.value = false
   aiUploadProgress.value = ''
   isDragging.value = false
+  currentAiIndex.value = 0
+  globalExpiryDate.value = ''
+  if (funFactInterval) clearInterval(funFactInterval)
 }
 
 function handleDrop(event: DragEvent) {
@@ -1796,7 +2081,13 @@ async function processFiles(files: File[]) {
   }
 
   aiUploadProcessing.value = true
-  aiUploadProgress.value = `Kompresija ${imageFiles.length} slika...`
+  aiUploadProgress.value = `Kompresija slika: ${imageFiles.length}...`
+
+  // Start fun fact rotation
+  funFactIndex.value = Math.floor(Math.random() * funFacts.length)
+  funFactInterval = setInterval(() => {
+    funFactIndex.value = (funFactIndex.value + 1) % funFacts.length
+  }, 3500)
 
   // Compress images before upload (1024px max, 80% quality)
   const compressedFiles = await Promise.all(
@@ -1809,14 +2100,18 @@ async function processFiles(files: File[]) {
   })
 
   try {
-    aiUploadProgress.value = `AI analizira ${imageFiles.length} slika...`
+    aiUploadProgress.value = `Obrađujem slike: ${imageFiles.length}...`
     const response = await upload(`/api/business/${business.value.id}/products/bulk-ai-upload`, formData)
     aiUploadResults.value = response.results || []
     aiUploadProcessing.value = false
+    // Stop fun fact rotation
+    if (funFactInterval) clearInterval(funFactInterval)
   } catch (error: any) {
     console.error('AI upload error:', error)
     aiUploadProcessing.value = false
-    alert(error.response?.data?.error || 'Greška pri AI obradi slika')
+    // Stop fun fact rotation
+    if (funFactInterval) clearInterval(funFactInterval)
+    alert(error.response?.data?.error || 'Greška pri obradi slika')
   }
 }
 
@@ -1854,6 +2149,74 @@ async function createProductFromAi(result: any) {
 
     // Reload products
     await loadProducts()
+  } catch (error: any) {
+    console.error('Error creating product:', error)
+    result.creating = false
+    alert(error.response?.data?.error || 'Greška pri kreiranju proizvoda')
+  }
+}
+
+// Validation for product data
+function validateProductData(data: any): string[] {
+  const errors: string[] = []
+  if (!data.title || data.title === 'Nepoznat proizvod' || data.title.trim() === '') {
+    errors.push('Naziv proizvoda je obavezan')
+  }
+  if (!data.base_price || data.base_price <= 0) {
+    errors.push('Cijena mora biti veća od 0')
+  }
+  return errors
+}
+
+// Pipeline version - creates product and moves to next
+async function createProductFromAiPipeline() {
+  if (!business.value || !currentAiResult.value?.data) return
+
+  const result = currentAiResult.value
+
+  // Validate before saving
+  const errors = validateProductData(result.data)
+  if (errors.length > 0) {
+    alert('Greška:\n' + errors.join('\n'))
+    return
+  }
+
+  result.creating = true
+
+  try {
+    // Use individual expiry or fall back to global expiry
+    const effectiveExpiry = result.data.expires || globalExpiryDate.value || null
+
+    const productData = {
+      title: result.data.title,
+      base_price: result.data.base_price,
+      discount_price: result.data.discount_price || null,
+      expires: effectiveExpiry,
+      category: result.data.category || null,
+      tags: result.data.tags || [],
+      description: result.data.description || null,
+      brand: result.data.brand || null,
+      product_type: result.data.product_type || null,
+      size_value: result.data.size_value || null,
+      size_unit: result.data.size_unit || null,
+      variant: result.data.variant || null,
+      image_base64: result.image_base64 || null
+    }
+
+    await post(`/api/business/${business.value.id}/products`, productData)
+
+    result.created = true
+    result.creating = false
+
+    // Auto-advance to next if available
+    if (currentAiIndex.value < totalSuccessResults.value - 1) {
+      currentAiIndex.value++
+    } else {
+      // Last item - close modal and reload
+      showAiUploadModal.value = false
+      resetAiUpload()
+      await loadProducts()
+    }
   } catch (error: any) {
     console.error('Error creating product:', error)
     result.creating = false

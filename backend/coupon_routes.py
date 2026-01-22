@@ -1217,6 +1217,33 @@ def get_user_business_membership():
     })
 
 
+@coupon_bp.route('/api/business/<int:business_id>/members', methods=['GET'])
+@jwt_required
+def get_business_members(business_id):
+    """Get all members of a business (for authorized business members)"""
+    current_user = get_jwt_user()
+
+    # Check if user has access to this business
+    if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    memberships = BusinessMembership.query.filter_by(
+        business_id=business_id,
+        is_active=True
+    ).all()
+
+    members = [{
+        'id': m.id,
+        'user_id': m.user_id,
+        'email': m.user.email if m.user else None,
+        'name': f"{m.user.first_name or ''} {m.user.last_name or ''}".strip() or m.user.email.split('@')[0] if m.user else 'Unknown',
+        'role': m.role,
+        'created_at': m.created_at.isoformat() if m.created_at else None
+    } for m in memberships]
+
+    return jsonify({'members': members})
+
+
 # ==================== STORE MANAGEMENT ENDPOINTS ====================
 
 @coupon_bp.route('/api/business/<int:business_id>/stores', methods=['GET'])
@@ -1752,7 +1779,8 @@ def upload_coupon_image(coupon_id):
 @jwt_required
 def get_business_products(business_id):
     """Get all products for a business (owner/staff only)"""
-    from models import Product
+    from models import Product, ProductPriceHistory
+    from sqlalchemy import func
 
     current_user = get_jwt_user()
     if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
@@ -1781,6 +1809,18 @@ def get_business_products(business_id):
     query = query.order_by(Product.created_at.desc())
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    # Get price history counts for all products in one query
+    product_ids = [p.id for p in pagination.items]
+    history_counts = {}
+    if product_ids:
+        counts = db.session.query(
+            ProductPriceHistory.product_id,
+            func.count(ProductPriceHistory.id)
+        ).filter(
+            ProductPriceHistory.product_id.in_(product_ids)
+        ).group_by(ProductPriceHistory.product_id).all()
+        history_counts = {pid: count for pid, count in counts}
+
     products = []
     for p in pagination.items:
         products.append({
@@ -1799,7 +1839,8 @@ def get_business_products(business_id):
             'product_type': p.product_type,
             'size_value': p.size_value,
             'size_unit': p.size_unit,
-            'variant': p.variant
+            'variant': p.variant,
+            'price_history_count': history_counts.get(p.id, 0)
         })
 
     return jsonify({
@@ -1858,28 +1899,68 @@ def create_business_product(business_id):
         if discount_price >= data['base_price']:
             return jsonify({'error': 'Cijena na popustu mora biti manja od osnovne cijene'}), 400
 
-    product = Product(
+    # Check for existing product with same title in this business
+    existing_product = Product.query.filter_by(
         business_id=business_id,
-        city=business.city,
-        title=data['title'],
-        base_price=data['base_price'],
-        discount_price=discount_price,
-        expires=expires,
-        category=data.get('category'),
-        category_group=data.get('category_group'),
-        tags=data.get('tags'),
-        enriched_description=data.get('description'),
-        brand=data.get('brand'),
-        product_type=data.get('product_type'),
-        size_value=data.get('size_value'),
-        size_unit=data.get('size_unit'),
-        variant=data.get('variant')
-    )
+        title=data['title']
+    ).first()
 
-    db.session.add(product)
+    was_updated = False
+    price_changed = False
+    if existing_product:
+        # Check if prices actually changed
+        new_base = float(data['base_price'])
+        new_discount = float(discount_price) if discount_price else None
+
+        if existing_product.base_price != new_base or existing_product.discount_price != new_discount:
+            # Save current price to history before updating
+            from models import ProductPriceHistory
+            price_history = ProductPriceHistory(
+                product_id=existing_product.id,
+                base_price=existing_product.base_price,
+                discount_price=existing_product.discount_price
+            )
+            db.session.add(price_history)
+            price_changed = True
+
+        # Update existing product with new prices
+        existing_product.base_price = new_base
+        existing_product.discount_price = new_discount
+        if expires:
+            existing_product.expires = expires
+        if data.get('category'):
+            existing_product.category = data.get('category')
+        if data.get('description'):
+            existing_product.enriched_description = data.get('description')
+        if data.get('brand'):
+            existing_product.brand = data.get('brand')
+
+        product = existing_product
+        was_updated = True
+        logger.info(f"Product {product.id} updated (duplicate title) by user {current_user.id} for business {business_id}")
+    else:
+        product = Product(
+            business_id=business_id,
+            city=business.city,
+            title=data['title'],
+            base_price=data['base_price'],
+            discount_price=discount_price,
+            expires=expires,
+            category=data.get('category'),
+            category_group=data.get('category_group'),
+            tags=data.get('tags'),
+            enriched_description=data.get('description'),
+            brand=data.get('brand'),
+            product_type=data.get('product_type'),
+            size_value=data.get('size_value'),
+            size_unit=data.get('size_unit'),
+            variant=data.get('variant')
+        )
+
+        db.session.add(product)
+        logger.info(f"Product {product.id} created by user {current_user.id} for business {business_id}")
+
     db.session.commit()
-
-    logger.info(f"Product {product.id} created by user {current_user.id} for business {business_id}")
 
     # Handle image_base64 if provided - upload directly to S3
     image_path = None
@@ -1904,14 +1985,21 @@ def create_business_product(business_id):
         except Exception as e:
             logger.error(f"Failed to upload image for product {product.id}: {e}")
 
+    # Get price history count
+    from models import ProductPriceHistory
+    price_history_count = ProductPriceHistory.query.filter_by(product_id=product.id).count()
+
     return jsonify({
         'success': True,
+        'was_updated': was_updated,
+        'price_changed': price_changed,
         'product': {
             'id': product.id,
             'title': product.title,
             'base_price': product.base_price,
             'discount_price': product.discount_price,
-            'image_path': image_path
+            'image_path': image_path,
+            'price_history_count': price_history_count
         }
     })
 
@@ -2244,13 +2332,16 @@ def business_product_set_image(business_id, product_id):
 def bulk_ai_product_upload(business_id):
     """
     Process multiple product images with AI to extract product data.
-    Accepts up to 10 images, resizes them to max 600px, and returns extracted product info.
+    Accepts up to 10 images, processes them in PARALLEL for speed.
     """
-    import os
     import io
     import base64
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     from PIL import Image
     from openai_utils import extract_product_from_image
+
+    start_time = time.time()
 
     current_user = get_jwt_user()
     if not current_user.is_admin and not user_has_business_role(current_user.id, business_id, 'staff'):
@@ -2270,13 +2361,16 @@ def bulk_ai_product_upload(business_id):
         return jsonify({'error': 'Maximum 10 images allowed'}), 400
 
     allowed_extensions = {'png', 'jpg', 'jpeg', 'webp'}
-    results = []
+
+    # Step 1: Pre-process all images (fast, sequential)
+    prepared_images = []
+    invalid_results = []
 
     for idx, file in enumerate(files):
         try:
             ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
             if ext not in allowed_extensions:
-                results.append({
+                invalid_results.append({
                     'index': idx,
                     'filename': file.filename,
                     'success': False,
@@ -2284,15 +2378,15 @@ def bulk_ai_product_upload(business_id):
                 })
                 continue
 
-            # Read and resize image to max 600px
+            # Read and resize image to max 400px (reduced from 600 for speed)
             img = Image.open(file)
 
             # Convert to RGB if necessary (for PNG with transparency)
             if img.mode in ('RGBA', 'P'):
                 img = img.convert('RGB')
 
-            # Resize to max 600px while maintaining aspect ratio
-            max_size = 600
+            # Resize to max 400px while maintaining aspect ratio
+            max_size = 400
             if img.width > max_size or img.height > max_size:
                 if img.width > img.height:
                     new_width = max_size
@@ -2304,37 +2398,66 @@ def bulk_ai_product_upload(business_id):
 
             # Convert to base64
             buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=85)
+            img.save(buffer, format='JPEG', quality=80)
             buffer.seek(0)
             image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
 
-            # Extract product info using AI
-            extracted_data = extract_product_from_image(image_base64)
-
-            results.append({
+            prepared_images.append({
                 'index': idx,
                 'filename': file.filename,
-                'success': True,
-                'data': extracted_data,
                 'image_base64': image_base64
             })
 
         except Exception as e:
-            logger.error(f"Error processing image {file.filename}: {e}")
-            results.append({
+            logger.error(f"Error pre-processing image {file.filename}: {e}")
+            invalid_results.append({
                 'index': idx,
                 'filename': file.filename,
                 'success': False,
                 'error': str(e)
             })
 
-    logger.info(f"Bulk AI upload for business {business_id}: processed {len(files)} images")
+    # Step 2: Process all valid images in PARALLEL with AI
+    def process_single_image(img_data):
+        try:
+            extracted_data = extract_product_from_image(img_data['image_base64'])
+            return {
+                'index': img_data['index'],
+                'filename': img_data['filename'],
+                'success': True,
+                'data': extracted_data,
+                'image_base64': img_data['image_base64']
+            }
+        except Exception as e:
+            logger.error(f"Error extracting from {img_data['filename']}: {e}")
+            return {
+                'index': img_data['index'],
+                'filename': img_data['filename'],
+                'success': False,
+                'error': str(e)
+            }
+
+    ai_results = []
+    if prepared_images:
+        # Use ThreadPoolExecutor for parallel API calls
+        with ThreadPoolExecutor(max_workers=min(10, len(prepared_images))) as executor:
+            futures = {executor.submit(process_single_image, img): img for img in prepared_images}
+            for future in as_completed(futures):
+                ai_results.append(future.result())
+
+    # Combine results and sort by original index
+    all_results = invalid_results + ai_results
+    all_results.sort(key=lambda x: x['index'])
+
+    elapsed_time = time.time() - start_time
+    logger.info(f"Bulk AI upload for business {business_id}: processed {len(files)} images in {elapsed_time:.2f}s")
 
     return jsonify({
         'success': True,
-        'results': results,
-        'processed': len([r for r in results if r.get('success')]),
-        'failed': len([r for r in results if not r.get('success')])
+        'results': all_results,
+        'processed': len([r for r in all_results if r.get('success')]),
+        'failed': len([r for r in all_results if not r.get('success')]),
+        'elapsed_seconds': round(elapsed_time, 2)
     })
 
 

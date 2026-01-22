@@ -571,7 +571,7 @@ async function initMap() {
                 height: 32px;
                 background: white;
                 border-radius: 50%;
-                border: 2px solid #7c3aed;
+                border: 2px solid #3b82f6;
                 overflow: hidden;
                 display: flex;
                 align-items: center;
@@ -584,7 +584,7 @@ async function initMap() {
                 height: 0;
                 border-left: 6px solid transparent;
                 border-right: 6px solid transparent;
-                border-top: 8px solid #7c3aed;
+                border-top: 8px solid #ff6600;
                 position: absolute;
                 bottom: 0;
                 left: 50%;
