@@ -545,34 +545,34 @@ def mark_duplicate(user, submission_id):
 
 def send_rejection_email(email, name, reason, store_name):
     """Send rejection email with tips for better submissions"""
-    from sendgrid_utils import send_email
+    from sendgrid_utils import send_email, get_base_template
 
-    html_content = f"""
-    <h2 style="color: #333;">Vaš prijedlog proizvoda nije prihvaćen</h2>
+    content = f'''
+<h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Vaš prijedlog nije prihvaćen</h1>
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani/a {name},</p>
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Nažalost, Vaš prijedlog proizvoda za <strong>{store_name}</strong> nije mogao biti prihvaćen.</p>
 
-    <p>Poštovani/a {name},</p>
+<div style="margin:24px 0;padding:16px;background:#FEF2F2;border-left:4px solid #EF4444;border-radius:0 8px 8px 0;">
+<p style="margin:0;font-size:14px;color:#991B1B;"><strong>Razlog:</strong> {reason}</p>
+</div>
 
-    <p>Nažalost, Vaš prijedlog proizvoda za <strong>{store_name}</strong> nije mogao biti prihvaćen.</p>
+<h2 style="margin:24px 0 16px;font-size:16px;font-weight:600;color:#1a1a1a;">Savjeti za uspješan prijedlog:</h2>
+<ul style="margin:0;padding:0 0 0 20px;font-size:14px;color:#444;line-height:1.8;">
+<li><strong>Jasna slika cijene</strong> - Fotografirajte etiketu tako da se jasno vidi cijena</li>
+<li><strong>Čitljiv naziv proizvoda</strong> - Uključite naziv proizvoda na etiketi</li>
+<li><strong>Dobro osvjetljenje</strong> - Izbjegavajte mutne ili tamne fotografije</li>
+<li><strong>Jedan proizvod</strong> - Fotografirajte jedan proizvod po prijedlogu</li>
+</ul>
 
-    <div style="background: #f8f9fa; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0;">
-        <strong>Razlog:</strong><br>
-        {reason}
-    </div>
+<div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;">
+<p style="margin:0;font-size:13px;color:#666;line-height:1.5;">
+Hvala Vam što doprinosite zajednici! Svaki prihvaćeni prijedlog donosi Vam <strong>10 kredita</strong>.
+</p>
+</div>
+'''
 
-    <h3 style="color: #333; margin-top: 30px;">Savjeti za uspješan prijedlog:</h3>
-
-    <ul style="line-height: 1.8; color: #555;">
-        <li><strong>Jasna slika cijene</strong> - Fotografirajte etiketu s cijenom tako da se jasno vidi stara i nova cijena</li>
-        <li><strong>Čitljiv naziv proizvoda</strong> - Uključite naziv proizvoda na etiketi</li>
-        <li><strong>Aktualna ponuda</strong> - Provjerite da je akcija još uvijek aktivna</li>
-        <li><strong>Dobro osvjetljenje</strong> - Izbjegavajte mutne ili tamne fotografije</li>
-        <li><strong>Jedan proizvod</strong> - Fotografirajte jedan proizvod po prijedlogu</li>
-    </ul>
-
-    <p style="margin-top: 30px;">Hvala Vam što doprinosite zajednici! Svaki prihvaćeni prijedlog donosi Vam <strong>10 kredita</strong>.</p>
-    """
-
-    if send_email(email, 'Vaš prijedlog proizvoda - Popust.ba', html_content):
+    html = get_base_template(content, "#EF4444")
+    if send_email(email, 'Vaš prijedlog proizvoda - Popust.ba', html):
         print(f"Rejection email sent to {email}")
     else:
         print(f"Failed to send rejection email to {email}")
@@ -580,30 +580,30 @@ def send_rejection_email(email, name, reason, store_name):
 
 def send_approval_email(email, name, product_title, store_name, credits_awarded):
     """Send approval email with congratulations"""
-    from sendgrid_utils import send_email
+    from sendgrid_utils import send_email, get_base_template
 
-    html_content = f"""
-    <h2 style="color: #16a34a;">🎉 Čestitamo! Vaš prijedlog je prihvaćen!</h2>
+    content = f'''
+<h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">🎉 Čestitamo!</h1>
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani/a {name},</p>
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Vaš prijedlog proizvoda za <strong>{store_name}</strong> je pregledan i prihvaćen!</p>
 
-    <p>Poštovani/a {name},</p>
+<div style="margin:24px 0;padding:16px;background:#F0FDF4;border-left:4px solid #10B981;border-radius:0 8px 8px 0;">
+<p style="margin:0 0 8px;font-size:14px;color:#065F46;"><strong>Proizvod:</strong> {product_title}</p>
+<p style="margin:0;font-size:14px;color:#065F46;"><strong>Nagrada:</strong> +{credits_awarded} kredita</p>
+</div>
 
-    <p>Vaš prijedlog proizvoda za <strong>{store_name}</strong> je pregledan i prihvaćen!</p>
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Vaš doprinos pomaže zajednici da pronađe najbolje ponude. Hvala Vam!</p>
 
-    <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 15px; margin: 20px 0;">
-        <strong>Proizvod:</strong> {product_title}<br>
-        <strong>Nagrada:</strong> +{credits_awarded} kredita
-    </div>
+<div style="margin:24px 0 0;padding:16px;background:#F9FAFB;border-radius:8px;">
+<p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#1a1a1a;">Nastavite doprinositi!</p>
+<p style="margin:0;font-size:13px;color:#666;line-height:1.5;">
+Za svaki prihvaćeni prijedlog dobijate <strong>10 kredita</strong>. Fotografirajte cijene proizvoda u trgovinama i pomozite drugima da uštede!
+</p>
+</div>
+'''
 
-    <p>Vaš doprinos pomaže zajednici da pronađe najbolje ponude. Hvala Vam!</p>
-
-    <div style="background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 8px;">
-        <h3 style="margin-top: 0; color: #333;">Nastavite doprinositi!</h3>
-        <p style="margin-bottom: 0;">Za svaki prihvaćeni prijedlog dobijate <strong>10 kredita</strong>.
-        Fotografirajte akcijske cijene u trgovinama i pomozite drugima da uštede!</p>
-    </div>
-    """
-
-    if send_email(email, '🎉 Vaš prijedlog je prihvaćen! - Popust.ba', html_content):
+    html = get_base_template(content, "#10B981")
+    if send_email(email, '🎉 Vaš prijedlog je prihvaćen! - Popust.ba', html):
         print(f"Approval email sent to {email}")
     else:
         print(f"Failed to send approval email to {email}")

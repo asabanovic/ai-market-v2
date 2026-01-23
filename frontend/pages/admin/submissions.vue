@@ -11,8 +11,8 @@
               </svg>
             </NuxtLink>
             <div>
-              <h1 class="text-2xl font-semibold text-gray-900">Korisnicke prijave proizvoda</h1>
-              <p class="mt-1 text-sm text-gray-600">Pregled i odobravanje korisnickih fotografija proizvoda</p>
+              <h1 class="text-2xl font-semibold text-gray-900">Korisničke prijave proizvoda</h1>
+              <p class="mt-1 text-sm text-gray-600">Pregled i odobravanje korisničkih fotografija proizvoda</p>
             </div>
           </div>
         </div>
@@ -25,7 +25,7 @@
           <div class="text-2xl font-bold text-gray-900">{{ stats.total }}</div>
         </div>
         <div class="bg-white rounded-lg border border-yellow-200 p-4 bg-yellow-50">
-          <div class="text-sm text-yellow-700">Na cekanju</div>
+          <div class="text-sm text-yellow-700">Na čekanju</div>
           <div class="text-2xl font-bold text-yellow-600">{{ stats.pending }}</div>
         </div>
         <div class="bg-white rounded-lg border border-blue-200 p-4 bg-blue-50">
@@ -64,7 +64,7 @@
               : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
           ]"
         >
-          Na cekanju
+          Na čekanju
         </button>
         <button
           @click="setFilter('processing')"
@@ -108,7 +108,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <span class="ml-3 text-lg">Ucitavanje...</span>
+          <span class="ml-3 text-lg">Učitavanje...</span>
         </div>
       </div>
 
@@ -119,7 +119,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         <h3 class="mt-4 text-lg font-medium text-gray-900">Nema prijava</h3>
-        <p class="mt-2 text-gray-600">Trenutno nema korisnickih prijava za pregled.</p>
+        <p class="mt-2 text-gray-600">Trenutno nema korisničkih prijava za pregled.</p>
       </div>
 
       <!-- Table View -->
@@ -185,7 +185,7 @@
                       </span>
                     </p>
                   </div>
-                  <span v-else class="text-xs text-gray-400">Nije obradeno</span>
+                  <span v-else class="text-xs text-gray-400">Nije obrađeno</span>
                 </td>
 
                 <!-- Status -->
@@ -253,7 +253,7 @@
           :disabled="currentPage === totalPages"
           class="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700"
         >
-          Sljedeca
+          Sljedeća
         </button>
       </div>
     </div>
@@ -359,7 +359,7 @@
                       </div>
 
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Vazi do</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Važi do</label>
                         <input
                           v-model="editableData.expires"
                           type="date"
@@ -409,10 +409,14 @@
               </button>
               <button
                 @click="approveFromView"
-                :disabled="!editableData.title || !editableData.base_price"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!editableData.title || !editableData.base_price || isApproving"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Odobri i kreiraj proizvod
+                <svg v-if="isApproving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                {{ isApproving ? 'Obrada...' : 'Odobri i kreiraj proizvod' }}
               </button>
             </div>
           </div>
@@ -471,7 +475,7 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Vazi do</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Važi do</label>
               <input
                 v-model="approveForm.expires"
                 type="date"
@@ -489,10 +493,14 @@
             </button>
             <button
               @click="confirmApprove"
-              :disabled="!approveForm.title || !approveForm.base_price"
-              class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!approveForm.title || !approveForm.base_price || isApproving"
+              class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Odobri i kreiraj
+              <svg v-if="isApproving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {{ isApproving ? 'Obrada...' : 'Odobri i kreiraj' }}
             </button>
           </div>
         </div>
@@ -593,6 +601,7 @@ const approveForm = ref({
   discount_price: '',
   expires: ''
 })
+const isApproving = ref(false)
 
 // Reject modal
 const rejectingSubmission = ref<Submission | null>(null)
@@ -668,7 +677,7 @@ function getStatusClass(status: string) {
 
 function getStatusLabel(status: string) {
   switch (status) {
-    case 'pending': return 'Na cekanju'
+    case 'pending': return 'Na čekanju'
     case 'processing': return 'U obradi'
     case 'approved': return 'Odobreno'
     case 'rejected': return 'Odbijeno'
@@ -735,7 +744,7 @@ async function processWithAI() {
     }
   } catch (error: any) {
     console.error('Error processing with AI:', error)
-    aiProcessError.value = error.response?.data?.error || 'Greska pri AI obradi'
+    aiProcessError.value = error.response?.data?.error || 'Greška pri AI obradi'
   } finally {
     isProcessingAI.value = false
   }
@@ -752,6 +761,7 @@ async function approveFromView() {
   if (!viewingSubmission.value) return
   if (!editableData.value.title || !editableData.value.base_price) return
 
+  isApproving.value = true
   try {
     await post(`/api/admin/submissions/${viewingSubmission.value.id}/approve`, {
       title: editableData.value.title,
@@ -765,7 +775,9 @@ async function approveFromView() {
     fetchStats()
   } catch (error: any) {
     console.error('Error approving submission:', error)
-    alert('Greska pri odobravanju: ' + (error.response?.data?.error || 'Unknown error'))
+    alert('Greška pri odobravanju: ' + (error.response?.data?.error || 'Unknown error'))
+  } finally {
+    isApproving.value = false
   }
 }
 
@@ -784,6 +796,7 @@ async function confirmApprove() {
   if (!approvingSubmission.value) return
   if (!approveForm.value.title || !approveForm.value.base_price) return
 
+  isApproving.value = true
   try {
     await post(`/api/admin/submissions/${approvingSubmission.value.id}/approve`, {
       title: approveForm.value.title,
@@ -796,7 +809,9 @@ async function confirmApprove() {
     fetchStats()
   } catch (error: any) {
     console.error('Error approving submission:', error)
-    alert('Greska pri odobravanju: ' + (error.response?.data?.error || 'Unknown error'))
+    alert('Greška pri odobravanju: ' + (error.response?.data?.error || 'Unknown error'))
+  } finally {
+    isApproving.value = false
   }
 }
 
@@ -818,7 +833,7 @@ async function confirmReject() {
     fetchStats()
   } catch (error: any) {
     console.error('Error rejecting submission:', error)
-    alert('Greska pri odbijanju')
+    alert('Greška pri odbijanju')
   }
 }
 
