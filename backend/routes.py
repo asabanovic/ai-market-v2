@@ -1657,21 +1657,21 @@ def api_public_business_page(slug_or_id):
                     'contributor_name': contributor_name
                 })
 
-        # Get store locations with coordinates
+        # Get store locations (include all, even without coordinates)
         locations = []
-        for loc in business.locations.all():
-            if loc.latitude and loc.longitude:
-                locations.append({
-                    'id': loc.id,
-                    'name': loc.name,
-                    'address': loc.address,
-                    'city': loc.city,
-                    'latitude': loc.latitude,
-                    'longitude': loc.longitude
-                })
+        for loc in business.locations.filter_by(is_active=True).all():
+            locations.append({
+                'id': loc.id,
+                'name': loc.name,
+                'address': loc.address,
+                'city': loc.city,
+                'latitude': loc.latitude,
+                'longitude': loc.longitude
+            })
 
-        # If no locations with coords, try to get from city
-        if not locations and business.city:
+        # If no locations have coordinates, add a fallback from business city
+        locations_with_coords = [loc for loc in locations if loc.get('latitude') and loc.get('longitude')]
+        if not locations_with_coords and business.city:
             city = City.query.filter_by(name=business.city).first()
             if city and city.latitude and city.longitude:
                 locations.append({
