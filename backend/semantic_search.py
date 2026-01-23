@@ -112,7 +112,7 @@ def semantic_search(
                 b.logo_path as business_logo,
                 b.city as business_city,
                 b.contact_phone as business_phone,
-                u.first_name as contributor_first_name,
+                TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) as contributor_full_name,
                 (1 - (pe.embedding <=> '{embedding_str}'::vector)) as raw_similarity,
                 CASE
                     WHEN LOWER(p.title) LIKE '%{query_escaped}%' THEN 0.5
@@ -197,7 +197,7 @@ def semantic_search(
                     'phone': row.business_phone
                 },
                 'contributed_by': row.contributed_by,
-                'contributor_name': row.contributor_first_name,
+                'contributor_name': row.contributor_full_name.strip() if row.contributor_full_name else None,
                 'similarity_score': float(row.similarity),
                 '_score': float(row.similarity)  # For compatibility
             }

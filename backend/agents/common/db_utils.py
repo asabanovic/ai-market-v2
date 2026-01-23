@@ -187,7 +187,7 @@ def search_by_vector(
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
-                u.first_name as contributor_first_name,
+                TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) as contributor_full_name,
                 -- Semantic/vector score (0 to 1, higher is better)
                 1 - (pe.embedding <=> q.query_vec) AS vector_score,
                 -- Trigram score on title (0 to 1)
@@ -244,7 +244,7 @@ def search_by_vector(
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
-                u.first_name as contributor_first_name,
+                TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) as contributor_full_name,
                 1 - (pe.embedding <=> '{vector_str}'::vector) AS vector_score,
                 0.0 AS title_score,
                 0.0 AS desc_score,
@@ -318,7 +318,7 @@ def search_by_vector(
             },
             # Contributor info for user-submitted products
             "contributed_by": row.contributed_by,
-            "contributor_name": row.contributor_first_name,
+            "contributor_name": row.contributor_full_name.strip() if row.contributor_full_name else None,
         }
 
         # Apply custom filter if provided
