@@ -184,6 +184,17 @@
                         &rarr; {{ submission.extracted_new_price }} KM
                       </span>
                     </p>
+                    <!-- Link to created product -->
+                    <NuxtLink
+                      v-if="submission.resulting_product_id"
+                      :to="`/proizvod/${submission.resulting_product_id}`"
+                      class="inline-flex items-center gap-1 mt-1 text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Proizvod #{{ submission.resulting_product_id }}
+                    </NuxtLink>
                   </div>
                   <span v-else class="text-xs text-gray-400">Nije obrađeno</span>
                 </td>
@@ -325,6 +336,7 @@
 
                   <div v-if="extractedData || viewingSubmission.extracted_title">
                     <div class="space-y-4">
+                      <!-- Title -->
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Naziv proizvoda</label>
                         <input
@@ -335,9 +347,10 @@
                         />
                       </div>
 
+                      <!-- Prices -->
                       <div class="grid grid-cols-2 gap-4">
                         <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-1">Stara cijena (KM)</label>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">Cijena (KM)</label>
                           <input
                             v-model="editableData.base_price"
                             type="number"
@@ -347,7 +360,7 @@
                           />
                         </div>
                         <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-1">Nova cijena (KM)</label>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">Akcijska cijena (KM)</label>
                           <input
                             v-model="editableData.discount_price"
                             type="number"
@@ -358,25 +371,158 @@
                         </div>
                       </div>
 
-                      <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Važi do</label>
-                        <input
-                          v-model="editableData.expires"
-                          type="date"
-                          class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-                        />
+                      <!-- Dates -->
+                      <div class="grid grid-cols-2 gap-4">
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">Početak akcije</label>
+                          <input
+                            v-model="editableData.discount_starts"
+                            type="date"
+                            class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">Važi do</label>
+                          <input
+                            v-model="editableData.expires"
+                            type="date"
+                            class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                          />
+                        </div>
                       </div>
 
-                      <!-- Additional extracted info (read-only display) -->
-                      <div v-if="extractedData" class="bg-gray-50 rounded-lg p-3">
-                        <h5 class="text-xs font-medium text-gray-500 mb-2">Dodatni podaci iz AI</h5>
-                        <div class="flex flex-wrap gap-2">
-                          <span v-if="extractedData.brand" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{{ extractedData.brand }}</span>
-                          <span v-if="extractedData.product_type" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">{{ extractedData.product_type }}</span>
-                          <span v-if="extractedData.category" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">{{ extractedData.category }}</span>
-                          <span v-if="extractedData.weight_volume" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">{{ extractedData.weight_volume }}</span>
+                      <!-- Category -->
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kategorija</label>
+                        <select
+                          v-model="editableData.category"
+                          class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                        >
+                          <option value="">Odaberi kategoriju...</option>
+                          <option value="Meso">Meso</option>
+                          <option value="Namirnice">Namirnice</option>
+                          <option value="Voće/Povrće">Voće/Povrće</option>
+                          <option value="Pića">Pića</option>
+                          <option value="Mliječni proizvodi">Mliječni proizvodi</option>
+                          <option value="Higijena">Higijena</option>
+                          <option value="Čišćenje">Čišćenje</option>
+                          <option value="Auto">Auto</option>
+                          <option value="Bebe">Bebe</option>
+                          <option value="Tehnika">Tehnika</option>
+                          <option value="Ostalo">Ostalo</option>
+                        </select>
+                      </div>
+
+                      <!-- Tags -->
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tagovi</label>
+                        <div class="flex flex-wrap gap-1 mb-2">
+                          <span
+                            v-for="(tag, index) in editableData.tags"
+                            :key="index"
+                            class="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded"
+                          >
+                            {{ tag }}
+                            <button @click="removeViewTag(index)" class="text-indigo-500 hover:text-indigo-700">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </span>
                         </div>
-                        <p v-if="extractedData.description" class="text-xs text-gray-600 mt-2">{{ extractedData.description }}</p>
+                        <div class="flex gap-2">
+                          <input
+                            v-model="viewNewTag"
+                            type="text"
+                            class="flex-1 border border-gray-300 rounded p-2 text-sm text-gray-900"
+                            placeholder="Dodaj tag..."
+                            @keyup.enter="addViewTag"
+                          />
+                          <button
+                            @click="addViewTag"
+                            class="px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs"
+                          >
+                            Dodaj
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Description -->
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Opis za pretragu</label>
+                        <textarea
+                          v-model="editableData.enriched_description"
+                          rows="2"
+                          class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900 resize-none"
+                          placeholder="Detaljan opis proizvoda..."
+                        ></textarea>
+                      </div>
+
+                      <!-- Matching Fields -->
+                      <div class="bg-gray-50 rounded-lg p-3 space-y-3">
+                        <h5 class="text-xs font-medium text-gray-500">Polja za uparivanje proizvoda</h5>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div>
+                            <label class="block text-xs text-gray-500 mb-1">Brend</label>
+                            <input
+                              v-model="editableData.brand"
+                              type="text"
+                              class="w-full border border-gray-300 rounded p-2 text-sm text-gray-900"
+                              placeholder="npr. Coca-Cola"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-xs text-gray-500 mb-1">Tip proizvoda</label>
+                            <input
+                              v-model="editableData.product_type"
+                              type="text"
+                              class="w-full border border-gray-300 rounded p-2 text-sm text-gray-900"
+                              placeholder="npr. cola"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-xs text-gray-500 mb-1">Veličina</label>
+                            <input
+                              v-model="editableData.size_value"
+                              type="text"
+                              class="w-full border border-gray-300 rounded p-2 text-sm text-gray-900"
+                              placeholder="npr. 500"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-xs text-gray-500 mb-1">Jedinica</label>
+                            <select
+                              v-model="editableData.size_unit"
+                              class="w-full border border-gray-300 rounded p-2 text-sm text-gray-900"
+                            >
+                              <option value="">Odaberi...</option>
+                              <option value="g">g</option>
+                              <option value="kg">kg</option>
+                              <option value="ml">ml</option>
+                              <option value="l">l</option>
+                              <option value="kom">kom</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Varijanta</label>
+                          <input
+                            v-model="editableData.variant"
+                            type="text"
+                            class="w-full border border-gray-300 rounded p-2 text-sm text-gray-900"
+                            placeholder="npr. zero, light"
+                          />
+                        </div>
+                      </div>
+
+                      <!-- AI Confidence (read-only) -->
+                      <div v-if="extractedData?.confidence" class="text-xs text-gray-500">
+                        AI pouzdanost:
+                        <span :class="{
+                          'text-green-600': extractedData.confidence === 'high',
+                          'text-yellow-600': extractedData.confidence === 'medium',
+                          'text-red-600': extractedData.confidence === 'low'
+                        }">{{ extractedData.confidence }}</span>
                       </div>
                     </div>
                   </div>
@@ -402,6 +548,17 @@
             </button>
             <div v-if="viewingSubmission.status === 'pending' || viewingSubmission.status === 'processing'" class="flex gap-2">
               <button
+                @click="saveSubmissionEdits"
+                :disabled="isSaving"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <svg v-if="isSaving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                {{ isSaving ? 'Spašava...' : 'Sačuvaj' }}
+              </button>
+              <button
                 @click="openRejectFromView"
                 class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
@@ -424,67 +581,213 @@
       </div>
     </Teleport>
 
-    <!-- Approve Modal (simple) -->
+    <!-- Approve Modal (with all fields) -->
     <Teleport to="body">
       <div
         v-if="approvingSubmission"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
         @click.self="approvingSubmission = null"
       >
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Odobri prijavu</h3>
-
-          <!-- Preview image -->
-          <div class="mb-4">
-            <img :src="approvingSubmission.image_url" class="w-full h-48 object-cover rounded-lg" />
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Odobri prijavu</h3>
+            <button @click="approvingSubmission = null" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          <!-- Form -->
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Naziv proizvoda *</label>
-              <input
-                v-model="approveForm.title"
-                type="text"
-                class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-                placeholder="Unesite naziv proizvoda"
-              />
+          <div class="p-6 overflow-y-auto flex-1">
+            <!-- Preview image -->
+            <div class="mb-6">
+              <img :src="approvingSubmission.image_url" class="w-full h-48 object-cover rounded-lg" />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <!-- Form -->
+            <div class="space-y-5">
+              <!-- Title -->
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Stara cijena (KM) *</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Naziv proizvoda *</label>
                 <input
-                  v-model="approveForm.base_price"
-                  type="number"
-                  step="0.01"
+                  v-model="approveForm.title"
+                  type="text"
                   class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-                  placeholder="0.00"
+                  placeholder="Unesite naziv proizvoda"
                 />
               </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nova cijena (KM)</label>
-                <input
-                  v-model="approveForm.discount_price"
-                  type="number"
-                  step="0.01"
-                  class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Važi do</label>
-              <input
-                v-model="approveForm.expires"
-                type="date"
-                class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-              />
+              <!-- Prices -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Cijena (KM) *</label>
+                  <input
+                    v-model="approveForm.base_price"
+                    type="number"
+                    step="0.01"
+                    class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Akcijska cijena (KM)</label>
+                  <input
+                    v-model="approveForm.discount_price"
+                    type="number"
+                    step="0.01"
+                    class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <!-- Dates -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Početak akcije</label>
+                  <input
+                    v-model="approveForm.discount_starts"
+                    type="date"
+                    class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Datum isteka akcije</label>
+                  <input
+                    v-model="approveForm.expires"
+                    type="date"
+                    class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <!-- Category -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Kategorija</label>
+                <select
+                  v-model="approveForm.category"
+                  class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
+                >
+                  <option value="">Odaberi kategoriju...</option>
+                  <option value="Meso">Meso</option>
+                  <option value="Namirnice">Namirnice</option>
+                  <option value="Voće/Povrće">Voće/Povrće</option>
+                  <option value="Pića">Pića</option>
+                  <option value="Mliječni proizvodi">Mliječni proizvodi</option>
+                  <option value="Higijena">Higijena</option>
+                  <option value="Čišćenje">Čišćenje</option>
+                  <option value="Auto">Auto</option>
+                  <option value="Bebe">Bebe</option>
+                  <option value="Tehnika">Tehnika</option>
+                  <option value="Ostalo">Ostalo</option>
+                </select>
+              </div>
+
+              <!-- Tags -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tagovi</label>
+                <div class="flex flex-wrap gap-2 mb-2">
+                  <span
+                    v-for="(tag, index) in approveForm.tags"
+                    :key="index"
+                    class="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 text-sm rounded"
+                  >
+                    {{ tag }}
+                    <button @click="removeTag(index)" class="text-indigo-500 hover:text-indigo-700">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+                <div class="flex gap-2">
+                  <input
+                    v-model="newTag"
+                    type="text"
+                    class="flex-1 border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                    placeholder="Dodaj tag..."
+                    @keyup.enter="addTag"
+                  />
+                  <button
+                    @click="addTag"
+                    class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+                  >
+                    Dodaj
+                  </button>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Opis za pretragu</label>
+                <textarea
+                  v-model="approveForm.enriched_description"
+                  rows="2"
+                  class="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-900 resize-none"
+                  placeholder="Detaljan opis proizvoda koji će se koristiti za semantičku pretragu..."
+                ></textarea>
+              </div>
+
+              <!-- Matching Fields -->
+              <div class="border-t border-gray-200 pt-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-3">Polja za uparivanje proizvoda</h4>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Brend</label>
+                    <input
+                      v-model="approveForm.brand"
+                      type="text"
+                      class="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                      placeholder="npr. Coca-Cola, Nestlé..."
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Tip proizvoda</label>
+                    <input
+                      v-model="approveForm.product_type"
+                      type="text"
+                      class="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                      placeholder="npr. cola, jogurt, mlijeko..."
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Veličina (broj)</label>
+                    <input
+                      v-model="approveForm.size_value"
+                      type="text"
+                      class="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                      placeholder="npr. 500, 1, 250..."
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Jedinica mjere</label>
+                    <select
+                      v-model="approveForm.size_unit"
+                      class="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                    >
+                      <option value="">Odaberi...</option>
+                      <option value="g">g</option>
+                      <option value="kg">kg</option>
+                      <option value="ml">ml</option>
+                      <option value="l">l</option>
+                      <option value="kom">kom</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <label class="block text-xs text-gray-500 mb-1">Varijanta</label>
+                  <input
+                    v-model="approveForm.variant"
+                    type="text"
+                    class="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                    placeholder="npr. zero, light, original..."
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="flex gap-3 mt-6">
+          <div class="px-6 py-4 border-t border-gray-200 flex gap-3">
             <button
               @click="approvingSubmission = null"
               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
@@ -548,7 +851,7 @@ definePageMeta({
   middleware: 'admin'
 })
 
-const { get, post } = useApi()
+const { get, post, patch } = useApi()
 
 interface Submission {
   id: number
@@ -563,6 +866,7 @@ interface Submission {
   extracted_old_price?: number
   extracted_new_price?: number
   extracted_valid_until?: string
+  resulting_product_id?: number
   created_at: string
 }
 
@@ -590,8 +894,18 @@ const editableData = ref({
   title: '',
   base_price: null as number | null,
   discount_price: null as number | null,
-  expires: ''
+  discount_starts: '',
+  expires: '',
+  category: '',
+  tags: [] as string[],
+  enriched_description: '',
+  brand: '',
+  product_type: '',
+  size_value: '',
+  size_unit: '',
+  variant: ''
 })
+const viewNewTag = ref('')
 
 // Approve modal (standalone)
 const approvingSubmission = ref<Submission | null>(null)
@@ -599,9 +913,20 @@ const approveForm = ref({
   title: '',
   base_price: '',
   discount_price: '',
-  expires: ''
+  discount_starts: '',
+  expires: '',
+  category: '',
+  tags: [] as string[],
+  enriched_description: '',
+  brand: '',
+  product_type: '',
+  size_value: '',
+  size_unit: '',
+  variant: ''
 })
+const newTag = ref('')
 const isApproving = ref(false)
+const isSaving = ref(false)
 
 // Reject modal
 const rejectingSubmission = ref<Submission | null>(null)
@@ -703,13 +1028,63 @@ function openViewModal(submission: Submission) {
   viewingSubmission.value = submission
   extractedData.value = null
   aiProcessError.value = ''
+  viewNewTag.value = ''
 
   // Pre-fill with existing extracted data if any
   editableData.value = {
     title: submission.extracted_title || '',
     base_price: submission.extracted_old_price || null,
     discount_price: submission.extracted_new_price || null,
-    expires: submission.extracted_valid_until || ''
+    discount_starts: '',
+    expires: submission.extracted_valid_until || '',
+    category: '',
+    tags: [],
+    enriched_description: '',
+    brand: '',
+    product_type: '',
+    size_value: '',
+    size_unit: '',
+    variant: ''
+  }
+}
+
+function addViewTag() {
+  const tag = viewNewTag.value.trim()
+  if (tag && !editableData.value.tags.includes(tag)) {
+    editableData.value.tags.push(tag)
+  }
+  viewNewTag.value = ''
+}
+
+function removeViewTag(index: number) {
+  editableData.value.tags.splice(index, 1)
+}
+
+async function saveSubmissionEdits() {
+  if (!viewingSubmission.value) return
+
+  isSaving.value = true
+  try {
+    const response = await patch(`/api/admin/submissions/${viewingSubmission.value.id}`, {
+      title: editableData.value.title,
+      base_price: editableData.value.base_price,
+      discount_price: editableData.value.discount_price,
+      expires: editableData.value.expires || null
+    })
+
+    // Update the submission in the list
+    if (response.submission) {
+      const idx = submissions.value.findIndex(s => s.id === viewingSubmission.value?.id)
+      if (idx !== -1) {
+        submissions.value[idx] = { ...submissions.value[idx], ...response.submission }
+      }
+      viewingSubmission.value = { ...viewingSubmission.value, ...response.submission }
+    }
+  } catch (error: any) {
+    console.error('Error saving submission:', error)
+    alert('Greška pri spremanju: ' + (error.response?.data?.error || 'Unknown error'))
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -724,13 +1099,23 @@ async function processWithAI() {
 
     if (response.extracted_data) {
       extractedData.value = response.extracted_data
+      const data = response.extracted_data
 
       // Update editable fields with AI results
       editableData.value = {
-        title: response.extracted_data.title || editableData.value.title,
-        base_price: response.extracted_data.base_price || editableData.value.base_price,
-        discount_price: response.extracted_data.discount_price || editableData.value.discount_price,
-        expires: response.extracted_data.expires || editableData.value.expires
+        title: data.title || editableData.value.title,
+        base_price: data.base_price || editableData.value.base_price,
+        discount_price: data.discount_price || editableData.value.discount_price,
+        discount_starts: editableData.value.discount_starts,
+        expires: data.expires || editableData.value.expires,
+        category: data.category || editableData.value.category,
+        tags: data.tags || editableData.value.tags,
+        enriched_description: data.description || editableData.value.enriched_description,
+        brand: data.brand || editableData.value.brand,
+        product_type: data.product_type || editableData.value.product_type,
+        size_value: data.size_value?.toString() || data.weight_volume?.replace(/[^0-9.,]/g, '') || editableData.value.size_value,
+        size_unit: data.size_unit || extractUnitFromWeight(data.weight_volume) || editableData.value.size_unit,
+        variant: data.variant || editableData.value.variant
       }
 
       // Update the submission in the list
@@ -750,6 +1135,17 @@ async function processWithAI() {
   }
 }
 
+function extractUnitFromWeight(weightVolume: string | null): string {
+  if (!weightVolume) return ''
+  const lower = weightVolume.toLowerCase()
+  if (lower.includes('kg')) return 'kg'
+  if (lower.includes('ml')) return 'ml'
+  if (lower.includes('l') && !lower.includes('ml')) return 'l'
+  if (lower.includes('g') && !lower.includes('kg')) return 'g'
+  if (lower.includes('kom')) return 'kom'
+  return ''
+}
+
 function openRejectFromView() {
   if (!viewingSubmission.value) return
   rejectingSubmission.value = viewingSubmission.value
@@ -767,7 +1163,16 @@ async function approveFromView() {
       title: editableData.value.title,
       base_price: parseFloat(String(editableData.value.base_price)),
       discount_price: editableData.value.discount_price ? parseFloat(String(editableData.value.discount_price)) : null,
-      expires: editableData.value.expires || null
+      discount_starts: editableData.value.discount_starts || null,
+      expires: editableData.value.expires || null,
+      category: editableData.value.category || null,
+      tags: editableData.value.tags.length > 0 ? editableData.value.tags : null,
+      enriched_description: editableData.value.enriched_description || null,
+      brand: editableData.value.brand || null,
+      product_type: editableData.value.product_type || null,
+      size_value: editableData.value.size_value || null,
+      size_unit: editableData.value.size_unit || null,
+      variant: editableData.value.variant || null
     })
 
     viewingSubmission.value = null
@@ -788,8 +1193,30 @@ function openApproveModal(submission: Submission) {
     title: submission.extracted_title || '',
     base_price: submission.extracted_old_price?.toString() || '',
     discount_price: submission.extracted_new_price?.toString() || '',
-    expires: submission.extracted_valid_until || ''
+    discount_starts: '',
+    expires: submission.extracted_valid_until || '',
+    category: '',
+    tags: [],
+    enriched_description: '',
+    brand: '',
+    product_type: '',
+    size_value: '',
+    size_unit: '',
+    variant: ''
   }
+  newTag.value = ''
+}
+
+function addTag() {
+  const tag = newTag.value.trim()
+  if (tag && !approveForm.value.tags.includes(tag)) {
+    approveForm.value.tags.push(tag)
+  }
+  newTag.value = ''
+}
+
+function removeTag(index: number) {
+  approveForm.value.tags.splice(index, 1)
 }
 
 async function confirmApprove() {
@@ -802,7 +1229,16 @@ async function confirmApprove() {
       title: approveForm.value.title,
       base_price: parseFloat(approveForm.value.base_price),
       discount_price: approveForm.value.discount_price ? parseFloat(approveForm.value.discount_price) : null,
-      expires: approveForm.value.expires || null
+      discount_starts: approveForm.value.discount_starts || null,
+      expires: approveForm.value.expires || null,
+      category: approveForm.value.category || null,
+      tags: approveForm.value.tags.length > 0 ? approveForm.value.tags : null,
+      enriched_description: approveForm.value.enriched_description || null,
+      brand: approveForm.value.brand || null,
+      product_type: approveForm.value.product_type || null,
+      size_value: approveForm.value.size_value || null,
+      size_unit: approveForm.value.size_unit || null,
+      variant: approveForm.value.variant || null
     })
     approvingSubmission.value = null
     fetchSubmissions()

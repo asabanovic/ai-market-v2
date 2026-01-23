@@ -106,11 +106,13 @@ def semantic_search(
                 p.enriched_description,
                 p.size_value,
                 p.size_unit,
+                p.contributed_by,
                 b.id as business_id,
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
                 b.contact_phone as business_phone,
+                u.first_name as contributor_first_name,
                 (1 - (pe.embedding <=> '{embedding_str}'::vector)) as raw_similarity,
                 CASE
                     WHEN LOWER(p.title) LIKE '%{query_escaped}%' THEN 0.5
@@ -126,6 +128,7 @@ def semantic_search(
             FROM products p
             INNER JOIN product_embeddings pe ON p.id = pe.product_id
             INNER JOIN businesses b ON p.business_id = b.id
+            LEFT JOIN users u ON p.contributed_by = u.id
             WHERE 1=1
         """]
 
@@ -193,6 +196,8 @@ def semantic_search(
                     'city': row.business_city,
                     'phone': row.business_phone
                 },
+                'contributed_by': row.contributed_by,
+                'contributor_name': row.contributor_first_name,
                 'similarity_score': float(row.similarity),
                 '_score': float(row.similarity)  # For compatibility
             }

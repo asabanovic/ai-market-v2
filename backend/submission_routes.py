@@ -318,6 +318,46 @@ def process_submission(user, submission_id):
         return jsonify({'error': f'Failed to process submission: {str(e)}'}), 500
 
 
+@submissions_bp.route('/api/admin/submissions/<int:submission_id>', methods=['PATCH'])
+@admin_required
+def update_submission(user, submission_id):
+    """
+    Update a submission's extracted data (save edits before approval)
+    """
+    submission = ProductSubmission.query.get(submission_id)
+    if not submission:
+        return jsonify({'error': 'Submission not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+
+    try:
+        # Update extracted fields
+        if 'title' in data:
+            submission.extracted_title = data['title']
+        if 'base_price' in data:
+            submission.extracted_old_price = float(data['base_price']) if data['base_price'] else None
+        if 'discount_price' in data:
+            submission.extracted_new_price = float(data['discount_price']) if data['discount_price'] else None
+        if 'expires' in data and data['expires']:
+            from datetime import date as date_type
+            submission.extracted_valid_until = date_type.fromisoformat(data['expires'])
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Submission updated',
+            'submission': submission.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating submission: {e}")
+        return jsonify({'error': f'Failed to update submission: {str(e)}'}), 500
+
+
 @submissions_bp.route('/api/admin/submissions/<int:submission_id>/approve', methods=['POST'])
 @admin_required
 def approve_submission(user, submission_id):
@@ -343,6 +383,21 @@ def approve_submission(user, submission_id):
         return jsonify({'error': 'Request body required'}), 400
 
     is_price_update = data.get('is_price_update', False)
+
+    # Update the submission's extracted fields to match what we're approving
+    # This ensures the table displays the correct (edited) values
+    if data.get('title'):
+        submission.extracted_title = data['title']
+    if 'base_price' in data and data['base_price'] is not None:
+        submission.extracted_old_price = float(data['base_price'])
+    if 'discount_price' in data:
+        submission.extracted_new_price = float(data['discount_price']) if data['discount_price'] else None
+    if data.get('expires'):
+        from datetime import date as date_type
+        try:
+            submission.extracted_valid_until = date_type.fromisoformat(data['expires'])
+        except (ValueError, TypeError):
+            pass
 
     try:
         if is_price_update:
@@ -378,33 +433,67 @@ def approve_submission(user, submission_id):
 
             from datetime import date as date_type
 
+            # Parse size_value as Decimal if provided
+            size_value = None
+            if data.get('size_value'):
+                try:
+                    from decimal import Decimal
+                    size_value = Decimal(str(data['size_value']))
+                except (ValueError, TypeError):
+                    pass
+
             product = Product(
                 business_id=submission.business_id,
                 title=title,
                 base_price=float(base_price),
                 discount_price=float(data['discount_price']) if data.get('discount_price') else None,
+                discount_starts=date_type.fromisoformat(data['discount_starts']) if data.get('discount_starts') else None,
                 expires=date_type.fromisoformat(data['expires']) if data.get('expires') else None,
                 image_path=submission.image_url,
-                contributed_by=submission.user_id
+                contributed_by=submission.user_id,
+                size_value=size_value,
+                size_unit=data.get('size_unit') or None
             )
             db.session.add(product)
             db.session.flush()  # Get product ID
 
-            # AI Enrichment: Generate description and category for the new product
-            try:
-                from openai_utils import generate_enriched_description
-                # Generate enriched description for semantic search
-                enriched_desc = generate_enriched_description(product.title)
-                product.enriched_description = enriched_desc
-                # Default category for user submissions (can be changed later by admin)
-                if not product.category:
-                    product.category = "Higijena"  # Most submissions are hygiene products
-                # Generate basic tags from title
+            # Set matching fields in product_metadata
+            metadata = {}
+            if data.get('brand'):
+                metadata['brand'] = data['brand']
+            if data.get('product_type'):
+                metadata['product_type'] = data['product_type']
+            if data.get('variant'):
+                metadata['variant'] = data['variant']
+            if metadata:
+                product.product_metadata = metadata
+
+            # Use provided tags or generate from title
+            if data.get('tags') and len(data['tags']) > 0:
+                product.tags = data['tags']
+            else:
                 product.tags = [word.lower().strip() for word in product.title.split() if len(word) > 2][:10]
-                db.session.commit()
-                print(f"AI enriched product {product.id}: {product.title}")
-            except Exception as enrich_err:
-                print(f"Warning: AI enrichment failed for product {product.id}: {enrich_err}")
+
+            # Use provided enriched_description or generate with AI
+            if data.get('enriched_description'):
+                product.enriched_description = data['enriched_description']
+            else:
+                # AI Enrichment: Generate description for the new product
+                try:
+                    from openai_utils import generate_enriched_description
+                    enriched_desc = generate_enriched_description(product.title)
+                    product.enriched_description = enriched_desc
+                    print(f"AI enriched product {product.id}: {product.title}")
+                except Exception as enrich_err:
+                    print(f"Warning: AI enrichment failed for product {product.id}: {enrich_err}")
+
+            # Use provided category or default to "Ostalo"
+            if data.get('category'):
+                product.category = data['category']
+            elif not product.category:
+                product.category = "Ostalo"
+
+            db.session.commit()
 
             # Generate embedding for the new product so it shows up in search
             try:
@@ -447,7 +536,7 @@ def approve_submission(user, submission_id):
         if submitter and submitter.email:
             product_title = data.get('title') or (product.title if product else 'Proizvod')
             store_name = submission.business.name if submission.business else 'Nepoznata radnja'
-            send_approval_email(submitter.email, submitter.first_name or 'Korisnik', product_title, store_name, credits_awarded)
+            send_approval_email(submitter.email, submitter.first_name or 'Korisnik', product_title, store_name, credits_awarded, submission.image_url)
 
         return jsonify({
             'success': True,
@@ -494,7 +583,7 @@ def reject_submission(user, submission_id):
         if send_email:
             submitter = User.query.get(submission.user_id)
             if submitter and submitter.email:
-                send_rejection_email(submitter.email, submitter.first_name or 'Korisnik', reason, submission.business.name if submission.business else 'Nepoznata radnja')
+                send_rejection_email(submitter.email, submitter.first_name or 'Korisnik', reason, submission.business.name if submission.business else 'Nepoznata radnja', submission.image_url)
 
         return jsonify({
             'success': True,
@@ -543,13 +632,53 @@ def mark_duplicate(user, submission_id):
     })
 
 
-def send_rejection_email(email, name, reason, store_name):
+@submissions_bp.route('/api/admin/submissions/<int:submission_id>', methods=['DELETE'])
+@admin_required
+def delete_submission(user, submission_id):
+    """
+    Permanently delete a submission (super admin only)
+    """
+    # Check if user is super admin (you can add a super_admin field or check specific email)
+    if not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    submission = ProductSubmission.query.get(submission_id)
+    if not submission:
+        return jsonify({'error': 'Submission not found'}), 404
+
+    try:
+        # Delete the submission
+        db.session.delete(submission)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Submission {submission_id} permanently deleted'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting submission: {e}")
+        return jsonify({'error': f'Failed to delete submission: {str(e)}'}), 500
+
+
+def send_rejection_email(email, name, reason, store_name, image_url=None):
     """Send rejection email with tips for better submissions"""
     from sendgrid_utils import send_email, get_base_template
+
+    # Image preview section
+    image_section = ''
+    if image_url:
+        image_section = f'''
+<div style="margin:0 0 24px;text-align:center;">
+<img src="{image_url}" alt="Vaša fotografija" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #eee;" />
+</div>
+'''
 
     content = f'''
 <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">Vaš prijedlog nije prihvaćen</h1>
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani/a {name},</p>
+{image_section}
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Nažalost, Vaš prijedlog proizvoda za <strong>{store_name}</strong> nije mogao biti prihvaćen.</p>
 
 <div style="margin:24px 0;padding:16px;background:#FEF2F2;border-left:4px solid #EF4444;border-radius:0 8px 8px 0;">
@@ -578,13 +707,23 @@ Hvala Vam što doprinosite zajednici! Svaki prihvaćeni prijedlog donosi Vam <st
         print(f"Failed to send rejection email to {email}")
 
 
-def send_approval_email(email, name, product_title, store_name, credits_awarded):
+def send_approval_email(email, name, product_title, store_name, credits_awarded, image_url=None):
     """Send approval email with congratulations"""
     from sendgrid_utils import send_email, get_base_template
+
+    # Image preview section
+    image_section = ''
+    if image_url:
+        image_section = f'''
+<div style="margin:0 0 24px;text-align:center;">
+<img src="{image_url}" alt="Vaša fotografija" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #eee;" />
+</div>
+'''
 
     content = f'''
 <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1a1a1a;">🎉 Čestitamo!</h1>
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Poštovani/a {name},</p>
+{image_section}
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;">Vaš prijedlog proizvoda za <strong>{store_name}</strong> je pregledan i prihvaćen!</p>
 
 <div style="margin:24px 0;padding:16px;background:#F0FDF4;border-left:4px solid #10B981;border-radius:0 8px 8px 0;">

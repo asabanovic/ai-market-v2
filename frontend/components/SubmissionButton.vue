@@ -1,5 +1,5 @@
 <template>
-  <!-- Floating "Dodaj" button - shows only for admin users on mobile (for testing) -->
+  <!-- Floating "Dodaj" button - shows only for logged-in users on mobile -->
   <div v-if="showButton" class="fixed right-4 bottom-20 z-50 md:hidden">
     <button
       @click="openModal"
@@ -301,8 +301,8 @@ import { ref, computed, watch, nextTick } from 'vue'
 const { isAuthenticated, token, user } = useAuth()
 const config = useRuntimeConfig()
 
-// Only show for admin users (for initial testing on production)
-const showButton = computed(() => isAuthenticated.value && user.value?.is_admin)
+// Only show for logged-in users
+const showButton = computed(() => isAuthenticated.value)
 
 // Modal state
 const showModal = ref(false)
@@ -402,7 +402,12 @@ const processFile = async (file) => {
 const resizeImage = (file, maxWidth, quality) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    const tempUrl = URL.createObjectURL(file)
+
     img.onload = () => {
+      // Revoke temp URL after image loads
+      URL.revokeObjectURL(tempUrl)
+
       // Calculate new dimensions
       let width = img.width
       let height = img.height
@@ -424,7 +429,7 @@ const resizeImage = (file, maxWidth, quality) => {
       canvas.toBlob(
         (blob) => {
           if (blob) {
-            const resizedFile = new File([blob], file.name, {
+            const resizedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
               type: 'image/jpeg',
               lastModified: Date.now()
             })
@@ -437,8 +442,11 @@ const resizeImage = (file, maxWidth, quality) => {
         quality
       )
     }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = URL.createObjectURL(file)
+    img.onerror = () => {
+      URL.revokeObjectURL(tempUrl)
+      reject(new Error('Failed to load image'))
+    }
+    img.src = tempUrl
   })
 }
 
