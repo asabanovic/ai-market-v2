@@ -434,17 +434,51 @@ def get_business_locations(business_id):
     })
 
 
+def auto_geocode_location(address, city):
+    """
+    Auto-geocode a location using address and city.
+    Returns (latitude, longitude) or (None, None) if not found.
+    """
+    if not address and not city:
+        return None, None
+
+    # Build query - try with address first, then city only
+    queries_to_try = []
+    if address and city:
+        queries_to_try.append(f"{address}, {city}, Bosnia and Herzegovina")
+        queries_to_try.append(f"{address}, {city}")
+    if city:
+        queries_to_try.append(f"{city}, Bosnia and Herzegovina")
+
+    # Try Google first, then Nominatim
+    for query in queries_to_try:
+        result = geocode_with_google(query)
+        if result:
+            logger.info(f"Auto-geocoded '{query}' via Google -> {result[0]}, {result[1]}")
+            return result[0], result[1]
+
+    # Fallback to Nominatim
+    for query in queries_to_try:
+        result = geocode_with_nominatim(query)
+        if result:
+            logger.info(f"Auto-geocoded '{query}' via Nominatim -> {result[0]}, {result[1]}")
+            return result[0], result[1]
+
+    return None, None
+
+
 @admin_business_bp.route('/<int:business_id>/locations', methods=['POST'])
 @jwt_admin_required
 def create_business_location(business_id):
     """
-    Create a new location for a business
+    Create a new location for a business.
+    Auto-geocodes using OpenStreetMap if lat/long not provided.
     Body:
     - name: location name (required)
     - address: full street address
     - city: city name
-    - latitude: GPS latitude
-    - longitude: GPS longitude
+    - latitude: GPS latitude (auto-geocoded if not provided)
+    - longitude: GPS longitude (auto-geocoded if not provided)
     - phone: contact phone
     - working_hours: JSON object with hours
     """
@@ -462,13 +496,27 @@ def create_business_location(business_id):
     if not name:
         return jsonify({'error': 'Location name is required'}), 400
 
+    address = (data.get('address') or '').strip() or None
+    city = (data.get('city') or '').strip() or None
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+
+    # Auto-geocode if coordinates not provided but address/city are
+    geocoded = False
+    if (not latitude or not longitude) and (address or city):
+        auto_lat, auto_lng = auto_geocode_location(address, city)
+        if auto_lat and auto_lng:
+            latitude = auto_lat
+            longitude = auto_lng
+            geocoded = True
+
     location = BusinessLocation(
         business_id=business_id,
         name=name,
-        address=(data.get('address') or '').strip() or None,
-        city=(data.get('city') or '').strip() or None,
-        latitude=data.get('latitude'),
-        longitude=data.get('longitude'),
+        address=address,
+        city=city,
+        latitude=latitude,
+        longitude=longitude,
         phone=(data.get('phone') or '').strip() or None,
         working_hours=data.get('working_hours'),
         is_active=True
@@ -477,12 +525,16 @@ def create_business_location(business_id):
     db.session.add(location)
     db.session.commit()
 
-    logger.info(f"Created location '{name}' for business {business.name}")
+    log_msg = f"Created location '{name}' for business {business.name}"
+    if geocoded:
+        log_msg += f" (auto-geocoded to {latitude}, {longitude})"
+    logger.info(log_msg)
 
     return jsonify({
         'success': True,
         'message': f'Location "{name}" created',
-        'location': location.to_dict()
+        'location': location.to_dict(),
+        'geocoded': geocoded
     }), 201
 
 
@@ -490,7 +542,8 @@ def create_business_location(business_id):
 @jwt_admin_required
 def update_business_location(business_id, location_id):
     """
-    Update a business location
+    Update a business location.
+    Auto-geocodes using OpenStreetMap if address/city changed and coords not provided.
     """
     from models import db, BusinessLocation
 
@@ -506,15 +559,26 @@ def update_business_location(business_id, location_id):
     if not data:
         return jsonify({'error': 'Invalid request data'}), 400
 
+    # Track if address/city changed for auto-geocoding
+    address_changed = False
+    new_address = location.address
+    new_city = location.city
+
     if 'name' in data:
         name = (data['name'] or '').strip()
         if not name:
             return jsonify({'error': 'Location name cannot be empty'}), 400
         location.name = name
     if 'address' in data:
-        location.address = (data['address'] or '').strip() or None
+        new_address = (data['address'] or '').strip() or None
+        if new_address != location.address:
+            address_changed = True
+        location.address = new_address
     if 'city' in data:
-        location.city = (data['city'] or '').strip() or None
+        new_city = (data['city'] or '').strip() or None
+        if new_city != location.city:
+            address_changed = True
+        location.city = new_city
     if 'latitude' in data:
         location.latitude = data['latitude']
     if 'longitude' in data:
@@ -526,15 +590,29 @@ def update_business_location(business_id, location_id):
     if 'is_active' in data:
         location.is_active = bool(data['is_active'])
 
+    # Auto-geocode if address/city changed and coords not explicitly set
+    geocoded = False
+    if address_changed and 'latitude' not in data and 'longitude' not in data:
+        if new_address or new_city:
+            auto_lat, auto_lng = auto_geocode_location(new_address, new_city)
+            if auto_lat and auto_lng:
+                location.latitude = auto_lat
+                location.longitude = auto_lng
+                geocoded = True
+
     location.updated_at = datetime.now()
     db.session.commit()
 
-    logger.info(f"Updated location {location_id} for business {business_id}")
+    log_msg = f"Updated location {location_id} for business {business_id}"
+    if geocoded:
+        log_msg += f" (auto-geocoded to {location.latitude}, {location.longitude})"
+    logger.info(log_msg)
 
     return jsonify({
         'success': True,
         'message': 'Location updated',
-        'location': location.to_dict()
+        'location': location.to_dict(),
+        'geocoded': geocoded
     })
 
 
@@ -572,16 +650,19 @@ def delete_business_location(business_id, location_id):
 def bulk_import_locations(business_id):
     """
     Bulk import locations for a business from JSON array.
+    Auto-geocodes locations using OpenStreetMap if lat/long not provided.
     Body:
     - locations: array of location objects, each with:
       - name: location name (required)
       - address: full street address
       - city: city name
-      - latitude: GPS latitude
-      - longitude: GPS longitude
+      - latitude: GPS latitude (auto-geocoded if not provided)
+      - longitude: GPS longitude (auto-geocoded if not provided)
       - phone: contact phone
       - working_hours: JSON object with hours
+    - auto_geocode: boolean (default true) - whether to auto-geocode missing coords
     """
+    import time
     from models import db, Business, BusinessLocation
 
     business = Business.query.get(business_id)
@@ -596,7 +677,11 @@ def bulk_import_locations(business_id):
     if not locations_data or not isinstance(locations_data, list):
         return jsonify({'error': 'locations must be a non-empty array'}), 400
 
+    # Option to disable auto-geocoding (default enabled)
+    auto_geocode_enabled = data.get('auto_geocode', True)
+
     created = []
+    geocoded_count = 0
     errors = []
 
     for idx, loc_data in enumerate(locations_data):
@@ -606,13 +691,30 @@ def bulk_import_locations(business_id):
             continue
 
         try:
+            address = (loc_data.get('address') or '').strip() or None
+            city = (loc_data.get('city') or '').strip() or None
+            latitude = loc_data.get('latitude')
+            longitude = loc_data.get('longitude')
+
+            # Auto-geocode if enabled and coords not provided
+            was_geocoded = False
+            if auto_geocode_enabled and (not latitude or not longitude) and (address or city):
+                auto_lat, auto_lng = auto_geocode_location(address, city)
+                if auto_lat and auto_lng:
+                    latitude = auto_lat
+                    longitude = auto_lng
+                    was_geocoded = True
+                    geocoded_count += 1
+                # Rate limit: Nominatim requires 1 sec between requests
+                time.sleep(1.1)
+
             location = BusinessLocation(
                 business_id=business_id,
                 name=name,
-                address=(loc_data.get('address') or '').strip() or None,
-                city=(loc_data.get('city') or '').strip() or None,
-                latitude=loc_data.get('latitude'),
-                longitude=loc_data.get('longitude'),
+                address=address,
+                city=city,
+                latitude=latitude,
+                longitude=longitude,
                 phone=(loc_data.get('phone') or '').strip() or None,
                 working_hours=loc_data.get('working_hours'),
                 is_active=True
@@ -621,21 +723,25 @@ def bulk_import_locations(business_id):
             db.session.flush()
             created.append({
                 'id': location.id,
-                'name': location.name
+                'name': location.name,
+                'geocoded': was_geocoded,
+                'latitude': latitude,
+                'longitude': longitude
             })
         except Exception as e:
             errors.append(f"Item {idx + 1} ({name}): {str(e)}")
 
     if created:
         db.session.commit()
-        logger.info(f"Bulk imported {len(created)} locations for business {business.name}")
+        logger.info(f"Bulk imported {len(created)} locations for business {business.name} ({geocoded_count} auto-geocoded)")
 
     return jsonify({
         'success': len(created) > 0,
         'created_count': len(created),
+        'geocoded_count': geocoded_count,
         'created': created,
         'errors': errors,
-        'message': f'Created {len(created)} locations' + (f' with {len(errors)} errors' if errors else '')
+        'message': f'Created {len(created)} locations ({geocoded_count} auto-geocoded)' + (f' with {len(errors)} errors' if errors else '')
     }), 201 if created else 400
 
 
@@ -808,6 +914,120 @@ def geocode_address():
         'success': False,
         'error': 'Adresa nije pronađena. Pokušajte sa preciznijom adresom.'
     }), 404
+
+
+@admin_business_bp.route('/<int:business_id>/locations/geocode-all', methods=['POST'])
+@jwt_admin_required
+def geocode_existing_locations(business_id):
+    """
+    Geocode all existing locations for a business that don't have coordinates.
+    Uses OpenStreetMap Nominatim (free) with Google as primary if configured.
+    This is useful for bulk-imported locations that need geocoding.
+    Body:
+    - limit: max locations to process (default 50, max 500)
+    - skip_geocoded: whether to skip already geocoded locations (default true)
+    """
+    import time
+    from models import db, Business, BusinessLocation
+    from sqlalchemy import or_
+
+    business = Business.query.get(business_id)
+    if not business:
+        return jsonify({'error': 'Business not found'}), 404
+
+    data = request.get_json() or {}
+    limit = min(data.get('limit', 50), 500)  # Max 500 per request
+    skip_geocoded = data.get('skip_geocoded', True)
+
+    # Query locations without coordinates
+    query = BusinessLocation.query.filter_by(business_id=business_id)
+    if skip_geocoded:
+        query = query.filter(
+            or_(
+                BusinessLocation.latitude.is_(None),
+                BusinessLocation.longitude.is_(None)
+            )
+        )
+
+    locations = query.limit(limit).all()
+
+    if not locations:
+        return jsonify({
+            'success': True,
+            'message': 'No locations to geocode',
+            'processed': 0,
+            'geocoded': 0,
+            'failed': 0
+        })
+
+    processed = 0
+    geocoded = 0
+    failed = 0
+    results = []
+
+    for location in locations:
+        processed += 1
+
+        if not location.address and not location.city:
+            results.append({
+                'id': location.id,
+                'name': location.name,
+                'status': 'skipped',
+                'reason': 'No address or city'
+            })
+            failed += 1
+            continue
+
+        # Auto-geocode
+        auto_lat, auto_lng = auto_geocode_location(location.address, location.city)
+
+        if auto_lat and auto_lng:
+            location.latitude = auto_lat
+            location.longitude = auto_lng
+            location.updated_at = datetime.now()
+            geocoded += 1
+            results.append({
+                'id': location.id,
+                'name': location.name,
+                'status': 'geocoded',
+                'latitude': auto_lat,
+                'longitude': auto_lng
+            })
+        else:
+            failed += 1
+            results.append({
+                'id': location.id,
+                'name': location.name,
+                'status': 'failed',
+                'address': location.address,
+                'city': location.city
+            })
+
+        # Rate limit: Nominatim requires 1 sec between requests
+        if processed < len(locations):
+            time.sleep(1.1)
+
+    if geocoded > 0:
+        db.session.commit()
+        logger.info(f"Geocoded {geocoded}/{processed} locations for business {business.name}")
+
+    # Count remaining locations without coordinates
+    remaining = BusinessLocation.query.filter_by(business_id=business_id).filter(
+        or_(
+            BusinessLocation.latitude.is_(None),
+            BusinessLocation.longitude.is_(None)
+        )
+    ).count()
+
+    return jsonify({
+        'success': True,
+        'message': f'Processed {processed} locations: {geocoded} geocoded, {failed} failed',
+        'processed': processed,
+        'geocoded': geocoded,
+        'failed': failed,
+        'remaining': remaining,
+        'results': results
+    })
 
 
 # ==================== FEATURED PRODUCTS ====================
