@@ -166,45 +166,71 @@
               Radnja: <strong class="text-gray-900">{{ selectedStore?.name }}</strong>
             </div>
 
-            <!-- Upload area -->
-            <div
-              @click="triggerFileInput"
-              @dragover.prevent="isDragging = true"
-              @dragleave="isDragging = false"
-              @drop.prevent="handleDrop"
-              class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors"
-              :class="isDragging ? 'border-green-500 bg-green-50' : previewUrl ? 'border-green-500' : 'border-gray-300 hover:border-green-400'"
-            >
-              <!-- Preview -->
-              <div v-if="previewUrl" class="relative">
-                <img :src="previewUrl" class="max-h-48 mx-auto rounded-lg" alt="Preview" />
-                <button
-                  @click.stop="clearImage"
-                  class="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            <!-- Image preview or upload buttons -->
+            <div v-if="previewUrl" class="relative border-2 border-green-500 rounded-xl p-4">
+              <img :src="previewUrl" class="max-h-48 mx-auto rounded-lg" alt="Preview" />
+              <button
+                @click.stop="clearImage"
+                class="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <!-- Processing indicator -->
+              <div v-if="isProcessingImage" class="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                <div class="flex items-center gap-2 text-green-600">
+                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                </button>
-              </div>
-
-              <!-- Upload prompt -->
-              <div v-else class="space-y-3">
-                <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                  <span class="text-sm font-medium">Obrađujem...</span>
                 </div>
-                <p class="text-gray-600">Klikni ili prevuci fotografiju</p>
-                <p class="text-xs text-gray-400">PNG, JPG, WEBP do 10MB</p>
               </div>
             </div>
 
+            <!-- Two buttons for camera and gallery -->
+            <div v-else class="grid grid-cols-2 gap-3">
+              <!-- Camera button -->
+              <button
+                @click="openCamera"
+                class="flex flex-col items-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:bg-green-50 transition-colors"
+              >
+                <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Fotografiraj</span>
+              </button>
+
+              <!-- Gallery button -->
+              <button
+                @click="openGallery"
+                class="flex flex-col items-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:bg-green-50 transition-colors"
+              >
+                <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Iz galerije</span>
+              </button>
+            </div>
+
+            <!-- Hidden file inputs -->
             <input
-              ref="fileInput"
+              ref="cameraInput"
               type="file"
               accept="image/*"
               capture="environment"
+              class="hidden"
+              @change="handleFileSelect"
+            />
+            <input
+              ref="galleryInput"
+              type="file"
+              accept="image/*"
               class="hidden"
               @change="handleFileSelect"
             />
@@ -289,10 +315,11 @@ const storeSearch = ref('')
 const selectedStore = ref(null)
 
 // File upload
-const fileInput = ref(null)
+const cameraInput = ref(null)
+const galleryInput = ref(null)
 const selectedFile = ref(null)
 const previewUrl = ref(null)
-const isDragging = ref(false)
+const isProcessingImage = ref(false)
 const isSubmitting = ref(false)
 
 // Confetti
@@ -333,8 +360,12 @@ const fetchStores = async () => {
   }
 }
 
-const triggerFileInput = () => {
-  fileInput.value?.click()
+const openCamera = () => {
+  cameraInput.value?.click()
+}
+
+const openGallery = () => {
+  galleryInput.value?.click()
 }
 
 const handleFileSelect = (event) => {
@@ -344,21 +375,71 @@ const handleFileSelect = (event) => {
   }
 }
 
-const handleDrop = (event) => {
-  isDragging.value = false
-  const file = event.dataTransfer?.files?.[0]
-  if (file && file.type.startsWith('image/')) {
-    processFile(file)
-  }
-}
-
-const processFile = (file) => {
+const processFile = async (file) => {
   if (file.size > 10 * 1024 * 1024) {
     alert('Datoteka je prevelika. Maksimalno 10MB.')
     return
   }
-  selectedFile.value = file
-  previewUrl.value = URL.createObjectURL(file)
+
+  isProcessingImage.value = true
+
+  try {
+    // Resize image client-side before upload (600px max for fast upload)
+    const resizedFile = await resizeImage(file, 600, 0.85)
+    selectedFile.value = resizedFile
+    previewUrl.value = URL.createObjectURL(resizedFile)
+  } catch (err) {
+    console.error('Error processing image:', err)
+    // Fallback to original file if resize fails
+    selectedFile.value = file
+    previewUrl.value = URL.createObjectURL(file)
+  } finally {
+    isProcessingImage.value = false
+  }
+}
+
+// Resize image to max width while maintaining aspect ratio
+const resizeImage = (file, maxWidth, quality) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      // Calculate new dimensions
+      let width = img.width
+      let height = img.height
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width)
+        width = maxWidth
+      }
+
+      // Create canvas and draw resized image
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, width, height)
+
+      // Convert to blob
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const resizedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            })
+            resolve(resizedFile)
+          } else {
+            reject(new Error('Failed to create blob'))
+          }
+        },
+        'image/jpeg',
+        quality
+      )
+    }
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = URL.createObjectURL(file)
+  })
 }
 
 const clearImage = () => {
@@ -367,8 +448,11 @@ const clearImage = () => {
     URL.revokeObjectURL(previewUrl.value)
     previewUrl.value = null
   }
-  if (fileInput.value) {
-    fileInput.value.value = ''
+  if (cameraInput.value) {
+    cameraInput.value.value = ''
+  }
+  if (galleryInput.value) {
+    galleryInput.value.value = ''
   }
 }
 
