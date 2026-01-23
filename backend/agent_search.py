@@ -285,6 +285,7 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
         # Add business info
         business = product.get("business", {})
         if business:
+            formatted_product["business_id"] = business.get("id")  # Top-level for cart
             formatted_product["business"] = {
                 "id": business.get("id"),
                 "name": business.get("name"),

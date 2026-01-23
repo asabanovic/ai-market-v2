@@ -1288,10 +1288,18 @@ async function submitComment() {
 async function addToShoppingList(product: any) {
   addingToList.value[product.id] = true
 
+  // Ensure business_id is present to avoid wrong grouping
+  if (!product.business_id) {
+    console.error('Product missing business_id:', product.id, product.title)
+    showWarning('Greška: Proizvod nema dodijeljen biznis')
+    addingToList.value[product.id] = false
+    return
+  }
+
   try {
     const result = await cartStore.addItem(
       product.id,
-      product.business_id || 1,
+      product.business_id,
       1
     )
 

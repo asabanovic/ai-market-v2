@@ -10942,6 +10942,7 @@ def api_user_tracked_products():
                         'id': r.product_id,
                         'title': r.product_title,
                         'business': r.business_name,
+                        'business_id': product.business_id if product else None,
                         'base_price': float(r.base_price) if r.base_price else None,
                         'discount_price': float(r.discount_price) if r.discount_price else None,
                         'discount_starts': discount_starts,
