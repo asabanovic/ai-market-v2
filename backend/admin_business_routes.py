@@ -437,10 +437,11 @@ def get_business_locations(business_id):
 def auto_geocode_location(address, city):
     """
     Auto-geocode a location using address and city.
-    Returns (latitude, longitude) or (None, None) if not found.
+    Returns (latitude, longitude, source) or (None, None, None) if not found.
+    Source is 'google' or 'nominatim'.
     """
     if not address and not city:
-        return None, None
+        return None, None, None
 
     # Build query - try with address first, then city only
     queries_to_try = []
@@ -450,21 +451,21 @@ def auto_geocode_location(address, city):
     if city:
         queries_to_try.append(f"{city}, Bosnia and Herzegovina")
 
-    # Try Google first, then Nominatim
+    # Try Google first (fast, no rate limit)
     for query in queries_to_try:
         result = geocode_with_google(query)
         if result:
             logger.info(f"Auto-geocoded '{query}' via Google -> {result[0]}, {result[1]}")
-            return result[0], result[1]
+            return result[0], result[1], 'google'
 
-    # Fallback to Nominatim
+    # Fallback to Nominatim (requires 1 sec delay between requests)
     for query in queries_to_try:
         result = geocode_with_nominatim(query)
         if result:
             logger.info(f"Auto-geocoded '{query}' via Nominatim -> {result[0]}, {result[1]}")
-            return result[0], result[1]
+            return result[0], result[1], 'nominatim'
 
-    return None, None
+    return None, None, None
 
 
 @admin_business_bp.route('/<int:business_id>/locations', methods=['POST'])
@@ -504,7 +505,7 @@ def create_business_location(business_id):
     # Auto-geocode if coordinates not provided but address/city are
     geocoded = False
     if (not latitude or not longitude) and (address or city):
-        auto_lat, auto_lng = auto_geocode_location(address, city)
+        auto_lat, auto_lng, source = auto_geocode_location(address, city)
         if auto_lat and auto_lng:
             latitude = auto_lat
             longitude = auto_lng
@@ -594,7 +595,7 @@ def update_business_location(business_id, location_id):
     geocoded = False
     if address_changed and 'latitude' not in data and 'longitude' not in data:
         if new_address or new_city:
-            auto_lat, auto_lng = auto_geocode_location(new_address, new_city)
+            auto_lat, auto_lng, source = auto_geocode_location(new_address, new_city)
             if auto_lat and auto_lng:
                 location.latitude = auto_lat
                 location.longitude = auto_lng
@@ -698,15 +699,19 @@ def bulk_import_locations(business_id):
 
             # Auto-geocode if enabled and coords not provided
             was_geocoded = False
+            used_nominatim = False
             if auto_geocode_enabled and (not latitude or not longitude) and (address or city):
-                auto_lat, auto_lng = auto_geocode_location(address, city)
+                auto_lat, auto_lng, source = auto_geocode_location(address, city)
                 if auto_lat and auto_lng:
                     latitude = auto_lat
                     longitude = auto_lng
                     was_geocoded = True
                     geocoded_count += 1
-                # Rate limit: Nominatim requires 1 sec between requests
-                time.sleep(1.1)
+                    if source == 'nominatim':
+                        used_nominatim = True
+                # Rate limit only for Nominatim (1 sec between requests)
+                if used_nominatim:
+                    time.sleep(1.1)
 
             location = BusinessLocation(
                 business_id=business_id,
@@ -979,7 +984,7 @@ def geocode_existing_locations(business_id):
             continue
 
         # Auto-geocode
-        auto_lat, auto_lng = auto_geocode_location(location.address, location.city)
+        auto_lat, auto_lng, source = auto_geocode_location(location.address, location.city)
 
         if auto_lat and auto_lng:
             location.latitude = auto_lat
@@ -991,8 +996,12 @@ def geocode_existing_locations(business_id):
                 'name': location.name,
                 'status': 'geocoded',
                 'latitude': auto_lat,
-                'longitude': auto_lng
+                'longitude': auto_lng,
+                'source': source
             })
+            # Rate limit only for Nominatim (1 sec between requests)
+            if source == 'nominatim' and processed < len(locations):
+                time.sleep(1.1)
         else:
             failed += 1
             results.append({
@@ -1002,10 +1011,6 @@ def geocode_existing_locations(business_id):
                 'address': location.address,
                 'city': location.city
             })
-
-        # Rate limit: Nominatim requires 1 sec between requests
-        if processed < len(locations):
-            time.sleep(1.1)
 
     if geocoded > 0:
         db.session.commit()
