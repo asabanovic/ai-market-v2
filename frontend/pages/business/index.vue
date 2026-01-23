@@ -598,11 +598,31 @@
           <h3 class="text-xl font-bold text-gray-900">
             Lokacije: {{ locationsBusiness?.name }}
           </h3>
-          <button @click="closeLocationsModal" class="text-gray-400 hover:text-gray-600">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div class="flex items-center gap-3">
+            <button
+              @click="geocodeAllLocations"
+              :disabled="isGeocodingAll || businessLocations.length === 0"
+              class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+              :class="isGeocodingAll
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'"
+            >
+              <svg v-if="isGeocodingAll" class="animate-spin -ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <svg v-else class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {{ isGeocodingAll ? 'Geocodiranje...' : 'Geocodiraj sve' }}
+            </button>
+            <button @click="closeLocationsModal" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Tab Navigation -->
@@ -1117,6 +1137,8 @@ const editLocationForm = ref<LocationForm>({
 // Geocoding state
 const isGeocodingNew = ref(false)
 const isGeocodingEdit = ref(false)
+const isGeocodingAll = ref(false)
+const geocodeAllResult = ref<{ processed: number; geocoded: number; failed: number; remaining: number } | null>(null)
 
 // AI Categorization
 const isCategorizingBusiness = ref<Set<number>>(new Set())
@@ -1881,6 +1903,54 @@ async function geocodeEditLocation() {
     alert('Greška pri dohvaćanju koordinata: ' + (error.message || 'Nepoznata greška'))
   } finally {
     isGeocodingEdit.value = false
+  }
+}
+
+async function geocodeAllLocations() {
+  if (!locationsBusiness.value) return
+
+  const locationsWithoutCoords = businessLocations.value.filter(
+    loc => !loc.latitude || !loc.longitude
+  )
+
+  if (locationsWithoutCoords.length === 0) {
+    alert('Sve lokacije već imaju koordinate.')
+    return
+  }
+
+  if (!confirm(`Želite li geocodirati ${locationsWithoutCoords.length} lokacija bez koordinata? Ovo može potrajati.`)) {
+    return
+  }
+
+  isGeocodingAll.value = true
+  geocodeAllResult.value = null
+
+  try {
+    const response = await post(`/api/admin/businesses/${locationsBusiness.value.id}/locations/geocode-all`, {
+      limit: 100
+    })
+
+    geocodeAllResult.value = {
+      processed: response.processed,
+      geocoded: response.geocoded,
+      failed: response.failed,
+      remaining: response.remaining
+    }
+
+    if (response.geocoded > 0) {
+      await loadBusinessLocations(locationsBusiness.value.id)
+    }
+
+    if (response.remaining > 0) {
+      alert(`Geocodirano: ${response.geocoded}/${response.processed}. Preostalo: ${response.remaining} lokacija. Pokrenite ponovo za nastavak.`)
+    } else {
+      alert(`Geocodiranje završeno! Uspješno: ${response.geocoded}, Neuspješno: ${response.failed}`)
+    }
+  } catch (error: any) {
+    console.error('Geocode all error:', error)
+    alert('Greška pri geocodiranju: ' + (error.message || 'Nepoznata greška'))
+  } finally {
+    isGeocodingAll.value = false
   }
 }
 
