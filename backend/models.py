@@ -113,6 +113,10 @@ class User(UserMixin, db.Model):
     # Soft delete - deactivated accounts
     deleted_at = db.Column(db.DateTime, nullable=True)  # When user deactivated their account (soft delete)
 
+    # Feedback tracking
+    feedback_submitted_at = db.Column(db.DateTime, nullable=True)  # When user last submitted feedback
+    last_feedback_prompt_at = db.Column(db.DateTime, nullable=True)  # When we last prompted them for feedback
+
     # Relationships
     package = db.relationship('Package', backref='users')
     city_rel = db.relationship('City', backref='users', lazy='joined')
@@ -464,6 +468,10 @@ class Product(db.Model):
     size_unit = db.Column(db.String, nullable=True)  # Unit: "kg", "l", "ml", "g", "kom"
     variant = db.Column(db.String, nullable=True)  # Meta field for differentiators: "light", "bez laktoze", "gorka"
     match_key = db.Column(db.String, nullable=True, index=True)  # Auto-generated: "brand:type:size" for clone detection
+
+    # User contribution tracking - links to user who submitted this product via photo
+    contributed_by = db.Column(db.String(50), db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    contributor = db.relationship('User', backref='contributed_products', foreign_keys=[contributed_by])
 
     @property
     def has_discount(self):
@@ -2123,3 +2131,74 @@ class EmailAuthToken(db.Model):
         cutoff = datetime.now() - timedelta(days=days_old)
         cls.query.filter(cls.expires_at < cutoff).delete()
         db.session.commit()
+
+
+# ==================== PRODUCT SUBMISSIONS ====================
+
+class ProductSubmission(db.Model):
+    """User-submitted product photos for admin review and AI processing"""
+    __tablename__ = 'product_submissions'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    image_url = db.Column(db.String(500), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='pending', index=True)  # pending, processing, approved, rejected, duplicate
+
+    # AI-extracted fields (populated after processing)
+    extracted_title = db.Column(db.String(255), nullable=True)
+    extracted_old_price = db.Column(db.Numeric(10, 2), nullable=True)
+    extracted_new_price = db.Column(db.Numeric(10, 2), nullable=True)
+    extracted_discount_percent = db.Column(db.Integer, nullable=True)
+    extracted_valid_until = db.Column(db.Date, nullable=True)
+    extraction_confidence = db.Column(db.Float, nullable=True)
+
+    # Duplicate detection
+    potential_duplicate_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+    duplicate_similarity = db.Column(db.Float, nullable=True)
+
+    # Admin review
+    reviewed_by = db.Column(db.String(50), db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    rejection_reason = db.Column(db.String(255), nullable=True)
+
+    # Result tracking
+    resulting_product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+    credits_awarded = db.Column(db.Integer, nullable=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
+    processed_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='submissions')
+    business = db.relationship('Business', backref='submissions')
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
+    potential_duplicate = db.relationship('Product', foreign_keys=[potential_duplicate_id])
+    resulting_product = db.relationship('Product', foreign_keys=[resulting_product_id])
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'business_id': self.business_id,
+            'business_name': self.business.name if self.business else None,
+            'image_url': self.image_url,
+            'status': self.status,
+            'extracted_title': self.extracted_title,
+            'extracted_old_price': float(self.extracted_old_price) if self.extracted_old_price else None,
+            'extracted_new_price': float(self.extracted_new_price) if self.extracted_new_price else None,
+            'extracted_discount_percent': self.extracted_discount_percent,
+            'extracted_valid_until': self.extracted_valid_until.isoformat() if self.extracted_valid_until else None,
+            'extraction_confidence': self.extraction_confidence,
+            'potential_duplicate_id': self.potential_duplicate_id,
+            'duplicate_similarity': self.duplicate_similarity,
+            'reviewed_by': self.reviewed_by,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'rejection_reason': self.rejection_reason,
+            'resulting_product_id': self.resulting_product_id,
+            'credits_awarded': self.credits_awarded,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'processed_at': self.processed_at.isoformat() if self.processed_at else None,
+        }

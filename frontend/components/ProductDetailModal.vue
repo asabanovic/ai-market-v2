@@ -35,6 +35,20 @@
               >
                 -{{ discountPercentage }}%
               </div>
+              <!-- Contributor Badge Overlay (bottom of image) -->
+              <div
+                v-if="product.contributor_name"
+                class="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-purple-900/90 via-purple-800/70 to-transparent px-1.5 py-1.5"
+              >
+                <div class="flex items-center gap-1.5 text-white text-[10px]">
+                  <div class="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 ring-1 ring-white/50">
+                    <Icon name="mdi:account" class="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <span class="truncate">
+                    Dodao/la <span class="font-semibold">{{ product.contributor_name }}</span>
+                  </span>
+                </div>
+              </div>
             </div>
 
             <!-- Product Info - Right Side -->

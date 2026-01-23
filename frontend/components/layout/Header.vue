@@ -256,10 +256,17 @@
                       <Icon name="mdi:store" class="w-4 h-4 mr-2" />
                       Moj Biznis
                     </NuxtLink>
+                    <button
+                      @click="openFeedback"
+                      class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Icon name="mdi:message-text-outline" class="w-4 h-4 mr-2" />
+                      Povratna informacija
+                    </button>
                     <NuxtLink
                       v-if="user?.is_admin"
                       to="/admin"
-                      class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      class="flex items-center px-4 py-2 text-sm text-purple-600 hover:bg-purple-50"
                       @click="showProfileDropdown = false"
                     >
                       <Icon name="mdi:shield-crown" class="w-4 h-4 mr-2" />
@@ -423,6 +430,13 @@
               <Icon name="mdi:store" class="w-4 h-4 inline mr-2" />
               Moj Biznis
             </NuxtLink>
+            <button
+              @click="openFeedback"
+              class="block w-full text-left px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors"
+            >
+              <Icon name="mdi:message-text-outline" class="w-4 h-4 inline mr-2" />
+              Povratna informacija
+            </button>
             <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
               <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />
               Admin Dashboard
@@ -603,6 +617,15 @@ async function handleLogout() {
   showProfileDropdown.value = false
   await logout()
   navigateTo('/')
+}
+
+function openFeedback() {
+  showProfileDropdown.value = false
+  showMobileMenu.value = false
+  // Dispatch custom event that app.vue listens for
+  if (process.client) {
+    window.dispatchEvent(new CustomEvent('open-feedback-popup'))
+  }
 }
 
 function toggleCityDropdown() {

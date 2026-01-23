@@ -39,11 +39,11 @@
       @started="handleWelcomeGuideStarted"
     />
 
-    <!-- Floating Feedback Button (for logged-in users) -->
-    <FloatingFeedbackButton @open-feedback="openFeedbackManually" />
-
     <!-- Floating Camera Button (for mobile product photo capture) -->
     <FloatingCameraButton />
+
+    <!-- Floating Submission Button (for adding products) -->
+    <SubmissionButton />
 
     <!-- PWA Install Banner -->
     <PwaInstallBanner />
@@ -104,6 +104,7 @@ onMounted(async () => {
   // Listen for custom event to open interest popup from other pages
   if (process.client) {
     window.addEventListener('open-interest-popup', openInterestPopup)
+    window.addEventListener('open-feedback-popup', openFeedbackManually)
   }
 })
 
@@ -111,6 +112,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (process.client) {
     window.removeEventListener('open-interest-popup', openInterestPopup)
+    window.removeEventListener('open-feedback-popup', openFeedbackManually)
   }
 })
 

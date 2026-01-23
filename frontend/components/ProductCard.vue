@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-200 ring-2 ring-green-500' : hasUpcomingDiscount ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'bg-white']">
+  <div class="rounded-lg shadow-md overflow-hidden relative hover:shadow-xl transition-shadow duration-300" :class="[product.is_teaser ? 'opacity-90' : '', hasActiveDiscount ? 'bg-green-200 ring-2 ring-green-500' : hasUpcomingDiscount ? 'bg-yellow-100 ring-2 ring-yellow-400' : product.contributor_name ? 'bg-white ring-2 ring-purple-400' : 'bg-white']">
     <!-- Teaser Blur Overlay (Anonymous Users) -->
     <div
       v-if="product.is_teaser"
@@ -141,6 +141,21 @@
       />
       <span v-else-if="!imageError" class="text-gray-400 text-sm">Nema Slike</span>
       <span v-else class="text-gray-400 text-sm">Nema Slike</span>
+
+      <!-- Contributor Badge Overlay (bottom of image) -->
+      <div
+        v-if="product.contributor_name"
+        class="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-purple-900/90 via-purple-800/70 to-transparent px-2 py-2.5"
+      >
+        <div class="flex items-center gap-2 text-white text-xs">
+          <div class="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 ring-2 ring-white/50">
+            <Icon name="mdi:account" class="w-4 h-4 text-white" />
+          </div>
+          <span class="line-clamp-2">
+            Dodao/la <span class="font-semibold">{{ product.contributor_name }}</span>
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Product Details -->

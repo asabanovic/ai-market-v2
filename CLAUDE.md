@@ -122,6 +122,20 @@ RAILWAY_ENVIRONMENT=staging railway redeploy --service backend
 
 See `RAILWAY_DEPLOY.md` for more deployment instructions.
 
+## Email Service
+
+**This project uses SendGrid for all email sending.**
+
+- Email utilities are in `backend/sendgrid_utils.py`
+- Use `send_email(to_email, subject, html_content)` for custom emails
+- There are many pre-built email functions: `send_welcome_email`, `send_verification_email`, etc.
+- **NEVER use other email services (Resend, Mailgun, etc.) - always use the existing SendGrid implementation**
+
+## Development Rules
+
+### When Unsure - ASK FIRST
+**If you're not sure about something (which service to use, how something works, etc.), ASK the user before implementing.** Don't assume or guess - check the existing codebase first, and if still unclear, ask.
+
 ## UI/UX Rules
 
 ### Text Contrast - CRITICAL

@@ -527,6 +527,20 @@ def product_to_dict(product, include_price_history=True):
                 'history_count': history_count
             }
 
+    # Get contributor info if product was submitted by a user
+    contributed_by = safe_get(product, 'contributed_by')
+    contributor_name = None
+    if contributed_by:
+        # Try to get from relationship first
+        if hasattr(product, 'contributor') and product.contributor:
+            contributor_name = product.contributor.first_name or product.contributor.email.split('@')[0] if product.contributor.email else 'Korisnik'
+        else:
+            # Fallback: query the user
+            from models import User
+            contributor = User.query.get(contributed_by)
+            if contributor:
+                contributor_name = contributor.first_name or (contributor.email.split('@')[0] if contributor.email else 'Korisnik')
+
     # Return product data - include discount_price even if discount hasn't started yet
     # (so frontend can show "upcoming discount" info)
     # But hide discount info if EXPIRED (product becomes regular)
@@ -546,6 +560,8 @@ def product_to_dict(product, include_price_history=True):
         'business': business_data,
         'enriched_description': safe_get(product, 'enriched_description'),
         'price_history': price_history_data,
+        'contributed_by': contributed_by,
+        'contributor_name': contributor_name,
     }
 
 
@@ -1611,23 +1627,31 @@ def api_public_business_page(slug_or_id):
 
         if featured_product_ids:
             featured_prods = Product.query.filter(Product.id.in_(featured_product_ids)).all()
-            featured_products = [{
-                'id': p.id,
-                'title': p.title,
-                'base_price': p.base_price,
-                'discount_price': p.discount_price,
-                'discount_percentage': p.discount_percentage,
-                'image_path': p.image_path,
-                'category': p.category,
-                'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
-                'expires': p.expires.isoformat() if p.expires else None,
-                'has_discount': is_discount_active(p),
-                'business': {
-                    'id': business.id,
-                    'name': business.name,
-                    'logo_path': business.logo_path
-                }
-            } for p in featured_prods]
+            featured_products = []
+            for p in featured_prods:
+                contributor_name = None
+                if p.contributed_by:
+                    if hasattr(p, 'contributor') and p.contributor:
+                        contributor_name = p.contributor.first_name or (p.contributor.email.split('@')[0] if p.contributor.email else 'Korisnik')
+                featured_products.append({
+                    'id': p.id,
+                    'title': p.title,
+                    'base_price': p.base_price,
+                    'discount_price': p.discount_price,
+                    'discount_percentage': p.discount_percentage,
+                    'image_path': p.image_path,
+                    'category': p.category,
+                    'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
+                    'expires': p.expires.isoformat() if p.expires else None,
+                    'has_discount': is_discount_active(p),
+                    'business': {
+                        'id': business.id,
+                        'name': business.name,
+                        'logo_path': business.logo_path
+                    },
+                    'contributed_by': p.contributed_by,
+                    'contributor_name': contributor_name
+                })
 
         # Get store locations with coordinates
         locations = []
@@ -1663,6 +1687,33 @@ def api_public_business_page(slug_or_id):
         ).distinct().all()
         unique_categories = sorted([c[0] for c in categories if c[0]])
 
+        # Format products list with contributor info
+        products_list = []
+        for p in products:
+            contributor_name = None
+            if p.contributed_by:
+                if hasattr(p, 'contributor') and p.contributor:
+                    contributor_name = p.contributor.first_name or (p.contributor.email.split('@')[0] if p.contributor.email else 'Korisnik')
+            products_list.append({
+                'id': p.id,
+                'title': p.title,
+                'base_price': p.base_price,
+                'discount_price': p.discount_price,
+                'discount_percentage': p.discount_percentage,
+                'image_path': p.image_path,
+                'category': p.category,
+                'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
+                'expires': p.expires.isoformat() if p.expires else None,
+                'has_discount': is_discount_active(p),
+                'business': {
+                    'id': business.id,
+                    'name': business.name,
+                    'logo_path': business.logo_path
+                },
+                'contributed_by': p.contributed_by,
+                'contributor_name': contributor_name
+            })
+
         return jsonify({
             'business': {
                 'id': business.id,
@@ -1692,23 +1743,7 @@ def api_public_business_page(slug_or_id):
                 'categories': unique_categories
             },
             'featured_products': featured_products,
-            'products': [{
-                'id': p.id,
-                'title': p.title,
-                'base_price': p.base_price,
-                'discount_price': p.discount_price,
-                'discount_percentage': p.discount_percentage,
-                'image_path': p.image_path,
-                'category': p.category,
-                'discount_starts': p.discount_starts.isoformat() if p.discount_starts else None,
-                'expires': p.expires.isoformat() if p.expires else None,
-                'has_discount': is_discount_active(p),
-                'business': {
-                    'id': business.id,
-                    'name': business.name,
-                    'logo_path': business.logo_path
-                }
-            } for p in products],
+            'products': products_list,
             'has_more': business.products.count() - len(featured_product_ids) > 28,
             'total_products': business.products.count() - len(featured_product_ids)
         })
@@ -1811,6 +1846,16 @@ def api_public_business_products(slug_or_id):
 
         products = []
         for p in pagination.items:
+            # Get contributor name if product was submitted by user
+            contributor_name = None
+            if p.contributed_by:
+                if hasattr(p, 'contributor') and p.contributor:
+                    contributor_name = p.contributor.first_name or (p.contributor.email.split('@')[0] if p.contributor.email else 'Korisnik')
+                else:
+                    contributor = User.query.get(p.contributed_by)
+                    if contributor:
+                        contributor_name = contributor.first_name or (contributor.email.split('@')[0] if contributor.email else 'Korisnik')
+
             products.append({
                 'id': p.id,
                 'title': p.title,
@@ -1827,7 +1872,9 @@ def api_public_business_products(slug_or_id):
                     'name': business.name,
                     'logo_path': business.logo_path
                 },
-                'match_counts': match_counts_map.get(p.id, {'clones': 0, 'siblings': 0, 'brand_variants': 0})
+                'match_counts': match_counts_map.get(p.id, {'clones': 0, 'siblings': 0, 'brand_variants': 0}),
+                'contributed_by': p.contributed_by,
+                'contributor_name': contributor_name
             })
 
         return jsonify({
@@ -2035,11 +2082,16 @@ def api_my_businesses():
             # Get product count
             product_count = Product.query.filter_by(business_id=business.id).count()
 
-            # Get count of products with AI category assigned
+            # Get count of products with AI extraction done (brand, product_type, or size_value)
+            # This matches the "✓ AI" badge logic in the frontend
+            from sqlalchemy import or_
             categorized_count = Product.query.filter(
                 Product.business_id == business.id,
-                Product.category_group.isnot(None),
-                Product.category_group != ''
+                or_(
+                    Product.brand.isnot(None),
+                    Product.product_type.isnot(None),
+                    Product.size_value.isnot(None)
+                )
             ).count()
 
             # Get total views for all products
@@ -5870,11 +5922,14 @@ def api_admin_stats():
         ).count()
 
         # Get embedding statistics
-        from models import ProductEmbedding, ProductReport
+        from models import ProductEmbedding, ProductReport, ProductSubmission
         products_with_embeddings = db.session.query(ProductEmbedding).count()
 
         # Get pending reports count
         pending_reports = db.session.query(ProductReport).filter_by(status='pending').count()
+
+        # Get pending user submissions count
+        pending_submissions = db.session.query(ProductSubmission).filter_by(status='pending').count()
         products_without_embeddings = total_products - products_with_embeddings
 
         # Get active (non-expired) products count
@@ -5933,7 +5988,8 @@ def api_admin_stats():
                 'products_without_embeddings': products_without_embeddings,
                 'active_products': active_products,
                 'expired_products': expired_products,
-                'pending_reports': pending_reports
+                'pending_reports': pending_reports,
+                'pending_submissions': pending_submissions
             },
             'recent_users': [{
                 'id': u.id,
