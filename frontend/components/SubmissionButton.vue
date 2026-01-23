@@ -1,5 +1,5 @@
 <template>
-  <!-- Floating "Dodaj" button - shows only for logged-in users on mobile -->
+  <!-- Floating "Dodaj" button - visible to everyone on mobile, requires login on click -->
   <div v-if="showButton" class="fixed right-4 bottom-20 z-50 md:hidden">
     <button
       @click="openModal"
@@ -301,8 +301,8 @@ import { ref, computed, watch, nextTick } from 'vue'
 const { isAuthenticated, token, user } = useAuth()
 const config = useRuntimeConfig()
 
-// Only show for logged-in users
-const showButton = computed(() => isAuthenticated.value)
+// Show button for everyone (login required when clicking)
+const showButton = computed(() => true)
 
 // Modal state
 const showModal = ref(false)
@@ -332,6 +332,12 @@ const filteredStores = computed(() => {
 })
 
 const openModal = async () => {
+  // Require login to submit
+  if (!isAuthenticated.value) {
+    navigateTo('/prijava?redirect=' + encodeURIComponent(useRoute().fullPath))
+    return
+  }
+
   showModal.value = true
   step.value = 1
   selectedStore.value = null
