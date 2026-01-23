@@ -183,9 +183,11 @@ def search_by_vector(
                 p.business_id,
                 p.size_value,
                 p.size_unit,
+                p.contributed_by,
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
+                u.first_name as contributor_first_name,
                 -- Semantic/vector score (0 to 1, higher is better)
                 1 - (pe.embedding <=> q.query_vec) AS vector_score,
                 -- Trigram score on title (0 to 1)
@@ -208,6 +210,7 @@ def search_by_vector(
             FROM products p
             INNER JOIN product_embeddings pe ON p.id = pe.product_id
             LEFT JOIN businesses b ON p.business_id = b.id
+            LEFT JOIN users u ON p.contributed_by = u.id
             CROSS JOIN q
             WHERE {where_sql}
               AND (
@@ -237,9 +240,11 @@ def search_by_vector(
                 p.business_id,
                 p.size_value,
                 p.size_unit,
+                p.contributed_by,
                 b.name as business_name,
                 b.logo_path as business_logo,
                 b.city as business_city,
+                u.first_name as contributor_first_name,
                 1 - (pe.embedding <=> '{vector_str}'::vector) AS vector_score,
                 0.0 AS title_score,
                 0.0 AS desc_score,
@@ -248,6 +253,7 @@ def search_by_vector(
             FROM products p
             INNER JOIN product_embeddings pe ON p.id = pe.product_id
             LEFT JOIN businesses b ON p.business_id = b.id
+            LEFT JOIN users u ON p.contributed_by = u.id
             WHERE {where_sql}
             ORDER BY pe.embedding <=> '{vector_str}'::vector
             LIMIT {k * 10}
@@ -309,7 +315,10 @@ def search_by_vector(
                 "name": row.business_name,
                 "logo": row.business_logo,
                 "city": row.business_city or row.city,
-            }
+            },
+            # Contributor info for user-submitted products
+            "contributed_by": row.contributed_by,
+            "contributor_name": row.contributor_first_name,
         }
 
         # Apply custom filter if provided

@@ -293,6 +293,10 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
                 "phone": business.get("phone"),
             }
 
+        # Add contributor info (for user-submitted products)
+        formatted_product["contributed_by"] = product.get("contributed_by")
+        formatted_product["contributor_name"] = product.get("contributor_name")
+
         # Calculate discount info - only if discount is ACTIVE (started and not expired)
         if has_discount and formatted_product["discount_price"] and formatted_product["base_price"]:
             formatted_product["discount_percent"] = round(
