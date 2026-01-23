@@ -6055,6 +6055,8 @@ def api_admin_users():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
         search = request.args.get('search', '').strip()
+        deactivated_filter = request.args.get('deactivated', '').strip()
+        notifications_filter = request.args.get('notifications', '').strip()
 
         # Build query
         query = User.query
@@ -6069,6 +6071,49 @@ def api_admin_users():
                     User.last_name.ilike(f'%{search}%')
                 )
             )
+
+        # Deactivated filter
+        if deactivated_filter == 'deactivated':
+            query = query.filter(User.deleted_at.isnot(None))
+        elif deactivated_filter == 'active':
+            query = query.filter(User.deleted_at.is_(None))
+
+        # Notifications filter - requires checking JSON preferences field
+        if notifications_filter:
+            # Get IDs of users with disabled notifications
+            users_with_prefs = User.query.filter(User.preferences.isnot(None)).all()
+            disabled_user_ids = set()
+            enabled_user_ids = set()
+
+            for user in users_with_prefs:
+                prefs = user.preferences or {}
+                has_disabled = False
+
+                # Check legacy email_notifications setting
+                if prefs.get('email_notifications') == False:
+                    has_disabled = True
+                else:
+                    # Check new email_preferences
+                    email_prefs = prefs.get('email_preferences', {})
+                    if (email_prefs.get('daily_emails') == False or
+                        email_prefs.get('weekly_summary') == False or
+                        email_prefs.get('monthly_summary') == False):
+                        has_disabled = True
+
+                if has_disabled:
+                    disabled_user_ids.add(user.id)
+                else:
+                    enabled_user_ids.add(user.id)
+
+            # Also get users with null preferences (considered enabled by default)
+            if notifications_filter == 'enabled':
+                null_pref_ids = {u.id for u in User.query.filter(User.preferences.is_(None)).all()}
+                enabled_user_ids.update(null_pref_ids)
+
+            if notifications_filter == 'disabled':
+                query = query.filter(User.id.in_(disabled_user_ids))
+            elif notifications_filter == 'enabled':
+                query = query.filter(User.id.in_(enabled_user_ids))
 
         # Order by most recent
         query = query.order_by(User.created_at.desc())

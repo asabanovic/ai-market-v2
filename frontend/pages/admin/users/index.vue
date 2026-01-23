@@ -153,16 +153,36 @@
         </div>
       </div>
 
-      <!-- Search -->
+      <!-- Search and Filters -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex gap-4">
+        <div class="flex flex-wrap gap-4">
           <input
             v-model="searchQuery"
             type="text"
             placeholder="Pretraži po email, telefon, ime..."
-            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 placeholder-gray-400"
+            class="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 placeholder-gray-400"
             @input="debouncedSearch"
           />
+          <!-- Deactivated Filter -->
+          <select
+            v-model="deactivatedFilter"
+            @change="loadUsers(1)"
+            class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 bg-white"
+          >
+            <option value="">Svi korisnici</option>
+            <option value="deactivated">Deaktivirani</option>
+            <option value="active">Aktivni</option>
+          </select>
+          <!-- Notifications Filter -->
+          <select
+            v-model="notificationsFilter"
+            @change="loadUsers(1)"
+            class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 bg-white"
+          >
+            <option value="">Sve notifikacije</option>
+            <option value="disabled">Isključene notifikacije</option>
+            <option value="enabled">Uključene notifikacije</option>
+          </select>
           <button
             @click="loadUsers"
             class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition"
@@ -1214,6 +1234,8 @@ const activeTab = ref('users')
 
 const users = ref<any[]>([])
 const searchQuery = ref('')
+const deactivatedFilter = ref('') // '', 'deactivated', 'active'
+const notificationsFilter = ref('') // '', 'disabled', 'enabled'
 const pagination = ref({
   page: 1,
   per_page: 50,
@@ -1366,6 +1388,12 @@ async function loadUsers(page = 1) {
     params.append('per_page', pagination.value.per_page.toString())
     if (searchQuery.value) {
       params.append('search', searchQuery.value)
+    }
+    if (deactivatedFilter.value) {
+      params.append('deactivated', deactivatedFilter.value)
+    }
+    if (notificationsFilter.value) {
+      params.append('notifications', notificationsFilter.value)
     }
 
     const data = await get(`/api/admin/users?${params.toString()}`)
