@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, date
 from flask import Blueprint, request, jsonify
 from werkzeug.security import check_password_hash
 from functools import wraps
-from app import app, db
+from app import app, db, limiter
+from rate_limiter import AUTH_LIMIT
 from models import User, UserDailyVisit
 from constants import BOSNIAN_CITIES
 
@@ -322,6 +323,7 @@ def require_jwt_auth(f):
 
 
 @auth_api_bp.route('/login', methods=['POST'])
+@limiter.limit(AUTH_LIMIT)  # Anti-brute-force: 20/min
 def api_login():
     """JWT-based login endpoint for API clients"""
     try:
@@ -466,6 +468,7 @@ def api_verify():
 
 
 @auth_api_bp.route('/register', methods=['POST'])
+@limiter.limit(AUTH_LIMIT)  # Anti-abuse: 20/min
 def api_register():
     """Register a new user"""
     try:

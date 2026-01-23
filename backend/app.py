@@ -133,6 +133,11 @@ def inject_csrf_token():
 # Initialize database
 db = SQLAlchemy(app, model_class=Base)
 
+# Initialize rate limiter (anti-scraping protection)
+from rate_limiter import init_limiter
+limiter = init_limiter(app)
+print("🛡️ Rate limiter initialized (anti-scraping protection)")
+
 # Add custom Jinja2 filters
 @app.template_filter('from_json')
 def from_json_filter(value):

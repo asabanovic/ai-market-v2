@@ -13,7 +13,8 @@ import re
 from sqlalchemy import or_, and_, func, case, text
 from sqlalchemy.orm.attributes import flag_modified
 # import pdb  # Removed debug import
-from app import app, db, csrf
+from app import app, db, csrf, limiter
+from rate_limiter import SEARCH_LIMIT, PRODUCTS_LIMIT, AUTH_LIMIT, UPLOAD_LIMIT, CART_LIMIT
 from models import User, Package, Business, Product, UserSearch, ContactMessage, BusinessMembership, BusinessInvitation, user_has_business_role, UserFeedback, SupportMessage, City
 from replit_auth import make_replit_blueprint, require_login
 from openai_utils import (parse_user_preferences, parse_product_text,
@@ -1123,6 +1124,7 @@ def health_check():
 
 # Sitemap endpoint - returns all product IDs for sitemap generation
 @app.route('/api/sitemap/products')
+@limiter.limit("10 per minute")  # Strict limit - sitemaps rarely need frequent access
 def sitemap_products():
     """Return all product IDs with timestamps for sitemap generation.
     This is a public endpoint with no authentication required."""
@@ -1187,6 +1189,7 @@ def api_savings_stats():
 # API endpoint for single product
 @app.route('/api/products/<int:product_id>')
 @require_jwt_auth
+@limiter.limit(PRODUCTS_LIMIT)  # Anti-scraping: 300/min
 def api_product_detail(product_id):
     """Get single product details"""
     product = Product.query.get(product_id)
@@ -1237,6 +1240,7 @@ CATEGORY_MAPPING = {
 
 @app.route('/api/products')
 @require_jwt_auth
+@limiter.limit(PRODUCTS_LIMIT)  # Anti-scraping: 300/min
 def api_products():
     """API endpoint for products listing with pagination (requires authentication)."""
     try:
@@ -2604,6 +2608,7 @@ def api_product_details(product_id):
 # Chat/Search endpoint - Using semantic search with vector embeddings
 @app.route('/search', methods=['POST'])
 @csrf.exempt
+@limiter.limit(SEARCH_LIMIT)  # Anti-scraping: 100/min (human max ~30/min)
 def search():
     data = request.get_json()
     query = data.get('query', '').strip()
