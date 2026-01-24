@@ -810,6 +810,62 @@ def mark_welcome_guide_seen():
         return jsonify({'error': 'Error updating user'}), 500
 
 
+@auth_api_bp.route('/user/promo-seen', methods=['POST', 'OPTIONS'])
+def mark_promo_seen():
+    """Mark a promo popup as seen for the user"""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Missing authorization header'}), 401
+
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        user = User.query.filter_by(id=payload['user_id']).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        promo_slug = data.get('promo_slug') if data else None
+
+        if not promo_slug:
+            return jsonify({'error': 'promo_slug required'}), 400
+
+        # Initialize preferences if needed
+        if not user.preferences:
+            user.preferences = {}
+
+        # Initialize seen_promos dict if needed
+        if 'seen_promos' not in user.preferences:
+            user.preferences['seen_promos'] = {}
+
+        # Increment view count for this promo
+        current_count = user.preferences['seen_promos'].get(promo_slug, 0)
+        user.preferences['seen_promos'][promo_slug] = current_count + 1
+
+        flag_modified(user, 'preferences')
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'promo_slug': promo_slug,
+            'view_count': user.preferences['seen_promos'][promo_slug]
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Mark promo seen error: {e}")
+        return jsonify({'error': 'Error updating user'}), 500
+
+
 @auth_api_bp.route('/user/profile', methods=['GET', 'PUT', 'OPTIONS'])
 def user_profile():
     """Get or update user profile"""

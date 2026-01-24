@@ -47,6 +47,12 @@
 
     <!-- PWA Install Banner -->
     <PwaInstallBanner />
+
+    <!-- Promo Popup: Submit a Deal -->
+    <PromoSubmissionPopup
+      :show="showSubmissionPromo"
+      @dismiss="handleSubmissionPromoDismiss"
+    />
   </div>
 </template>
 
@@ -54,9 +60,13 @@
 // Global app setup
 const colorMode = useColorMode()
 const { user, checkAuth } = useAuth()
-const { get } = useApi()
+const { get, post } = useApi()
+const route = useRoute()
 
 const showOnboardingModal = ref(false)
+
+// Promo popup state
+const showSubmissionPromo = ref(false)
 const showInterestPopup = ref(false)
 const isNewUserForInterest = ref(false)
 
@@ -98,6 +108,13 @@ onMounted(async () => {
       setTimeout(() => {
         checkWelcomeGuide()
       }, 2000)
+
+      // Check submission promo after welcome guide timing (for users who've seen it)
+      if (user.value.welcome_guide_seen) {
+        setTimeout(() => {
+          checkSubmissionPromo()
+        }, 4000)
+      }
     }
   }
 
@@ -400,4 +417,70 @@ watch(user, async (newUser) => {
     }, 5000)
   }
 }, { immediate: true })
+
+// ==================== SUBMISSION PROMO POPUP LOGIC ====================
+
+// Check if we should show submission promo popup
+function checkSubmissionPromo() {
+  console.log('[Promo] checkSubmissionPromo called, user:', user.value?.email)
+
+  if (!user.value) {
+    console.log('[Promo] No user, returning')
+    return
+  }
+
+  // Don't show to admins
+  if (user.value.is_admin) {
+    console.log('[Promo] User is admin, returning')
+    return
+  }
+
+  // Only show on homepage
+  if (route.path !== '/') {
+    console.log('[Promo] Not on homepage, path:', route.path)
+    return
+  }
+
+  // Check if user has already seen this promo
+  const preferences = user.value.preferences as Record<string, any> | null
+  const seenPromos = preferences?.seen_promos || {}
+  console.log('[Promo] seenPromos:', seenPromos)
+
+  if (seenPromos.submission_promo && seenPromos.submission_promo >= 1) {
+    console.log('[Promo] Already seen, returning')
+    return
+  }
+
+  // Double-check no other popup is showing
+  if (!showOnboardingModal.value && !showInterestPopup.value && !showWelcomeGuide.value && !showFeedbackPopup.value) {
+    console.log('[Promo] Showing popup!')
+    showSubmissionPromo.value = true
+  } else {
+    console.log('[Promo] Another popup is showing')
+  }
+}
+
+async function handleSubmissionPromoDismiss() {
+  showSubmissionPromo.value = false
+
+  // Mark promo as seen in backend
+  if (user.value) {
+    try {
+      await post('/auth/user/promo-seen', { promo_slug: 'submission_promo' })
+      // Refresh user data to update preferences
+      await checkAuth()
+    } catch (error) {
+      console.error('Error marking promo as seen:', error)
+    }
+  }
+}
+
+// Watch route changes to trigger promo on homepage (for navigation after initial load)
+watch(() => route.path, (newPath) => {
+  if (newPath === '/' && user.value) {
+    setTimeout(() => {
+      checkSubmissionPromo()
+    }, 3000)
+  }
+})
 </script>

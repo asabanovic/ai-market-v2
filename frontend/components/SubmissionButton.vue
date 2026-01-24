@@ -296,7 +296,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
 const { isAuthenticated, token, user } = useAuth()
 const config = useRuntimeConfig()
@@ -306,6 +306,19 @@ const showButton = computed(() => true)
 
 // Modal state
 const showModal = ref(false)
+
+// Listen for global event to open modal (from promo popup, etc.)
+onMounted(() => {
+  if (process.client) {
+    window.addEventListener('open-submission-modal', openModal)
+  }
+})
+
+onUnmounted(() => {
+  if (process.client) {
+    window.removeEventListener('open-submission-modal', openModal)
+  }
+})
 const showSuccess = ref(false)
 const step = ref(1)
 
