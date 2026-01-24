@@ -286,7 +286,7 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             >
               <option value="">Odaberite grad</option>
-              <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+              <option v-for="city in cities" :key="city.id" :value="city.name">{{ city.name }}</option>
             </select>
           </div>
 

@@ -113,7 +113,9 @@
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
                   <option :value="null">Odaberite grad</option>
-                  <option v-for="cityOption in cities" :key="cityOption.id" :value="cityOption.id">{{ cityOption.name }}</option>
+                  <option v-for="city in cityOptions" :key="city.id" :value="city.id">
+                    {{ city.label }}
+                  </option>
                 </select>
                 <p class="text-xs text-gray-500 mt-1">Grad je obavezan za personalizirane rezultate pretrage</p>
               </div>
@@ -556,6 +558,14 @@ const formData = ref({
 })
 
 const cities = ref<CityOption[]>([])
+
+// Computed to ensure city options have correct format for dropdown
+const cityOptions = computed(() => {
+  return cities.value.map(c => ({
+    id: c.id,
+    label: String(c.name)
+  }))
+})
 const packageInfo = ref<any>(null)
 const searchCounts = ref<any>(null)
 const recentSearches = ref<any[]>([])
@@ -633,6 +643,17 @@ onMounted(async () => {
   await checkOrganizationMembership()
 })
 
+// Sync formData.city_id when user.city_id changes (e.g., from Header city selector)
+watch(
+  () => user.value?.city_id,
+  (newCityId) => {
+    // Only update if not in edit mode (to avoid overwriting user's edits)
+    if (!isEditMode.value && newCityId !== undefined) {
+      formData.value.city_id = newCityId
+    }
+  }
+)
+
 async function checkOrganizationMembership() {
   try {
     const data = await get('/api/my-organization')
@@ -658,6 +679,7 @@ async function loadCities() {
       } else {
         cities.value = data.cities
       }
+      console.log('Loaded cities:', cities.value.slice(0, 3))
     }
 
     // Also load cities with coordinates for map functionality
