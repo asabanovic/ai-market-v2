@@ -50,6 +50,23 @@
         </p>
       </div>
 
+      <!-- City (Optional) -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          Grad (opciono)
+        </label>
+        <select
+          v-model="selectedCity"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white"
+        >
+          <option value="">Odaberite grad</option>
+          <option v-for="city in cities" :key="city.id" :value="city.name">{{ city.name }}</option>
+        </select>
+        <p class="mt-1 text-xs text-gray-500">
+          Prikazat ćemo ponude iz Vašeg grada.
+        </p>
+      </div>
+
       <!-- Phone Number (Optional) - BELOW preferences -->
       <div class="mb-5">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">
@@ -121,8 +138,16 @@ const props = defineProps<{
 
 const emit = defineEmits(['complete', 'skip', 'back'])
 
-const { put, post } = useApi()
+const { get, put, post } = useApi()
 const { user, checkAuth } = useAuth()
+
+// Cities for dropdown
+interface City {
+  id: number
+  name: string
+}
+const cities = ref<City[]>([])
+const selectedCity = ref('')
 
 // Default chips to auto-select for new users
 const defaultChips = ['Mlijeko', 'Hljeb', 'Jaja', 'Kafa', 'Deterdžent']
@@ -152,10 +177,22 @@ const isSubmitting = ref(false)
 const hasInitialized = ref(false)
 
 // Track when form is shown
-onMounted(() => {
+onMounted(async () => {
   trackEvent('preferences_shown', { source: props.source || 'unknown' })
   initializeForm()
+  await loadCities()
 })
+
+async function loadCities() {
+  try {
+    const data = await get('/auth/cities')
+    if (data?.cities) {
+      cities.value = data.cities
+    }
+  } catch (err) {
+    console.error('Failed to load cities:', err)
+  }
+}
 
 function initializeForm() {
   if (hasInitialized.value) return
@@ -163,6 +200,9 @@ function initializeForm() {
 
   // Initialize phone
   phone.value = props.initialPhone || user.value?.phone || ''
+
+  // Initialize city from user profile
+  selectedCity.value = user.value?.city || ''
 
   // Initialize interests
   const existingInterests = props.initialInterests ||
@@ -274,6 +314,7 @@ async function handleSubmit() {
   try {
     const result = await put('/auth/user/interests', {
       phone: phone.value || undefined,
+      city: selectedCity.value || undefined,
       grocery_interests: allInterests
     })
 

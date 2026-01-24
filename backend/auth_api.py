@@ -992,6 +992,19 @@ def update_user_interests():
                     return jsonify({'error': 'Ovaj broj telefona je već registrovan'}), 400
                 user.phone = phone
 
+        # Update city if provided
+        if 'city' in data and data['city']:
+            from models import City
+            city_name = data['city'].strip()
+            # Look up city by name
+            city = City.query.filter_by(name=city_name).first()
+            if city:
+                user.city = city_name
+                user.city_id = city.id
+            else:
+                # Just set the city name even if not in our cities table
+                user.city = city_name
+
         # Update grocery interests
         removed_interests = []
         if 'grocery_interests' in data:
