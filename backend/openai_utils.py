@@ -1635,26 +1635,45 @@ Extract the following information:
 - brand: Brand name if visible (e.g., "Milka", "Nivea", "Persil", "Meggle")
 - base_price: Regular price in KM if visible on price tag
 - discount_price: Sale price in KM if visible (null if not on sale)
+- expires: Expiry/validity date in YYYY-MM-DD format if visible (look for "do", "važi do", "akcija do", dates on price tags). null if not visible.
 - weight_volume: Weight or volume as string (e.g., "1L", "500g", "250ml", "1kg")
 - category: Product category - MUST be one of:
   ["Meso", "Namirnice", "Voće/Povrće", "Pića", "Mliječni proizvodi", "Higijena", "Čišćenje", "Auto", "Bebe", "Tehnika", "Ostalo"]
 
 PRODUCT MATCHING FIELDS (critical for clone/sibling detection):
-- product_type: Normalized generic product type in Bosnian, lowercase. Examples:
-  * "mlijeko", "jogurt", "sir", "maslac", "pavlaka" (dairy)
-  * "čokolada", "keks", "bomboni", "grickalice" (sweets)
-  * "deterdžent", "omekšivač", "sredstvo za čišćenje" (cleaning)
-  * "šampon", "gel za tuširanje", "sapun", "pasta za zube" (hygiene)
-  * "piletina", "govedina", "svinjetina", "riba" (meat)
-  * "sok", "voda", "pivo", "energetsko piće" (drinks)
-- size_value: Numeric size value only (e.g., 1, 0.5, 500, 250, 100)
-- size_unit: Size unit only - MUST be one of: "kg", "g", "l", "ml", "kom"
-- variant: Product variant/differentiator if any (e.g., "3.2%", "bez laktoze", "light", "s lješnicima", "gorka", "original")
+
+SIZE EXTRACTION RULES:
+- "1kg" or "1 kg" → size_value: 1, size_unit: "kg"
+- "200g" → size_value: 200, size_unit: "g"
+- "500ml" → size_value: 500, size_unit: "ml"
+- "1l" or "1L" → size_value: 1, size_unit: "l"
+- "6x0.5l" → size_value: 3, size_unit: "l" (calculate total volume)
+- "10 kom" or "10 komada" → size_value: 10, size_unit: "kom"
+
+BRAND EXTRACTION RULES:
+- Extract brand even if at end of title (e.g., "Mlijeko 2.8% 1l Meggle" → brand: "Meggle")
+- Common brands: Ariel, Persil, Meggle, Vindija, Dukat, Coca-Cola, Pepsi, Milka, Orbit, Gavrilović, Zlatiborac, Dino, etc.
+- If no brand identifiable, return null
+
+PRODUCT TYPE RULES:
+- product_type: Normalized generic product type in Bosnian, lowercase
+- Examples: "mlijeko", "jogurt", "sir", "čokolada", "keks", "deterdžent", "šampon", "piletina", "govedina", "sok", "voda", "pivo", "kafa"
+- If not determinable, return null
+
+VARIANT RULES:
+- variant: Flavor, fat percentage, or other differentiators (e.g., "zero", "light", "2.8%", "original", "s lješnicima")
+- If not determinable, return null
 
 SEARCH & SEO FIELDS:
 - tags: Array of 10-15 search tags (lowercase, no diacritics) for matching. Include:
   * Brand name, product type, category, use cases, variants, English equivalents
-- description: SEO-friendly description (2-3 sentences)
+- description: Rich semantic description (3-6 sentences) optimized for search. Include:
+  * Exact product name as given
+  * Synonyms and alternative names people search for
+  * Typical use cases and contexts
+  * Related properties, flavors, functions
+  * Search phrases users commonly type
+  * Write naturally without bullet points - one flowing paragraph
 
 IMPORTANT RULES:
 - READ ALL TEXT on the image CAREFULLY before extracting. Do not guess product names - use exactly what is written.
@@ -1671,6 +1690,7 @@ Return JSON format:
     "brand": "Milka",
     "base_price": 3.50,
     "discount_price": 2.99,
+    "expires": "2026-02-15",
     "weight_volume": "100g",
     "product_type": "čokolada",
     "size_value": 100,
@@ -1678,7 +1698,7 @@ Return JSON format:
     "variant": "s lješnicima",
     "category": "Namirnice",
     "tags": ["milka", "cokolada", "slatkis", "hrana", "desert", "grickalica", "slatko", "uzina", "chocolate", "ljesnik", "hazelnut", "mljecna cokolada"],
-    "description": "Milka čokolada s lješnicima je kremasta mliječna čokolada sa dodatkom hrskave lješnikove krokante. Idealna za užinu, desert ili poklon. Popularan slatkiš za sve generacije.",
+    "description": "Milka čokolada s lješnicima je popularna mliječna čokolada sa hrskavim komadićima lješnika, poznata po kremastoj teksturi i prepoznatljivom ljubičastom pakovanju. Idealna je za užinu, desert, poklon ili grickanje uz kafu i film. Često se traži kao slatki poklon, čokoladica za djecu, ili kao dio čokoladnog asortimana za praznike. Proizvod spada u kategoriju slatkiša i grickalica, a korisnici ga pretražuju i pod nazivima švajcarska čokolada, fina čokolada, čokolada sa orasima.",
     "confidence": "high" | "medium" | "low"
 }"""
 
@@ -1698,13 +1718,13 @@ Return JSON format:
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:image/jpeg;base64,{image_base64}",
-                                "detail": "low"  # Use low detail to save tokens
+                                "detail": "auto"  # Use auto detail for better OCR accuracy
                             }
                         }
                     ]
                 }
             ],
-            max_tokens=700
+            max_tokens=1000
         )
 
         content = response.choices[0].message.content.strip()
