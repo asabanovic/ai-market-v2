@@ -1270,11 +1270,72 @@ def populate_cities_endpoint():
         # Rate limiting: 1 request per second (Nominatim requirement)
         time.sleep(1.1)
 
+    # Also migrate users' city strings to city_id
+    from sqlalchemy import text
+    result = db.session.execute(text("""
+        UPDATE users u
+        SET city_id = c.id
+        FROM cities c
+        WHERE u.city = c.name
+        AND u.city IS NOT NULL
+        AND u.city_id IS NULL
+    """))
+    db.session.commit()
+    users_updated = result.rowcount
+
+    # Check for orphaned city strings
+    orphaned = db.session.execute(text("""
+        SELECT DISTINCT city FROM users
+        WHERE city IS NOT NULL
+        AND city_id IS NULL
+    """)).fetchall()
+    orphaned_cities = [row[0] for row in orphaned] if orphaned else []
+
     return jsonify({
         'success': True,
         'total': len(BOSNIAN_CITIES),
         'geocoded': success_count,
-        'failed': failed_cities
+        'failed': failed_cities,
+        'users_migrated': users_updated,
+        'orphaned_city_strings': orphaned_cities
+    }), 200
+
+
+@auth_api_bp.route('/cities/migrate-users', methods=['POST'])
+@require_jwt_auth
+def migrate_user_city_ids():
+    """Fast admin endpoint to migrate users' city strings to city_id (no geocoding)"""
+    from sqlalchemy import text
+
+    # Check if user is admin
+    user = User.query.get(request.current_user_id)
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    # Migrate users' city strings to city_id
+    result = db.session.execute(text("""
+        UPDATE users u
+        SET city_id = c.id
+        FROM cities c
+        WHERE u.city = c.name
+        AND u.city IS NOT NULL
+        AND u.city_id IS NULL
+    """))
+    db.session.commit()
+    users_updated = result.rowcount
+
+    # Check for orphaned city strings
+    orphaned = db.session.execute(text("""
+        SELECT DISTINCT city FROM users
+        WHERE city IS NOT NULL
+        AND city_id IS NULL
+    """)).fetchall()
+    orphaned_cities = [row[0] for row in orphaned] if orphaned else []
+
+    return jsonify({
+        'success': True,
+        'users_migrated': users_updated,
+        'orphaned_city_strings': orphaned_cities
     }), 200
 
 
