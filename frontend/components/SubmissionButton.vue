@@ -1,11 +1,11 @@
 <template>
   <!-- Floating "Dodaj" button - visible to everyone on mobile, requires login on click -->
-  <div v-if="showButton" class="fixed right-4 bottom-20 z-50 md:hidden">
+  <div v-if="showButton && !props.hideButton" class="fixed right-4 bottom-20 z-50 md:hidden">
     <button
       @click="openModal"
       class="flex items-center gap-2 pl-1 pr-4 py-1 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-all"
     >
-      <div class="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full relative">
+      <div class="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full relative text-white">
         <!-- Camera icon -->
         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -18,7 +18,7 @@
           </svg>
         </div>
       </div>
-      <span class="text-sm font-medium whitespace-nowrap">Dodaj</span>
+      <span class="text-sm font-medium whitespace-nowrap">Dodaj artikal</span>
     </button>
   </div>
 
@@ -298,11 +298,23 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
+// Props
+const props = defineProps({
+  hideButton: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const { isAuthenticated, token, user } = useAuth()
 const config = useRuntimeConfig()
 
-// Show button for everyone (login required when clicking)
-const showButton = computed(() => true)
+const route = useRoute()
+
+// Show button for everyone on mobile, but hide on /racuni page
+const showButton = computed(() => {
+  return route.path !== '/racuni'
+})
 
 // Modal state
 const showModal = ref(false)

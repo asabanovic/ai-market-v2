@@ -39,11 +39,11 @@
       @started="handleWelcomeGuideStarted"
     />
 
-    <!-- Floating Camera Button (for mobile product photo capture) -->
-    <FloatingCameraButton />
+    <!-- Unified Floating Action Menu (Speed Dial FAB) -->
+    <FloatingActionMenu />
 
-    <!-- Floating Submission Button (for adding products) -->
-    <SubmissionButton />
+    <!-- Submission Modal (triggered by FloatingActionMenu) -->
+    <SubmissionButton :hide-button="true" />
 
     <!-- PWA Install Banner -->
     <PwaInstallBanner />
