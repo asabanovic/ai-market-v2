@@ -11,15 +11,15 @@
               </svg>
             </NuxtLink>
             <div>
-              <h1 class="text-2xl font-semibold text-gray-900">Uploadani racuni</h1>
-              <p class="mt-1 text-sm text-gray-600">Pregled svih korisnickih racuna i OCR ekstrakcije</p>
+              <h1 class="text-2xl font-semibold text-gray-900">Učitani računi</h1>
+              <p class="mt-1 text-sm text-gray-600">Pregled svih korisničkih računa i OCR ekstrakcije</p>
             </div>
           </div>
           <button
             @click="loadData"
             class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            Osvjezi
+            Osvježi
           </button>
         </div>
       </div>
@@ -31,15 +31,15 @@
           <div class="text-2xl font-bold text-gray-900">{{ stats.total_receipts }}</div>
         </div>
         <div class="bg-white rounded-lg border border-green-200 p-4 bg-green-50">
-          <div class="text-sm text-green-700">Uspjesno</div>
+          <div class="text-sm text-green-700">Uspješno</div>
           <div class="text-2xl font-bold text-green-600">{{ stats.by_status?.completed || 0 }}</div>
         </div>
         <div class="bg-white rounded-lg border border-yellow-200 p-4 bg-yellow-50">
-          <div class="text-sm text-yellow-700">Na cekanju</div>
+          <div class="text-sm text-yellow-700">Na čekanju</div>
           <div class="text-2xl font-bold text-yellow-600">{{ stats.by_status?.pending || 0 }}</div>
         </div>
         <div class="bg-white rounded-lg border border-red-200 p-4 bg-red-50">
-          <div class="text-sm text-red-700">Greska</div>
+          <div class="text-sm text-red-700">Greška</div>
           <div class="text-2xl font-bold text-red-600">{{ stats.by_status?.failed || 0 }}</div>
         </div>
         <div class="bg-white rounded-lg border border-blue-200 p-4 bg-blue-50">
@@ -88,7 +88,7 @@
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
             ]"
           >
-            Uspjesno
+            Uspješno
           </button>
           <button
             @click="setFilter('pending')"
@@ -99,7 +99,7 @@
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
             ]"
           >
-            Na cekanju
+            Na čekanju
           </button>
           <button
             @click="setFilter('failed')"
@@ -110,7 +110,7 @@
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
             ]"
           >
-            Greska
+            Greška
           </button>
         </div>
 
@@ -119,7 +119,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Pretrazi po email, radnja, JIB..."
+            placeholder="Pretraži po emailu, radnji, JIB-u..."
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             @keyup.enter="loadReceipts"
           />
@@ -133,7 +133,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <span class="ml-3 text-lg">Ucitavanje...</span>
+          <span class="ml-3 text-lg">Učitavanje...</span>
         </div>
       </div>
 
@@ -142,8 +142,8 @@
         <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <h3 class="mt-4 text-lg font-medium text-gray-900">Nema racuna</h3>
-        <p class="mt-2 text-gray-600">Trenutno nema uploadanih racuna.</p>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">Nema računa</h3>
+        <p class="mt-2 text-gray-600">Trenutno nema učitanih računa.</p>
       </div>
 
       <!-- Table View -->
@@ -219,7 +219,7 @@
                 <td class="px-4 py-3 whitespace-nowrap">
                   <div class="text-sm text-gray-900">{{ formatDate(receipt.created_at) }}</div>
                   <div v-if="receipt.receipt_date" class="text-xs text-gray-500">
-                    Racun: {{ formatDate(receipt.receipt_date) }}
+                    Račun: {{ formatDate(receipt.receipt_date) }}
                   </div>
                 </td>
 
@@ -239,7 +239,7 @@
                     <button
                       @click="deleteReceipt(receipt)"
                       class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Obrisi"
+                      title="Obriši"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -256,7 +256,7 @@
         <div v-if="totalPages > 1" class="px-4 py-3 bg-gray-50 border-t border-gray-200">
           <div class="flex items-center justify-between">
             <div class="text-sm text-gray-700">
-              Prikazano {{ receipts.length }} od {{ totalReceipts }} racuna
+              Prikazano {{ receipts.length }} od {{ totalReceipts }} računa
             </div>
             <div class="flex gap-2">
               <button
@@ -274,7 +274,7 @@
                 :disabled="currentPage >= totalPages"
                 class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
               >
-                Sljedeca
+                Sljedeća
               </button>
             </div>
           </div>
@@ -614,7 +614,7 @@ function closeViewModal() {
 }
 
 async function deleteReceipt(receipt: Receipt) {
-  if (!confirm(`Jeste li sigurni da zelite obrisati racun #${receipt.id}?`)) return
+  if (!confirm(`Jeste li sigurni da želite obrisati račun #${receipt.id}?`)) return
 
   try {
     await del(`/api/admin/receipts/${receipt.id}`)
@@ -622,7 +622,7 @@ async function deleteReceipt(receipt: Receipt) {
     loadStats()
   } catch (error) {
     console.error('Error deleting receipt:', error)
-    alert('Greska pri brisanju racuna')
+    alert('Greška pri brisanju računa')
   }
 }
 
@@ -642,11 +642,11 @@ function getStatusClass(status: string): string {
 function getStatusLabel(status: string): string {
   switch (status) {
     case 'completed':
-      return 'Uspjesno'
+      return 'Uspješno'
     case 'pending':
-      return 'Na cekanju'
+      return 'Na čekanju'
     case 'failed':
-      return 'Greska'
+      return 'Greška'
     default:
       return status
   }
