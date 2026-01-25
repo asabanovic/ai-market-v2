@@ -920,24 +920,43 @@
                 <div
                   v-for="(item, idx) in selectedReceipt.items"
                   :key="item.id"
-                  class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  <span class="text-xs text-gray-400 font-medium w-5 flex-shrink-0 pt-0.5">{{ idx + 1 }}</span>
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-900 text-sm leading-tight">{{ item.parsed_name || item.raw_name }}</p>
-                    <div class="flex flex-wrap gap-2 mt-1">
-                      <span v-if="item.brand && item.brand !== 'UNKNOWN'" class="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                        {{ item.brand }}
-                      </span>
-                      <span v-if="item.quantity > 1" class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                        x{{ item.quantity }}
-                      </span>
-                      <span v-if="item.pack_size" class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                        {{ item.pack_size }}
-                      </span>
+                  <div class="flex items-start gap-3">
+                    <span class="text-xs text-gray-400 font-medium w-5 flex-shrink-0 pt-0.5">{{ idx + 1 }}</span>
+                    <div class="flex-1 min-w-0">
+                      <!-- Parsed name (main) -->
+                      <p class="font-medium text-gray-900 text-sm leading-tight">{{ item.parsed_name || item.raw_name }}</p>
+
+                      <!-- Raw receipt text (if different from parsed) -->
+                      <p
+                        v-if="item.raw_name && item.parsed_name && item.raw_name !== item.parsed_name"
+                        class="text-xs text-gray-500 mt-0.5 font-mono truncate"
+                        :title="item.raw_name"
+                      >
+                        {{ item.raw_name }}
+                      </p>
+
+                      <!-- Tags row -->
+                      <div class="flex flex-wrap gap-2 mt-1.5">
+                        <span v-if="item.brand && item.brand !== 'UNKNOWN'" class="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                          {{ item.brand }}
+                        </span>
+                        <span v-if="item.pack_size" class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                          {{ item.pack_size }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Price column -->
+                    <div class="flex-shrink-0 text-right">
+                      <span class="font-semibold text-gray-900 text-sm">{{ item.line_total?.toFixed(2) }} KM</span>
+                      <!-- Show quantity breakdown if more than 1 -->
+                      <p v-if="item.quantity > 1 && item.unit_price" class="text-xs text-gray-500 mt-0.5">
+                        {{ item.quantity }} x {{ item.unit_price.toFixed(2) }} KM
+                      </p>
                     </div>
                   </div>
-                  <span class="font-semibold text-gray-900 text-sm flex-shrink-0">{{ item.line_total?.toFixed(2) }} KM</span>
                 </div>
               </div>
 
