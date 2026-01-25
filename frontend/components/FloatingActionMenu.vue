@@ -118,12 +118,19 @@
         @change="handleFileSelect"
       />
 
-      <!-- Hidden file input for receipt capture -->
+      <!-- Hidden file inputs for receipt capture -->
       <input
         ref="receiptCameraInput"
         type="file"
         accept="image/*"
         capture="environment"
+        class="hidden"
+        @change="handleReceiptFileSelect"
+      />
+      <input
+        ref="receiptGalleryInput"
+        type="file"
+        accept="image/*"
         class="hidden"
         @change="handleReceiptFileSelect"
       />
@@ -174,6 +181,60 @@
             </div>
             <button
               @click="showImageOptions = false"
+              class="w-full mt-4 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              Otkaži
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Receipt Options Sub-menu (Bottom Sheet) -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-all duration-200"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-all duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showReceiptOptions"
+          class="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center md:items-center"
+          @click.self="showReceiptOptions = false"
+        >
+          <div class="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm p-4 pb-8 md:pb-4 transform transition-transform">
+            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4 md:hidden" />
+            <h3 class="text-lg font-semibold text-gray-900 text-center mb-4">Dodaj račun</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                @click="openReceiptCamera"
+                class="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors"
+              >
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Slikaj uživo</span>
+              </button>
+              <button
+                @click="openReceiptGallery"
+                class="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors"
+              >
+                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Iz galerije</span>
+              </button>
+            </div>
+            <button
+              @click="showReceiptOptions = false"
               class="w-full mt-4 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
             >
               Otkaži
@@ -314,7 +375,7 @@
             </svg>
           </div>
 
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Hvala ti!</h3>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Bravo!</h3>
           <p class="text-gray-600 mb-3">Tvoj račun je uspješno učitan.</p>
 
           <!-- Feature explanation -->
@@ -328,7 +389,7 @@
               <div>
                 <p class="font-medium text-blue-900">Pratimo tvoje troškove!</p>
                 <p class="text-sm text-blue-700 mt-1">
-                  Automatski analiziramo račune i pomažemo ti da uštediš. Vidjećeš gdje možeš kupiti jeftinije!
+                  Uvijek se možeš vratiti da vidiš koliko si potrošio i gdje. Budi svjestan svojih troškova!
                 </p>
               </div>
             </div>
@@ -363,12 +424,14 @@ const searchResult = ref<any>(null)
 // Receipt state
 const isUploadingReceipt = ref(false)
 const showReceiptSuccess = ref(false)
+const showReceiptOptions = ref(false)
 const confettiCanvas = ref<HTMLCanvasElement | null>(null)
 
 // File inputs
 const cameraInput = ref<HTMLInputElement | null>(null)
 const galleryInput = ref<HTMLInputElement | null>(null)
 const receiptCameraInput = ref<HTMLInputElement | null>(null)
+const receiptGalleryInput = ref<HTMLInputElement | null>(null)
 
 // Always show on all pages
 const showButton = computed(() => true)
@@ -401,15 +464,27 @@ function handleAddProduct() {
   }
 }
 
-// Handle receipt capture
+// Handle receipt capture - show bottom sheet options
 function handleReceiptCapture() {
   closeMenu()
   if (!isAuthenticated.value) {
     navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
   }
-  // Open camera directly
+  // Show receipt options bottom sheet
+  showReceiptOptions.value = true
+}
+
+// Open receipt camera
+function openReceiptCamera() {
+  showReceiptOptions.value = false
   receiptCameraInput.value?.click()
+}
+
+// Open receipt gallery
+function openReceiptGallery() {
+  showReceiptOptions.value = false
+  receiptGalleryInput.value?.click()
 }
 
 // Handle receipt file selection
@@ -586,10 +661,10 @@ function startConfetti() {
   animate()
 }
 
-// Navigate to receipts page
+// Navigate to receipts page with refresh flag
 function goToReceipts() {
   showReceiptSuccess.value = false
-  router.push('/racuni')
+  router.push('/racuni?refresh=1')
 }
 
 function openCamera() {

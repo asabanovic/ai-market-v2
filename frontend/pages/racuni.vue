@@ -1204,10 +1204,38 @@ const topProducts = computed(() => {
     .slice(0, 5)
 })
 
+const route = useRoute()
+const router = useRouter()
+
 // Load receipts on mount
 onMounted(async () => {
   await loadReceipts()
+  // Check if we need to poll for a new receipt (came from FAB upload)
+  handleRefreshParam()
 })
+
+// Watch for refresh query param (when navigating from FAB upload)
+watch(() => route.query.refresh, (newVal) => {
+  if (newVal) {
+    handleRefreshParam()
+  }
+})
+
+// Handle refresh parameter - reload receipts and clear the param
+async function handleRefreshParam() {
+  if (route.query.refresh) {
+    await loadReceipts()
+    // Remove the refresh param from URL without navigation
+    router.replace({ path: '/racuni', query: {} })
+    // Start polling for the newest receipt if it's still processing
+    // Use sortedReceipts to ensure we get the most recent one
+    await nextTick()
+    const newest = sortedReceipts.value[0]
+    if (newest && (newest.processing_status === 'pending' || newest.processing_status === 'processing')) {
+      pollReceiptStatus(newest.id)
+    }
+  }
+}
 
 // Load stats data when switching to stats tab
 watch(activeTab, async (newTab) => {
