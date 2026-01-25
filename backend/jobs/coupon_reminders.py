@@ -59,6 +59,11 @@ def run_coupon_reminders():
             user = uc.user
             business = coupon.business
 
+            # Skip deactivated users
+            if user.deleted_at is not None:
+                logger.debug(f"User {user.id} is deactivated, skipping coupon reminder")
+                continue
+
             # Check if coupon has expired
             if uc.expires_at and uc.expires_at < now:
                 uc.status = 'expired'

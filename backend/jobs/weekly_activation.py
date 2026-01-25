@@ -45,11 +45,12 @@ def get_users_without_tracking() -> list:
 
     user_ids_with_tracking = {u[0] for u in users_with_tracking}
 
-    # Get all verified users with email
+    # Get all verified users with email (excluding deactivated)
     all_users = User.query.filter(
         User.email.isnot(None),
         User.email != '',
-        User.email_verified == True  # Only verified users
+        User.email_verified == True,  # Only verified users
+        User.deleted_at.is_(None)  # Skip deactivated users
     ).all()
 
     # Filter to users WITHOUT tracking and with emails enabled
