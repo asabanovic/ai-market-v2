@@ -2,7 +2,7 @@
   <div class="bg-gray-50 min-h-screen py-6 pb-24">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="mb-6">
+      <div class="mb-4">
         <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           Moji računi
         </h1>
@@ -11,49 +11,50 @@
         </p>
       </div>
 
+      <!-- Promo Banner -->
+      <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <div class="flex items-start gap-3">
+          <div class="text-2xl">💡</div>
+          <div>
+            <p class="text-amber-900 font-medium">
+              Zavoljet ćete ovu opciju, pogotovo ako ne znate gdje vam odlazi novac tokom mjeseca!
+            </p>
+            <p class="text-amber-700 text-sm mt-1">
+              Probajte mjesec dana i recite nam šta mislite!
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Tab Navigation -->
       <div class="flex border-b border-gray-200 mb-6">
         <button
           @click="activeTab = 'receipts'"
           :class="[
-            'flex-1 py-3 px-4 text-center font-medium transition-colors',
+            'flex-1 py-3 px-2 md:px-4 font-medium transition-colors flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2',
             activeTab === 'receipts'
               ? 'text-purple-600 border-b-2 border-purple-600'
               : 'text-gray-500 hover:text-gray-700'
           ]"
         >
-          <svg class="w-5 h-5 mr-1 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Računi
-        </button>
-        <button
-          @click="activeTab = 'expenses'"
-          :class="[
-            'flex-1 py-3 px-4 text-center font-medium transition-colors',
-            activeTab === 'expenses'
-              ? 'text-purple-600 border-b-2 border-purple-600'
-              : 'text-gray-500 hover:text-gray-700'
-          ]"
-        >
-          <svg class="w-5 h-5 mr-1 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          Troškovi
+          <span class="text-sm md:text-base">Računi</span>
         </button>
         <button
           @click="activeTab = 'stats'"
           :class="[
-            'flex-1 py-3 px-4 text-center font-medium transition-colors',
+            'flex-1 py-3 px-2 md:px-4 font-medium transition-colors flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2',
             activeTab === 'stats'
               ? 'text-purple-600 border-b-2 border-purple-600'
               : 'text-gray-500 hover:text-gray-700'
           ]"
         >
-          <svg class="w-5 h-5 mr-1 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          Statistika
+          <span class="text-sm md:text-base">Statistika</span>
         </button>
       </div>
 
@@ -512,162 +513,6 @@
         </div>
       </div>
 
-      <!-- Expenses Tab (Troškovi) - Grouped by Brand/Product -->
-      <div v-show="activeTab === 'expenses'">
-        <div v-if="isLoadingExpenses" class="text-center py-12">
-          <svg class="w-10 h-10 text-purple-600 animate-spin mx-auto" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p class="mt-4 text-gray-600">Učitavanje troškova...</p>
-        </div>
-
-        <div v-else-if="groupedExpenses.length > 0">
-          <!-- Period Filter -->
-          <div class="flex gap-2 mb-4">
-            <button
-              v-for="period in expensePeriods"
-              :key="period.value"
-              @click="expensePeriod = period.value"
-              :class="[
-                'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                expensePeriod === period.value
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              ]"
-            >
-              {{ period.label }}
-            </button>
-          </div>
-
-          <!-- Summary Cards -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Ukupno potrošeno</p>
-              <p class="text-xl font-bold text-gray-900">{{ expensesTotals.total.toFixed(2) }} KM</p>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Broj kupovina</p>
-              <p class="text-xl font-bold text-purple-600">{{ expensesTotals.count }}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Brendova</p>
-              <p class="text-xl font-bold text-blue-600">{{ expensesTotals.brands }}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Artikala</p>
-              <p class="text-xl font-bold text-green-600">{{ expensesTotals.products }}</p>
-            </div>
-          </div>
-
-          <!-- Grouped Expenses Table -->
-          <div class="bg-white rounded-xl shadow-md overflow-hidden">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th scope="col" class="w-10 px-4 py-3"></th>
-                  <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Brend / Artikal
-                  </th>
-                  <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Kupovina
-                  </th>
-                  <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Količina
-                  </th>
-                  <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Ukupno
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <template v-for="group in groupedExpenses" :key="group.brand">
-                  <!-- Brand Row -->
-                  <tr
-                    class="hover:bg-gray-50 cursor-pointer transition-colors bg-purple-50"
-                    @click="toggleBrandExpand(group.brand)"
-                  >
-                    <!-- Expand Icon -->
-                    <td class="px-4 py-4">
-                      <svg
-                        class="w-5 h-5 text-purple-500 transition-transform duration-200"
-                        :class="{ 'rotate-90': expandedBrands.has(group.brand) }"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </td>
-                    <!-- Brand Name -->
-                    <td class="px-4 py-4">
-                      <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center justify-center w-8 h-8 bg-purple-100 text-purple-600 rounded-lg text-sm font-bold">
-                          {{ group.brand.charAt(0) }}
-                        </span>
-                        <span class="text-sm font-bold text-gray-900">{{ group.brand }}</span>
-                      </div>
-                    </td>
-                    <!-- Purchase Count -->
-                    <td class="px-4 py-4 text-center">
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {{ group.totalCount }}x
-                      </span>
-                    </td>
-                    <!-- Total Quantity -->
-                    <td class="px-4 py-4 text-center">
-                      <div class="text-sm text-gray-700">
-                        <span v-for="(qty, unit) in group.totalQuantity" :key="unit" class="mr-2">
-                          {{ formatQuantity(qty) }}{{ unit }}
-                        </span>
-                        <span v-if="Object.keys(group.totalQuantity).length === 0">-</span>
-                      </div>
-                    </td>
-                    <!-- Total Amount -->
-                    <td class="px-4 py-4 text-right">
-                      <span class="text-sm font-bold text-purple-600">
-                        {{ group.totalAmount.toFixed(2) }} KM
-                      </span>
-                    </td>
-                  </tr>
-
-                  <!-- Expanded Products -->
-                  <template v-if="expandedBrands.has(group.brand)">
-                    <tr v-for="product in group.products" :key="`${group.brand}-${product.name}`" class="bg-gray-50 hover:bg-gray-100">
-                      <td class="px-4 py-3"></td>
-                      <td class="px-4 py-3 pl-16">
-                        <div class="text-sm text-gray-800">{{ product.name }}</div>
-                        <div v-if="product.packSize" class="text-xs text-gray-500">{{ product.packSize }}</div>
-                      </td>
-                      <td class="px-4 py-3 text-center">
-                        <span class="text-xs text-gray-600">{{ product.count }}x</span>
-                      </td>
-                      <td class="px-4 py-3 text-center">
-                        <div class="text-xs text-gray-600">
-                          <span v-for="(qty, unit) in product.quantity" :key="unit" class="mr-1">
-                            {{ formatQuantity(qty) }}{{ unit }}
-                          </span>
-                          <span v-if="Object.keys(product.quantity).length === 0">-</span>
-                        </div>
-                      </td>
-                      <td class="px-4 py-3 text-right">
-                        <span class="text-sm font-medium text-gray-900">{{ product.total.toFixed(2) }} KM</span>
-                      </td>
-                    </tr>
-                  </template>
-                </template>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div v-else class="text-center py-12">
-          <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <p class="text-gray-500">Nema podataka o troškovima</p>
-          <p class="text-gray-400 text-sm mt-1">Učitajte račune da vidite troškove po brendovima</p>
-        </div>
-      </div>
-
       <!-- Statistics Tab - Charts -->
       <div v-show="activeTab === 'stats'">
         <div v-if="isLoadingStats" class="text-center py-12">
@@ -696,71 +541,31 @@
             </button>
           </div>
 
-          <!-- Summary Cards -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Ukupno ({{ chartPeriodLabel }})</p>
-              <p class="text-xl font-bold text-gray-900">{{ chartTotals.total.toFixed(2) }} KM</p>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Prosječno dnevno</p>
-              <p class="text-xl font-bold text-purple-600">{{ chartTotals.average.toFixed(2) }} KM</p>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Najviši dan</p>
-              <p class="text-xl font-bold text-red-600">{{ chartTotals.max.toFixed(2) }} KM</p>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <p class="text-sm text-gray-500 mb-1">Broj računa</p>
-              <p class="text-xl font-bold text-blue-600">{{ chartTotals.receipts }}</p>
+          <!-- Bar Chart (at the top) -->
+          <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 class="font-semibold text-gray-900 mb-4">Dnevna potrošnja</h3>
+            <div class="relative h-64 w-full">
+              <Bar :data="barChartData" :options="barChartOptions" />
             </div>
           </div>
 
-          <!-- Bar Chart -->
-          <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="font-semibold text-gray-900 mb-4">Dnevna potrošnja</h3>
-            <div class="relative h-64">
-              <!-- Y-axis labels -->
-              <div class="absolute left-0 top-0 bottom-8 w-16 flex flex-col justify-between text-xs text-gray-500 text-right pr-2">
-                <span>{{ chartMaxValue.toFixed(0) }} KM</span>
-                <span>{{ (chartMaxValue * 0.75).toFixed(0) }} KM</span>
-                <span>{{ (chartMaxValue * 0.5).toFixed(0) }} KM</span>
-                <span>{{ (chartMaxValue * 0.25).toFixed(0) }} KM</span>
-                <span>0 KM</span>
-              </div>
-              <!-- Chart area -->
-              <div class="ml-16 h-56 flex items-end gap-1 border-l border-b border-gray-200 pb-2">
-                <div
-                  v-for="(bar, index) in chartData"
-                  :key="index"
-                  class="flex-1 flex flex-col items-center justify-end group relative"
-                >
-                  <!-- Bar -->
-                  <div
-                    class="w-full max-w-8 bg-gradient-to-t from-purple-600 to-purple-400 rounded-t transition-all duration-300 hover:from-purple-700 hover:to-purple-500 cursor-pointer"
-                    :style="{ height: `${(bar.amount / chartMaxValue) * 100}%`, minHeight: bar.amount > 0 ? '4px' : '0' }"
-                  >
-                    <!-- Tooltip -->
-                    <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10">
-                      <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                        <div class="font-medium">{{ bar.label }}</div>
-                        <div>{{ bar.amount.toFixed(2) }} KM</div>
-                        <div class="text-gray-400">{{ bar.receipts }} računa</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- X-axis labels -->
-              <div class="ml-16 flex gap-1 mt-1">
-                <div
-                  v-for="(bar, index) in chartData"
-                  :key="index"
-                  class="flex-1 text-center text-xs text-gray-500 truncate"
-                >
-                  {{ bar.shortLabel }}
-                </div>
-              </div>
+          <!-- Summary Cards -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-3">
+              <p class="text-xs text-gray-500 mb-1">Ukupno ({{ chartPeriodLabel }})</p>
+              <p class="text-lg font-bold text-gray-900">{{ chartTotals.total.toFixed(2) }} KM</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-3">
+              <p class="text-xs text-gray-500 mb-1">Prosječno dnevno</p>
+              <p class="text-lg font-bold text-purple-600">{{ chartTotals.average.toFixed(2) }} KM</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-3">
+              <p class="text-xs text-gray-500 mb-1">Najviši dan</p>
+              <p class="text-lg font-bold text-red-600">{{ chartTotals.max.toFixed(2) }} KM</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-3">
+              <p class="text-xs text-gray-500 mb-1">Broj računa</p>
+              <p class="text-lg font-bold text-blue-600">{{ chartTotals.receipts }}</p>
             </div>
           </div>
 
@@ -1070,6 +875,19 @@
 </template>
 
 <script setup lang="ts">
+import { Bar } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale
+} from 'chart.js'
+
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+
 definePageMeta({
   middleware: ['auth']
 })
@@ -1095,26 +913,14 @@ const hasMore = ref(false)
 // Stats state
 const stats = ref<any>(null)
 const isLoadingStats = ref(false)
-
-// Expenses state (Troškovi tab)
-const isLoadingExpenses = ref(false)
-const expensePeriod = ref('month')
-const expandedBrands = ref(new Set<string>())
 const allItems = ref<any[]>([])
-
-const expensePeriods = [
-  { value: 'day', label: '1 dan' },
-  { value: 'week', label: '1 sedmica' },
-  { value: 'month', label: '1 mjesec' },
-  { value: 'all', label: 'Sve' }
-]
 
 // Chart state (Statistika tab)
 const chartPeriod = ref('week')
 const chartPeriods = [
-  { value: 'day', label: '1 dan' },
-  { value: 'week', label: '1 sedmica' },
-  { value: 'month', label: '1 mjesec' }
+  { value: 'week', label: '7 dana' },
+  { value: 'day', label: '30 dana' },
+  { value: 'month', label: '6 mjeseci' }
 ]
 
 // Selected receipt for sidebar
@@ -1147,12 +953,12 @@ const sortedReceipts = computed(() => {
   })
 })
 
-// Filter items by period for expenses
+// Filter items by selected chart period for stats
 const filteredItems = computed(() => {
   const now = new Date()
   let cutoff: Date
 
-  switch (expensePeriod.value) {
+  switch (chartPeriod.value) {
     case 'day':
       cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
       break
@@ -1163,7 +969,7 @@ const filteredItems = computed(() => {
       cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
       break
     default:
-      cutoff = new Date(0) // All time
+      cutoff = new Date(0)
   }
 
   return allItems.value.filter(item => {
@@ -1172,125 +978,78 @@ const filteredItems = computed(() => {
   })
 })
 
-// Group expenses by brand and product
-const groupedExpenses = computed(() => {
-  const brandMap = new Map<string, {
-    brand: string
-    totalAmount: number
-    totalCount: number
-    totalQuantity: Record<string, number>
-    products: Map<string, {
-      name: string
-      packSize: string
-      count: number
-      total: number
-      quantity: Record<string, number>
-    }>
-  }>()
-
-  for (const item of filteredItems.value) {
-    const brand = item.brand && item.brand !== 'UNKNOWN' ? item.brand : 'Nepoznato'
-    const productName = item.parsed_name || item.raw_name || 'Nepoznato'
-    const packSize = item.pack_size || ''
-
-    if (!brandMap.has(brand)) {
-      brandMap.set(brand, {
-        brand,
-        totalAmount: 0,
-        totalCount: 0,
-        totalQuantity: {},
-        products: new Map()
-      })
-    }
-
-    const brandData = brandMap.get(brand)!
-    brandData.totalAmount += item.line_total || 0
-    brandData.totalCount += 1
-
-    // Parse quantity and unit
-    const qty = item.quantity || 1
-    const unit = parseUnit(item.pack_size) || 'kom'
-    const numericQty = parseNumericQuantity(item.pack_size, qty)
-
-    if (unit) {
-      brandData.totalQuantity[unit] = (brandData.totalQuantity[unit] || 0) + numericQty
-    }
-
-    // Group by product
-    const productKey = `${productName}|${packSize}`
-    if (!brandData.products.has(productKey)) {
-      brandData.products.set(productKey, {
-        name: productName,
-        packSize,
-        count: 0,
-        total: 0,
-        quantity: {}
-      })
-    }
-
-    const product = brandData.products.get(productKey)!
-    product.count += 1
-    product.total += item.line_total || 0
-    if (unit) {
-      product.quantity[unit] = (product.quantity[unit] || 0) + numericQty
-    }
-  }
-
-  // Convert to array and sort by total amount
-  return Array.from(brandMap.values())
-    .map(brand => ({
-      ...brand,
-      products: Array.from(brand.products.values()).sort((a, b) => b.total - a.total)
-    }))
-    .sort((a, b) => b.totalAmount - a.totalAmount)
-})
-
-// Expenses totals
-const expensesTotals = computed(() => {
-  const brands = new Set<string>()
-  const products = new Set<string>()
-  let total = 0
-  let count = 0
-
-  for (const item of filteredItems.value) {
-    total += item.line_total || 0
-    count += 1
-    if (item.brand && item.brand !== 'UNKNOWN') {
-      brands.add(item.brand)
-    }
-    products.add(item.parsed_name || item.raw_name || '')
-  }
-
-  return {
-    total,
-    count,
-    brands: brands.size,
-    products: products.size
-  }
-})
-
-// Chart data - daily spending
+// Chart data - varies by period
 const chartData = computed(() => {
   const now = new Date()
-  let days: number
+  now.setHours(23, 59, 59, 999)
 
-  switch (chartPeriod.value) {
-    case 'day':
-      days = 1
-      break
-    case 'week':
-      days = 7
-      break
-    case 'month':
-      days = 30
-      break
-    default:
-      days = 7
+  // For "1 mjesec" - show last 6 months aggregated by month
+  if (chartPeriod.value === 'month') {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec']
+    const monthlyData: { year: number; month: number; amount: number; receipts: number }[] = []
+
+    // Create 6 months of data
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now)
+      date.setMonth(date.getMonth() - i)
+      monthlyData.push({ year: date.getFullYear(), month: date.getMonth(), amount: 0, receipts: 0 })
+    }
+
+    // Aggregate receipts by month
+    for (const receipt of receipts.value) {
+      const receiptDate = new Date(receipt.receipt_date || receipt.created_at)
+      const monthData = monthlyData.find(m => m.year === receiptDate.getFullYear() && m.month === receiptDate.getMonth())
+      if (monthData) {
+        monthData.amount += receipt.total_amount || 0
+        monthData.receipts += 1
+      }
+    }
+
+    return monthlyData.map(m => ({
+      date: new Date(m.year, m.month, 1),
+      amount: m.amount,
+      receipts: m.receipts,
+      label: `${monthNames[m.month]} ${m.year}`,
+      shortLabel: monthNames[m.month]
+    }))
   }
 
+  // For "1 dan" - show last 30 days
+  if (chartPeriod.value === 'day') {
+    const dailyData: { date: Date; amount: number; receipts: number }[] = []
+
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now)
+      date.setDate(date.getDate() - i)
+      date.setHours(0, 0, 0, 0)
+      dailyData.push({ date, amount: 0, receipts: 0 })
+    }
+
+    // Aggregate receipts by day
+    for (const receipt of receipts.value) {
+      const receiptDate = new Date(receipt.receipt_date || receipt.created_at)
+      receiptDate.setHours(0, 0, 0, 0)
+
+      const dayData = dailyData.find(d => d.date.getTime() === receiptDate.getTime())
+      if (dayData) {
+        dayData.amount += receipt.total_amount || 0
+        dayData.receipts += 1
+      }
+    }
+
+    return dailyData.map(d => ({
+      date: d.date,
+      amount: d.amount,
+      receipts: d.receipts,
+      label: d.date.toLocaleDateString('bs-BA', { weekday: 'short', day: 'numeric', month: 'short' }),
+      shortLabel: String(d.date.getDate())
+    }))
+  }
+
+  // For "1 sedmica" - show last 7 days
   const dailyData: { date: Date; amount: number; receipts: number }[] = []
 
-  for (let i = days - 1; i >= 0; i--) {
+  for (let i = 6; i >= 0; i--) {
     const date = new Date(now)
     date.setDate(date.getDate() - i)
     date.setHours(0, 0, 0, 0)
@@ -1314,15 +1073,74 @@ const chartData = computed(() => {
     amount: d.amount,
     receipts: d.receipts,
     label: d.date.toLocaleDateString('bs-BA', { weekday: 'short', day: 'numeric', month: 'short' }),
-    shortLabel: d.date.toLocaleDateString('bs-BA', { day: 'numeric' })
+    shortLabel: String(d.date.getDate())
   }))
 })
 
-// Chart max value
+// Chart max value - use highest actual value from data
 const chartMaxValue = computed(() => {
-  const max = Math.max(...chartData.value.map(d => d.amount), 1)
-  return Math.ceil(max / 10) * 10 // Round up to nearest 10
+  return Math.max(...chartData.value.map(d => d.amount), 1)
 })
+
+// Bar chart data for Chart.js
+const barChartData = computed(() => ({
+  labels: chartData.value.map(d => d.shortLabel),
+  datasets: [{
+    label: 'Potrošeno (KM)',
+    data: chartData.value.map(d => d.amount),
+    backgroundColor: 'rgba(147, 51, 234, 0.8)',
+    borderColor: 'rgb(147, 51, 234)',
+    borderWidth: 2,
+    borderRadius: 6,
+  }]
+}))
+
+// Bar chart options for Chart.js
+const barChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        title: (items: any) => {
+          const idx = items[0]?.dataIndex
+          if (idx !== undefined && chartData.value[idx]) {
+            return chartData.value[idx].label
+          }
+          return ''
+        },
+        label: (item: any) => {
+          const idx = item.dataIndex
+          const data = chartData.value[idx]
+          if (data) {
+            return [`${data.amount.toFixed(2)} KM`, `${data.receipts} računa`]
+          }
+          return ''
+        }
+      }
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      max: chartMaxValue.value,
+      ticks: {
+        callback: (value: number) => `${value.toFixed(0)} KM`
+      },
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)'
+      }
+    },
+    x: {
+      grid: {
+        display: false
+      }
+    }
+  }
+}))
 
 // Chart totals
 const chartTotals = computed(() => {
@@ -1338,9 +1156,9 @@ const chartTotals = computed(() => {
 // Chart period label
 const chartPeriodLabel = computed(() => {
   switch (chartPeriod.value) {
-    case 'day': return 'danas'
-    case 'week': return 'ova sedmica'
-    case 'month': return 'ovaj mjesec'
+    case 'day': return '30 dana'
+    case 'week': return '7 dana'
+    case 'month': return '6 mjeseci'
     default: return ''
   }
 })
@@ -1386,73 +1204,13 @@ const topProducts = computed(() => {
     .slice(0, 5)
 })
 
-// Helper function to parse unit from pack_size
-function parseUnit(packSize: string | null): string {
-  if (!packSize) return 'kom'
-  const lower = packSize.toLowerCase()
-  if (lower.includes('kg')) return 'kg'
-  if (lower.includes('g') && !lower.includes('kg')) return 'g'
-  if (lower.includes('l') || lower.includes('lit')) return 'L'
-  if (lower.includes('ml')) return 'ml'
-  if (lower.includes('kom')) return 'kom'
-  return 'kom'
-}
-
-// Helper function to parse numeric quantity
-function parseNumericQuantity(packSize: string | null, defaultQty: number): number {
-  if (!packSize) return defaultQty
-  const match = packSize.match(/(\d+(?:[.,]\d+)?)/);
-  if (match) {
-    return parseFloat(match[1].replace(',', '.')) * defaultQty
-  }
-  return defaultQty
-}
-
-// Format quantity nicely
-function formatQuantity(qty: number): string {
-  if (qty >= 1000) {
-    return (qty / 1000).toFixed(1)
-  }
-  return qty % 1 === 0 ? qty.toString() : qty.toFixed(2)
-}
-
-// Toggle brand expand
-function toggleBrandExpand(brand: string) {
-  if (expandedBrands.value.has(brand)) {
-    expandedBrands.value.delete(brand)
-  } else {
-    expandedBrands.value.add(brand)
-  }
-  expandedBrands.value = new Set(expandedBrands.value)
-}
-
-// Load all items for expenses/stats
-async function loadAllItems() {
-  isLoadingExpenses.value = true
-
-  try {
-    const response = await get('/api/receipts/items', {
-      per_page: 1000
-    })
-    allItems.value = response.items || []
-  } catch (e: any) {
-    console.error('Error loading items:', e)
-    allItems.value = []
-  } finally {
-    isLoadingExpenses.value = false
-  }
-}
-
 // Load receipts on mount
 onMounted(async () => {
   await loadReceipts()
 })
 
-// Load data when switching tabs
+// Load stats data when switching to stats tab
 watch(activeTab, async (newTab) => {
-  if (newTab === 'expenses' && allItems.value.length === 0) {
-    await loadAllItems()
-  }
   if (newTab === 'stats') {
     if (allItems.value.length === 0) {
       await loadAllItems()
@@ -1462,6 +1220,19 @@ watch(activeTab, async (newTab) => {
     }
   }
 })
+
+// Load all items for stats (top brands/products)
+async function loadAllItems() {
+  try {
+    const response = await get('/api/receipts/items', {
+      per_page: 1000
+    })
+    allItems.value = response.items || []
+  } catch (e: any) {
+    console.error('Error loading items:', e)
+    allItems.value = []
+  }
+}
 
 async function loadReceipts() {
   isLoading.value = true
