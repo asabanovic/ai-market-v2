@@ -95,7 +95,7 @@ def upload_receipt_image(file_data, user_id, receipt_id):
 
 def resize_image_for_ocr(file_data):
     """
-    Resize image to ~600px for OCR processing
+    Resize image for OCR processing - keep larger for better accuracy
     Returns base64 encoded image
     """
     img = Image.open(io.BytesIO(file_data))
@@ -104,8 +104,9 @@ def resize_image_for_ocr(file_data):
     if img.mode in ('RGBA', 'P'):
         img = img.convert('RGB')
 
-    # Resize to max 800px on longest side (larger = better OCR accuracy)
-    max_size = 800
+    # Keep larger size for better OCR accuracy (1500px max)
+    # Receipts have small text that needs high resolution
+    max_size = 1500
     if max(img.width, img.height) > max_size:
         if img.width > img.height:
             ratio = max_size / img.width
@@ -115,9 +116,9 @@ def resize_image_for_ocr(file_data):
         new_height = int(img.height * ratio)
         img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    # Save to buffer
+    # Save to buffer with higher quality
     buffer = io.BytesIO()
-    img.save(buffer, format='JPEG', quality=85, optimize=True)
+    img.save(buffer, format='JPEG', quality=90, optimize=True)
     buffer.seek(0)
 
     return base64.b64encode(buffer.read()).decode('utf-8')
@@ -216,6 +217,14 @@ def process_receipt_ocr(receipt_id, image_base64, app_context):
             # OCR extraction prompt with product type rules from extract-matching
             system_prompt = """You are a receipt OCR specialist for Bosnian grocery stores. Extract data from receipt images.
 
+IMPORTANT - BOSNIAN LANGUAGE & CHARACTERS:
+This is a Bosnian receipt. Use proper Bosnian characters: č, ć, š, ž, đ (NOT c, s, z, d).
+Common Bosnian street name patterns:
+- "Ulica [Name]" or just "[Name] ulica"
+- "BB" means "bez broja" (no street number)
+- Postal codes are 5 digits (e.g., 75000 Tuzla, 71000 Sarajevo, 78000 Banja Luka)
+- Common street names: Zmaja od Bosne, Maršala Tita, Alije Izetbegovića, Mehmeda Spahe
+
 STORE INFO EXTRACTION:
 At the top of Bosnian receipts, you'll typically see:
 - Line 1: Store/company name (e.g., "BINGO d.o.o.", "BELAMIONIX d.o.o.")
@@ -226,6 +235,7 @@ Extract these fields:
 - store_name: Name of the store/company (e.g., "BINGO", "KONZUM", "MERCATOR")
 - store_address: The specific store/branch location where the purchase was made (NOT the company HQ address!)
   Look for the address after the company HQ - it's usually the actual store location with street, city, postal code
+  IMPORTANT: Use correct Bosnian characters (č, ć, š, ž, đ) in street names!
 - jib: Jedinstveni identifikacioni broj (13-digit number)
 - pib: Poreski identifikacioni broj (12-digit number starting with 4)
 - ibfm: ID broja fiskalnog modula
@@ -336,7 +346,8 @@ Return JSON:
     ]
 }"""
 
-            # Call GPT-4o-mini (cheap, good for OCR on white background)
+            # Call GPT-4o-mini for cost efficiency
+            # Using "high" detail + larger image (1500px) for better OCR
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
@@ -349,14 +360,14 @@ Return JSON:
                                 "type": "image_url",
                                 "image_url": {
                                     "url": f"data:image/jpeg;base64,{image_base64}",
-                                    "detail": "auto"
+                                    "detail": "high"
                                 }
                             }
                         ]
                     }
                 ],
                 response_format={"type": "json_object"},
-                max_tokens=2000,
+                max_tokens=3000,
                 temperature=0.1
             )
 
