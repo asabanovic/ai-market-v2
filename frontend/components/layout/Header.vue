@@ -264,6 +264,17 @@
                       Povratna informacija
                     </button>
                     <NuxtLink
+                      to="/racuni"
+                      class="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      @click="showProfileDropdown = false"
+                    >
+                      <span class="flex items-center">
+                        <Icon name="mdi:receipt-text-outline" class="w-4 h-4 mr-2" />
+                        Moji računi
+                      </span>
+                      <span class="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">BETA</span>
+                    </NuxtLink>
+                    <NuxtLink
                       v-if="user?.is_admin"
                       to="/admin"
                       class="flex items-center px-4 py-2 text-sm text-purple-600 hover:bg-purple-50"
@@ -437,6 +448,13 @@
               <Icon name="mdi:message-text-outline" class="w-4 h-4 inline mr-2" />
               Povratna informacija
             </button>
+            <NuxtLink to="/racuni" class="flex items-center justify-between px-3 py-2 text-gray-700 hover:text-purple-600 nav-text transition-colors">
+              <span>
+                <Icon name="mdi:receipt-text-outline" class="w-4 h-4 inline mr-2" />
+                Moji računi
+              </span>
+              <span class="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">BETA</span>
+            </NuxtLink>
             <NuxtLink v-if="user?.is_admin" to="/admin" class="block px-3 py-2 text-purple-600 hover:text-purple-700 nav-text transition-colors">
               <Icon name="mdi:shield-crown" class="w-4 h-4 inline mr-2" />
               Admin Dashboard
