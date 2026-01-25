@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="show"
-      class="fixed inset-0 z-50 overflow-y-auto"
+      class="fixed inset-0 z-[100] overflow-y-auto"
       @click.self="dismiss"
     >
       <!-- Backdrop -->

@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="show"
-      class="fixed inset-0 bg-black/60 overflow-y-auto h-full w-full z-50 flex items-start justify-center p-2 md:p-6"
+      class="fixed inset-0 bg-black/60 overflow-y-auto h-full w-full z-[100] flex items-start justify-center p-2 md:p-6"
       @click.self="closeModal"
     >
       <div class="relative bg-white rounded-lg shadow-xl max-w-5xl w-full my-2 md:my-6 animate-modal-in" @click.stop>

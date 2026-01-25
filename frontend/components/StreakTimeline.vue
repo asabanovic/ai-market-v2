@@ -4,7 +4,7 @@
     <Transition name="fade">
       <div
         v-if="showModal"
-        class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center"
+        class="fixed inset-0 bg-black/50 z-[100] flex items-end sm:items-center justify-center"
         @click.self="showModal = false"
       >
         <!-- Modal content -->
@@ -106,7 +106,7 @@
     <Transition name="slide-down">
       <div
         v-if="showBonusNotification"
-        class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3"
+        class="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3"
       >
         <span class="text-2xl">{{ bonusNotification.milestone ? '🎉' : '✨' }}</span>
         <div>

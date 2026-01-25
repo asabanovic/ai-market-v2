@@ -28,7 +28,7 @@
     <Teleport to="body">
       <div
         v-if="showModal"
-        class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center"
+        class="fixed inset-0 bg-black/50 z-[100] flex items-end sm:items-center justify-center"
         @click.self="closeModal"
       >
         <div class="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">

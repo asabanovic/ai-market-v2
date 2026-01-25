@@ -3,7 +3,7 @@
     <Transition name="fade">
       <div
         v-if="isVisible"
-        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
         @click.self="close"
       >
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
