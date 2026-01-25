@@ -230,12 +230,18 @@ Example:
 This means: quantity=2, unit_price=15.70, line_total=31.40
 
 IMPORTANT: The quantity line may appear BELOW the product name!
-Look for patterns like:
+Look for these QUANTITY PATTERNS:
 - "2 x 15.70" or "2x15.70" - means quantity 2
+- "4.000x" or "4.000 x" - means quantity 4 (the .000 is decimal formatting)
+- "2.000x 15.70" - means quantity 2
+- "1x4" or "1 x 4" - may mean quantity 4
 - "3 * 5.99" - means quantity 3
-- Numbers followed by "x" or "*" indicate quantity
+- Any number followed by "x" indicates quantity
 
-If you see a line with just numbers like "2 x 15.70 = 31.40" or "2 x 15,70",
+The quantity is often shown with decimal places like "2.000" which just means 2.
+Parse "4.000x" as quantity=4.
+
+If you see a line with numbers like "2 x 15.70 = 31.40" or "4.000x 7.85",
 this belongs to the product on the line ABOVE it.
 
 ITEM EXTRACTION RULES:
