@@ -181,9 +181,9 @@ def match_business_by_name(store_name):
         return business.id
 
     # Try if store name contains business name
-    businesses = Business.query.filter(Business.is_active == True).all()
+    businesses = Business.query.all()
     for biz in businesses:
-        if biz.name.lower() in store_name_lower:
+        if biz.name and biz.name.lower() in store_name_lower:
             return biz.id
 
     return None
