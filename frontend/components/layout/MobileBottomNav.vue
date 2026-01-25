@@ -115,25 +115,19 @@
         </NuxtLink>
       </template>
 
-      <!-- Support (authenticated only) -->
+      <!-- Receipts (authenticated only) -->
       <NuxtLink
         v-if="isAuthenticated"
-        to="/podrska"
+        to="/racuni"
         class="flex flex-col items-center justify-center flex-1 h-full relative"
-        :class="isActive('/podrska') ? 'text-purple-600' : 'text-gray-500'"
+        :class="isActive('/racuni') ? 'text-purple-600' : 'text-gray-500'"
       >
         <div class="relative">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <span
-            v-if="supportUnreadCount > 0"
-            class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
-          >
-            {{ supportUnreadCount > 9 ? '9+' : supportUnreadCount }}
-          </span>
         </div>
-        <span class="text-xs mt-1">Podrška</span>
+        <span class="text-xs mt-1">Računi</span>
       </NuxtLink>
     </div>
   </nav>
@@ -146,11 +140,9 @@ import { useTrackedProductsStore } from '~/stores/trackedProducts'
 
 const route = useRoute()
 const { isAuthenticated } = useAuth()
-const { get } = useApi()
 const cartStore = useCartStore()
 const favoritesStore = useFavoritesStore()
 const trackedProductsStore = useTrackedProductsStore()
-const supportUnreadCount = ref(0)
 
 defineEmits<{
   'toggle-sidebar': []
@@ -173,23 +165,13 @@ const isTimeWarning = computed(() => {
   return cartStore.ttlSeconds !== null && cartStore.ttlSeconds < 3600 && cartStore.ttlSeconds >= 1800
 })
 
-async function loadSupportUnreadCount() {
-  try {
-    const data = await get('/api/support/unread-count')
-    supportUnreadCount.value = data.unread_count || 0
-  } catch (error) {
-    supportUnreadCount.value = 0
-  }
-}
-
 // Fetch data on mount
 onMounted(async () => {
   if (isAuthenticated.value) {
     await Promise.all([
       favoritesStore.fetchFavorites(),
       cartStore.fetchHeader(),
-      trackedProductsStore.fetchCount(),
-      loadSupportUnreadCount()
+      trackedProductsStore.fetchCount()
     ])
 
     if (cartStore.isActive) {
