@@ -266,8 +266,9 @@
                       <p class="font-medium text-gray-900 text-sm truncate">{{ item.parsed_name || item.raw_name }}</p>
                       <p class="text-xs text-gray-500">
                         <span v-if="item.brand && item.brand !== 'UNKNOWN'">{{ item.brand }}</span>
-                        <span v-if="item.pack_size"> • {{ item.pack_size }}</span>
-                        <span v-if="item.quantity > 1"> • x{{ item.quantity }}</span>
+                        <span v-if="isFuelItem(item) && item.quantity"> • {{ item.quantity.toFixed(2) }} l × {{ getUnitPrice(item).toFixed(2) }} KM/l</span>
+                        <span v-else-if="item.pack_size"> • {{ item.pack_size }}</span>
+                        <span v-if="!isFuelItem(item) && item.quantity > 1"> • x{{ item.quantity }}</span>
                       </p>
                     </div>
                     <span class="font-semibold text-gray-900 text-sm ml-2">{{ item.line_total?.toFixed(2) || '-' }} KM</span>
@@ -459,7 +460,8 @@
                                 <td class="px-4 py-2 text-sm text-gray-500">{{ idx + 1 }}</td>
                                 <td class="px-4 py-2">
                                   <div class="text-sm font-medium text-gray-900">{{ item.parsed_name || item.raw_name }}</div>
-                                  <div v-if="item.pack_size" class="text-xs text-gray-500">{{ item.pack_size }}</div>
+                                  <div v-if="isFuelItem(item) && item.quantity" class="text-xs text-gray-500">{{ item.quantity.toFixed(2) }} l</div>
+                                  <div v-else-if="item.pack_size" class="text-xs text-gray-500">{{ item.pack_size }}</div>
                                 </td>
                                 <td class="px-4 py-2 text-sm text-gray-600">
                                   {{ item.brand !== 'UNKNOWN' ? item.brand : '-' }}
@@ -949,7 +951,11 @@
                         <span v-if="item.brand && item.brand !== 'UNKNOWN'" class="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
                           {{ item.brand }}
                         </span>
-                        <span v-if="item.pack_size" class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                        <!-- For fuel items, show quantity in liters instead of misleading pack_size -->
+                        <span v-if="isFuelItem(item) && item.quantity" class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                          {{ item.quantity.toFixed(2) }} l
+                        </span>
+                        <span v-else-if="item.pack_size" class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
                           {{ item.pack_size }}
                         </span>
                       </div>
@@ -1741,6 +1747,29 @@ function getUnitPrice(item: any): number {
     return item.line_total / item.quantity
   }
   return 0
+}
+
+// Check if item is fuel (benzin, dizel, gorivo, etc.) - measured in liters
+function isFuelItem(item: any): boolean {
+  // Use LLM classification if available (new receipts)
+  if (typeof item.is_fuel === 'boolean') {
+    return item.is_fuel
+  }
+
+  // Fallback for old receipts without is_fuel field
+  const name = (item.parsed_name || item.raw_name || '').toLowerCase()
+  const productType = (item.product_type || '').toLowerCase()
+
+  // Exclude tax/fee lines
+  const excludeKeywords = ['taksa', 'naknada', 'porez', 'tax', 'fee']
+  if (excludeKeywords.some(keyword => name.includes(keyword))) return false
+
+  // Check product_type
+  if (productType === 'gorivo' || productType === 'fuel') return true
+
+  // Check name for fuel keywords
+  const fuelKeywords = ['benzin', 'dizel', 'diesel', 'eurosuper', 'euro super', 'premium bezolovni']
+  return fuelKeywords.some(keyword => name.includes(keyword))
 }
 
 // Short date format (dd.mm.yyyy)

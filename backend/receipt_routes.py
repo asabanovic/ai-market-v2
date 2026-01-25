@@ -209,8 +209,15 @@ def process_receipt_ocr(receipt_id, image_base64, app_context):
             system_prompt = """You are a receipt OCR specialist for Bosnian grocery stores. Extract data from receipt images.
 
 STORE INFO EXTRACTION:
-- store_name: Name of the store (e.g., "BINGO", "KONZUM", "MERCATOR")
-- store_address: Full address if visible
+At the top of Bosnian receipts, you'll typically see:
+- Line 1: Store/company name (e.g., "BINGO d.o.o.", "BELAMIONIX d.o.o.")
+- Line 2: Company HQ address (sjedište firme) - IGNORE THIS
+- Line 3+: THIS store's location address (where the purchase was made) - EXTRACT THIS
+
+Extract these fields:
+- store_name: Name of the store/company (e.g., "BINGO", "KONZUM", "MERCATOR")
+- store_address: The specific store/branch location where the purchase was made (NOT the company HQ address!)
+  Look for the address after the company HQ - it's usually the actual store location with street, city, postal code
 - jib: Jedinstveni identifikacioni broj (13-digit number)
 - pib: Poreski identifikacioni broj (12-digit number starting with 4)
 - ibfm: ID broja fiskalnog modula
@@ -271,6 +278,10 @@ For each line item, extract:
   * "sok", "voda", "pivo" (drinks)
   * "voće", "povrće" (produce)
   * "vrećica", "kesa" (bags)
+  * "gorivo" (fuel - benzin, dizel, eurosuper, etc.)
+  * "taksa" (taxes/fees like "Posebna taksa na gorivo")
+- is_fuel: BOOLEAN - Set to true ONLY for actual fuel purchases (benzin, dizel, eurosuper, premium).
+  IMPORTANT: "Posebna taksa na gorivo" and similar tax/fee lines are NOT fuel - set is_fuel=false for those!
 - quantity: Number of items - VERY IMPORTANT: check for "N x price" pattern!
 - unit: "kom" for pieces, "kg" for weight, "l" for volume
 - pack_size: Package size as shown (e.g., "1l", "500g", "400g")
@@ -305,6 +316,7 @@ Return JSON:
             "parsed_name": "...",
             "brand": "...",
             "product_type": "...",
+            "is_fuel": false,
             "quantity": 1,
             "unit": "kom",
             "pack_size": "...",
