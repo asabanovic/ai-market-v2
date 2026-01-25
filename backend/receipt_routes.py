@@ -63,8 +63,8 @@ def upload_receipt_image(file_data, user_id, receipt_id):
     if img.mode in ('RGBA', 'P'):
         img = img.convert('RGB')
 
-    # Resize to max 600px on longest side
-    max_size = 600
+    # Resize to max 800px on longest side (larger = better OCR accuracy)
+    max_size = 800
     if max(img.width, img.height) > max_size:
         if img.width > img.height:
             ratio = max_size / img.width
@@ -104,8 +104,8 @@ def resize_image_for_ocr(file_data):
     if img.mode in ('RGBA', 'P'):
         img = img.convert('RGB')
 
-    # Resize to max 600px on longest side
-    max_size = 600
+    # Resize to max 800px on longest side (larger = better OCR accuracy)
+    max_size = 800
     if max(img.width, img.height) > max_size:
         if img.width > img.height:
             ratio = max_size / img.width
