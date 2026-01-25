@@ -158,7 +158,14 @@
             <div
               v-for="receipt in sortedReceipts"
               :key="receipt.id"
-              class="bg-white rounded-xl shadow-md overflow-hidden"
+              :class="[
+                'rounded-xl shadow-md overflow-hidden',
+                receipt.processing_status === 'processing' || receipt.processing_status === 'pending'
+                  ? 'bg-gradient-to-r from-purple-50 via-white to-purple-50 animate-pulse-slow'
+                  : receipt.processing_status === 'duplicate'
+                    ? 'bg-red-50 border-2 border-red-200'
+                    : 'bg-white'
+              ]"
             >
               <!-- Card Header - New Layout -->
               <div class="p-4" @click="toggleExpand(receipt.id)">
@@ -1884,5 +1891,19 @@ function startConfetti() {
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(100%);
+}
+
+/* Slow pulse animation for processing receipts */
+@keyframes pulse-slow {
+  0%, 100% {
+    background-color: rgba(147, 51, 234, 0.05);
+  }
+  50% {
+    background-color: rgba(147, 51, 234, 0.15);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
 }
 </style>

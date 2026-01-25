@@ -218,10 +218,30 @@ STORE INFO EXTRACTION:
 - receipt_date: Date and time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - total_amount: Total amount in KM (number only)
 
+CRITICAL - BOSNIAN RECEIPT FORMAT:
+Bosnian receipts typically show items in this format:
+  [CODE] PRODUCT NAME
+  [QUANTITY] x [UNIT_PRICE] = [LINE_TOTAL]
+
+Example:
+  81019 FILET LOSOSA 400G
+  2 x 15.70 = 31.40
+
+This means: quantity=2, unit_price=15.70, line_total=31.40
+
+IMPORTANT: The quantity line may appear BELOW the product name!
+Look for patterns like:
+- "2 x 15.70" or "2x15.70" - means quantity 2
+- "3 * 5.99" - means quantity 3
+- Numbers followed by "x" or "*" indicate quantity
+
+If you see a line with just numbers like "2 x 15.70 = 31.40" or "2 x 15,70",
+this belongs to the product on the line ABOVE it.
+
 ITEM EXTRACTION RULES:
 For each line item, extract:
-- raw_name: EXACT text as printed on receipt (preserve original, never modify)
-- parsed_name: Clean product name
+- raw_name: EXACT text as printed on receipt (preserve original, include the product code at start)
+- parsed_name: Clean product name (remove codes, clean up)
 - brand: Brand if identifiable (use "UNKNOWN" if not found)
 - product_type: Generic product type in Bosnian, lowercase:
   * "mlijeko", "jogurt", "sir", "kajmak", "pavlaka" (dairy)
@@ -230,21 +250,25 @@ For each line item, extract:
   * "deterdžent", "omekšivač" (cleaning)
   * "šampon", "sapun", "pasta za zube" (hygiene)
   * "hljeb", "pecivo" (bakery)
-  * "piletina", "govedina", "svinjetina" (meat)
+  * "piletina", "govedina", "svinjetina", "riba", "losos" (meat/fish)
   * "sok", "voda", "pivo" (drinks)
-- quantity: Number of items (default 1)
+  * "voće", "povrće" (produce)
+  * "vrećica", "kesa" (bags)
+- quantity: Number of items - VERY IMPORTANT: check for "N x price" pattern!
 - unit: "kom" for pieces, "kg" for weight, "l" for volume
-- pack_size: Package size as shown (e.g., "1l", "500g", "6x0.5l")
-- unit_price: Price per unit
-- line_total: Total for this line
-- size_value: Numeric size (e.g., 500 from "500g", 1 from "1l")
+- pack_size: Package size as shown (e.g., "1l", "500g", "400g")
+- unit_price: Price per SINGLE unit (if "2 x 15.70 = 31.40", unit_price is 15.70)
+- line_total: Total for this line (the final amount after multiplication)
+- size_value: Numeric size (e.g., 500 from "500g", 400 from "400g")
 - size_unit: Normalized unit: "g", "kg", "ml", "l", "kom"
 
 SIZE EXTRACTION RULES:
 - "1kg" → size_value: 1, size_unit: "kg"
 - "500g" → size_value: 500, size_unit: "g"
+- "400g" → size_value: 400, size_unit: "g"
 - "1l" → size_value: 1, size_unit: "l"
 - "500ml" → size_value: 500, size_unit: "ml"
+- "330ml" → size_value: 330, size_unit: "ml"
 - "6x0.5l" → size_value: 3, size_unit: "l" (total volume)
 - "10 kom" → size_value: 10, size_unit: "kom"
 
