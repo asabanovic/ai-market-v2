@@ -123,7 +123,7 @@ def resize_image_for_ocr(file_data):
     return base64.b64encode(buffer.read()).decode('utf-8')
 
 
-def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date):
+def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date, exclude_receipt_id=None):
     """
     Check if a receipt with same identifiers already exists
     Returns existing receipt if found, None otherwise
@@ -131,9 +131,17 @@ def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date):
     if not jib and not receipt_serial:
         return None
 
-    query = Receipt.query.filter(Receipt.user_id == user_id)
+    # Only check completed receipts to avoid race conditions
+    query = Receipt.query.filter(
+        Receipt.user_id == user_id,
+        Receipt.processing_status == 'completed'
+    )
 
-    # Check by JIB + serial + date combination
+    # Exclude the current receipt being processed
+    if exclude_receipt_id:
+        query = query.filter(Receipt.id != exclude_receipt_id)
+
+    # Check by JIB + serial combination (most reliable)
     if jib and receipt_serial:
         existing = query.filter(
             Receipt.jib == jib,
@@ -384,7 +392,8 @@ Return JSON:
                 receipt.user_id,
                 receipt.jib,
                 receipt.receipt_serial_number,
-                receipt.receipt_date
+                receipt.receipt_date,
+                exclude_receipt_id=receipt.id
             )
             if duplicate and duplicate.id != receipt.id:
                 # Mark as duplicate - user can delete manually if they want
