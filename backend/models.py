@@ -2202,3 +2202,132 @@ class ProductSubmission(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'processed_at': self.processed_at.isoformat() if self.processed_at else None,
         }
+
+
+class Receipt(db.Model):
+    """User-uploaded receipt for purchase tracking and analytics"""
+    __tablename__ = 'receipts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # Mapped business (auto-matched via semantic similarity)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='SET NULL'), nullable=True, index=True)
+
+    # Image storage
+    receipt_image_url = db.Column(db.String(500), nullable=False)
+
+    # Store info (extracted from receipt)
+    store_name = db.Column(db.String(255), nullable=True)
+    store_address = db.Column(db.String(500), nullable=True)
+
+    # Fiscal identifiers (for duplicate detection)
+    jib = db.Column(db.String(50), nullable=True, index=True)  # Jedinstveni identifikacioni broj
+    pib = db.Column(db.String(50), nullable=True, index=True)  # Poreski identifikacioni broj
+    ibfm = db.Column(db.String(100), nullable=True, index=True)  # ID broja fiskalnog modula
+    receipt_serial_number = db.Column(db.String(100), nullable=True, index=True)
+
+    # Receipt data
+    receipt_date = db.Column(db.DateTime, nullable=True, index=True)
+    total_amount = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Processing status: pending, processing, completed, failed, duplicate
+    processing_status = db.Column(db.String(20), nullable=False, default='pending', index=True)
+    processing_error = db.Column(db.Text, nullable=True)
+
+    # For duplicates: reference to original receipt and scheduled deletion
+    duplicate_of_id = db.Column(db.Integer, db.ForeignKey('receipts.id', ondelete='SET NULL'), nullable=True)
+    scheduled_delete_at = db.Column(db.DateTime, nullable=True, index=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
+    processed_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('receipts', lazy='dynamic'))
+    business = db.relationship('Business', backref=db.backref('receipts', lazy='dynamic'))
+    items = db.relationship('ReceiptItem', backref='receipt', lazy='dynamic', cascade='all, delete-orphan')
+
+    # Composite unique constraint for duplicate detection
+    __table_args__ = (
+        db.Index('ix_receipt_duplicate_check', 'user_id', 'jib', 'receipt_serial_number', 'receipt_date'),
+    )
+
+    def to_dict(self, include_items=False):
+        """Convert to dictionary for API responses"""
+        data = {
+            'id': self.id,
+            'user_id': self.user_id,
+            'business_id': self.business_id,
+            'business_name': self.business.name if self.business else None,
+            'receipt_image_url': self.receipt_image_url,
+            'store_name': self.store_name,
+            'store_address': self.store_address,
+            'jib': self.jib,
+            'pib': self.pib,
+            'ibfm': self.ibfm,
+            'receipt_serial_number': self.receipt_serial_number,
+            'receipt_date': self.receipt_date.isoformat() if self.receipt_date else None,
+            'total_amount': float(self.total_amount) if self.total_amount else None,
+            'processing_status': self.processing_status,
+            'processing_error': self.processing_error,
+            'duplicate_of_id': self.duplicate_of_id,
+            'scheduled_delete_at': self.scheduled_delete_at.isoformat() if self.scheduled_delete_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'processed_at': self.processed_at.isoformat() if self.processed_at else None,
+            'item_count': self.items.count() if self.items else 0,
+        }
+        if include_items:
+            data['items'] = [item.to_dict() for item in self.items]
+        return data
+
+
+class ReceiptItem(db.Model):
+    """Individual line item from a receipt"""
+    __tablename__ = 'receipt_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    receipt_id = db.Column(db.Integer, db.ForeignKey('receipts.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # Raw OCR text (editable for reprocessing)
+    raw_name = db.Column(db.Text, nullable=False)
+
+    # Parsed/extracted fields
+    parsed_name = db.Column(db.String(255), nullable=True)
+    brand = db.Column(db.String(100), nullable=True, default='UNKNOWN')
+    product_type = db.Column(db.String(100), nullable=True)  # e.g., "kafa", "mlijeko"
+
+    # Quantity and size
+    quantity = db.Column(db.Numeric(10, 3), nullable=True, default=1)
+    unit = db.Column(db.String(20), nullable=True)  # pcs, g, ml, kg, l
+    pack_size = db.Column(db.String(50), nullable=True)  # e.g., "400g", "6x90g"
+
+    # Pricing
+    unit_price = db.Column(db.Numeric(10, 2), nullable=True)
+    line_total = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # For aggregation: normalized values
+    size_value = db.Column(db.Numeric(10, 3), nullable=True)  # Numeric size
+    size_unit = db.Column(db.String(10), nullable=True)  # Normalized: kg, g, l, ml, kom
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'receipt_id': self.receipt_id,
+            'raw_name': self.raw_name,
+            'parsed_name': self.parsed_name,
+            'brand': self.brand,
+            'product_type': self.product_type,
+            'quantity': float(self.quantity) if self.quantity else None,
+            'unit': self.unit,
+            'pack_size': self.pack_size,
+            'unit_price': float(self.unit_price) if self.unit_price else None,
+            'line_total': float(self.line_total) if self.line_total else None,
+            'size_value': float(self.size_value) if self.size_value else None,
+            'size_unit': self.size_unit,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

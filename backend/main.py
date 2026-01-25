@@ -13,6 +13,7 @@ from admin_analytics_routes import admin_analytics_bp
 from sendgrid_webhook import sendgrid_webhook_bp
 from coupon_routes import coupon_bp
 from submission_routes import submissions_bp
+from receipt_routes import receipts_bp
 from app import csrf
 
 # Disable CSRF for agents API endpoints (JWT-based)
@@ -25,6 +26,7 @@ csrf.exempt(admin_analytics_bp)
 csrf.exempt(sendgrid_webhook_bp)
 csrf.exempt(coupon_bp)
 csrf.exempt(submissions_bp)
+csrf.exempt(receipts_bp)
 
 # Register API blueprints
 app.register_blueprint(agents_api_bp)
@@ -36,6 +38,7 @@ app.register_blueprint(admin_analytics_bp)
 app.register_blueprint(sendgrid_webhook_bp)
 app.register_blueprint(coupon_bp)
 app.register_blueprint(submissions_bp)
+app.register_blueprint(receipts_bp)
 
 print("🤖 AI Agents System initialized (LangGraph with Supervisor)")
 print("📧 SendGrid Webhook initialized")
