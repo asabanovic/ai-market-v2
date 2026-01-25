@@ -930,11 +930,11 @@
 
                       <!-- Raw receipt text (if different from parsed) -->
                       <p
-                        v-if="item.raw_name && item.parsed_name && item.raw_name !== item.parsed_name"
+                        v-if="item.raw_name && item.parsed_name && cleanRawName(item.raw_name) !== item.parsed_name"
                         class="text-xs text-gray-500 mt-0.5 font-mono truncate"
                         :title="item.raw_name"
                       >
-                        {{ item.raw_name }}
+                        {{ cleanRawName(item.raw_name) }}
                       </p>
 
                       <!-- Tags row -->
@@ -952,8 +952,8 @@
                     <div class="flex-shrink-0 text-right">
                       <span class="font-semibold text-gray-900 text-sm">{{ item.line_total?.toFixed(2) }} KM</span>
                       <!-- Show quantity breakdown if more than 1 -->
-                      <p v-if="item.quantity > 1 && item.unit_price" class="text-xs text-gray-500 mt-0.5">
-                        {{ item.quantity }} x {{ item.unit_price.toFixed(2) }} KM
+                      <p v-if="item.quantity > 1" class="text-xs text-gray-500 mt-0.5">
+                        {{ item.quantity }} x {{ getUnitPrice(item).toFixed(2) }} KM
                       </p>
                     </div>
                   </div>
@@ -1717,6 +1717,23 @@ async function toggleExpand(receiptId: number) {
       }
     }
   }
+}
+
+// Clean raw name by removing leading product codes (e.g., "123456 PRODUCT NAME" -> "PRODUCT NAME")
+function cleanRawName(rawName: string | null): string {
+  if (!rawName) return ''
+  // Remove leading codes: numbers, alphanumeric codes like "A123", barcodes, etc.
+  // Pattern: start of string, optional whitespace, code (letters/numbers), whitespace, then the actual name
+  return rawName.replace(/^[\s]*[A-Za-z0-9]{4,15}[\s]+/, '').trim()
+}
+
+// Get unit price - use stored value or calculate from line_total / quantity
+function getUnitPrice(item: any): number {
+  if (item.unit_price) return item.unit_price
+  if (item.line_total && item.quantity > 0) {
+    return item.line_total / item.quantity
+  }
+  return 0
 }
 
 // Short date format (dd.mm.yyyy)
