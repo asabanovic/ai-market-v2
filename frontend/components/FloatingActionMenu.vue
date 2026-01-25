@@ -363,11 +363,22 @@
       <div
         v-if="showReceiptSuccess"
         class="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50"
+        @click.self="showReceiptSuccess = false"
       >
         <!-- Confetti canvas -->
         <canvas ref="confettiCanvas" class="fixed inset-0 pointer-events-none z-[10000]"></canvas>
 
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center relative z-[9999]">
+          <!-- Close button -->
+          <button
+            @click="showReceiptSuccess = false"
+            class="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
           <!-- Success icon -->
           <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg class="w-10 h-10 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
