@@ -281,141 +281,210 @@
         </div>
       </div>
 
-      <!-- View Modal -->
+      <!-- View Modal - Sidebar Style -->
       <Teleport to="body">
-        <div
-          v-if="showViewModal && selectedReceipt"
-          class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          @click.self="closeViewModal"
-        >
-          <div class="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            <!-- Modal Header -->
-            <div class="flex items-center justify-between p-4 border-b">
-              <h3 class="text-lg font-semibold text-gray-900">
-                Racun #{{ selectedReceipt.id }}
-              </h3>
-              <button
-                @click="closeViewModal"
-                class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
-              >
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <!-- Backdrop -->
+        <Transition name="fade">
+          <div
+            v-if="showViewModal"
+            class="fixed inset-0 z-50 bg-black/50"
+            @click="closeViewModal"
+          ></div>
+        </Transition>
+
+        <!-- Sidebar -->
+        <Transition name="slide">
+          <div
+            v-if="showViewModal && selectedReceipt"
+            class="fixed right-0 top-0 z-50 h-full w-full max-w-md bg-white shadow-2xl overflow-hidden flex flex-col"
+          >
+            <!-- Header -->
+            <div class="flex-shrink-0 border-b bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-4">
+              <div class="flex justify-between items-center">
+                <div class="text-white">
+                  <h3 class="font-semibold text-lg">
+                    {{ selectedReceipt.store_name || 'Račun' }}
+                  </h3>
+                  <p v-if="selectedReceipt.receipt_date" class="text-purple-100 text-sm">
+                    {{ formatDate(selectedReceipt.receipt_date) }}
+                  </p>
+                </div>
+                <button @click="closeViewModal" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <!-- Modal Content -->
-            <div class="flex flex-col md:flex-row max-h-[calc(90vh-130px)] overflow-hidden">
-              <!-- Image -->
-              <div class="md:w-1/2 p-4 bg-gray-100 flex items-center justify-center">
-                <img
-                  :src="selectedReceipt.receipt_image_url"
-                  :alt="`Receipt ${selectedReceipt.id}`"
-                  class="max-w-full max-h-[60vh] object-contain"
-                />
+            <!-- Content - Scrollable -->
+            <div class="flex-1 overflow-y-auto">
+              <!-- Admin: User Info Banner -->
+              <div class="p-3 bg-blue-50 border-b border-blue-100">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-full">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-blue-900">{{ selectedReceipt.user?.email }}</p>
+                    <p v-if="selectedReceipt.user?.name" class="text-xs text-blue-700">{{ selectedReceipt.user.name }}</p>
+                  </div>
+                </div>
               </div>
 
-              <!-- Details -->
-              <div class="md:w-1/2 p-4 overflow-y-auto">
-                <!-- User Info -->
-                <div class="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <div class="text-sm font-medium text-blue-800">Korisnik</div>
-                  <div class="text-blue-900">{{ selectedReceipt.user?.email }}</div>
-                  <div v-if="selectedReceipt.user?.name" class="text-sm text-blue-700">{{ selectedReceipt.user.name }}</div>
-                </div>
-
-                <!-- Store Info -->
-                <div class="mb-4">
-                  <h4 class="text-sm font-medium text-gray-500 mb-2">Radnja</h4>
-                  <div class="text-lg font-semibold text-gray-900">{{ selectedReceipt.store_name || '-' }}</div>
-                  <div v-if="selectedReceipt.store_address" class="text-sm text-gray-600">{{ selectedReceipt.store_address }}</div>
-                  <div class="flex flex-wrap gap-2 mt-2">
-                    <span v-if="selectedReceipt.jib" class="px-2 py-1 bg-gray-100 rounded text-xs">JIB: {{ selectedReceipt.jib }}</span>
-                    <span v-if="selectedReceipt.pib" class="px-2 py-1 bg-gray-100 rounded text-xs">PIB: {{ selectedReceipt.pib }}</span>
-                    <span v-if="selectedReceipt.ibfm" class="px-2 py-1 bg-gray-100 rounded text-xs">IBFM: {{ selectedReceipt.ibfm }}</span>
-                  </div>
-                </div>
-
-                <!-- Amount & Date -->
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <h4 class="text-sm font-medium text-gray-500">Ukupno</h4>
-                    <div class="text-2xl font-bold text-green-600">
-                      {{ selectedReceipt.total_amount ? formatPrice(selectedReceipt.total_amount) : '-' }}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 class="text-sm font-medium text-gray-500">Datum racuna</h4>
-                    <div class="text-lg text-gray-900">
-                      {{ selectedReceipt.receipt_date ? formatDate(selectedReceipt.receipt_date) : '-' }}
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Status -->
-                <div class="mb-4">
-                  <h4 class="text-sm font-medium text-gray-500 mb-1">Status</h4>
+              <!-- Admin: Status Banner -->
+              <div v-if="selectedReceipt.processing_status !== 'completed'" class="p-3 border-b" :class="selectedReceipt.processing_status === 'failed' ? 'bg-red-50' : 'bg-yellow-50'">
+                <div class="flex items-center gap-2">
                   <span
                     :class="[
-                      'px-3 py-1 text-sm font-medium rounded-full',
+                      'px-2 py-1 text-xs font-medium rounded-full',
                       getStatusClass(selectedReceipt.processing_status)
                     ]"
                   >
                     {{ getStatusLabel(selectedReceipt.processing_status) }}
                   </span>
-                  <div v-if="selectedReceipt.processing_error" class="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
-                    {{ selectedReceipt.processing_error }}
+                  <span v-if="selectedReceipt.processing_error" class="text-xs text-red-600">{{ selectedReceipt.processing_error }}</span>
+                </div>
+              </div>
+
+              <!-- Receipt Image -->
+              <div class="p-4 border-b bg-gray-50">
+                <a
+                  v-if="selectedReceipt.receipt_image_url"
+                  :href="selectedReceipt.receipt_image_url"
+                  target="_blank"
+                  class="block"
+                >
+                  <img
+                    :src="selectedReceipt.receipt_image_url"
+                    alt="Račun"
+                    class="w-full rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                  />
+                </a>
+              </div>
+
+              <!-- Info Cards -->
+              <div class="p-4 space-y-3">
+                <div v-if="selectedReceipt.store_address" class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div class="w-8 h-8 flex items-center justify-center bg-purple-100 rounded-lg flex-shrink-0">
+                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 uppercase font-medium">Adresa</p>
+                    <p class="text-sm text-gray-800">{{ selectedReceipt.store_address }}</p>
                   </div>
                 </div>
 
-                <!-- Items -->
-                <div v-if="selectedReceipt.items?.length > 0">
-                  <h4 class="text-sm font-medium text-gray-500 mb-2">Stavke ({{ selectedReceipt.items.length }})</h4>
-                  <div class="space-y-2 max-h-60 overflow-y-auto">
-                    <div
-                      v-for="item in selectedReceipt.items"
-                      :key="item.id"
-                      class="p-2 bg-gray-50 rounded-lg text-sm"
-                    >
-                      <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                          <div class="font-medium text-gray-900">{{ item.parsed_name || item.raw_name }}</div>
-                          <div class="text-xs text-gray-500">
-                            <span v-if="item.brand">{{ item.brand }} | </span>
-                            <span v-if="item.product_type">{{ item.product_type }}</span>
-                          </div>
-                          <div class="text-xs text-gray-400 mt-1">Raw: {{ item.raw_name }}</div>
-                        </div>
-                        <div class="text-right ml-2">
-                          <div class="font-semibold text-gray-900">{{ formatPrice(item.line_total) }}</div>
-                          <div class="text-xs text-gray-500">
-                            {{ item.quantity }} {{ item.unit || 'kom' }} x {{ formatPrice(item.unit_price) }}
-                          </div>
-                        </div>
-                      </div>
+                <div v-if="selectedReceipt.jib || selectedReceipt.pib || selectedReceipt.ibfm" class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div class="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-lg flex-shrink-0">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 uppercase font-medium">Identifikatori</p>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                      <span v-if="selectedReceipt.jib" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">JIB: {{ selectedReceipt.jib }}</span>
+                      <span v-if="selectedReceipt.pib" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">PIB: {{ selectedReceipt.pib }}</span>
+                      <span v-if="selectedReceipt.ibfm" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">IBFM: {{ selectedReceipt.ibfm }}</span>
                     </div>
                   </div>
                 </div>
               </div>
+
+              <!-- Items Section -->
+              <div class="p-4 border-t">
+                <div class="flex items-center justify-between mb-4">
+                  <h4 class="font-semibold text-gray-900">Artikli</h4>
+                  <span class="bg-purple-100 text-purple-700 text-xs font-medium px-2 py-1 rounded-full">
+                    {{ selectedReceipt.items?.length || 0 }} stavki
+                  </span>
+                </div>
+
+                <div v-if="selectedReceipt.items && selectedReceipt.items.length > 0" class="space-y-2">
+                  <div
+                    v-for="(item, idx) in selectedReceipt.items"
+                    :key="item.id"
+                    class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div class="flex items-start gap-3">
+                      <span class="text-xs text-gray-400 font-medium w-5 flex-shrink-0 pt-0.5">{{ idx + 1 }}</span>
+                      <div class="flex-1 min-w-0">
+                        <!-- Parsed name (main) -->
+                        <p class="font-medium text-gray-900 text-sm leading-tight">{{ item.parsed_name || item.raw_name }}</p>
+
+                        <!-- Raw receipt text (admin sees this) -->
+                        <p
+                          v-if="item.raw_name && item.parsed_name && item.raw_name !== item.parsed_name"
+                          class="text-xs text-gray-500 mt-0.5 font-mono truncate"
+                          :title="item.raw_name"
+                        >
+                          {{ item.raw_name }}
+                        </p>
+
+                        <!-- Tags row -->
+                        <div class="flex flex-wrap gap-2 mt-1.5">
+                          <span v-if="item.brand && item.brand !== 'UNKNOWN'" class="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                            {{ item.brand }}
+                          </span>
+                          <span v-if="item.pack_size" class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                            {{ item.pack_size }}
+                          </span>
+                          <span v-if="item.product_type" class="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded">
+                            {{ item.product_type }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Price column -->
+                      <div class="flex-shrink-0 text-right">
+                        <span class="font-semibold text-gray-900 text-sm">{{ formatPrice(item.line_total) }}</span>
+                        <!-- Show quantity breakdown if more than 1 -->
+                        <p v-if="item.quantity > 1" class="text-xs text-gray-500 mt-0.5">
+                          {{ item.quantity }} x {{ formatPrice(item.unit_price) }}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="text-center py-8 text-gray-500">
+                  <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                  <p class="text-sm">Nema očitanih artikala</p>
+                </div>
+              </div>
             </div>
 
-            <!-- Modal Footer -->
-            <div class="p-4 border-t bg-gray-50 flex justify-end gap-2">
-              <button
-                @click="deleteReceipt(selectedReceipt); closeViewModal()"
-                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Obrisi
-              </button>
-              <button
-                @click="closeViewModal"
-                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Zatvori
-              </button>
+            <!-- Footer - Total + Actions -->
+            <div class="flex-shrink-0 border-t bg-gradient-to-r from-purple-50 to-blue-50 p-4">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-medium text-gray-700">Ukupno</span>
+                <span class="text-2xl font-bold text-purple-600">{{ selectedReceipt.total_amount ? formatPrice(selectedReceipt.total_amount) : '-' }}</span>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  @click="deleteReceipt(selectedReceipt); closeViewModal()"
+                  class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                >
+                  Obriši račun
+                </button>
+                <button
+                  @click="closeViewModal"
+                  class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                >
+                  Zatvori
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Transition>
       </Teleport>
     </div>
   </div>
@@ -607,3 +676,27 @@ onMounted(() => {
   loadData()
 })
 </script>
+
+<style scoped>
+/* Slide transition for sidebar */
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(100%);
+}
+
+/* Fade transition for backdrop */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
