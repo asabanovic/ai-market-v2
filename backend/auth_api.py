@@ -893,6 +893,9 @@ def user_profile():
 
         # GET - Return user profile
         if request.method == 'GET':
+            prefs = user.preferences or {}
+            email_prefs = prefs.get('email_preferences', {})
+            app.logger.info(f"Loading profile for {user.email}: email_preferences={email_prefs}")
             return jsonify({
                 'id': user.id,
                 'email': user.email,
@@ -904,7 +907,7 @@ def user_profile():
                 'notification_preferences': user.notification_preferences or 'none',
                 'is_admin': user.is_admin,
                 'is_verified': user.is_verified,
-                'preferences': user.preferences or {}
+                'preferences': prefs
             }), 200
 
         # PUT - Update user profile
@@ -968,6 +971,8 @@ def user_profile():
                 from sqlalchemy.orm.attributes import flag_modified
                 email_prefs = data['email_preferences']
 
+                app.logger.info(f"Saving email_preferences for {user.email}: received={email_prefs}")
+
                 # Initialize preferences if None
                 if user.preferences is None:
                     user.preferences = {}
@@ -978,6 +983,8 @@ def user_profile():
                     'weekly_summary': email_prefs.get('weekly_summary', True),
                     'monthly_summary': email_prefs.get('monthly_summary', True)
                 }
+
+                app.logger.info(f"Saved email_preferences for {user.email}: saved={user.preferences['email_preferences']}")
 
                 # Mark preferences as modified so SQLAlchemy detects JSON change
                 flag_modified(user, 'preferences')
