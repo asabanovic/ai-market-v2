@@ -114,6 +114,12 @@ export default defineNuxtConfig({
       '/**': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
       // Hashed assets (_nuxt/) - long cache since hash changes on content change
       '/_nuxt/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+      // PWA manifest - short cache so updates propagate quickly
+      '/site.webmanifest': { headers: { 'Cache-Control': 'public, max-age=3600' } }, // 1 hour
+      // PWA icons - moderate cache with revalidation
+      '/android-chrome-*.png': { headers: { 'Cache-Control': 'public, max-age=86400, must-revalidate' } }, // 1 day
+      '/apple-touch-icon.png': { headers: { 'Cache-Control': 'public, max-age=86400, must-revalidate' } },
+      '/favicon*.png': { headers: { 'Cache-Control': 'public, max-age=86400, must-revalidate' } },
     },
   },
 
