@@ -207,7 +207,20 @@
         >
           <div class="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm p-4 pb-8 md:pb-4 transform transition-transform">
             <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4 md:hidden" />
-            <h3 class="text-lg font-semibold text-gray-900 text-center mb-4">Dodaj račun</h3>
+            <h3 class="text-lg font-semibold text-gray-900 text-center mb-3">Dodaj račun</h3>
+
+            <!-- Tip for better scanning -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+              <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-sm text-amber-800">
+                  <span class="font-medium">Savjet:</span> Slikaj izbliza tako da cijeli račun stane u sliku i da se tekst jasno vidi.
+                </p>
+              </div>
+            </div>
+
             <div class="grid grid-cols-2 gap-3">
               <button
                 @click="openReceiptCamera"
