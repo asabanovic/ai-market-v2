@@ -218,31 +218,42 @@ STORE INFO EXTRACTION:
 - receipt_date: Date and time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - total_amount: Total amount in KM (number only)
 
-CRITICAL - BOSNIAN RECEIPT FORMAT:
-Bosnian receipts typically show items in this format:
-  [CODE] PRODUCT NAME
-  [QUANTITY] x [UNIT_PRICE] = [LINE_TOTAL]
+CRITICAL - BOSNIAN RECEIPT TWO-ROW FORMAT:
+EVERY product on Bosnian receipts takes EXACTLY 2 ROWS:
 
-Example:
+ROW 1: [PRODUCT_CODE] [PRODUCT_NAME]
+ROW 2: [QUANTITY]x [UNIT_PRICE]    [LINE_TOTAL]
+
+The second row ALWAYS contains:
+- First number: QUANTITY (how many items bought)
+- "x" separator
+- Second number: UNIT PRICE (price for 1 item)
+- Third number (at end): LINE TOTAL (quantity × unit_price)
+
+REAL EXAMPLES FROM RECEIPTS:
+Example 1:
   81019 FILET LOSOSA 400G
-  2 x 15.70 = 31.40
+  2.000x     15.70          31.40
+  → quantity=2, unit_price=15.70, line_total=31.40
 
-This means: quantity=2, unit_price=15.70, line_total=31.40
+Example 2:
+  F12500 SOK 330ML COLA
+  4.000x      1.20           4.80
+  → quantity=4, unit_price=1.20, line_total=4.80
 
-IMPORTANT: The quantity line may appear BELOW the product name!
-Look for these QUANTITY PATTERNS:
-- "2 x 15.70" or "2x15.70" - means quantity 2
-- "4.000x" or "4.000 x" - means quantity 4 (the .000 is decimal formatting)
-- "2.000x 15.70" - means quantity 2
-- "1x4" or "1 x 4" - may mean quantity 4
-- "3 * 5.99" - means quantity 3
-- Any number followed by "x" indicates quantity
+Example 3:
+  000003 VRECICA TRAGERA
+  1.000x      0.10           0.10
+  → quantity=1, unit_price=0.10, line_total=0.10
 
-The quantity is often shown with decimal places like "2.000" which just means 2.
-Parse "4.000x" as quantity=4.
+QUANTITY FORMAT RULES:
+- Quantity is shown with .000 decimal places: "4.000x" means 4 items
+- "2.000x" means 2 items, "1.000x" means 1 item
+- The "x" always follows the quantity number
+- NEVER ignore the second row - it contains essential quantity data!
 
-If you see a line with numbers like "2 x 15.70 = 31.40" or "4.000x 7.85",
-this belongs to the product on the line ABOVE it.
+IMPORTANT: You MUST read BOTH rows for each product. The quantity on row 2
+tells you how many items were purchased. Do NOT assume quantity=1!
 
 ITEM EXTRACTION RULES:
 For each line item, extract:
