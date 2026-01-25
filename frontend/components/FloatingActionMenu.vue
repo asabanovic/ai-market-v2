@@ -216,7 +216,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p class="text-sm text-amber-800">
-                  <span class="font-medium">Savjet:</span> Slikaj izbliza tako da cijeli račun stane u sliku i da se tekst jasno vidi.
+                  <span class="font-medium">Savjet:</span> Za najbolji rezultat, slikati izbliza tako da cijeli račun stane u kadar i da se tekst jasno vidi.
                 </p>
               </div>
             </div>
