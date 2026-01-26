@@ -12,7 +12,7 @@ import uuid
 import os
 import json
 import threading
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 import base64
 
@@ -59,6 +59,9 @@ def upload_receipt_image(file_data, user_id, receipt_id):
     # Process image - resize to max 600px for LLM (per requirement)
     img = Image.open(io.BytesIO(file_data))
 
+    # Fix EXIF orientation (mobile photos often have rotation in metadata)
+    img = ImageOps.exif_transpose(img)
+
     # Convert to RGB if necessary (for PNG with transparency)
     if img.mode in ('RGBA', 'P'):
         img = img.convert('RGB')
@@ -99,6 +102,9 @@ def resize_image_for_ocr(file_data):
     Returns base64 encoded image
     """
     img = Image.open(io.BytesIO(file_data))
+
+    # Fix EXIF orientation (mobile photos often have rotation in metadata)
+    img = ImageOps.exif_transpose(img)
 
     # Convert to RGB if necessary
     if img.mode in ('RGBA', 'P'):
