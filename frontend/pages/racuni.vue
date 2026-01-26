@@ -885,8 +885,9 @@ import {
   CategoryScale,
   LinearScale
 } from 'chart.js'
+import ChartDataLabels from 'chartjs-plugin-datalabels'
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ChartDataLabels)
 
 definePageMeta({
   middleware: ['auth']
@@ -1108,7 +1109,12 @@ const barChartOptions = computed(() => ({
         title: (items: any) => {
           const idx = items[0]?.dataIndex
           if (idx !== undefined && chartData.value[idx]) {
-            return chartData.value[idx].label
+            const date = chartData.value[idx].date
+            // Format as dd/mm/yyyy
+            const day = String(date.getDate()).padStart(2, '0')
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
           }
           return ''
         },
@@ -1121,12 +1127,23 @@ const barChartOptions = computed(() => ({
           return ''
         }
       }
+    },
+    datalabels: {
+      anchor: 'end',
+      align: 'top',
+      offset: 4,
+      color: '#374151', // gray-700 for good contrast
+      font: {
+        weight: 'bold',
+        size: 11
+      },
+      formatter: (value: number) => value > 0 ? `${value.toFixed(0)}` : ''
     }
   },
   scales: {
     y: {
       beginAtZero: true,
-      max: chartMaxValue.value,
+      max: chartMaxValue.value * 1.15, // Add 15% padding for labels above bars
       ticks: {
         callback: (value: number) => `${value.toFixed(0)} KM`
       },
