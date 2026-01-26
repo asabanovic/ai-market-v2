@@ -5937,6 +5937,19 @@ def api_admin_stats():
         pending_submissions = db.session.query(ProductSubmission).filter_by(status='pending').count()
         products_without_embeddings = total_products - products_with_embeddings
 
+        # Get new receipts count (uploaded in last 7 days)
+        from models import Receipt, SupportMessage
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        new_receipts = db.session.query(Receipt).filter(
+            Receipt.created_at >= seven_days_ago
+        ).count()
+
+        # Get unread support messages from users
+        unread_support_messages = db.session.query(SupportMessage).filter(
+            SupportMessage.sender_type == 'user',
+            SupportMessage.is_read == False
+        ).count()
+
         # Get active (non-expired) products count
         active_products = db.session.query(Product).filter(
             db.or_(Product.expires == None, Product.expires >= date.today())
@@ -5994,7 +6007,9 @@ def api_admin_stats():
                 'active_products': active_products,
                 'expired_products': expired_products,
                 'pending_reports': pending_reports,
-                'pending_submissions': pending_submissions
+                'pending_submissions': pending_submissions,
+                'new_receipts': new_receipts,
+                'unread_support_messages': unread_support_messages
             },
             'recent_users': [{
                 'id': u.id,
