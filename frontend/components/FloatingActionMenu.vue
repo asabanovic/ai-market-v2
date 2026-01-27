@@ -110,14 +110,14 @@
         type="file"
         accept="image/*"
         capture="environment"
-        class="hidden"
+        style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
         @change="handleFileSelect"
       />
       <input
         ref="galleryInput"
         type="file"
         accept="image/*"
-        class="hidden"
+        style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
         @change="handleFileSelect"
       />
 
@@ -127,14 +127,14 @@
         type="file"
         accept="image/*"
         capture="environment"
-        class="hidden"
+        style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
         @change="handleReceiptFileSelect"
       />
       <input
         ref="receiptGalleryInput"
         type="file"
         accept="image/*"
-        class="hidden"
+        style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
         @change="handleReceiptFileSelect"
       />
     </div>
