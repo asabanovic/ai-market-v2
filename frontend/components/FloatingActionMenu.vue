@@ -188,6 +188,23 @@
             >
               Otkaži
             </button>
+
+            <!-- File inputs inside modal for proper capture attribute -->
+            <input
+              ref="cameraInputModal"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
+              @change="handleFileSelect"
+            />
+            <input
+              ref="galleryInputModal"
+              type="file"
+              accept="image/*"
+              style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
+              @change="handleFileSelect"
+            />
           </div>
         </div>
       </Transition>
@@ -454,11 +471,15 @@ const showReceiptSuccess = ref(false)
 const showReceiptOptions = ref(false)
 const confettiCanvas = ref<HTMLCanvasElement | null>(null)
 
-// File inputs
+// File inputs (outside modal - kept for compatibility)
 const cameraInput = ref<HTMLInputElement | null>(null)
 const galleryInput = ref<HTMLInputElement | null>(null)
 const receiptCameraInput = ref<HTMLInputElement | null>(null)
 const receiptGalleryInput = ref<HTMLInputElement | null>(null)
+
+// File inputs inside modals (for proper capture attribute on mobile)
+const cameraInputModal = ref<HTMLInputElement | null>(null)
+const galleryInputModal = ref<HTMLInputElement | null>(null)
 
 // Always show on all pages
 const showButton = computed(() => true)
@@ -695,13 +716,14 @@ function goToReceipts() {
 }
 
 function openCamera() {
-  showImageOptions.value = false
-  cameraInput.value?.click()
+  // Use modal input for proper capture attribute on mobile
+  // Don't close modal before click - file picker will overlay it
+  cameraInputModal.value?.click()
 }
 
 function openGallery() {
-  showImageOptions.value = false
-  galleryInput.value?.click()
+  // Use modal input
+  galleryInputModal.value?.click()
 }
 
 // Image search logic (from FloatingCameraButton)
@@ -745,6 +767,8 @@ async function handleFileSelect(event: Event) {
   const file = input.files?.[0]
   if (!file) return
 
+  // Close the image options modal
+  showImageOptions.value = false
   showSearchModal.value = true
   isSearching.value = true
   searchError.value = null
