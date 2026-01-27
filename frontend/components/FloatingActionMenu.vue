@@ -194,7 +194,7 @@
               ref="cameraInputModal"
               type="file"
               accept="image/*"
-              capture="environment"
+              capture
               style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;"
               @change="handleFileSelect"
             />
