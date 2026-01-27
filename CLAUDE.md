@@ -133,6 +133,9 @@ See `RAILWAY_DEPLOY.md` for more deployment instructions.
 
 ## Development Rules
 
+### Git Commits - NEVER AMEND
+**NEVER use `git commit --amend`.** Always create new commits. This avoids push conflicts and history rewriting issues.
+
 ### When Unsure - ASK FIRST
 **If you're not sure about something (which service to use, how something works, etc.), ASK the user before implementing.** Don't assume or guess - check the existing codebase first, and if still unclear, ask.
 

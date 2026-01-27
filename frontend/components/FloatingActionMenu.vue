@@ -84,11 +84,11 @@
 
         <!-- Main FAB button -->
         <button
-          @click="toggleMenu"
-          class="flex items-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-105"
+          @click.stop="toggleMenu"
+          class="flex items-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer"
           :class="isExpanded ? 'bg-gray-700 px-3 py-3 rounded-full' : 'bg-gradient-to-br from-purple-500 via-blue-500 to-green-500 pl-3 pr-4 py-3 rounded-full'"
         >
-          <div class="w-8 h-8 flex items-center justify-center">
+          <div class="w-8 h-8 flex items-center justify-center pointer-events-none">
             <svg
               class="w-7 h-7 text-white transition-transform duration-300"
               :class="{ 'rotate-45': isExpanded }"
@@ -100,7 +100,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
           </div>
-          <span v-if="!isExpanded" class="text-white font-medium text-sm whitespace-nowrap">Koristi Kameru</span>
+          <span v-if="!isExpanded" class="text-white font-medium text-sm whitespace-nowrap pointer-events-none">Koristi Kameru</span>
         </button>
       </div>
 
