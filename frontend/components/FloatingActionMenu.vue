@@ -85,19 +85,22 @@
         <!-- Main FAB button -->
         <button
           @click="toggleMenu"
-          class="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 transform hover:scale-110"
-          :class="isExpanded ? 'bg-gray-700 rotate-45' : 'bg-gradient-to-br from-purple-500 via-blue-500 to-green-500'"
+          class="flex items-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-105"
+          :class="isExpanded ? 'bg-gray-700 px-3 py-3 rounded-full' : 'bg-gradient-to-br from-purple-500 via-blue-500 to-green-500 pl-3 pr-4 py-3 rounded-full'"
         >
-          <svg
-            class="w-7 h-7 text-white transition-transform duration-300"
-            :class="{ 'rotate-90': isExpanded }"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
+          <div class="w-8 h-8 flex items-center justify-center">
+            <svg
+              class="w-7 h-7 text-white transition-transform duration-300"
+              :class="{ 'rotate-45': isExpanded }"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <span v-if="!isExpanded" class="text-white font-medium text-sm whitespace-nowrap">Koristi Kameru</span>
         </button>
       </div>
 
