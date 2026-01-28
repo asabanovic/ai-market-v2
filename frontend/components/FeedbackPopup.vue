@@ -42,7 +42,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Kako vam se sviđa aplikacija? <span class="text-red-500">*</span>
             </label>
-            <div class="flex justify-center gap-2">
+            <div class="flex justify-center gap-2 relative z-0">
               <button
                 v-for="star in 5"
                 :key="star"
