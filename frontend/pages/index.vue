@@ -1218,6 +1218,9 @@ watch(selectedStoreIds, async (newVal) => {
 })
 
 async function performSearch() {
+  // Prevent duplicate calls from rapid taps on mobile
+  if (isSearching.value) return
+
   const query = searchQuery.value.trim()
   if (!query) {
     return
