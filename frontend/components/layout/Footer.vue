@@ -6,7 +6,7 @@
           <h3 class="text-lg font-medium text-gray-900 mb-1">Popust.ba</h3>
           <p class="text-xs text-purple-600 font-medium mb-3">Kupuj pametnije</p>
           <p class="text-sm text-gray-600 max-w-md mx-auto">
-            Pronađite najbolje akcije i popuste u vašem gradu.
+            Pronađite najbolje akcije i popuste u Vašem gradu.
           </p>
         </div>
 

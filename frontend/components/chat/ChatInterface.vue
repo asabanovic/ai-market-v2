@@ -80,7 +80,7 @@ const messages = ref<Message[]>([
   {
     id: '1',
     role: 'assistant',
-    content: 'Zdravo! Ja sam Popust asistent. Kako mogu da vam pomognem danas?',
+    content: 'Zdravo! Ja sam Popust asistent. Kako mogu da Vam pomognem danas?',
     timestamp: new Date()
   }
 ])

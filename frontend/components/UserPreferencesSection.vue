@@ -3,7 +3,7 @@
     <div class="flex justify-between items-center mb-4">
       <div>
         <h2 class="text-xl font-semibold text-gray-900">Moje preference</h2>
-        <p class="text-sm text-gray-600 mt-1">Proizvodi koje pratimo za vas</p>
+        <p class="text-sm text-gray-600 mt-1">Proizvodi koje pratimo za Vas</p>
       </div>
       <button
         @click="$emit('edit')"

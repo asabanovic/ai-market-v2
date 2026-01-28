@@ -455,7 +455,7 @@ async function trackProductForDiscounts() {
 
     if (response.success || response.id) {
       isTracking.value = true
-      showSuccess('Pratimo ovaj proizvod! Obavijestit cemo vas o sljedecem popustu.')
+      showSuccess('Pratimo ovaj proizvod! Obavijestit ćemo Vas o sljedecem popustu.')
     }
   } catch (error: any) {
     console.error('Error tracking product:', error)

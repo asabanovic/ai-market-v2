@@ -38,7 +38,7 @@
           </div>
           <div>
             <h3 class="font-semibold text-gray-900">Popust asistent za kupovinu</h3>
-            <p class="text-sm text-gray-600">Brzo pronađite najjeftinije proizvode za vašu listu</p>
+            <p class="text-sm text-gray-600">Brzo pronađite najjeftinije proizvode za Vašu listu</p>
           </div>
         </div>
 
