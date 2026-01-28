@@ -468,6 +468,25 @@
                 <span class="font-medium text-gray-700">Ukupno</span>
                 <span class="text-2xl font-bold text-purple-600">{{ selectedReceipt.total_amount ? formatPrice(selectedReceipt.total_amount) : '-' }}</span>
               </div>
+              <!-- Regenerate buttons -->
+              <div class="flex gap-2 mb-3">
+                <button
+                  @click="reprocessReceipt(selectedReceipt, 'gpt-4o-mini')"
+                  :disabled="isReprocessing"
+                  class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  <span v-if="isReprocessing">Procesiranje...</span>
+                  <span v-else>GPT-4o Mini</span>
+                </button>
+                <button
+                  @click="reprocessReceipt(selectedReceipt, 'gpt-4o')"
+                  :disabled="isReprocessing"
+                  class="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  <span v-if="isReprocessing">Procesiranje...</span>
+                  <span v-else>GPT-4o</span>
+                </button>
+              </div>
               <div class="flex gap-2">
                 <button
                   @click="deleteReceipt(selectedReceipt); closeViewModal()"
@@ -543,7 +562,8 @@ interface Stats {
   recent_uploads_7d: number
 }
 
-const { get, del } = useApi()
+const { get, del, post } = useApi()
+const isReprocessing = ref(false)
 
 const isLoading = ref(false)
 const receipts = ref<Receipt[]>([])
@@ -623,6 +643,24 @@ async function deleteReceipt(receipt: Receipt) {
   } catch (error) {
     console.error('Error deleting receipt:', error)
     alert('Greška pri brisanju računa')
+  }
+}
+
+async function reprocessReceipt(receipt: Receipt, model: string) {
+  if (isReprocessing.value) return
+  isReprocessing.value = true
+
+  try {
+    await post(`/api/admin/receipts/${receipt.id}/reprocess`, { model })
+    alert(`Ponovno procesiranje pokrenuto sa ${model}`)
+    closeViewModal()
+    // Reload after a short delay to show updated status
+    setTimeout(() => loadReceipts(), 2000)
+  } catch (error) {
+    console.error('Error reprocessing receipt:', error)
+    alert('Greška pri ponovnom procesiranju')
+  } finally {
+    isReprocessing.value = false
   }
 }
 

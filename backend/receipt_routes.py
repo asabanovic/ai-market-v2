@@ -204,10 +204,11 @@ def match_business_by_name(store_name):
     return None
 
 
-def process_receipt_ocr(receipt_id, image_base64, app_context):
+def process_receipt_ocr(receipt_id, image_base64, app_context, model="gpt-4o-mini"):
     """
     Background task to process receipt OCR
-    Uses GPT-4o-mini for cost efficiency (receipts are simple text on white)
+    Uses GPT-4o-mini by default for cost efficiency (receipts are simple text on white)
+    Can use gpt-4o for more complex receipts with many items
     """
     with app_context:
         try:
@@ -352,10 +353,10 @@ Return JSON:
     ]
 }"""
 
-            # Call GPT-4o-mini for cost efficiency
+            # Using specified model (gpt-4o-mini for cost efficiency, gpt-4o for complex receipts)
             # Using "high" detail + larger image (1500px) for better OCR
             response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -1082,4 +1083,64 @@ def admin_get_receipts_stats():
         'recent_uploads_7d': recent_uploads
     })
 
+
+@receipts_bp.route('/api/admin/receipts/<int:receipt_id>/reprocess', methods=['POST'])
+@jwt_admin_required
+def admin_reprocess_receipt(receipt_id):
+    """Admin: Re-run OCR on any receipt with model selection"""
+    receipt = Receipt.query.get(receipt_id)
+    if not receipt:
+        return jsonify({'error': 'Receipt not found'}), 404
+
+    # Get model from request body
+    data = request.get_json() or {}
+    model = data.get('model', 'gpt-4o-mini')
+
+    # Validate model
+    allowed_models = ['gpt-4o-mini', 'gpt-4o']
+    if model not in allowed_models:
+        return jsonify({'error': f'Invalid model. Allowed: {allowed_models}'}), 400
+
+    # Delete existing items
+    ReceiptItem.query.filter(ReceiptItem.receipt_id == receipt_id).delete()
+
+    # Reset receipt
+    receipt.processing_status = 'pending'
+    receipt.processing_error = None
+    receipt.store_name = None
+    receipt.store_address = None
+    receipt.jib = None
+    receipt.pib = None
+    receipt.ibfm = None
+    receipt.receipt_serial_number = None
+    receipt.receipt_date = None
+    receipt.total_amount = None
+    receipt.business_id = None
+    db.session.commit()
+
+    # Download image from S3 and reprocess
+    try:
+        import urllib.request
+        with urllib.request.urlopen(receipt.receipt_image_url) as response:
+            image_data = response.read()
+
+        image_base64 = resize_image_for_ocr(image_data)
+
+        # Start background processing with specified model
+        app_context = current_app._get_current_object().app_context()
+        thread = threading.Thread(
+            target=process_receipt_ocr,
+            args=(receipt.id, image_base64, app_context, model)
+        )
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': f'Reprocessing started with {model}'
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error reprocessing receipt: {e}")
+        return jsonify({'error': 'Failed to reprocess receipt'}), 500
 

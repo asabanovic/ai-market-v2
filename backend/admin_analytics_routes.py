@@ -92,7 +92,9 @@ def track_camera_button():
             return jsonify({'error': 'action is required'}), 400
 
         valid_actions = ['button_click', 'expand', 'camera_click', 'gallery_click',
-                        'upload_start', 'upload_complete', 'upload_cancel']
+                        'upload_start', 'upload_complete', 'upload_cancel',
+                        'add_product_click', 'receipt_click', 'receipt_camera_click',
+                        'receipt_gallery_click', 'receipt_upload_start', 'receipt_upload_complete']
         if action not in valid_actions:
             return jsonify({'error': f'Invalid action. Must be one of: {valid_actions}'}), 400
 

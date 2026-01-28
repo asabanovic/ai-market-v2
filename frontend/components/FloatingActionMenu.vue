@@ -481,12 +481,44 @@ const receiptGalleryInput = ref<HTMLInputElement | null>(null)
 const cameraInputModal = ref<HTMLInputElement | null>(null)
 const galleryInputModal = ref<HTMLInputElement | null>(null)
 
+// Session ID for camera analytics
+const sessionId = ref<string>('')
+onMounted(() => {
+  sessionId.value = localStorage.getItem('camera_session_id') || `cam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  localStorage.setItem('camera_session_id', sessionId.value)
+})
+
+// Track camera button actions for analytics
+async function trackCameraAction(action: string) {
+  try {
+    const apiBase = config.public.apiBase || 'http://localhost:5001'
+    await fetch(`${apiBase}/api/track/camera-button`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token.value ? { 'Authorization': `Bearer ${token.value}` } : {})
+      },
+      body: JSON.stringify({
+        action,
+        session_id: sessionId.value,
+        page_url: window.location.pathname
+      })
+    })
+  } catch (e) {
+    // Silently fail - analytics shouldn't break the app
+  }
+}
+
 // Always show on all pages
 const showButton = computed(() => true)
 
 // Toggle menu
 function toggleMenu() {
   isExpanded.value = !isExpanded.value
+  // Track menu open (+ button click)
+  if (isExpanded.value) {
+    trackCameraAction('button_click')
+  }
 }
 
 function closeMenu() {
@@ -496,6 +528,8 @@ function closeMenu() {
 // Handle search by image
 function handleSearchByImage() {
   closeMenu()
+  // Track expand (opening image search options)
+  trackCameraAction('expand')
   if (!isAuthenticated.value) {
     navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
@@ -506,6 +540,8 @@ function handleSearchByImage() {
 // Handle add product
 function handleAddProduct() {
   closeMenu()
+  // Track add product click
+  trackCameraAction('add_product_click')
   // Dispatch global event to open submission modal
   if (process.client) {
     window.dispatchEvent(new CustomEvent('open-submission-modal'))
@@ -515,6 +551,8 @@ function handleAddProduct() {
 // Handle receipt capture - show bottom sheet options
 function handleReceiptCapture() {
   closeMenu()
+  // Track receipt click
+  trackCameraAction('receipt_click')
   if (!isAuthenticated.value) {
     navigateTo('/prijava?redirect=' + encodeURIComponent(window.location.pathname))
     return
@@ -525,12 +563,14 @@ function handleReceiptCapture() {
 
 // Open receipt camera
 function openReceiptCamera() {
+  trackCameraAction('receipt_camera_click')
   showReceiptOptions.value = false
   receiptCameraInput.value?.click()
 }
 
 // Open receipt gallery
 function openReceiptGallery() {
+  trackCameraAction('receipt_gallery_click')
   showReceiptOptions.value = false
   receiptGalleryInput.value?.click()
 }
@@ -541,6 +581,8 @@ async function handleReceiptFileSelect(event: Event) {
   const file = input.files?.[0]
   if (!file) return
 
+  // Track receipt upload start
+  trackCameraAction('receipt_upload_start')
   isUploadingReceipt.value = true
 
   try {
@@ -569,6 +611,8 @@ async function handleReceiptFileSelect(event: Event) {
     // Success - show confetti and popup
     isUploadingReceipt.value = false
     showReceiptSuccess.value = true
+    // Track successful receipt upload
+    trackCameraAction('receipt_upload_complete')
 
     // Trigger confetti
     await nextTick()
@@ -716,12 +760,16 @@ function goToReceipts() {
 }
 
 function openCamera() {
+  // Track camera click
+  trackCameraAction('camera_click')
   // Use modal input for proper capture attribute on mobile
   // Don't close modal before click - file picker will overlay it
   cameraInputModal.value?.click()
 }
 
 function openGallery() {
+  // Track gallery click
+  trackCameraAction('gallery_click')
   // Use modal input
   galleryInputModal.value?.click()
 }
@@ -767,6 +815,9 @@ async function handleFileSelect(event: Event) {
   const file = input.files?.[0]
   if (!file) return
 
+  // Track upload start
+  trackCameraAction('upload_start')
+
   // Close the image options modal
   showImageOptions.value = false
   showSearchModal.value = true
@@ -795,6 +846,8 @@ async function handleFileSelect(event: Event) {
     }
 
     searchResult.value = await response.json()
+    // Track successful upload
+    trackCameraAction('upload_complete')
   } catch (err: any) {
     searchError.value = err.message || 'Došlo je do greške'
   } finally {
