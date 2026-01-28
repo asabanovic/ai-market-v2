@@ -98,6 +98,31 @@
             </div>
           </div>
 
+          <!-- Discount Stats Banner -->
+          <div v-if="discountStats && discountStats.discounted_count > 0" class="mt-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg">
+            <div class="flex items-center gap-3">
+              <!-- Fire/Hot Icon -->
+              <div class="flex-shrink-0 bg-white/20 rounded-full p-2">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 23c-3.866 0-7-2.686-7-6 0-1.658.753-3.332 2-4.532V12c0-1.852.635-3.556 1.704-4.908C9.892 5.768 11.618 5 13.5 5c.69 0 1.368.088 2.024.257C15.195 3.323 13.744 2 12 2 6.477 2 2 6.477 2 12c0 5.523 4.477 10 10 10s10-4.477 10-10c0-1.455-.31-2.838-.868-4.09-.536.644-1.234 1.167-2.04 1.51C19.68 10.228 20 11.086 20 12c0 2.761-2.239 5-5 5-1.657 0-3.125-.802-4.042-2.042.372.027.699.042 1.042.042 3.866 0 7-2.686 7-6 0-1.103-.298-2.138-.815-3.042C16.55 5.32 15.083 5 13.5 5c-1.118 0-2.188.227-3.142.638C11.413 6.461 12 7.66 12 9c0 2.21-1.79 4-4 4-.729 0-1.412-.195-2-.536V12c0 3.314 3.134 6 7 6 3.866 0 7-2.686 7-6 0-.343-.028-.679-.082-1.008.565.893.893 1.93 1.015 3.008H22c.553 0 1 .447 1 1s-.447 1-1 1h-1.083C20.395 19.637 16.583 23 12 23z"/>
+                </svg>
+              </div>
+              <!-- Stats Text -->
+              <div class="flex-1">
+                <div class="font-bold text-lg">
+                  {{ discountStats.discounted_count }} {{ getArtikalForm(discountStats.discounted_count) }} na popustu!
+                </div>
+                <div class="text-white/90 text-sm">
+                  Popusti od <strong>{{ discountStats.min_discount }}%</strong> do <strong>{{ discountStats.max_discount }}%</strong>
+                </div>
+              </div>
+              <!-- Badge -->
+              <div class="flex-shrink-0 bg-yellow-400 text-yellow-900 font-bold px-3 py-1 rounded-full text-sm">
+                -{{ discountStats.max_discount }}%
+              </div>
+            </div>
+          </div>
+
           <!-- Description -->
           <p v-if="business.description" class="mt-4 text-gray-600 text-sm">
             {{ business.description }}
@@ -196,6 +221,7 @@ const error = ref('')
 const business = ref<any>(null)
 const featuredProducts = ref<any[]>([])
 const isAuthenticated = ref(false)
+const discountStats = ref<any>(null)
 const mapContainer = ref<HTMLElement | null>(null)
 let mapInstance: any = null
 
@@ -215,6 +241,26 @@ const hasSocialLinks = computed(() => {
          business.value.contact_email
 })
 
+// Helper for Bosnian grammar: artikal/artikla/artikala
+function getArtikalForm(n: number): string {
+  const lastTwo = n % 100
+  const lastOne = n % 10
+
+  // Special case for 11-19 (always "artikala")
+  if (lastTwo >= 11 && lastTwo <= 19) {
+    return 'artikala'
+  }
+
+  // Based on last digit
+  if (lastOne === 1) {
+    return 'artikal'
+  } else if (lastOne >= 2 && lastOne <= 4) {
+    return 'artikla'
+  } else {
+    return 'artikala'
+  }
+}
+
 function getApiUrl() {
   return config.public.apiBase || 'http://localhost:5001'
 }
@@ -233,12 +279,48 @@ function getToken() {
   return null
 }
 
+// Load Leaflet dynamically from CDN
+async function loadLeaflet(): Promise<any> {
+  if (typeof window === 'undefined') return null
+
+  // Check if already loaded
+  if ((window as any).L) return (window as any).L
+
+  return new Promise((resolve) => {
+    // Load CSS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+
+    // Load JS
+    const existingScript = document.querySelector('script[src*="leaflet"]')
+    if (existingScript) {
+      const checkLoaded = setInterval(() => {
+        if ((window as any).L) {
+          clearInterval(checkLoaded)
+          resolve((window as any).L)
+        }
+      }, 100)
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    script.onload = () => resolve((window as any).L)
+    script.onerror = () => resolve(null)
+    document.head.appendChild(script)
+  })
+}
+
 async function initMap() {
   if (!mapContainer.value || !hasLocations.value) return
 
   try {
-    const L = (await import('leaflet')).default
-    await import('leaflet/dist/leaflet.css')
+    const L = await loadLeaflet()
+    if (!L) return
 
     // Clean up existing map
     if (mapInstance) {
@@ -321,6 +403,7 @@ async function fetchBusiness() {
 
     business.value = data.business
     featuredProducts.value = data.featured_products || []
+    discountStats.value = data.discount_stats || null
 
     // Initialize map after data is loaded
     await nextTick()

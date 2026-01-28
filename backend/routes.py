@@ -1730,6 +1730,19 @@ def api_public_business_page(slug_or_id):
         # For unauthenticated users, only return featured products (no full product list)
         response_products = products_list if is_authenticated else []
 
+        # Calculate discount stats from all products (including featured)
+        all_discount_percentages = []
+        all_products_for_stats = Product.query.filter(Product.business_id == business.id).all()
+        for p in all_products_for_stats:
+            if is_discount_active(p) and p.discount_percentage:
+                all_discount_percentages.append(p.discount_percentage)
+
+        discount_stats = {
+            'discounted_count': len(all_discount_percentages),
+            'min_discount': min(all_discount_percentages) if all_discount_percentages else None,
+            'max_discount': max(all_discount_percentages) if all_discount_percentages else None
+        }
+
         return jsonify({
             'business': {
                 'id': business.id,
@@ -1763,7 +1776,8 @@ def api_public_business_page(slug_or_id):
             'products': response_products,
             'has_more': business.products.count() - len(featured_product_ids) > 28,
             'total_products': business.products.count() - len(featured_product_ids),
-            'is_authenticated': is_authenticated
+            'is_authenticated': is_authenticated,
+            'discount_stats': discount_stats
         })
 
     except Exception as e:
