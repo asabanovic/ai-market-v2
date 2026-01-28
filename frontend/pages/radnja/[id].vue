@@ -187,8 +187,8 @@
         </div>
       </div>
 
-      <!-- Products Section -->
-      <div id="products-section" ref="productsSection" class="mx-4 mt-6">
+      <!-- Products Section - Only for authenticated users -->
+      <div v-if="isAuthenticated" id="products-section" ref="productsSection" class="mx-4 mt-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <h2 class="text-xl font-bold text-gray-900">
             Svi proizvodi
@@ -265,6 +265,35 @@
           <p class="text-gray-600">Nema proizvoda za prikaz</p>
         </div>
 
+      <!-- Login/Register CTA for unauthenticated users -->
+      </div>
+      <div v-else class="mx-4 mt-6">
+        <div class="bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl p-8 text-center text-white shadow-lg">
+          <div class="max-w-md mx-auto">
+            <svg class="w-16 h-16 mx-auto mb-4 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <h3 class="text-2xl font-bold mb-2">Pristupite svim proizvodima</h3>
+            <p class="text-purple-200 mb-6">
+              Prijavite se ili registrujte da vidite svih <strong class="text-white">{{ business.product_count }}</strong> proizvoda ove radnje i otkrijte najbolje popuste!
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+              <NuxtLink
+                to="/prijava"
+                class="px-6 py-3 bg-white text-purple-700 font-semibold rounded-lg hover:bg-purple-50 transition-colors"
+              >
+                Prijava
+              </NuxtLink>
+              <NuxtLink
+                to="/registracija"
+                class="px-6 py-3 bg-purple-500 text-white font-semibold rounded-lg hover:bg-purple-400 transition-colors border border-purple-400"
+              >
+                Registracija
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+
         <!-- Pagination -->
         <div v-if="totalPages > 1 && !loadingProducts" class="flex flex-col items-center space-y-3 mt-6">
           <div class="flex justify-center items-center space-x-2">
@@ -330,6 +359,7 @@ const business = ref<any>(null)
 const products = ref<any[]>([])
 const featuredProducts = ref<any[]>([])
 const loadingProducts = ref(false)
+const isAuthenticated = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const totalPages = ref(1)
@@ -644,23 +674,22 @@ async function fetchBusiness() {
     const businessId = route.params.id as string
     const token = getToken()
 
-    if (!token) {
-      error.value = 'Morate biti prijavljeni da vidite ovu stranicu'
-      loading.value = false
-      return
+    // Build headers - token is optional for public access
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
     }
 
-    const response = await fetch(`${getApiUrl()}/api/radnja/${businessId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
+    const response = await fetch(`${getApiUrl()}/api/radnja/${businessId}`, { headers })
     const data = await response.json()
 
     if (!response.ok) {
       error.value = data.error || 'Radnja nije pronađena'
       return
     }
+
+    // Track authentication status from API response
+    isAuthenticated.value = data.is_authenticated || false
 
     business.value = data.business
     featuredProducts.value = data.featured_products || []

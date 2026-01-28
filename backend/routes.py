@@ -1576,12 +1576,21 @@ def api_create_business():
         return jsonify({'success': False, 'error': 'Greška prilikom kreiranja radnje'}), 500
 
 
-# API endpoint for business page (requires authentication)
+# API endpoint for business page (public, optional auth for full products)
 @app.route('/api/radnja/<slug_or_id>')
-@require_jwt_auth
 def api_public_business_page(slug_or_id):
-    """API endpoint for business page with products (requires authentication)"""
+    """API endpoint for business page - public with optional auth for full products"""
     try:
+        # Check if user is authenticated (optional)
+        is_authenticated = False
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+                is_authenticated = True
+            except:
+                pass
         # Try to find by slug first, then by ID if it's a number
         business = Business.query.filter_by(slug=slug_or_id, status='active').first()
         if not business and slug_or_id.isdigit():
@@ -1718,10 +1727,14 @@ def api_public_business_page(slug_or_id):
                 'contributor_name': contributor_name
             })
 
+        # For unauthenticated users, only return featured products (no full product list)
+        response_products = products_list if is_authenticated else []
+
         return jsonify({
             'business': {
                 'id': business.id,
                 'name': business.name,
+                'slug': business.slug,
                 'city': business.city,
                 'address': business.address,
                 'description': business.description,
@@ -1747,9 +1760,10 @@ def api_public_business_page(slug_or_id):
                 'categories': unique_categories
             },
             'featured_products': featured_products,
-            'products': products_list,
+            'products': response_products,
             'has_more': business.products.count() - len(featured_product_ids) > 28,
-            'total_products': business.products.count() - len(featured_product_ids)
+            'total_products': business.products.count() - len(featured_product_ids),
+            'is_authenticated': is_authenticated
         })
 
     except Exception as e:
