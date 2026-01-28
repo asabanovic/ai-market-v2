@@ -7,7 +7,7 @@
     >
       <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
         <!-- Header -->
-        <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-5 rounded-t-2xl">
+        <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-5 rounded-t-2xl z-10">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-bold">Vaše mišljenje nam je važno!</h2>
