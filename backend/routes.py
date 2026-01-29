@@ -3439,6 +3439,32 @@ def products():
                            savings_stats=savings_stats)
 
 
+# Contact API endpoint
+@app.route('/api/contact', methods=['POST'])
+def api_contact():
+    """API endpoint for contact form submissions"""
+    data = request.get_json()
+
+    name = data.get('name')
+    email = data.get('email')
+    message = data.get('message')
+
+    if not all([name, email, message]):
+        return jsonify({'success': False, 'error': 'Molimo popunite sva polja.'}), 400
+
+    # Save to database
+    contact_msg = ContactMessage(user_name=name,
+                                 user_email=email,
+                                 message=message)
+    db.session.add(contact_msg)
+    db.session.commit()
+
+    # Send email
+    email_sent = send_contact_email(name, email, message)
+
+    return jsonify({'success': True, 'message': 'Hvala, vaša poruka je uspješno poslana.'})
+
+
 # Contact page
 @app.route('/kontakt', methods=['GET', 'POST'])
 def contact():

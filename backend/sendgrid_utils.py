@@ -410,7 +410,7 @@ def send_contact_email(user_name: str, user_email: str, message: str) -> bool:
 
     subject = f"Kontakt forma - {user_name}"
     html = get_base_template(content, "#7C3AED")
-    admin_email = "adnanxteam@gmail.com"
+    admin_email = "info@popust.ba"
     return send_email(admin_email, subject, html)
 
 
