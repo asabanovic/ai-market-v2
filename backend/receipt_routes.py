@@ -1058,8 +1058,8 @@ Return ONLY valid JSON with items array and total_amount."""
                     receipt.receipt_date = datetime.fromisoformat(result['receipt_date'].replace('Z', '+00:00'))
                 except:
                     pass
-            if result.get('total_amount'):
-                receipt.total_amount = Decimal(str(result['total_amount']))
+            # Note: We calculate total_amount from items, not from OCR
+            # This is more reliable and allows partial receipt uploads
 
             # Check for duplicates now that we have extracted data
             duplicate = check_duplicate_receipt(
@@ -1078,9 +1078,11 @@ Return ONLY valid JSON with items array and total_amount."""
                 current_app.logger.info(f"Receipt {receipt.id} marked as duplicate of {duplicate.id}")
                 return
 
-            # Create receipt items
+            # Create receipt items and calculate total from items
             items = result.get('items', [])
+            calculated_total = Decimal('0')
             for item_data in items:
+                line_total = Decimal(str(item_data['line_total'])) if item_data.get('line_total') else None
                 item = ReceiptItem(
                     receipt_id=receipt.id,
                     raw_name=item_data.get('raw_name', ''),
@@ -1091,11 +1093,18 @@ Return ONLY valid JSON with items array and total_amount."""
                     unit=item_data.get('unit'),
                     pack_size=item_data.get('pack_size'),
                     unit_price=Decimal(str(item_data['unit_price'])) if item_data.get('unit_price') else None,
-                    line_total=Decimal(str(item_data['line_total'])) if item_data.get('line_total') else None,
+                    line_total=line_total,
                     size_value=Decimal(str(item_data['size_value'])) if item_data.get('size_value') else None,
                     size_unit=item_data.get('size_unit')
                 )
                 db.session.add(item)
+                # Add to calculated total
+                if line_total:
+                    calculated_total += line_total
+
+            # Set total_amount from sum of items (not from OCR)
+            if calculated_total > 0:
+                receipt.total_amount = calculated_total
 
             receipt.processing_status = 'completed'
             receipt.processed_at = datetime.now()
