@@ -17,8 +17,9 @@ import io
 import base64
 
 from app import db
-from models import User, Business, Receipt, ReceiptItem
+from models import User, Business, Receipt, ReceiptItem, APIUsageLog
 from auth_api import require_jwt_auth
+import time
 
 receipts_bp = Blueprint('receipts', __name__)
 
@@ -207,8 +208,7 @@ def match_business_by_name(store_name):
 def process_receipt_ocr(receipt_id, image_base64, app_context, model="gpt-4o-mini"):
     """
     Background task to process receipt OCR
-    Uses GPT-4o-mini by default for cost efficiency (receipts are simple text on white)
-    Can use gpt-4o for more complex receipts with many items
+    Supports: gpt-4o-mini, gpt-4o (OpenAI), claude-sonnet (Anthropic)
     """
     with app_context:
         try:
@@ -219,7 +219,8 @@ def process_receipt_ocr(receipt_id, image_base64, app_context, model="gpt-4o-min
             receipt.processing_status = 'processing'
             db.session.commit()
 
-            from openai_utils import openai_client
+            # Determine which API to use based on model
+            is_claude = model.startswith('claude')
 
             # OCR extraction prompt with product type rules from extract-matching
             system_prompt = """You are a receipt OCR specialist for Bosnian grocery stores. Extract data from receipt images.
@@ -249,43 +250,67 @@ Extract these fields:
 - receipt_serial_number: Receipt/fiscal number (often labeled "Račun br." or "Fiskalni račun")
 - receipt_date: Date and time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - total_amount: Total amount in KM (number only)
+- receipt_format: "two_row" or "one_row" (see below)
 
-CRITICAL - BOSNIAN RECEIPT TWO-ROW FORMAT:
-EVERY product on Bosnian receipts takes EXACTLY 2 ROWS:
+=== RECEIPT FORMAT DETECTION ===
+Bosnian receipts come in TWO formats. FIRST detect which format this receipt uses:
+
+FORMAT 1: TWO-ROW (supermarkets like BINGO, KONZUM, etc.)
+Each product takes 2 rows:
+  ROW 1: [PRODUCT_CODE] [PRODUCT_NAME]
+  ROW 2: [QUANTITY]x [UNIT_PRICE]    [LINE_TOTAL]
+
+How to identify: Look for lines with pattern like "1.000x" or "0.302x" followed by numbers.
+The "x" after a decimal number indicates quantity multiplier.
+
+FORMAT 2: ONE-ROW (bakeries, small shops like Pekara KABIL)
+Each product is on 1 line:
+  [PRODUCT_NAME] [SIZE] [PRICE]
+
+How to identify: NO quantity lines with "Nx" pattern. Products show only name and final price.
+Example: "COKOLADNI JASTUCIC 100 G/KOM 1,60E"
+
+=== FORMAT 1: TWO-ROW EXTRACTION (BINGO, KONZUM, etc.) ===
 
 ROW 1: [PRODUCT_CODE] [PRODUCT_NAME]
 ROW 2: [QUANTITY]x [UNIT_PRICE]    [LINE_TOTAL]
 
 The second row ALWAYS contains:
-- First number: QUANTITY (how many items bought)
+- First number: QUANTITY (how many items bought) - format: "N.NNNx"
 - "x" separator
 - Second number: UNIT PRICE (price for 1 item)
 - Third number (at end): LINE TOTAL (quantity × unit_price)
 
-REAL EXAMPLES FROM RECEIPTS:
-Example 1:
-  81019 FILET LOSOSA 400G
-  2.000x     15.70          31.40
-  → quantity=2, unit_price=15.70, line_total=31.40
+VALIDATION: quantity × unit_price should equal line_total (within rounding)
 
-Example 2:
-  F12500 SOK 330ML COLA
-  4.000x      1.20           4.80
-  → quantity=4, unit_price=1.20, line_total=4.80
+REAL EXAMPLES:
+  E10121 KEKS SUHI 300G PLAZMA BAMBI
+  1.000x              4.75         4.75E   → qty=1, unit=4.75, total=4.75 ✓
 
-Example 3:
-  000003 VRECICA TRAGERA
-  1.000x      0.10           0.10
-  → quantity=1, unit_price=0.10, line_total=0.10
+  J10459 SVJEZE BROKULE
+  0.302x              7.50         2.27E   → qty=0.302, unit=7.50, total=2.27 (0.302×7.50=2.265≈2.27) ✓
 
-QUANTITY FORMAT RULES:
-- Quantity is shown with .000 decimal places: "4.000x" means 4 items
-- "2.000x" means 2 items, "1.000x" means 1 item
-- The "x" always follows the quantity number
-- NEVER ignore the second row - it contains essential quantity data!
+  C00730 COKOLADNI DESERT 28G KINDER M
+  5.000x              1.20         6.00E   → qty=5, unit=1.20, total=6.00 ✓
 
-IMPORTANT: You MUST read BOTH rows for each product. The quantity on row 2
-tells you how many items were purchased. Do NOT assume quantity=1!
+QUANTITY FORMAT: "4.000x" means 4 items, "0.302x" means 0.302 kg
+IMPORTANT: You MUST read BOTH rows. Do NOT assume quantity=1!
+
+=== FORMAT 2: ONE-ROW EXTRACTION (Bakeries, small shops) ===
+
+Each line shows: [PRODUCT_NAME] [optional SIZE] [PRICE]
+
+REAL EXAMPLES:
+  COKOLADNI JASTUCIC 100 G/KOM 1,60E  → name="Čokoladni jastučić", price=1.60
+  LISNATO TIJESTO MALINA - VANILIJA
+  110 G/KOM                    1,60E  → name="Lisnato tijesto malina-vanilija", price=1.60
+  PIZZA LISNATO TIJESTO 90 G/KOM
+                               1,60E  → name="Pizza lisnato tijesto", price=1.60
+
+For one-row format:
+- quantity = 1 (assumed, cannot be verified)
+- unit_price = line_total (same value)
+- No validation possible
 
 ITEM EXTRACTION RULES:
 For each line item, extract:
@@ -335,50 +360,141 @@ Return JSON:
     "receipt_serial_number": "...",
     "receipt_date": "YYYY-MM-DDTHH:MM:SS",
     "total_amount": 123.45,
+    "receipt_format": "two_row" or "one_row",
     "items": [
         {
-            "raw_name": "EXACT TEXT FROM RECEIPT",
-            "parsed_name": "...",
-            "brand": "...",
-            "product_type": "...",
+            "raw_name": "EXACT TEXT FROM RECEIPT (include product code for two_row format)",
+            "parsed_name": "Clean product name",
+            "brand": "Brand or UNKNOWN",
+            "product_type": "mlijeko, kafa, hljeb, etc.",
             "is_fuel": false,
             "quantity": 1,
             "unit": "kom",
-            "pack_size": "...",
+            "pack_size": "500g, 1l, etc.",
             "unit_price": 1.99,
             "line_total": 1.99,
-            "size_value": null,
-            "size_unit": null
+            "size_value": 500,
+            "size_unit": "g",
+            "validated": true (for two_row: qty×unit_price≈line_total, for one_row: always false)
         }
     ]
 }"""
 
-            # Using specified model (gpt-4o-mini for cost efficiency, gpt-4o for complex receipts)
-            # Using "high" detail + larger image (1500px) for better OCR
-            response = openai_client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "Extract all data from this receipt image:"},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{image_base64}",
-                                    "detail": "high"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=3000,
-                temperature=0.1
-            )
+            # Call appropriate API based on model
+            # Track timing and usage for logging
+            start_time = time.time()
+            input_tokens = 0
+            output_tokens = 0
+            actual_model = model
 
-            result_text = response.choices[0].message.content.strip()
+            if is_claude:
+                # Use Anthropic Claude API
+                import anthropic
+                anthropic_client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
+
+                # Map model names to Anthropic model IDs
+                claude_model_map = {
+                    'claude-sonnet': 'claude-sonnet-4-20250514',
+                    'claude-haiku': 'claude-3-haiku-20240307',
+                }
+                claude_model = claude_model_map.get(model, 'claude-3-haiku-20240307')
+                actual_model = claude_model
+
+                response = anthropic_client.messages.create(
+                    model=claude_model,
+                    max_tokens=4000,
+                    system=system_prompt,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/jpeg",
+                                        "data": image_base64
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "Extract all data from this receipt image. Return ONLY valid JSON, no markdown formatting."
+                                }
+                            ]
+                        }
+                    ]
+                )
+                result_text = response.content[0].text.strip()
+                # Extract token usage from Anthropic response
+                if hasattr(response, 'usage'):
+                    input_tokens = response.usage.input_tokens
+                    output_tokens = response.usage.output_tokens
+                # Claude may wrap JSON in markdown code blocks, strip them
+                if result_text.startswith('```'):
+                    result_text = result_text.split('```')[1]
+                    if result_text.startswith('json'):
+                        result_text = result_text[4:]
+                    result_text = result_text.strip()
+            else:
+                # Use OpenAI API
+                from openai_utils import openai_client
+                actual_model = model
+
+                response = openai_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Extract all data from this receipt image:"},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{image_base64}",
+                                        "detail": "high"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    response_format={"type": "json_object"},
+                    max_tokens=3000,
+                    temperature=0.1
+                )
+                result_text = response.choices[0].message.content.strip()
+                # Extract token usage from OpenAI response
+                if hasattr(response, 'usage') and response.usage:
+                    input_tokens = response.usage.prompt_tokens
+                    output_tokens = response.usage.completion_tokens
+
+            # Calculate response time
+            response_time_ms = int((time.time() - start_time) * 1000)
+
+            # Log API usage
+            try:
+                provider = 'anthropic' if is_claude else 'openai'
+                estimated_cost = APIUsageLog.calculate_cost(
+                    provider, actual_model, input_tokens, output_tokens
+                )
+                usage_log = APIUsageLog(
+                    provider=provider,
+                    model=actual_model,
+                    feature='receipt_ocr',
+                    receipt_id=receipt_id,
+                    user_id=receipt.user_id,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=input_tokens + output_tokens,
+                    estimated_cost_cents=Decimal(str(estimated_cost)) if estimated_cost else None,
+                    success=True,
+                    response_time_ms=response_time_ms
+                )
+                db.session.add(usage_log)
+                db.session.commit()
+            except Exception as log_error:
+                current_app.logger.warning(f"Failed to log API usage: {log_error}")
+
             result = json.loads(result_text)
 
             # Update receipt with extracted data
@@ -1094,10 +1210,10 @@ def admin_reprocess_receipt(receipt_id):
 
     # Get model from request body
     data = request.get_json() or {}
-    model = data.get('model', 'gpt-4o-mini')
+    model = data.get('model', 'claude-haiku')
 
     # Validate model
-    allowed_models = ['gpt-4o-mini', 'gpt-4o']
+    allowed_models = ['gpt-4o-mini', 'gpt-4o', 'claude-sonnet', 'claude-haiku']
     if model not in allowed_models:
         return jsonify({'error': f'Invalid model. Allowed: {allowed_models}'}), 400
 
@@ -1143,4 +1259,146 @@ def admin_reprocess_receipt(receipt_id):
     except Exception as e:
         current_app.logger.error(f"Error reprocessing receipt: {e}")
         return jsonify({'error': 'Failed to reprocess receipt'}), 500
+
+
+# ==================== API USAGE ENDPOINTS ====================
+
+@receipts_bp.route('/api/admin/api-usage', methods=['GET'])
+@jwt_admin_required
+def admin_get_api_usage():
+    """Admin: Get API usage logs with pagination"""
+    from sqlalchemy import func
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    days = request.args.get('days', 30, type=int)
+    provider = request.args.get('provider')  # Filter by provider
+    model_filter = request.args.get('model')  # Filter by model
+
+    # Date filter
+    start_date = datetime.now() - timedelta(days=days)
+
+    query = APIUsageLog.query.filter(APIUsageLog.created_at >= start_date)
+
+    if provider:
+        query = query.filter(APIUsageLog.provider == provider)
+    if model_filter:
+        query = query.filter(APIUsageLog.model == model_filter)
+
+    query = query.order_by(APIUsageLog.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'logs': [log.to_dict() for log in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': page
+    })
+
+
+@receipts_bp.route('/api/admin/api-usage/stats', methods=['GET'])
+@jwt_admin_required
+def admin_get_api_usage_stats():
+    """Admin: Get aggregated API usage statistics"""
+    from sqlalchemy import func
+
+    days = request.args.get('days', 30, type=int)
+    start_date = datetime.now() - timedelta(days=days)
+
+    # Total calls and tokens
+    totals = db.session.query(
+        func.count(APIUsageLog.id).label('total_calls'),
+        func.sum(APIUsageLog.input_tokens).label('total_input_tokens'),
+        func.sum(APIUsageLog.output_tokens).label('total_output_tokens'),
+        func.sum(APIUsageLog.total_tokens).label('total_tokens'),
+        func.sum(APIUsageLog.estimated_cost_cents).label('total_cost_cents'),
+        func.avg(APIUsageLog.response_time_ms).label('avg_response_time')
+    ).filter(
+        APIUsageLog.created_at >= start_date
+    ).first()
+
+    # By provider
+    by_provider = db.session.query(
+        APIUsageLog.provider,
+        func.count(APIUsageLog.id).label('calls'),
+        func.sum(APIUsageLog.total_tokens).label('tokens'),
+        func.sum(APIUsageLog.estimated_cost_cents).label('cost_cents')
+    ).filter(
+        APIUsageLog.created_at >= start_date
+    ).group_by(APIUsageLog.provider).all()
+
+    # By model
+    by_model = db.session.query(
+        APIUsageLog.model,
+        APIUsageLog.provider,
+        func.count(APIUsageLog.id).label('calls'),
+        func.sum(APIUsageLog.total_tokens).label('tokens'),
+        func.sum(APIUsageLog.estimated_cost_cents).label('cost_cents'),
+        func.avg(APIUsageLog.response_time_ms).label('avg_response_time')
+    ).filter(
+        APIUsageLog.created_at >= start_date
+    ).group_by(APIUsageLog.model, APIUsageLog.provider).all()
+
+    # Daily breakdown
+    daily_stats = db.session.query(
+        func.date(APIUsageLog.created_at).label('date'),
+        func.count(APIUsageLog.id).label('calls'),
+        func.sum(APIUsageLog.total_tokens).label('tokens'),
+        func.sum(APIUsageLog.estimated_cost_cents).label('cost_cents')
+    ).filter(
+        APIUsageLog.created_at >= start_date
+    ).group_by(func.date(APIUsageLog.created_at)).order_by(func.date(APIUsageLog.created_at)).all()
+
+    # Success rate
+    success_count = APIUsageLog.query.filter(
+        APIUsageLog.created_at >= start_date,
+        APIUsageLog.success == True
+    ).count()
+    total_count = totals.total_calls or 0
+    success_rate = (success_count / total_count * 100) if total_count > 0 else 0
+
+    return jsonify({
+        'period_days': days,
+        'totals': {
+            'calls': totals.total_calls or 0,
+            'input_tokens': int(totals.total_input_tokens or 0),
+            'output_tokens': int(totals.total_output_tokens or 0),
+            'total_tokens': int(totals.total_tokens or 0),
+            'cost_cents': float(totals.total_cost_cents or 0),
+            'cost_usd': round(float(totals.total_cost_cents or 0) / 100, 4),
+            'avg_response_time_ms': int(totals.avg_response_time or 0),
+            'success_rate': round(success_rate, 1)
+        },
+        'by_provider': [
+            {
+                'provider': p.provider,
+                'calls': p.calls,
+                'tokens': int(p.tokens or 0),
+                'cost_cents': float(p.cost_cents or 0),
+                'cost_usd': round(float(p.cost_cents or 0) / 100, 4)
+            }
+            for p in by_provider
+        ],
+        'by_model': [
+            {
+                'model': m.model,
+                'provider': m.provider,
+                'calls': m.calls,
+                'tokens': int(m.tokens or 0),
+                'cost_cents': float(m.cost_cents or 0),
+                'cost_usd': round(float(m.cost_cents or 0) / 100, 4),
+                'avg_response_time_ms': int(m.avg_response_time or 0)
+            }
+            for m in by_model
+        ],
+        'daily': [
+            {
+                'date': str(d.date),
+                'calls': d.calls,
+                'tokens': int(d.tokens or 0),
+                'cost_cents': float(d.cost_cents or 0)
+            }
+            for d in daily_stats
+        ]
+    })
 

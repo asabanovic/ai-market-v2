@@ -2331,3 +2331,82 @@ class ReceiptItem(db.Model):
             'size_unit': self.size_unit,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class APIUsageLog(db.Model):
+    """
+    Tracks API usage for LLM calls (OpenAI, Anthropic)
+    Used to monitor costs and analyze model performance
+    """
+    __tablename__ = 'api_usage_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # API Provider and Model
+    provider = db.Column(db.String(50), nullable=False, index=True)  # 'openai', 'anthropic'
+    model = db.Column(db.String(100), nullable=False, index=True)  # 'gpt-4o-mini', 'claude-haiku', etc.
+
+    # Usage context
+    feature = db.Column(db.String(100), nullable=False, index=True)  # 'receipt_ocr', 'product_search', etc.
+    receipt_id = db.Column(db.Integer, db.ForeignKey('receipts.id', ondelete='SET NULL'), nullable=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+    # Token usage
+    input_tokens = db.Column(db.Integer, nullable=True)
+    output_tokens = db.Column(db.Integer, nullable=True)
+    total_tokens = db.Column(db.Integer, nullable=True)
+
+    # Cost calculation (in USD cents for precision)
+    estimated_cost_cents = db.Column(db.Numeric(10, 4), nullable=True)
+
+    # Response metadata
+    success = db.Column(db.Boolean, default=True)
+    error_message = db.Column(db.Text, nullable=True)
+    response_time_ms = db.Column(db.Integer, nullable=True)  # How long the API call took
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'provider': self.provider,
+            'model': self.model,
+            'feature': self.feature,
+            'receipt_id': self.receipt_id,
+            'user_id': self.user_id,
+            'input_tokens': self.input_tokens,
+            'output_tokens': self.output_tokens,
+            'total_tokens': self.total_tokens,
+            'estimated_cost_cents': float(self.estimated_cost_cents) if self.estimated_cost_cents else None,
+            'success': self.success,
+            'error_message': self.error_message,
+            'response_time_ms': self.response_time_ms,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    @staticmethod
+    def calculate_cost(provider, model, input_tokens, output_tokens):
+        """
+        Calculate estimated cost in cents based on model pricing
+        Prices are per 1M tokens (as of Jan 2025)
+        """
+        # Pricing per 1M tokens (input, output) in USD
+        pricing = {
+            # OpenAI
+            'gpt-4o-mini': (0.15, 0.60),
+            'gpt-4o': (2.50, 10.00),
+            # Anthropic Claude 3
+            'claude-3-haiku-20240307': (0.25, 1.25),
+            'claude-sonnet-4-20250514': (3.00, 15.00),
+        }
+
+        if model not in pricing:
+            return None
+
+        input_price, output_price = pricing[model]
+        input_cost = (input_tokens / 1_000_000) * input_price
+        output_cost = (output_tokens / 1_000_000) * output_price
+        total_cost_usd = input_cost + output_cost
+        return total_cost_usd * 100  # Convert to cents

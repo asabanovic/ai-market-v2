@@ -96,7 +96,7 @@
               <!-- Notification Preferences -->
               <div class="mt-4 pt-4 border-t border-gray-100">
                 <h4 class="text-sm font-medium text-gray-700 mb-2">Notifikacije</h4>
-                <div class="flex flex-wrap gap-3 text-sm">
+                <div class="flex flex-wrap gap-3 text-sm mb-3">
                   <!-- SMS/Viber preference -->
                   <div class="flex items-center gap-2">
                     <Icon name="mdi:message-text" class="w-4 h-4 text-gray-400" />
@@ -109,14 +109,44 @@
                       {{ getNotificationLabel(userData.notification_preferences) }}
                     </span>
                   </div>
-                  <!-- Email preferences -->
-                  <div class="flex items-center gap-2">
-                    <Icon name="mdi:email-outline" class="w-4 h-4 text-gray-400" />
-                    <span class="text-gray-500">Email:</span>
-                    <span v-if="userData.email_preferences?.daily_emails" class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">Dnevni</span>
-                    <span v-if="userData.email_preferences?.weekly_summary" class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">Sedmicni</span>
-                    <span v-if="userData.email_preferences?.monthly_summary" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">Mjesecni</span>
-                    <span v-if="!userData.email_preferences?.daily_emails && !userData.email_preferences?.weekly_summary && !userData.email_preferences?.monthly_summary" class="text-gray-400">Nema</span>
+                </div>
+                <!-- Email preferences with checkboxes -->
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <Icon name="mdi:email-outline" class="w-4 h-4 text-gray-500" />
+                    <span class="text-sm font-medium text-gray-700">Email obavještenja</span>
+                    <span v-if="isSavingEmailPrefs" class="ml-2">
+                      <Icon name="mdi:loading" class="w-4 h-4 animate-spin text-indigo-500" />
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        v-model="emailPreferences.daily_emails"
+                        @change="updateEmailPreferences"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <span class="text-sm text-gray-700">Dnevni pregled</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        v-model="emailPreferences.weekly_summary"
+                        @change="updateEmailPreferences"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <span class="text-sm text-gray-700">Sedmični pregled</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        v-model="emailPreferences.monthly_summary"
+                        @change="updateEmailPreferences"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <span class="text-sm text-gray-700">Mjesečni pregled</span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -850,6 +880,14 @@ const imageModalUrl = ref<string | null>(null)
 // Deactivation state
 const isDeactivating = ref(false)
 
+// Email preferences state
+const emailPreferences = ref({
+  daily_emails: true,
+  weekly_summary: true,
+  monthly_summary: true
+})
+const isSavingEmailPrefs = ref(false)
+
 const tabs = [
   { id: 'activity', label: 'Aktivnost', icon: 'mdi:chart-line' },
   { id: 'visits', label: 'Posjete', icon: 'mdi:calendar-check' },
@@ -921,6 +959,14 @@ async function loadUserProfile() {
     businessMemberships.value = data.business_memberships
     latestOtp.value = data.latest_otp
     dailyVisits.value = data.daily_visits || []
+
+    // Initialize email preferences from user data (default true if not set)
+    const userEmailPrefs = data.user?.email_preferences || {}
+    emailPreferences.value = {
+      daily_emails: userEmailPrefs.daily_emails !== false,
+      weekly_summary: userEmailPrefs.weekly_summary !== false,
+      monthly_summary: userEmailPrefs.monthly_summary !== false
+    }
   } catch (err: any) {
     error.value = err.message || 'Greska pri ucitavanju profila'
     console.error('Error loading user profile:', err)
@@ -970,6 +1016,39 @@ async function toggleDeactivation() {
     alert(error.message || 'Greška pri promjeni statusa korisnika')
   } finally {
     isDeactivating.value = false
+  }
+}
+
+async function updateEmailPreferences() {
+  if (!userId) return
+  isSavingEmailPrefs.value = true
+
+  try {
+    const response = await post(`/api/admin/users/${userId}/email-preferences`, {
+      email_preferences: {
+        daily_emails: emailPreferences.value.daily_emails,
+        weekly_summary: emailPreferences.value.weekly_summary,
+        monthly_summary: emailPreferences.value.monthly_summary
+      }
+    })
+    if (response.success) {
+      // Update local userData to reflect the change
+      if (userData.value) {
+        userData.value.email_preferences = response.email_preferences
+      }
+    }
+  } catch (error: any) {
+    console.error('Error updating email preferences:', error)
+    alert(error.message || 'Greška pri ažuriranju email preferencija')
+    // Revert to original values on error
+    const userEmailPrefs = userData.value?.email_preferences || {}
+    emailPreferences.value = {
+      daily_emails: userEmailPrefs.daily_emails !== false,
+      weekly_summary: userEmailPrefs.weekly_summary !== false,
+      monthly_summary: userEmailPrefs.monthly_summary !== false
+    }
+  } finally {
+    isSavingEmailPrefs.value = false
   }
 }
 

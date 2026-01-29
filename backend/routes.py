@@ -6740,6 +6740,7 @@ def api_admin_user_profile(user_id):
             'weekly_credits_reset_date': target_user.weekly_credits_reset_date.isoformat() if target_user.weekly_credits_reset_date else None,
             'created_at': target_user.created_at.isoformat() if target_user.created_at else None,
             'updated_at': target_user.updated_at.isoformat() if target_user.updated_at else None,
+            'deleted_at': target_user.deleted_at.isoformat() if target_user.deleted_at else None,
             'last_login': last_login,
             # Notification preferences
             'notification_preferences': target_user.notification_preferences,  # SMS/Viber: 'none', 'favorites', 'all'
@@ -6838,7 +6839,7 @@ def api_admin_user_profile(user_id):
             'delta': t.delta,
             'balance_after': t.balance_after,
             'action': t.action,
-            'metadata': t.metadata,
+            'metadata': t.transaction_metadata,
             'created_at': t.created_at.isoformat()
         } for t in credit_transactions]
 
@@ -7169,6 +7170,70 @@ def api_admin_deactivate_user(user_id):
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Admin deactivate user error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users/<path:user_id>/email-preferences', methods=['POST'])
+def api_admin_update_user_email_preferences(user_id):
+    """API endpoint for admin to update a user's email notification preferences"""
+    from auth_api import decode_jwt_token
+    from sqlalchemy.orm.attributes import flag_modified
+
+    # Check JWT authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        payload = decode_jwt_token(token)
+
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get user and check if admin
+        admin_user = User.query.filter_by(id=payload['user_id']).first()
+        if not admin_user or not admin_user.is_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get the target user
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Get the email preferences from request body
+        data = request.get_json() or {}
+        new_email_prefs = data.get('email_preferences', {})
+
+        # Update user preferences
+        prefs = target_user.preferences or {}
+        email_prefs = prefs.get('email_preferences', {})
+
+        # Update only the fields that were provided
+        if 'daily_emails' in new_email_prefs:
+            email_prefs['daily_emails'] = bool(new_email_prefs['daily_emails'])
+        if 'weekly_summary' in new_email_prefs:
+            email_prefs['weekly_summary'] = bool(new_email_prefs['weekly_summary'])
+        if 'monthly_summary' in new_email_prefs:
+            email_prefs['monthly_summary'] = bool(new_email_prefs['monthly_summary'])
+
+        prefs['email_preferences'] = email_prefs
+        target_user.preferences = prefs
+        flag_modified(target_user, 'preferences')
+        db.session.commit()
+
+        app.logger.info(f"Admin {admin_user.email} updated email preferences for user {user_id}: {email_prefs}")
+
+        return jsonify({
+            'success': True,
+            'email_preferences': email_prefs
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Admin update email preferences error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500

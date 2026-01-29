@@ -469,22 +469,38 @@
                 <span class="text-2xl font-bold text-purple-600">{{ selectedReceipt.total_amount ? formatPrice(selectedReceipt.total_amount) : '-' }}</span>
               </div>
               <!-- Regenerate buttons -->
-              <div class="flex gap-2 mb-3">
+              <div class="grid grid-cols-2 gap-2 mb-3">
                 <button
                   @click="reprocessReceipt(selectedReceipt, 'gpt-4o-mini')"
                   :disabled="isReprocessing"
-                  class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+                  class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
                 >
                   <span v-if="isReprocessing">Procesiranje...</span>
-                  <span v-else>GPT-4o Mini</span>
+                  <span v-else>🚀 GPT-4o Mini (default)</span>
                 </button>
                 <button
                   @click="reprocessReceipt(selectedReceipt, 'gpt-4o')"
                   :disabled="isReprocessing"
-                  class="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                  class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
                 >
                   <span v-if="isReprocessing">Procesiranje...</span>
                   <span v-else>GPT-4o</span>
+                </button>
+                <button
+                  @click="reprocessReceipt(selectedReceipt, 'claude-haiku')"
+                  :disabled="isReprocessing"
+                  class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  <span v-if="isReprocessing">Procesiranje...</span>
+                  <span v-else>Claude Haiku</span>
+                </button>
+                <button
+                  @click="reprocessReceipt(selectedReceipt, 'claude-sonnet')"
+                  :disabled="isReprocessing"
+                  class="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  <span v-if="isReprocessing">Procesiranje...</span>
+                  <span v-else>Claude Sonnet</span>
                 </button>
               </div>
               <div class="flex gap-2">
