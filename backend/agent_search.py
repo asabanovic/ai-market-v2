@@ -244,8 +244,9 @@ def format_agent_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]
         discount_price = product.get("discount_price")
 
         # Determine if discount is active (started and not expired)
+        # Must have both prices and base_price > 0
         has_discount = False
-        if discount_price and base_price and float(discount_price) < float(base_price):
+        if discount_price and base_price and float(base_price) > 0 and float(discount_price) < float(base_price):
             has_discount = has_started and not is_expired
 
         # If expired, clear discount info entirely

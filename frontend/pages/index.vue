@@ -450,6 +450,41 @@ const allStores = ref<any[]>([])
 const selectedStoreIds = ref<number[]>([])
 const onlyDiscounted = ref(false)
 
+// Load onlyDiscounted from localStorage with 24-hour expiry
+function loadOnlyDiscountedPreference() {
+  if (!process.client) return
+  const saved = localStorage.getItem('only_discounted_preference')
+  if (saved) {
+    try {
+      const { value, timestamp } = JSON.parse(saved)
+      const now = Date.now()
+      const twentyFourHours = 24 * 60 * 60 * 1000
+      if (now - timestamp < twentyFourHours) {
+        onlyDiscounted.value = value
+      } else {
+        // Expired, remove it
+        localStorage.removeItem('only_discounted_preference')
+      }
+    } catch {
+      localStorage.removeItem('only_discounted_preference')
+    }
+  }
+}
+
+// Save onlyDiscounted to localStorage with timestamp
+function saveOnlyDiscountedPreference(value: boolean) {
+  if (!process.client) return
+  localStorage.setItem('only_discounted_preference', JSON.stringify({
+    value,
+    timestamp: Date.now()
+  }))
+}
+
+// Watch for changes to onlyDiscounted
+watch(onlyDiscounted, (newVal) => {
+  saveOnlyDiscountedPreference(newVal)
+})
+
 // New store popup state
 const showNewStorePopup = ref(false)
 const newStores = ref<any[]>([])
@@ -934,6 +969,9 @@ onMounted(async () => {
   // First ensure auth is checked/ready
   await checkAuth()
   await waitForAuth()
+
+  // Load "only discounted" preference from localStorage
+  loadOnlyDiscountedPreference()
 
   await loadSavingsStats()
   await loadFeaturedData()

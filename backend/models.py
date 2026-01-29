@@ -475,8 +475,19 @@ class Product(db.Model):
 
     @property
     def has_discount(self):
-        """Check if product has an active discount (started and not expired)"""
-        if self.discount_price is None or self.discount_price >= self.base_price:
+        """Check if product has an active discount (started and not expired)
+
+        Requirements for active discount:
+        1. Both base_price and discount_price must exist
+        2. base_price must be > 0
+        3. discount_price must be < base_price
+        4. discount must have started (or no start date)
+        5. discount must not be expired (or no expiry date)
+        """
+        # Must have both prices and discount must be less than base
+        if self.discount_price is None or self.base_price is None or self.base_price <= 0:
+            return False
+        if self.discount_price >= self.base_price:
             return False
         today = date.today()
         # Check if discount has started (NULL = immediately active)

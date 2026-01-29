@@ -451,8 +451,10 @@ def product_to_dict(product, include_price_history=True):
     has_started = discount_starts_date is None or date.today() >= discount_starts_date
 
     # Calculate discount information - only show discount if started and not expired
+    # Must have both prices, base_price > 0, discount < base, started and not expired
     has_discount = (discount_price is not None
                     and base_price is not None
+                    and float(base_price) > 0
                     and float(discount_price) < float(base_price)
                     and has_started
                     and not is_expired)
@@ -1605,7 +1607,10 @@ def api_public_business_page(slug_or_id):
 
         # Helper to check if discount is currently active
         def is_discount_active(product):
-            if not product.discount_price or product.discount_price >= product.base_price:
+            # Must have both prices and base_price > 0
+            if not product.discount_price or not product.base_price or product.base_price <= 0:
+                return False
+            if product.discount_price >= product.base_price:
                 return False
             from datetime import date
             today = date.today()
@@ -1806,7 +1811,10 @@ def api_public_business_products(slug_or_id):
 
         # Helper to check if discount is currently active
         def is_discount_active(product):
-            if not product.discount_price or product.discount_price >= product.base_price:
+            # Must have both prices and base_price > 0
+            if not product.discount_price or not product.base_price or product.base_price <= 0:
+                return False
+            if product.discount_price >= product.base_price:
                 return False
             from datetime import date
             today = date.today()

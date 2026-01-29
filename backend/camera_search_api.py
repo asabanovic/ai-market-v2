@@ -241,7 +241,8 @@ def search_products_by_vision_result(vision_result: dict, user_city: str = None,
             has_valid_discount = bool(
                 p.get('discount_price') and
                 p.get('base_price') and
-                p['discount_price'] < p['base_price']
+                float(p['base_price']) > 0 and
+                float(p['discount_price']) < float(p['base_price'])
             )
             if has_valid_discount:
                 # Check if discount has started
