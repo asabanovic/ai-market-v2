@@ -97,9 +97,14 @@ def upload_receipt_image(file_data, user_id, receipt_id):
     return f"https://{bucket}.s3.eu-central-1.amazonaws.com/{filename}"
 
 
-def resize_image_for_ocr(file_data):
+def resize_image_for_ocr(file_data, use_precrop=True):
     """
-    Resize image for OCR processing - keep larger for better accuracy
+    Resize image for OCR processing - optionally pre-crop to receipt area.
+
+    Args:
+        file_data: Raw image bytes
+        use_precrop: If True, detect receipt bounds and crop first (adds ~$0.0005 cost)
+
     Returns base64 encoded image
     """
     img = Image.open(io.BytesIO(file_data))
@@ -110,6 +115,33 @@ def resize_image_for_ocr(file_data):
     # Convert to RGB if necessary
     if img.mode in ('RGBA', 'P'):
         img = img.convert('RGB')
+
+    # Pre-crop to receipt area if enabled (reduces main OCR costs)
+    if use_precrop and max(img.width, img.height) > 1000:
+        # First resize to smaller size for cheap detection
+        detect_max = 1000
+        detect_img = img.copy()
+        if max(detect_img.width, detect_img.height) > detect_max:
+            if detect_img.width > detect_img.height:
+                ratio = detect_max / detect_img.width
+            else:
+                ratio = detect_max / detect_img.height
+            new_w = int(detect_img.width * ratio)
+            new_h = int(detect_img.height * ratio)
+            detect_img = detect_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        # Get detection image as base64
+        detect_buffer = io.BytesIO()
+        detect_img.save(detect_buffer, format='JPEG', quality=70)
+        detect_buffer.seek(0)
+        detect_base64 = base64.b64encode(detect_buffer.read()).decode('utf-8')
+
+        # Detect receipt bounds
+        bounds = detect_receipt_bounds(detect_base64)
+
+        if bounds:
+            # Crop the ORIGINAL image (not the detection copy) with 5% padding
+            img = crop_image_to_receipt(img, bounds, padding_percent=5)
 
     # Keep larger size for better OCR accuracy (2000px max)
     # Receipts have small text that needs high resolution
@@ -129,6 +161,110 @@ def resize_image_for_ocr(file_data):
     buffer.seek(0)
 
     return base64.b64encode(buffer.read()).decode('utf-8')
+
+
+def detect_receipt_bounds(image_base64):
+    """
+    Use GPT-4o-mini with low detail to detect receipt bounding box.
+    Returns percentage-based coordinates: (left, top, right, bottom)
+    Returns None if detection fails or no receipt found.
+    Cost: ~$0.0005 per detection
+    """
+    from openai_utils import openai_client
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You detect receipt boundaries in images. Return ONLY JSON with percentage coordinates."
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": """Find the receipt paper in this image. Return the bounding box as PERCENTAGE coordinates (0-100).
+
+Return JSON: {"found": true/false, "left": X, "top": Y, "right": X, "bottom": Y}
+
+- left: percentage from left edge where receipt starts
+- top: percentage from top where receipt starts
+- right: percentage from left edge where receipt ends
+- bottom: percentage from top where receipt ends
+
+If no receipt found, return {"found": false}"""
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}",
+                                "detail": "low"  # Use low detail for cheap detection
+                            }
+                        }
+                    ]
+                }
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=100,
+            temperature=0
+        )
+
+        result = json.loads(response.choices[0].message.content)
+
+        if not result.get('found', False):
+            return None
+
+        return (
+            result.get('left', 0),
+            result.get('top', 0),
+            result.get('right', 100),
+            result.get('bottom', 100)
+        )
+
+    except Exception as e:
+        # If detection fails, return None (will skip cropping)
+        import logging
+        logging.warning(f"Receipt detection failed: {e}")
+        return None
+
+
+def crop_image_to_receipt(img, bounds, padding_percent=5):
+    """
+    Crop image to receipt bounds with padding.
+
+    Args:
+        img: PIL Image object
+        bounds: (left_pct, top_pct, right_pct, bottom_pct) as percentages
+        padding_percent: Extra padding to add around detected bounds
+
+    Returns:
+        Cropped PIL Image
+    """
+    if not bounds:
+        return img
+
+    left_pct, top_pct, right_pct, bottom_pct = bounds
+
+    # Add padding (clamped to 0-100)
+    left_pct = max(0, left_pct - padding_percent)
+    top_pct = max(0, top_pct - padding_percent)
+    right_pct = min(100, right_pct + padding_percent)
+    bottom_pct = min(100, bottom_pct + padding_percent)
+
+    # Convert percentages to pixels
+    width, height = img.size
+    left = int(width * left_pct / 100)
+    top = int(height * top_pct / 100)
+    right = int(width * right_pct / 100)
+    bottom = int(height * bottom_pct / 100)
+
+    # Ensure valid crop box
+    if right <= left or bottom <= top:
+        return img
+
+    return img.crop((left, top, right, bottom))
 
 
 def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date, exclude_receipt_id=None):
