@@ -21,9 +21,6 @@
       @skip="handleInterestSkip"
     />
 
-    <!-- Floating Interest Button -->
-    <FloatingInterestButton @click="openInterestPopup" />
-
     <!-- Feedback Popup -->
     <FeedbackPopup
       :show="showFeedbackPopup"

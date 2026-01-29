@@ -2227,6 +2227,9 @@ class Receipt(db.Model):
 
     # Image storage
     receipt_image_url = db.Column(db.String(500), nullable=False)
+    cropped_image_url = db.Column(db.String(500), nullable=True)  # Debug: shows what OCR analyzed
+    cropped_top_url = db.Column(db.String(500), nullable=True)  # For split receipts: top half
+    cropped_bottom_url = db.Column(db.String(500), nullable=True)  # For split receipts: bottom half
 
     # Store info (extracted from receipt)
     store_name = db.Column(db.String(255), nullable=True)
@@ -2272,6 +2275,9 @@ class Receipt(db.Model):
             'business_id': self.business_id,
             'business_name': self.business.name if self.business else None,
             'receipt_image_url': self.receipt_image_url,
+            'cropped_image_url': self.cropped_image_url,
+            'cropped_top_url': self.cropped_top_url,
+            'cropped_bottom_url': self.cropped_bottom_url,
             'store_name': self.store_name,
             'store_address': self.store_address,
             'jib': self.jib,

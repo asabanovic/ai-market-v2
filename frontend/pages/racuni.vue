@@ -11,19 +11,104 @@
         </p>
       </div>
 
-      <!-- Promo Banner -->
-      <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-6">
-        <div class="flex items-start gap-3">
-          <div class="text-2xl">💡</div>
-          <div>
-            <p class="text-amber-900 font-medium">
-              Zavoljet ćete ovu opciju, pogotovo ako ne znate gdje vam odlazi novac tokom mjeseca!
-            </p>
-            <p class="text-amber-700 text-sm mt-1">
-              Probajte mjesec dana i recite nam šta mislite!
-            </p>
+      <!-- Tips Banner - Collapsible -->
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl mb-6 overflow-hidden">
+        <button
+          @click="showTips = !showTips"
+          class="w-full p-4 flex items-center justify-between text-left"
+        >
+          <div class="flex items-center gap-3">
+            <div class="text-2xl">💡</div>
+            <div>
+              <p class="text-blue-900 font-medium">
+                Savjeti za skeniranje računa
+              </p>
+              <p class="text-blue-700 text-sm">
+                Kako najbolje fotografisati račune za precizno očitavanje
+              </p>
+            </div>
           </div>
-        </div>
+          <svg
+            class="w-5 h-5 text-blue-600 transition-transform duration-200"
+            :class="{ 'rotate-180': showTips }"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <Transition name="collapse">
+          <div v-show="showTips" class="px-4 pb-4 border-t border-blue-200">
+            <div class="grid md:grid-cols-2 gap-4 pt-4">
+              <!-- Tip 1: Short receipts -->
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 text-sm">Kratki računi</p>
+                  <p class="text-gray-600 text-xs">Slikajte cijeli račun odjednom, od vrha do dna.</p>
+                </div>
+              </div>
+
+              <!-- Tip 2: Long receipts -->
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 text-sm">Dugački računi</p>
+                  <p class="text-gray-600 text-xs">Možete slikati u dijelovima - svaki dio se zasebno očita i artikli se sakupe.</p>
+                </div>
+              </div>
+
+              <!-- Tip 3: Focus on items -->
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 text-sm">Fokusirajte se na artikle</p>
+                  <p class="text-gray-600 text-xs">Najvažnije je da se vide nazivi proizvoda i cijene. Ukupan iznos se računa automatski.</p>
+                </div>
+              </div>
+
+              <!-- Tip 4: Good lighting -->
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 text-sm">Dobro osvjetljenje</p>
+                  <p class="text-gray-600 text-xs">Fotografišite na ravnoj podlozi sa dobrim osvjetljenjem, bez sjena.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Summary message -->
+            <div class="mt-4 p-3 bg-white/50 rounded-lg">
+              <p class="text-sm text-gray-700">
+                <span class="font-medium">Cilj:</span> Pratite potrošnju kroz artikle koje kupujete. Vremenom ćete vidjeti na šta trošite najviše!
+              </p>
+            </div>
+
+            <!-- Beta notice -->
+            <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+              <span class="text-amber-500 flex-shrink-0">⚠️</span>
+              <p class="text-sm text-amber-800">
+                <span class="font-semibold">BETA:</span> Ova funkcija je trenutno u testnoj fazi. Moguće su greške pri očitavanju, ali stalno unapređujemo preciznost!
+              </p>
+            </div>
+          </div>
+        </Transition>
       </div>
 
       <!-- Tab Navigation -->
@@ -162,7 +247,7 @@
               :class="[
                 'rounded-xl shadow-md overflow-hidden',
                 receipt.processing_status === 'processing' || receipt.processing_status === 'pending'
-                  ? 'bg-gradient-to-r from-purple-50 via-white to-purple-50 animate-pulse-slow'
+                  ? 'animate-shimmer'
                   : receipt.processing_status === 'duplicate'
                     ? 'bg-red-50 border-2 border-red-200'
                     : 'bg-white'
@@ -934,6 +1019,7 @@ const lightboxUrl = ref<string | null>(null)
 // Confetti state
 const confettiCanvas = ref<HTMLCanvasElement | null>(null)
 const showConfetti = ref(false)
+const showTips = ref(true)
 
 // Delete confirmation modal state
 const showDeleteModal = ref(false)
@@ -1738,17 +1824,49 @@ function startConfetti() {
   transform: translateX(100%);
 }
 
-/* Slow pulse animation for processing receipts */
-@keyframes pulse-slow {
-  0%, 100% {
-    background-color: rgba(147, 51, 234, 0.05);
+/* Collapse transition for tips banner */
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.collapse-enter-to,
+.collapse-leave-from {
+  opacity: 1;
+  max-height: 500px;
+}
+
+/* Shimmer animation for processing receipts */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
   }
-  50% {
-    background-color: rgba(147, 51, 234, 0.15);
+  100% {
+    background-position: -200% 0;
   }
 }
 
-.animate-pulse-slow {
-  animation: pulse-slow 2s ease-in-out infinite;
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #ffffff 25%,
+    #f3e8ff 35%,
+    #e9d5ff 50%,
+    #f3e8ff 65%,
+    #ffffff 75%,
+    #ffffff 100%
+  );
+  background-size: 300% 100%;
+  animation: shimmer 1.5s linear infinite;
 }
 </style>

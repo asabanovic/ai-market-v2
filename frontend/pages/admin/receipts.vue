@@ -363,6 +363,48 @@
                     class="w-full rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                   />
                 </a>
+
+                <!-- Image Links for Admin Debugging -->
+                <div class="mt-3 space-y-2">
+                  <!-- Original + Cropped row -->
+                  <div class="flex gap-2">
+                    <a
+                      :href="selectedReceipt.receipt_image_url"
+                      target="_blank"
+                      class="flex-1 text-center text-xs bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Original
+                    </a>
+                    <a
+                      v-if="selectedReceipt.cropped_image_url"
+                      :href="selectedReceipt.cropped_image_url"
+                      target="_blank"
+                      class="flex-1 text-center text-xs bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 transition-colors"
+                    >
+                      Cropped (OCR)
+                    </a>
+                  </div>
+
+                  <!-- Split Parts row (when available) -->
+                  <div v-if="selectedReceipt.cropped_top_url || selectedReceipt.cropped_bottom_url" class="flex gap-2">
+                    <a
+                      v-if="selectedReceipt.cropped_top_url"
+                      :href="selectedReceipt.cropped_top_url"
+                      target="_blank"
+                      class="flex-1 text-center text-xs bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 transition-colors"
+                    >
+                      Top Half
+                    </a>
+                    <a
+                      v-if="selectedReceipt.cropped_bottom_url"
+                      :href="selectedReceipt.cropped_bottom_url"
+                      target="_blank"
+                      class="flex-1 text-center text-xs bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition-colors"
+                    >
+                      Bottom Half
+                    </a>
+                  </div>
+                </div>
               </div>
 
               <!-- Info Cards -->
@@ -546,6 +588,9 @@ interface Receipt {
   id: number
   user_id: string
   receipt_image_url: string
+  cropped_image_url: string | null
+  cropped_top_url: string | null
+  cropped_bottom_url: string | null
   store_name: string | null
   store_address: string | null
   jib: string | null

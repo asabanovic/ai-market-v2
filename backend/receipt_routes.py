@@ -97,15 +97,76 @@ def upload_receipt_image(file_data, user_id, receipt_id):
     return f"https://{bucket}.s3.eu-central-1.amazonaws.com/{filename}"
 
 
-def resize_image_for_ocr(file_data, use_precrop=True):
+def upload_cropped_receipt_image(image_bytes, user_id, receipt_id):
+    """
+    Upload the cropped/processed receipt image to S3 for debugging
+    This shows exactly what the OCR model is analyzing
+    Returns the S3 URL
+    """
+    s3 = get_s3_client()
+    bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+
+    # Path: /receipts/{user_id}/{receipt_id}_cropped.jpg
+    filename = f"receipts/{user_id}/{receipt_id}_cropped.jpg"
+
+    # Upload to S3
+    s3.upload_fileobj(
+        io.BytesIO(image_bytes),
+        bucket,
+        filename,
+        ExtraArgs={
+            'ContentType': 'image/jpeg'
+        }
+    )
+
+    # Return full URL
+    return f"https://{bucket}.s3.eu-central-1.amazonaws.com/{filename}"
+
+
+def upload_split_part_image(image_bytes, user_id, receipt_id, part_name):
+    """
+    Upload a split receipt part (top or bottom) to S3 for admin debugging.
+
+    Args:
+        image_bytes: Raw image bytes
+        user_id: User ID
+        receipt_id: Receipt ID
+        part_name: 'top' or 'bottom'
+
+    Returns the S3 URL
+    """
+    s3 = get_s3_client()
+    bucket = os.environ.get('AWS_S3_BUCKET') or os.environ.get('S3_BUCKET_NAME', 'aipijaca')
+
+    # Path: /receipts/{user_id}/{receipt_id}_{part_name}.jpg
+    filename = f"receipts/{user_id}/{receipt_id}_{part_name}.jpg"
+
+    # Upload to S3
+    s3.upload_fileobj(
+        io.BytesIO(image_bytes),
+        bucket,
+        filename,
+        ExtraArgs={
+            'ContentType': 'image/jpeg'
+        }
+    )
+
+    # Return full URL
+    return f"https://{bucket}.s3.eu-central-1.amazonaws.com/{filename}"
+
+
+def resize_image_for_ocr(file_data, use_precrop=True, return_bytes=False):
     """
     Resize image for OCR processing - optionally pre-crop to receipt area.
 
     Args:
         file_data: Raw image bytes
         use_precrop: If True, detect receipt bounds and crop first (adds ~$0.0005 cost)
+        return_bytes: If True, also return raw bytes for S3 upload
 
-    Returns base64 encoded image
+    Returns:
+        If return_bytes=False: base64 encoded image string
+        If return_bytes=True: tuple (base64_string, raw_bytes)
     """
     img = Image.open(io.BytesIO(file_data))
 
@@ -117,7 +178,99 @@ def resize_image_for_ocr(file_data, use_precrop=True):
         img = img.convert('RGB')
 
     # Pre-crop to receipt area if enabled (reduces main OCR costs)
+    original_size = (img.width, img.height)
     if use_precrop and max(img.width, img.height) > 1000:
+        import logging
+        logging.info(f"Pre-crop: Original image size {img.width}x{img.height}")
+
+        # First resize to smaller size for cheap detection
+        detect_max = 1000
+        detect_img = img.copy()
+        if max(detect_img.width, detect_img.height) > detect_max:
+            if detect_img.width > detect_img.height:
+                ratio = detect_max / detect_img.width
+            else:
+                ratio = detect_max / detect_img.height
+            new_w = int(detect_img.width * ratio)
+            new_h = int(detect_img.height * ratio)
+            detect_img = detect_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        # Get detection image as base64
+        detect_buffer = io.BytesIO()
+        detect_img.save(detect_buffer, format='JPEG', quality=70)
+        detect_buffer.seek(0)
+        detect_base64 = base64.b64encode(detect_buffer.read()).decode('utf-8')
+
+        # Detect receipt bounds
+        logging.info("Pre-crop: Calling GPT-4o-mini for receipt detection...")
+        bounds = detect_receipt_bounds(detect_base64)
+        logging.info(f"Pre-crop: Detection returned bounds={bounds}")
+
+        if bounds:
+            # Crop the ORIGINAL image (not the detection copy) with no padding for tight crop
+            img = crop_image_to_receipt(img, bounds, padding_percent=0)
+            logging.info(f"Pre-crop: Cropped to {img.width}x{img.height}")
+        else:
+            logging.warning("Pre-crop: No bounds detected, using original image")
+
+    # Keep larger size for better OCR accuracy (4000px max)
+    # Receipts have small text that needs high resolution
+    max_size = 4000
+    if max(img.width, img.height) > max_size:
+        if img.width > img.height:
+            ratio = max_size / img.width
+        else:
+            ratio = max_size / img.height
+        new_width = int(img.width * ratio)
+        new_height = int(img.height * ratio)
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Save to buffer with higher quality
+    buffer = io.BytesIO()
+    img.save(buffer, format='JPEG', quality=90, optimize=True)
+    buffer.seek(0)
+
+    raw_bytes = buffer.read()
+    base64_str = base64.b64encode(raw_bytes).decode('utf-8')
+
+    if return_bytes:
+        return base64_str, raw_bytes
+    return base64_str
+
+
+def prepare_images_for_ocr(file_data, use_precrop=True):
+    """
+    Prepare image(s) for OCR - splits tall images into top/bottom halves.
+
+    For long receipts (height > width * 2), splits with 10% overlap to ensure
+    no items are cut off at the boundary.
+
+    Args:
+        file_data: Raw image bytes
+        use_precrop: If True, detect receipt bounds and crop first
+
+    Returns:
+        dict with:
+            - 'images': list of base64 encoded images for OCR
+            - 'is_split': True if image was split
+            - 'combined_bytes': Raw bytes of combined/side-by-side image for S3 storage
+            - 'parts': list of dicts with 'position' ('top'/'bottom'/'full') and 'base64'
+    """
+    import logging
+
+    img = Image.open(io.BytesIO(file_data))
+
+    # Fix EXIF orientation
+    img = ImageOps.exif_transpose(img)
+
+    # Convert to RGB if necessary
+    if img.mode in ('RGBA', 'P'):
+        img = img.convert('RGB')
+
+    # Pre-crop to receipt area if enabled
+    if use_precrop and max(img.width, img.height) > 1000:
+        logging.info(f"Pre-crop: Original image size {img.width}x{img.height}")
+
         # First resize to smaller size for cheap detection
         detect_max = 1000
         detect_img = img.copy()
@@ -140,27 +293,112 @@ def resize_image_for_ocr(file_data, use_precrop=True):
         bounds = detect_receipt_bounds(detect_base64)
 
         if bounds:
-            # Crop the ORIGINAL image (not the detection copy) with 5% padding
-            img = crop_image_to_receipt(img, bounds, padding_percent=5)
+            img = crop_image_to_receipt(img, bounds, padding_percent=0)
+            logging.info(f"Pre-crop: Cropped to {img.width}x{img.height}")
 
-    # Keep larger size for better OCR accuracy (2000px max)
-    # Receipts have small text that needs high resolution
-    max_size = 2000
-    if max(img.width, img.height) > max_size:
-        if img.width > img.height:
-            ratio = max_size / img.width
-        else:
-            ratio = max_size / img.height
-        new_width = int(img.width * ratio)
-        new_height = int(img.height * ratio)
-        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    # Check if image is portrait (height > width) - always split portrait receipts
+    aspect_ratio = img.height / img.width if img.width > 0 else 1
+    should_split = img.height > img.width  # Split any portrait-orientation receipt
 
-    # Save to buffer with higher quality
-    buffer = io.BytesIO()
-    img.save(buffer, format='JPEG', quality=90, optimize=True)
-    buffer.seek(0)
+    logging.info(f"Image {img.width}x{img.height}, aspect ratio: {aspect_ratio:.2f}, should_split: {should_split}")
 
-    return base64.b64encode(buffer.read()).decode('utf-8')
+    if should_split:
+        # Split into top and bottom with 17% overlap
+        # For 600px image: top=0-400, bottom=200-600, overlap=200-400
+        overlap_percent = 17
+        overlap_pixels = int(img.height * overlap_percent / 100)
+        mid_point = img.height // 2
+
+        # Top half: from 0 to mid_point + overlap
+        top_bottom = min(mid_point + overlap_pixels, img.height)
+        top_img = img.crop((0, 0, img.width, top_bottom))
+
+        # Bottom half: from mid_point - overlap to end
+        bottom_top = max(mid_point - overlap_pixels, 0)
+        bottom_img = img.crop((0, bottom_top, img.width, img.height))
+
+        logging.info(f"Split image: top={top_img.width}x{top_img.height}, bottom={bottom_img.width}x{bottom_img.height}")
+
+        # Resize each half to max 4000px
+        max_size = 4000
+        images_data = []
+
+        for part_name, part_img in [('top', top_img), ('bottom', bottom_img)]:
+            if max(part_img.width, part_img.height) > max_size:
+                if part_img.width > part_img.height:
+                    ratio = max_size / part_img.width
+                else:
+                    ratio = max_size / part_img.height
+                new_w = int(part_img.width * ratio)
+                new_h = int(part_img.height * ratio)
+                part_img = part_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+            buffer = io.BytesIO()
+            part_img.save(buffer, format='JPEG', quality=90, optimize=True)
+            buffer.seek(0)
+            raw_bytes = buffer.read()
+            base64_str = base64.b64encode(raw_bytes).decode('utf-8')
+
+            images_data.append({
+                'position': part_name,
+                'base64': base64_str,
+                'bytes': raw_bytes,
+                'width': part_img.width,
+                'height': part_img.height
+            })
+
+        # Create combined side-by-side image for storage (debugging)
+        # Stack them vertically with a red divider line
+        combined_height = images_data[0]['height'] + images_data[1]['height'] + 10
+        combined_width = max(images_data[0]['width'], images_data[1]['width'])
+        combined_img = Image.new('RGB', (combined_width, combined_height), (255, 0, 0))  # Red background for divider
+
+        # Paste top and bottom
+        top_resized = Image.open(io.BytesIO(images_data[0]['bytes']))
+        bottom_resized = Image.open(io.BytesIO(images_data[1]['bytes']))
+        combined_img.paste(top_resized, (0, 0))
+        combined_img.paste(bottom_resized, (0, images_data[0]['height'] + 10))
+
+        combined_buffer = io.BytesIO()
+        combined_img.save(combined_buffer, format='JPEG', quality=85)
+        combined_buffer.seek(0)
+        combined_bytes = combined_buffer.read()
+
+        return {
+            'images': [d['base64'] for d in images_data],
+            'is_split': True,
+            'combined_bytes': combined_bytes,
+            'parts': images_data
+        }
+
+    else:
+        # Single image - just resize
+        max_size = 4000
+        if max(img.width, img.height) > max_size:
+            if img.width > img.height:
+                ratio = max_size / img.width
+            else:
+                ratio = max_size / img.height
+            new_w = int(img.width * ratio)
+            new_h = int(img.height * ratio)
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=90, optimize=True)
+        buffer.seek(0)
+        raw_bytes = buffer.read()
+        base64_str = base64.b64encode(raw_bytes).decode('utf-8')
+
+        return {
+            'images': [base64_str],
+            'is_split': False,
+            'combined_bytes': raw_bytes,
+            'parts': [{
+                'position': 'full',
+                'base64': base64_str,
+                'bytes': raw_bytes
+            }]
+        }
 
 
 def detect_receipt_bounds(image_base64):
@@ -269,10 +507,14 @@ def crop_image_to_receipt(img, bounds, padding_percent=5):
 
 def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date, exclude_receipt_id=None):
     """
-    Check if a receipt with same identifiers already exists
-    Returns existing receipt if found, None otherwise
+    Check if a receipt with same identifiers already exists.
+    Returns existing receipt if found, None otherwise.
+
+    Only checks duplicates if JIB is present - this prevents false positives
+    when users upload multiple photos of different parts of a long receipt.
     """
-    if not jib and not receipt_serial:
+    # JIB is required for duplicate detection
+    if not jib:
         return None
 
     # Only check completed receipts to avoid race conditions
@@ -286,7 +528,7 @@ def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date, exclude_
         query = query.filter(Receipt.id != exclude_receipt_id)
 
     # Check by JIB + serial combination (most reliable)
-    if jib and receipt_serial:
+    if receipt_serial:
         existing = query.filter(
             Receipt.jib == jib,
             Receipt.receipt_serial_number == receipt_serial
@@ -294,11 +536,11 @@ def check_duplicate_receipt(user_id, jib, receipt_serial, receipt_date, exclude_
         if existing:
             return existing
 
-    # Check by date + serial (same day, same serial = likely duplicate)
-    if receipt_serial and receipt_date:
+    # Check by JIB + date (same store, same day = likely duplicate)
+    if receipt_date:
         date_only = receipt_date.date() if isinstance(receipt_date, datetime) else receipt_date
         existing = query.filter(
-            Receipt.receipt_serial_number == receipt_serial,
+            Receipt.jib == jib,
             db.func.date(Receipt.receipt_date) == date_only
         ).first()
         if existing:
@@ -341,10 +583,140 @@ def match_business_by_name(store_name):
     return None
 
 
-def process_receipt_ocr(receipt_id, image_base64, app_context, model="gpt-4o-mini"):
+def call_ocr_api(image_base64, system_prompt, user_prompt, model, is_claude):
+    """
+    Helper function to call OCR API (OpenAI or Claude).
+    Returns: (result_text, input_tokens, output_tokens, response_time_ms)
+    """
+    start_time = time.time()
+    input_tokens = 0
+    output_tokens = 0
+
+    if is_claude:
+        import anthropic
+        anthropic_client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
+        claude_model_map = {
+            'claude-sonnet': 'claude-sonnet-4-20250514',
+            'claude-haiku': 'claude-3-haiku-20240307',
+        }
+        claude_model = claude_model_map.get(model, 'claude-3-haiku-20240307')
+
+        response = anthropic_client.messages.create(
+            model=claude_model,
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": user_prompt
+                        }
+                    ]
+                }
+            ]
+        )
+        result_text = response.content[0].text.strip()
+        if hasattr(response, 'usage'):
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+        if result_text.startswith('```'):
+            result_text = result_text.split('```')[1]
+            if result_text.startswith('json'):
+                result_text = result_text[4:]
+            result_text = result_text.strip()
+    else:
+        from openai_utils import openai_client
+        response = openai_client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}",
+                                "detail": "high"
+                            }
+                        }
+                    ]
+                }
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=3000,
+            temperature=0.1
+        )
+        result_text = response.choices[0].message.content.strip()
+        if hasattr(response, 'usage') and response.usage:
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
+
+    response_time_ms = int((time.time() - start_time) * 1000)
+    return result_text, input_tokens, output_tokens, response_time_ms
+
+
+def merge_split_ocr_results(top_result, bottom_result):
+    """
+    Merge OCR results from top and bottom halves of a split receipt.
+    - Store info (name, address, JIB, PIB) comes from TOP
+    - Total amount comes from BOTTOM
+    - Items are combined (top items first, then bottom items, deduped by raw_name)
+    """
+    import logging
+    logging.info(f"Merging split results: top has {len(top_result.get('items', []))} items, bottom has {len(bottom_result.get('items', []))} items")
+
+    merged = {
+        # Store info from top (usually at the top of receipt)
+        'store_name': top_result.get('store_name') or bottom_result.get('store_name'),
+        'store_address': top_result.get('store_address') or bottom_result.get('store_address'),
+        'jib': top_result.get('jib') or bottom_result.get('jib'),
+        'pib': top_result.get('pib') or bottom_result.get('pib'),
+        'ibfm': top_result.get('ibfm') or bottom_result.get('ibfm'),
+        'receipt_serial_number': top_result.get('receipt_serial_number') or bottom_result.get('receipt_serial_number'),
+        'receipt_date': top_result.get('receipt_date') or bottom_result.get('receipt_date'),
+        # Total from bottom (usually at the bottom of receipt)
+        'total_amount': bottom_result.get('total_amount') or top_result.get('total_amount'),
+        'receipt_format': top_result.get('receipt_format') or bottom_result.get('receipt_format'),
+        'items': []
+    }
+
+    # Combine items, dedup by raw_name (items in overlap region might appear in both)
+    seen_raw_names = set()
+    all_items = top_result.get('items', []) + bottom_result.get('items', [])
+
+    for item in all_items:
+        raw_name = item.get('raw_name', '').strip()
+        if raw_name and raw_name not in seen_raw_names:
+            seen_raw_names.add(raw_name)
+            merged['items'].append(item)
+
+    logging.info(f"Merged result has {len(merged['items'])} items after dedup")
+    return merged
+
+
+def process_receipt_ocr(receipt_id, image_data, app_context, model="gpt-4o", is_split=False):
     """
     Background task to process receipt OCR
     Supports: gpt-4o-mini, gpt-4o (OpenAI), claude-sonnet (Anthropic)
+
+    Args:
+        receipt_id: ID of the receipt to process
+        image_data: Either a single base64 string OR a dict with 'images' list and 'is_split' flag
+        app_context: Flask app context
+        model: Which model to use for OCR
+        is_split: If True, image_data is a dict with split image parts
     """
     with app_context:
         try:
@@ -360,6 +732,32 @@ def process_receipt_ocr(receipt_id, image_base64, app_context, model="gpt-4o-min
 
             # OCR extraction prompt with product type rules from extract-matching
             system_prompt = """You are a receipt OCR specialist for Bosnian grocery stores. Extract data from receipt images.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! CRITICAL PRICE EXTRACTION RULE - READ THIS FIRST !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+On the PRICE LINE (the line with "N.NNNx"), there are THREE numbers:
+  [QTY]x    [UNIT_PRICE]    [LINE_TOTAL]
+  LEFT      MIDDLE          RIGHT (far right edge, often ends with "E")
+
+ALWAYS use the RIGHTMOST number for line_total - this is the ACTUAL AMOUNT CHARGED!
+NEVER use the middle number for line_total - that's just the unit price!
+
+Example: "5.000x 1.20 6.00E"
+- qty = 5 (left, ends with x)
+- unit_price = 1.20 (middle)
+- line_total = 6.00 (RIGHT - this is what goes in line_total!)
+
+Example: "2.000x 2.95 5.90E"
+- qty = 2
+- unit_price = 2.95
+- line_total = 5.90 (NOT 2.95!)
+
+VALIDATION: Sum of all line_totals should approximately equal the receipt's TOTAL.
+If your sum is much lower than the receipt total, you're using unit_prices by mistake!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 IMPORTANT - BOSNIAN LANGUAGE & CHARACTERS:
 This is a Bosnian receipt. Use proper Bosnian characters: č, ć, š, ž, đ (NOT c, s, z, d).
@@ -385,7 +783,7 @@ Extract these fields:
 - ibfm: ID broja fiskalnog modula
 - receipt_serial_number: Receipt/fiscal number (often labeled "Račun br." or "Fiskalni račun")
 - receipt_date: Date and time in ISO format (YYYY-MM-DDTHH:MM:SS)
-- total_amount: Total amount in KM (number only)
+- total_amount: Final TOTAL amount in KM including VAT (look for "TOTAL:" line, NOT "OSN. E:" which is base before tax)
 - receipt_format: "two_row" or "one_row" (see below)
 
 === RECEIPT FORMAT DETECTION ===
@@ -411,11 +809,14 @@ Example: "COKOLADNI JASTUCIC 100 G/KOM 1,60E"
 ROW 1: [PRODUCT_CODE] [PRODUCT_NAME]
 ROW 2: [QUANTITY]x [UNIT_PRICE]    [LINE_TOTAL]
 
-The second row ALWAYS contains:
-- First number: QUANTITY (how many items bought) - format: "N.NNNx"
-- "x" separator
-- Second number: UNIT PRICE (price for 1 item)
-- Third number (at end): LINE TOTAL (quantity × unit_price)
+The second row ALWAYS contains THREE numbers in this order:
+- FIRST number: QUANTITY (how many items bought) - format: "N.NNNx" (ends with "x")
+- SECOND number: UNIT PRICE (price for 1 item/kg)
+- THIRD number: LINE TOTAL (the actual charged amount) - ALWAYS at the END of the line, often ends with "E"
+
+CRITICAL: line_total is ALWAYS the RIGHTMOST/LAST number on the line!
+- "5.000x 1.20 6.00E" → qty=5, unit_price=1.20, line_total=6.00 (NOT 1.20!)
+- "1.000x 4.75 4.75E" → qty=1, unit_price=4.75, line_total=4.75
 
 VALIDATION: quantity × unit_price should equal line_total (within rounding)
 
@@ -451,7 +852,14 @@ For one-row format:
 ITEM EXTRACTION RULES:
 For each line item, extract:
 - raw_name: EXACT text as printed on receipt (preserve original, include the product code at start)
-- parsed_name: Clean product name (remove codes, clean up)
+- parsed_name: Clean product name with ONLY typo/OCR fixes - DO NOT change meaning:
+  * Fix missing Bosnian characters: "COKOLADA" → "Čokolada", "SECER" → "Šećer", "BRASNO" → "Brašno"
+  * Fix obvious OCR typos: "UREICA" → "Vrećica", "UBRUS" stays "Ubrus" (don't change to vrećica!)
+  * "KECAP" → "Kečap", "MUSLI" → "Müsli"
+  * Remove leading product codes from parsed_name
+  * Use proper Bosnian characters: č, ć, š, ž, đ
+  * Make names human-readable (capitalize properly)
+  * IMPORTANT: Do NOT change the product meaning - only fix typos!
 - brand: Brand if identifiable (use "UNKNOWN" if not found)
 - product_type: Generic product type in Bosnian, lowercase:
   * "mlijeko", "jogurt", "sir", "kajmak", "pavlaka" (dairy)
@@ -471,8 +879,13 @@ For each line item, extract:
 - quantity: Number of items - VERY IMPORTANT: check for "N x price" pattern!
 - unit: "kom" for pieces, "kg" for weight, "l" for volume
 - pack_size: Package size as shown (e.g., "1l", "500g", "400g")
-- unit_price: Price per SINGLE unit (if "2 x 15.70 = 31.40", unit_price is 15.70)
-- line_total: Total for this line (the final amount after multiplication)
+- unit_price: Price per SINGLE unit (the MIDDLE number on the price line)
+- line_total: !!!CRITICAL!!! Use the FAR RIGHT number on the price line! NOT the middle number!
+  * On "5.000x 1.20 6.00E": line_total = 6.00 (far right), NOT 1.20 (middle)!
+  * On "2.000x 2.95 5.90E": line_total = 5.90 (far right), NOT 2.95 (middle)!
+  * The far right number should equal qty × unit_price
+  * Format: usually ends with "E" like "6.00E" meaning 6.00 KM
+  * If you use the middle number, the receipt total won't match!
 - size_value: Numeric size (e.g., 500 from "500g", 400 from "400g")
 - size_unit: Normalized unit: "g", "kg", "ml", "l", "kom"
 
@@ -518,100 +931,93 @@ Return JSON:
 
             # Call appropriate API based on model
             # Track timing and usage for logging
-            start_time = time.time()
-            input_tokens = 0
-            output_tokens = 0
+            total_input_tokens = 0
+            total_output_tokens = 0
+            total_response_time_ms = 0
             actual_model = model
 
-            if is_claude:
-                # Use Anthropic Claude API
-                import anthropic
-                anthropic_client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
+            # Handle split vs single image
+            if is_split and isinstance(image_data, dict) and image_data.get('is_split'):
+                # Split image: process top and bottom halves separately
+                current_app.logger.info(f"Processing split receipt {receipt_id} with {len(image_data.get('images', []))} parts")
 
-                # Map model names to Anthropic model IDs
-                claude_model_map = {
-                    'claude-sonnet': 'claude-sonnet-4-20250514',
-                    'claude-haiku': 'claude-3-haiku-20240307',
-                }
-                claude_model = claude_model_map.get(model, 'claude-3-haiku-20240307')
-                actual_model = claude_model
+                top_prompt = """⚠️ THIS IS THE **TOP HALF** OF A SPLIT RECEIPT (the header section).
 
-                response = anthropic_client.messages.create(
-                    model=claude_model,
-                    max_tokens=4000,
-                    system=system_prompt,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": "image/jpeg",
-                                        "data": image_base64
-                                    }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "Extract all data from this receipt image. Return ONLY valid JSON, no markdown formatting."
-                                }
-                            ]
-                        }
-                    ]
-                )
-                result_text = response.content[0].text.strip()
-                # Extract token usage from Anthropic response
-                if hasattr(response, 'usage'):
-                    input_tokens = response.usage.input_tokens
-                    output_tokens = response.usage.output_tokens
-                # Claude may wrap JSON in markdown code blocks, strip them
-                if result_text.startswith('```'):
-                    result_text = result_text.split('```')[1]
-                    if result_text.startswith('json'):
-                        result_text = result_text[4:]
-                    result_text = result_text.strip()
+The TOP of a Bosnian receipt ALWAYS contains:
+1. **STORE NAME** - The business name (e.g., BINGO, KONZUM, TROPIC) - EXTRACT THIS!
+2. **STORE ADDRESS** - The store location with street, city, postal code
+3. **JIB** - 13-digit tax ID
+4. **PIB** - 12-digit number starting with 4
+5. **IBFM** - Fiscal module ID
+6. **Receipt date and serial number**
+7. First portion of items
+
+CRITICAL: The store name is at the VERY TOP of the receipt - don't confuse it with item names below!
+Look for the company/business name in the first few lines, NOT in the item list.
+
+Return ONLY valid JSON. Extract store_name, store_address, jib, pib, ibfm, receipt_serial_number, receipt_date, and any items visible."""
+
+                bottom_prompt = """⚠️ THIS IS THE **BOTTOM HALF** OF A SPLIT RECEIPT (the footer/totals section).
+
+The BOTTOM of a Bosnian receipt ALWAYS contains:
+1. **Remaining items** - Continue extracting items from where the top half ended
+2. **TOTAL AMOUNT** - CRITICAL: Read the correct line!
+3. **Payment method** - Gotovina (cash), Kartica (card)
+
+⚠️⚠️⚠️ CRITICAL - BOSNIAN RECEIPT VAT STRUCTURE ⚠️⚠️⚠️
+Bosnian receipts show THREE amounts at the bottom - you MUST use the CORRECT one:
+
+  OSN. E: 70.99   ← BASE AMOUNT (before tax) - DO NOT USE THIS!
+  PDV U:  12.07   ← VAT AMOUNT (17% tax)
+  TOTAL:  83.06   ← FINAL AMOUNT (what customer pays) - USE THIS!
+
+ALWAYS look for "TOTAL:" or "UKUPNO:" line - this is the FINAL amount including VAT!
+NEVER use "OSN." or "OSN. E:" - that's just the base amount before 17% VAT!
+
+The total_amount should be approximately: base + 17% = final
+Example: 70.99 + 12.07 = 83.06 KM
+
+DO NOT extract store_name from this section - it should come from the TOP half.
+Focus on: items in this portion and the total_amount (from TOTAL: line!).
+
+Return ONLY valid JSON with items array and total_amount."""
+
+                parts_results = []
+                for i, img_base64 in enumerate(image_data.get('images', [])):
+                    part_prompt = top_prompt if i == 0 else bottom_prompt
+                    result_text, in_tokens, out_tokens, resp_time = call_ocr_api(
+                        img_base64, system_prompt, part_prompt, model, is_claude
+                    )
+                    total_input_tokens += in_tokens
+                    total_output_tokens += out_tokens
+                    total_response_time_ms += resp_time
+
+                    # Parse result
+                    part_result = json.loads(result_text)
+                    parts_results.append(part_result)
+                    current_app.logger.info(f"Part {i+1}: {len(part_result.get('items', []))} items extracted")
+
+                # Merge results
+                if len(parts_results) >= 2:
+                    result = merge_split_ocr_results(parts_results[0], parts_results[1])
+                else:
+                    result = parts_results[0] if parts_results else {}
+
             else:
-                # Use OpenAI API
-                from openai_utils import openai_client
-                actual_model = model
+                # Single image processing
+                image_base64 = image_data if isinstance(image_data, str) else image_data.get('images', [''])[0]
+                user_prompt = "Extract all data from this receipt image. Return ONLY valid JSON, no markdown formatting."
 
-                response = openai_client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "Extract all data from this receipt image:"},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{image_base64}",
-                                        "detail": "high"
-                                    }
-                                }
-                            ]
-                        }
-                    ],
-                    response_format={"type": "json_object"},
-                    max_tokens=3000,
-                    temperature=0.1
+                result_text, total_input_tokens, total_output_tokens, total_response_time_ms = call_ocr_api(
+                    image_base64, system_prompt, user_prompt, model, is_claude
                 )
-                result_text = response.choices[0].message.content.strip()
-                # Extract token usage from OpenAI response
-                if hasattr(response, 'usage') and response.usage:
-                    input_tokens = response.usage.prompt_tokens
-                    output_tokens = response.usage.completion_tokens
+                result = json.loads(result_text)
 
-            # Calculate response time
-            response_time_ms = int((time.time() - start_time) * 1000)
-
-            # Log API usage
+            # Log API usage (total across all parts if split)
             try:
                 provider = 'anthropic' if is_claude else 'openai'
                 estimated_cost = APIUsageLog.calculate_cost(
-                    provider, actual_model, input_tokens, output_tokens
+                    provider, actual_model, total_input_tokens, total_output_tokens
                 )
                 usage_log = APIUsageLog(
                     provider=provider,
@@ -619,19 +1025,17 @@ Return JSON:
                     feature='receipt_ocr',
                     receipt_id=receipt_id,
                     user_id=receipt.user_id,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    total_tokens=input_tokens + output_tokens,
+                    input_tokens=total_input_tokens,
+                    output_tokens=total_output_tokens,
+                    total_tokens=total_input_tokens + total_output_tokens,
                     estimated_cost_cents=Decimal(str(estimated_cost)) if estimated_cost else None,
                     success=True,
-                    response_time_ms=response_time_ms
+                    response_time_ms=total_response_time_ms
                 )
                 db.session.add(usage_log)
                 db.session.commit()
             except Exception as log_error:
                 current_app.logger.warning(f"Failed to log API usage: {log_error}")
-
-            result = json.loads(result_text)
 
             # Update receipt with extracted data
             if result.get('store_name'):
@@ -748,16 +1152,35 @@ def upload_receipt(user):
         # Upload to S3 with proper path
         image_url = upload_receipt_image(file_data, user.id, receipt.id)
         receipt.receipt_image_url = image_url
+
+        # Prepare image(s) for OCR - splits tall images into top/bottom halves
+        image_prep = prepare_images_for_ocr(file_data)
+        is_split = image_prep.get('is_split', False)
+
+        # Upload combined/cropped image to S3 for debugging (shows what OCR analyzes)
+        cropped_url = upload_cropped_receipt_image(image_prep['combined_bytes'], user.id, receipt.id)
+        receipt.cropped_image_url = cropped_url
+
+        # If split, upload individual parts for admin debugging
+        if is_split and 'parts' in image_prep:
+            for part in image_prep['parts']:
+                if part['position'] == 'top':
+                    top_url = upload_split_part_image(part['bytes'], user.id, receipt.id, 'top')
+                    receipt.cropped_top_url = top_url
+                elif part['position'] == 'bottom':
+                    bottom_url = upload_split_part_image(part['bytes'], user.id, receipt.id, 'bottom')
+                    receipt.cropped_bottom_url = bottom_url
+
         db.session.commit()
 
-        # Prepare image for OCR (resize to 600px)
-        image_base64 = resize_image_for_ocr(file_data)
+        current_app.logger.info(f"Receipt {receipt.id}: is_split={is_split}, parts={len(image_prep.get('images', []))}")
 
         # Start background processing
         app_context = current_app._get_current_object().app_context()
         thread = threading.Thread(
             target=process_receipt_ocr,
-            args=(receipt.id, image_base64, app_context)
+            args=(receipt.id, image_prep, app_context),
+            kwargs={'is_split': is_split}
         )
         thread.daemon = True
         thread.start()
@@ -878,13 +1301,16 @@ def reprocess_receipt(user, receipt_id):
         with urllib.request.urlopen(receipt.receipt_image_url) as response:
             image_data = response.read()
 
-        image_base64 = resize_image_for_ocr(image_data)
+        # Prepare image(s) for OCR - splits tall images
+        image_prep = prepare_images_for_ocr(image_data)
+        is_split = image_prep.get('is_split', False)
 
         # Start background processing
         app_context = current_app._get_current_object().app_context()
         thread = threading.Thread(
             target=process_receipt_ocr,
-            args=(receipt.id, image_base64, app_context)
+            args=(receipt.id, image_prep, app_context),
+            kwargs={'is_split': is_split}
         )
         thread.daemon = True
         thread.start()
@@ -1376,13 +1802,16 @@ def admin_reprocess_receipt(receipt_id):
         with urllib.request.urlopen(receipt.receipt_image_url) as response:
             image_data = response.read()
 
-        image_base64 = resize_image_for_ocr(image_data)
+        # Prepare image(s) for OCR - splits tall images
+        image_prep = prepare_images_for_ocr(image_data)
+        is_split = image_prep.get('is_split', False)
 
         # Start background processing with specified model
         app_context = current_app._get_current_object().app_context()
         thread = threading.Thread(
             target=process_receipt_ocr,
-            args=(receipt.id, image_base64, app_context, model)
+            args=(receipt.id, image_prep, app_context, model),
+            kwargs={'is_split': is_split}
         )
         thread.daemon = True
         thread.start()
