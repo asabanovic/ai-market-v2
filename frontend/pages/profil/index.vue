@@ -193,11 +193,6 @@
 
       <!-- Profile Form -->
       <div v-else class="bg-white rounded-lg shadow-md p-6">
-        <!-- Success Message -->
-        <div v-if="successMessage" class="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-          <p>{{ successMessage }}</p>
-        </div>
-
         <!-- Error Message -->
         <div v-if="errorMessage" class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p>{{ errorMessage }}</p>
@@ -271,8 +266,19 @@
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
               </div>
+              <div v-if="profile.phone && !isPhoneValid" class="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+              </div>
             </div>
-            <p class="mt-1 text-xs text-gray-500">Format: +387XXXXXXXXX (sa pozivnim brojem)</p>
+            <p v-if="profile.phone && !isPhoneValid" class="mt-1 text-xs text-red-600 flex items-center gap-1">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+              </svg>
+              Broj telefona nije ispravan. Format: +387XXXXXXXXX
+            </p>
+            <p v-else class="mt-1 text-xs text-gray-500">Format: +387XXXXXXXXX (sa pozivnim brojem)</p>
           </div>
 
           <!-- City -->
@@ -409,7 +415,7 @@
             </button>
             <button
               type="submit"
-              :disabled="isSaving || !hasProfileChanges || (profile.phone && !isPhoneValid)"
+              :disabled="isSaving || !hasProfileChanges"
               class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ isSaving ? 'Čuvanje...' : 'Sačuvaj promjene' }}
@@ -418,6 +424,38 @@
         </form>
       </div>
     </div>
+
+    <!-- Success Toast Notification -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-300"
+        enter-from-class="opacity-0 -translate-y-4"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition ease-in duration-200"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-4"
+      >
+        <div
+          v-if="successMessage"
+          class="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 max-w-md"
+        >
+          <div class="bg-white/20 rounded-full p-1">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <span class="font-medium">{{ successMessage }}</span>
+          <button
+            @click="successMessage = ''"
+            class="ml-2 hover:bg-white/20 rounded p-1 transition-colors"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Deactivate Account Confirmation Modal -->
     <Teleport to="body">
@@ -694,15 +732,6 @@ async function saveProfile() {
   successMessage.value = ''
   errorMessage.value = ''
 
-  // Validate phone if provided
-  if (profile.value.phone) {
-    validatePhone()
-    if (!isPhoneValid.value) {
-      errorMessage.value = 'Molimo unesite ispravan broj telefona u formatu +387XXXXXXXXX'
-      return
-    }
-  }
-
   isSaving.value = true
 
   try {
@@ -728,9 +757,6 @@ async function saveProfile() {
 
       // Refresh user data in auth store
       await refreshUser()
-
-      // Scroll to top to show success message
-      window.scrollTo({ top: 0, behavior: 'smooth' })
 
       // Clear success message after 5 seconds
       setTimeout(() => {

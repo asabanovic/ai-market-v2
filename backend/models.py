@@ -2421,3 +2421,45 @@ class APIUsageLog(db.Model):
         output_cost = (output_tokens / 1_000_000) * output_price
         total_cost_usd = input_cost + output_cost
         return total_cost_usd * 100  # Convert to cents
+
+
+class UserActivityLog(db.Model):
+    """
+    Tracks user activity for admin audit purposes.
+    Logs profile updates, settings changes, and other user actions.
+    """
+    __tablename__ = 'user_activity_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # Activity type: 'profile_update', 'settings_change', 'login', etc.
+    activity_type = db.Column(db.String(50), nullable=False, index=True)
+
+    # Description of the activity
+    description = db.Column(db.String(500), nullable=True)
+
+    # What changed (JSON with field names as keys, each with 'old' and 'new' values)
+    changes = db.Column(JSON, nullable=True)
+
+    # IP address and user agent for context
+    ip_address = db.Column(db.String(50), nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now, index=True)
+
+    # Relationship to User
+    user = db.relationship('User', backref=db.backref('activity_logs', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'user_email': self.user.email if self.user else None,
+            'user_name': f"{self.user.first_name or ''} {self.user.last_name or ''}".strip() if self.user else None,
+            'activity_type': self.activity_type,
+            'description': self.description,
+            'changes': self.changes,
+            'ip_address': self.ip_address,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

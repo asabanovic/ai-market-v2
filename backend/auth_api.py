@@ -917,6 +917,17 @@ def user_profile():
             if not data:
                 return jsonify({'error': 'Invalid request data'}), 400
 
+            # Capture old values for activity logging
+            old_values = {
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'phone': user.phone,
+                'city': user.city,
+                'city_id': user.city_id,
+                'notification_preferences': user.notification_preferences,
+                'email_preferences': user.preferences.get('email_preferences') if user.preferences else None
+            }
+
             # Update fields if provided
             if 'first_name' in data:
                 user.first_name = data['first_name'].strip() if data['first_name'] else None
@@ -990,6 +1001,39 @@ def user_profile():
                 flag_modified(user, 'preferences')
 
             db.session.commit()
+
+            # Log activity with changes
+            new_values = {
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'phone': user.phone,
+                'city': user.city,
+                'city_id': user.city_id,
+                'notification_preferences': user.notification_preferences,
+                'email_preferences': user.preferences.get('email_preferences') if user.preferences else None
+            }
+
+            # Build changes dict showing only what changed
+            changes = {}
+            for field, new_val in new_values.items():
+                old_val = old_values.get(field)
+                if old_val != new_val:
+                    changes[field] = {'old': old_val, 'new': new_val}
+
+            # Only log if there were actual changes
+            if changes:
+                from models import UserActivityLog
+                activity_log = UserActivityLog(
+                    user_id=user.id,
+                    activity_type='profile_update',
+                    description=f"Korisnik ažurirao profil: {', '.join(changes.keys())}",
+                    changes=changes,
+                    ip_address=request.headers.get('X-Forwarded-For', request.remote_addr),
+                    user_agent=request.headers.get('User-Agent', '')[:500]
+                )
+                db.session.add(activity_log)
+                db.session.commit()
+                app.logger.info(f"Profile update logged for user: {user.email}, changes: {list(changes.keys())}")
 
             app.logger.info(f"Profile updated for user: {user.email}")
 

@@ -10,6 +10,7 @@ from admin_credits_routes import admin_credits_bp
 from admin_retention_routes import admin_retention_bp
 from admin_social_routes import admin_social_bp
 from admin_analytics_routes import admin_analytics_bp
+from admin_activity_routes import admin_activity_bp
 from sendgrid_webhook import sendgrid_webhook_bp
 from coupon_routes import coupon_bp
 from submission_routes import submissions_bp
@@ -23,6 +24,7 @@ csrf.exempt(admin_credits_bp)
 csrf.exempt(admin_retention_bp)
 csrf.exempt(admin_social_bp)
 csrf.exempt(admin_analytics_bp)
+csrf.exempt(admin_activity_bp)
 csrf.exempt(sendgrid_webhook_bp)
 csrf.exempt(coupon_bp)
 csrf.exempt(submissions_bp)
@@ -35,6 +37,7 @@ app.register_blueprint(admin_credits_bp)
 app.register_blueprint(admin_retention_bp)
 app.register_blueprint(admin_social_bp)
 app.register_blueprint(admin_analytics_bp)
+app.register_blueprint(admin_activity_bp)
 app.register_blueprint(sendgrid_webhook_bp)
 app.register_blueprint(coupon_bp)
 app.register_blueprint(submissions_bp)
